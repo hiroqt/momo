@@ -1,16 +1,15 @@
 import React, { useState, useRef, useMemo } from 'react';
 import {
   View,
-  Text,
   TouchableOpacity,
   StyleSheet,
-  TextInput,
   Platform,
   Animated,
   StyleProp,
   ViewStyle,
   TextStyle,
 } from 'react-native';
+import { AppText as Text, AppTextInput as TextInput } from '@/components/common/app-text';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { HugeiconsIcon } from '@hugeicons/react-native';

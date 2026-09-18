@@ -13,10 +13,10 @@
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#ffffff"
+        "backgroundColor": "#FFFFFF"
       },
       "navigationBar": {
-        "backgroundColor": "#ffffff",
+        "backgroundColor": "#F8FAFC",
         "barStyle": "dark-content"
       },
       "package": "com.aistudy.platform"
@@ -29,13 +29,15 @@
       "expo-asset",
       "expo-sqlite",
       [
-        "expo-splash-screen", {
-          "backgroundColor": "#ffffff",
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#F8FAFC",
           "image": "./assets/icon.png",
           "imageWidth": 100,
           "resizeMode": "contain"
         }
-      ]
+      ],
+      "expo-font"
     ]
   }
 }

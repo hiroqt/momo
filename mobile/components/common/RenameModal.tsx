@@ -1,9 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { colors, spacing, typography } from '@/constants/theme';
 import {
   Modal,
   View,
-  Text,
-  TextInput,
+  TextInput as NativeTextInput,
   StyleSheet,
   Animated,
   ActivityIndicator,
@@ -12,6 +12,7 @@ import {
   TouchableOpacity,
   KeyboardAvoidingView,
 } from 'react-native';
+import { AppText as Text, AppTextInput as TextInput } from '@/components/common/app-text';
 import { HugeiconsIcon } from '@hugeicons/react-native';
 import { Edit02Icon, Cancel01Icon, AlertCircleIcon } from '@hugeicons/core-free-icons';
 
@@ -40,7 +41,7 @@ export const RenameModal: React.FC<RenameModalProps> = ({
 
   const scaleAnim = useRef(new Animated.Value(0.92)).current;
   const opacityAnim = useRef(new Animated.Value(0)).current;
-  const inputRef = useRef<TextInput>(null);
+  const inputRef = useRef<NativeTextInput>(null);
 
   useEffect(() => {
     if (visible) {
@@ -109,7 +110,7 @@ export const RenameModal: React.FC<RenameModalProps> = ({
               >
                 {/* Icon Header */}
                 <View style={styles.iconCircle}>
-                  <HugeiconsIcon icon={Edit02Icon} size={26} color="#4F46E5" strokeWidth={2} />
+                  <HugeiconsIcon icon={Edit02Icon} size={26} color={colors.primary} strokeWidth={2} />
                 </View>
 
                 {/* Title & Subtitle */}
@@ -133,7 +134,7 @@ export const RenameModal: React.FC<RenameModalProps> = ({
                       if (error) setError(null);
                     }}
                     placeholder="e.g. Cardiovascular Reviewer"
-                    placeholderTextColor="#94A3B8"
+                    placeholderTextColor={colors.textDisabled}
                     maxLength={100}
                     editable={!isLoading}
                     selectTextOnFocus
@@ -149,7 +150,7 @@ export const RenameModal: React.FC<RenameModalProps> = ({
                       hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                       accessibilityLabel="Clear text"
                     >
-                      <HugeiconsIcon icon={Cancel01Icon} size={16} color="#94A3B8" strokeWidth={2} />
+                      <HugeiconsIcon icon={Cancel01Icon} size={16} color={colors.textDisabled} strokeWidth={2} />
                     </TouchableOpacity>
                   )}
                 </View>
@@ -158,7 +159,7 @@ export const RenameModal: React.FC<RenameModalProps> = ({
                 <View style={styles.helperRow}>
                   {error ? (
                     <View style={styles.errorRow}>
-                      <HugeiconsIcon icon={AlertCircleIcon} size={14} color="#EF4444" strokeWidth={2} />
+                      <HugeiconsIcon icon={AlertCircleIcon} size={14} color={colors.dangerAccent} strokeWidth={2} />
                       <Text style={styles.errorText}>{error}</Text>
                     </View>
                   ) : (
@@ -185,7 +186,7 @@ export const RenameModal: React.FC<RenameModalProps> = ({
                     activeOpacity={0.8}
                   >
                     {isLoading ? (
-                      <ActivityIndicator size="small" color="#FFFFFF" />
+                      <ActivityIndicator size="small" color={colors.onPrimary} />
                     ) : (
                       <Text style={styles.saveText}>Save Title</Text>
                     )}
@@ -206,23 +207,23 @@ const styles = StyleSheet.create({
   },
   backdrop: {
     flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.65)',
+    backgroundColor: colors.overlay,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 24,
+    paddingHorizontal: spacing[24],
   },
   dialogCard: {
     width: '100%',
     maxWidth: 380,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
     borderRadius: 24,
-    paddingHorizontal: 24,
-    paddingTop: 26,
-    paddingBottom: 22,
+    paddingHorizontal: spacing[24],
+    paddingTop: spacing[26],
+    paddingBottom: spacing[22],
     alignItems: 'center',
     ...Platform.select({
       ios: {
-        shadowColor: '#0F172A',
+        shadowColor: colors.shadow,
         shadowOffset: { width: 0, height: 16 },
         shadowOpacity: 0.18,
         shadowRadius: 32,
@@ -236,106 +237,106 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: '#EEF2FF',
+    backgroundColor: colors.primarySoft,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 16,
+    marginBottom: spacing[16],
   },
   dialogTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#0F172A',
+    fontSize: typography.fontSize[20],
+    fontWeight: typography.fontWeight.bold,
+    color: colors.text,
     textAlign: 'center',
-    marginBottom: 6,
+    marginBottom: spacing[6],
   },
   dialogSubtitle: {
-    fontSize: 14,
-    color: '#64748B',
+    fontSize: typography.fontSize[14],
+    color: colors.textMuted,
     textAlign: 'center',
-    lineHeight: 20,
-    marginBottom: 20,
+    lineHeight: typography.lineHeight[20],
+    marginBottom: spacing[20],
   },
   inputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
     width: '100%',
-    backgroundColor: '#F8FAFC',
+    backgroundColor: colors.background,
     borderWidth: 1.5,
-    borderColor: '#E2E8F0',
+    borderColor: colors.border,
     borderRadius: 14,
-    paddingHorizontal: 14,
+    paddingHorizontal: spacing[14],
     minHeight: 48,
   },
   inputWrapperFocused: {
-    borderColor: '#4F46E5',
-    backgroundColor: '#FFFFFF',
+    borderColor: colors.primary,
+    backgroundColor: colors.surface,
   },
   inputWrapperError: {
-    borderColor: '#EF4444',
+    borderColor: colors.dangerAccent,
   },
   textInput: {
     flex: 1,
-    fontSize: 15,
-    color: '#0F172A',
-    paddingVertical: 10,
+    fontSize: typography.fontSize[15],
+    color: colors.text,
+    paddingVertical: spacing[10],
   },
   clearBtn: {
-    padding: 4,
-    marginLeft: 6,
+    padding: spacing[4],
+    marginLeft: spacing[6],
   },
   helperRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     width: '100%',
-    marginTop: 6,
-    marginBottom: 18,
+    marginTop: spacing[6],
+    marginBottom: spacing[18],
     minHeight: 18,
   },
   errorRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: spacing[4],
     flex: 1,
   },
   errorText: {
-    fontSize: 12,
-    color: '#EF4444',
-    fontWeight: '500',
+    fontSize: typography.fontSize[12],
+    color: colors.dangerAccent,
+    fontWeight: typography.fontWeight.medium,
   },
   charCount: {
-    fontSize: 12,
-    color: '#94A3B8',
+    fontSize: typography.fontSize[12],
+    color: colors.textDisabled,
     marginLeft: 'auto',
   },
   actionRow: {
     flexDirection: 'row',
     width: '100%',
-    gap: 12,
+    gap: spacing[12],
   },
   cancelBtn: {
     flex: 1,
-    paddingVertical: 13,
+    paddingVertical: spacing[13],
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#F1F5F9',
+    backgroundColor: colors.surfaceMuted,
   },
   cancelText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#475569',
+    fontSize: typography.fontSize[15],
+    fontWeight: typography.fontWeight.semiBold,
+    color: colors.textSecondary,
   },
   saveBtn: {
     flex: 1,
-    paddingVertical: 13,
+    paddingVertical: spacing[13],
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#4F46E5',
+    backgroundColor: colors.primary,
     ...Platform.select({
       ios: {
-        shadowColor: '#4F46E5',
+        shadowColor: colors.shadow,
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.28,
         shadowRadius: 8,
@@ -346,15 +347,15 @@ const styles = StyleSheet.create({
     }),
   },
   saveBtnDisabled: {
-    backgroundColor: '#A5B4FC',
+    backgroundColor: colors.primaryBorder,
     ...Platform.select({
       ios: { shadowOpacity: 0 },
       android: { elevation: 0 },
     }),
   },
   saveText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#FFFFFF',
+    fontSize: typography.fontSize[15],
+    fontWeight: typography.fontWeight.semiBold,
+    color: colors.onPrimary,
   },
 });

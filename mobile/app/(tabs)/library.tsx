@@ -9,6 +9,7 @@ import {
   RefreshControl,
   Platform,
   StatusBar as RNStatusBar,
+  Image,
 } from 'react-native';
 import { AppText as Text, AppTextInput as TextInput } from '@/components/common/app-text';
 import { useRouter } from 'expo-router';
@@ -305,19 +306,25 @@ export default function LibraryScreen() {
             )}
             ListEmptyComponent={
               <View style={styles.empty}>
-                <View style={styles.emptyIconCircle}>
-                  <HugeiconsIcon icon={BookOpen01Icon} size={28} color={colors.textDisabled} strokeWidth={1.6} />
-                </View>
-                <Text style={styles.emptyTitle}>No study sets found</Text>
+                <Image
+                  source={require('@/assets/animations/folder_momo.png')}
+                  style={styles.emptyMomoImage}
+                  resizeMode="contain"
+                />
+                <Text style={styles.emptyTitle}>
+                  {search ? "Momo couldn't find that!" : "No study sets yet!"}
+                </Text>
                 <Text style={styles.emptyText}>
-                  {search ? 'Try a different search term' : 'Upload a document to generate your first study reviewer'}
+                  {search
+                    ? 'No study sets matched your search. Try another keyword!'
+                    : 'Upload your notes or slides, and Momo will turn them into flashcards, quizzes, and practice exams!'}
                 </Text>
                 {!search && (
                   <PlatformPressable
                     style={styles.emptyActionBtn}
                     onPress={() => router.push('/documents/upload')}
                   >
-                    <Text style={styles.emptyActionText}>Upload Document</Text>
+                    <Text style={styles.emptyActionText}>Upload with Momo</Text>
                   </PlatformPressable>
                 )}
               </View>
@@ -792,6 +799,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     marginTop: spacing[12],
+  },
+  emptyMomoImage: {
+    width: 120,
+    height: 120,
+    marginBottom: spacing[12],
   },
   emptyIconCircle: {
     width: 52,

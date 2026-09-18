@@ -174,7 +174,7 @@ export default function HomeScreen() {
               setMomoVisible(true);
             }}
           >
-            <View style={{ width: 92, height: 92, alignItems: 'center', justifyContent: 'center' }}>
+            <View style={{ width: 130, height: 130, alignItems: 'center', justifyContent: 'center' }}>
               <DynamicMomoHead quote={momoQuote} />
             </View>
           </TouchableOpacity>
@@ -363,6 +363,7 @@ export default function HomeScreen() {
       <DashboardFAB
         onUpload={() => router.push('/documents/upload')}
         onStudySets={() => router.push('/(tabs)/library')}
+        onMathSolve={() => router.push('/math/solve')}
         studySetsCount={sets.length}
       />
 
@@ -443,12 +444,17 @@ const styles = StyleSheet.create({
   momoBannerContainer: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    marginBottom: 20,
+    marginBottom:  10,
     paddingHorizontal: 4,
+    zIndex: 1,
+    elevation: 1,
   },
   momoAvatarBtn: {
     marginRight: 12,
-    marginBottom: 0,
+    marginBottom:  -8,
+    position: 'relative',
+    zIndex: 2,
+    elevation: 2,
   },
   chatBubble: {
     flex: 1,
@@ -460,6 +466,8 @@ const styles = StyleSheet.create({
     position: 'relative',
     flexDirection: 'row',
     alignItems: 'flex-start',
+    zIndex:  1,
+    elevation:  1,
   },
   chatBubbleTailOuter: {
     position: 'absolute',
@@ -523,6 +531,8 @@ const styles = StyleSheet.create({
     marginBottom: spacing[16],
     borderWidth: 1,
     borderColor: colors.border,
+    zIndex: 10,
+    elevation: 10,
     ...Platform.select({
       ios: {
         shadowColor: colors.shadow,

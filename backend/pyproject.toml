@@ -19,6 +19,7 @@ dependencies = [
     "python-multipart>=0.0.32",
     "python-pptx>=1.0.2",
     "supabase>=2.31.0",
+    "sympy>=1.14.0",
     "uvicorn>=0.53.0",
 ]
 

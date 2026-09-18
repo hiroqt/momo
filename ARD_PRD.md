@@ -162,6 +162,20 @@ Requirements:
 The mobile client must never directly receive or expose server-side
 secrets.
 
+## 5.2 Gamified Learning (XP System)
+
+The study experience includes a gamified reward system.
+When answering questions in the Quiz Runner:
+- Users earn XP for correct answers.
+- The amount of XP varies by the question type (e.g., identification vs multiple choice).
+- Incorrect answers yield 0 XP.
+
+## 5.3 Momo AI Mascot
+
+The platform uses a dedicated AI mascot ("Momo") to guide users through generation and learning states.
+- Animations reflect current app states (e.g., `MomoMaker` during generation, `MomoSadFace` on failure, `MomoThinkingFace` during answer evaluation).
+
+
 ------------------------------------------------------------------------
 
 # 6. Document Upload
@@ -636,12 +650,19 @@ Cellular Respiration
 
 ------------------------------------------------------------------------
 
-# 19. Quiz UX
+# 19. Quiz UX (Gamified)
+
+The quiz runner currently supports:
+- Multiple Choice
+- True / False
+- Typed input for Fill-in-the-blank and Identification
 
 Example:
 
 ``` text
 Question 12 / 30
+Type: Multiple Choice
+[XP Bar]
 
 Which process produces ATP
 during glycolysis?
@@ -760,38 +781,24 @@ The synchronization layer must handle:
 
 # 23. Generation UX
 
-Generation should be user-friendly.
+Generation is user-friendly and guided by the "Momo" AI Mascot using animated components (e.g. `MomoMaker`).
 
-Initial loading:
-
-``` text
-Creating your reviewer...
-
-This may take a few minutes for larger documents.
-```
-
-Detailed progress can be shown when useful:
+Detailed progress reflects human-readable states tied directly to the backend processing pipeline:
 
 ``` text
-Creating your reviewer
+[Momo Maker Animation]
 
-✓ Reading document
-✓ Finding relevant topics
-✓ Preparing study material
-● Generating questions
-○ Checking questions
-○ Saving reviewer
-
-Almost done...
+Momo is crafting your questions and flashcards...
+[Progress Bar: 65%]
 ```
 
-Avoid exposing overly technical states such as:
-
-``` text
-Embedding vector #2938
-```
-
-Use human-readable language.
+Actual backend stages shown to the user:
+- Retrieving relevant study concepts...
+- Extracting key study concepts from your document...
+- Momo is crafting your questions and flashcards...
+- Fact-checking answers and verifying questions...
+- Packaging your high-yield reviewer...
+- Your reviewer is cooked to perfection! Ready to lock in!
 
 ------------------------------------------------------------------------
 

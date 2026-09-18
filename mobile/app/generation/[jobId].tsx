@@ -1,13 +1,14 @@
 import React, { useEffect, useState, useRef } from 'react';
+import { colors, spacing, typography } from '@/constants/theme';
 import {
   View,
-  Text,
   StyleSheet,
   ActivityIndicator,
   ScrollView,
   Animated,
   Platform,
 } from 'react-native';
+import { AppText as Text } from '@/components/common/app-text';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { HugeiconsIcon } from '@hugeicons/react-native';
@@ -114,8 +115,8 @@ export default function GenerationProgressScreen() {
         contentContainerStyle={[
           styles.scrollContent,
           {
-            paddingTop: Math.max(insets.top, 24) + 20,
-            paddingBottom: Math.max(insets.bottom, 24) + 20,
+            paddingTop: Math.max(insets.top, spacing[24]) + spacing[20],
+            paddingBottom: Math.max(insets.bottom, spacing[24]) + spacing[20],
           },
         ]}
       >
@@ -179,21 +180,21 @@ export default function GenerationProgressScreen() {
                           <HugeiconsIcon
                             icon={CheckmarkCircle02Icon}
                             size={18}
-                            color="#059669"
+                            color={colors.success}
                             strokeWidth={2.4}
                           />
                         ) : isCurrent ? (
                           <HugeiconsIcon
                             icon={s.icon}
                             size={18}
-                            color="#4F46E5"
+                            color={colors.primary}
                             strokeWidth={2.2}
                           />
                         ) : (
                           <HugeiconsIcon
                             icon={s.icon}
                             size={16}
-                            color="#94A3B8"
+                            color={colors.textDisabled}
                             strokeWidth={1.8}
                           />
                         )}
@@ -213,7 +214,7 @@ export default function GenerationProgressScreen() {
               </View>
 
               <View style={styles.spinnerRow}>
-                <ActivityIndicator size="small" color="#4F46E5" />
+                <ActivityIndicator size="small" color={colors.primary} />
                 <Text style={styles.stageMessage}>
                   {job?.message || 'Momo is crafting your study pack...'}
                 </Text>
@@ -229,7 +230,7 @@ export default function GenerationProgressScreen() {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: colors.background,
   },
   container: {
     flex: 1,
@@ -237,17 +238,17 @@ const styles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
     justifyContent: 'center',
-    padding: 20,
+    padding: spacing[20],
   },
   card: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
     borderRadius: 20,
-    padding: 24,
+    padding: spacing[24],
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: colors.border,
     ...Platform.select({
       ios: {
-        shadowColor: '#0F172A',
+        shadowColor: colors.shadow,
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.06,
         shadowRadius: 12,
@@ -260,148 +261,148 @@ const styles = StyleSheet.create({
   mascotBox: {
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 8,
+    marginBottom: spacing[8],
   },
   formatRow: {
     alignItems: 'center',
-    marginBottom: 20,
-    marginTop: -8,
+    marginBottom: spacing[20],
+    marginTop: -spacing[8],
   },
   formatLabel: {
-    fontSize: 11.5,
-    fontWeight: '700',
-    color: '#64748B',
+    fontSize: typography.fontSize[11.5],
+    fontWeight: typography.fontWeight.bold,
+    color: colors.textMuted,
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: 6,
+    letterSpacing: typography.letterSpacing[0.5],
+    marginBottom: spacing[6],
   },
   formatBadges: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'center',
-    gap: 6,
+    gap: spacing[6],
   },
   formatBadge: {
-    backgroundColor: '#EEF2FF',
+    backgroundColor: colors.primarySoft,
     borderWidth: 1,
-    borderColor: '#C7D2FE',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+    borderColor: colors.primaryBorder,
+    paddingHorizontal: spacing[10],
+    paddingVertical: spacing[4],
     borderRadius: 8,
   },
   formatBadgeText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#4F46E5',
+    fontSize: typography.fontSize[12],
+    fontWeight: typography.fontWeight.bold,
+    color: colors.primary,
   },
   title: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: '#0F172A',
+    fontSize: typography.fontSize[20],
+    fontWeight: typography.fontWeight.extraBold,
+    color: colors.text,
     textAlign: 'center',
-    marginBottom: 6,
-    letterSpacing: -0.3,
+    marginBottom: spacing[6],
+    letterSpacing: typography.letterSpacing[-0.3],
   },
   subtitle: {
-    fontSize: 13,
-    color: '#64748B',
+    fontSize: typography.fontSize[13],
+    color: colors.textMuted,
     textAlign: 'center',
-    marginBottom: 20,
-    lineHeight: 18,
+    marginBottom: spacing[20],
+    lineHeight: typography.lineHeight[18],
   },
   progressContainer: {
     height: 8,
-    backgroundColor: '#E2E8F0',
+    backgroundColor: colors.surfaceMuted,
     borderRadius: 4,
     overflow: 'hidden',
-    marginBottom: 24,
+    marginBottom: spacing[24],
   },
   progressBar: {
     height: '100%',
-    backgroundColor: '#4F46E5',
+    backgroundColor: colors.primary,
     borderRadius: 4,
   },
   stepsList: {
-    marginBottom: 24,
+    marginBottom: spacing[24],
   },
   stepItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 14,
+    marginBottom: spacing[14],
   },
   iconCol: {
     width: 24,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 10,
+    marginRight: spacing[10],
   },
   currentDot: {
     width: 10,
     height: 10,
     borderRadius: 5,
-    backgroundColor: '#4F46E5',
+    backgroundColor: colors.primary,
   },
   pendingDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#CBD5E1',
+    backgroundColor: colors.borderStrong,
   },
   stepText: {
-    fontSize: 14,
-    color: '#94A3B8',
-    fontWeight: '500',
+    fontSize: typography.fontSize[14],
+    color: colors.textDisabled,
+    fontWeight: typography.fontWeight.medium,
     flex: 1,
   },
   stepPassed: {
-    color: '#0F172A',
-    fontWeight: '600',
+    color: colors.text,
+    fontWeight: typography.fontWeight.semiBold,
   },
   stepCurrent: {
-    color: '#4F46E5',
-    fontWeight: '700',
+    color: colors.primary,
+    fontWeight: typography.fontWeight.bold,
   },
   spinnerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 10,
-    paddingTop: 8,
+    gap: spacing[10],
+    paddingTop: spacing[8],
   },
   stageMessage: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#4F46E5',
+    fontSize: typography.fontSize[13],
+    fontWeight: typography.fontWeight.semiBold,
+    color: colors.primary,
   },
   errorBox: {
-    padding: 16,
-    backgroundColor: '#FEF2F2',
+    padding: spacing[16],
+    backgroundColor: colors.dangerSoft,
     borderRadius: 14,
     alignItems: 'center',
   },
   errorTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#DC2626',
+    fontSize: typography.fontSize[15],
+    fontWeight: typography.fontWeight.bold,
+    color: colors.danger,
     textAlign: 'center',
-    marginBottom: 6,
+    marginBottom: spacing[6],
   },
   errorDetail: {
-    fontSize: 13,
-    color: '#991B1B',
+    fontSize: typography.fontSize[13],
+    color: colors.danger,
     textAlign: 'center',
-    marginBottom: 16,
-    lineHeight: 18,
+    marginBottom: spacing[16],
+    lineHeight: typography.lineHeight[18],
   },
   retryBtn: {
-    backgroundColor: '#DC2626',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
+    backgroundColor: colors.danger,
+    paddingHorizontal: spacing[20],
+    paddingVertical: spacing[12],
     borderRadius: 10,
   },
   retryBtnText: {
-    color: '#FFFFFF',
-    fontWeight: '700',
-    fontSize: 14,
+    color: colors.onPrimary,
+    fontWeight: typography.fontWeight.bold,
+    fontSize: typography.fontSize[14],
   },
 });

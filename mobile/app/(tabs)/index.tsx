@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
+import { colors, spacing, typography } from '@/constants/theme';
 import {
   View,
-  Text,
   StyleSheet,
   TouchableOpacity,
   ScrollView,
@@ -9,6 +9,7 @@ import {
   Platform,
   StatusBar as RNStatusBar,
 } from 'react-native';
+import { AppText as Text } from '@/components/common/app-text';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { HugeiconsIcon } from '@hugeicons/react-native';
@@ -27,11 +28,12 @@ import { localDb } from '../../lib/storage/localDb';
 import { PlatformPressable } from '../../components/common/PlatformPressable';
 import { ConfirmationModal } from '../../components/common/ConfirmationModal';
 import { RenameModal } from '../../components/common/RenameModal';
-import { StudyMascotCard } from '../../components/mascot/StudyMascotCard';
 import { DashboardFAB } from '../../components/common/DashboardFAB';
 import { SmoothScrollView } from '../../components/common/SmoothScrollView';
 import { TabTransitionView } from '../../components/common/TabTransitionView';
 import { StudySet } from '../../types';
+import { DynamicMomoHead } from '../../components/mascot/DynamicMomoHead';
+import { getRandomStudyQuote, StudyQuote } from '../../lib/data/studyQuotes';
 
 function getGreeting(): string {
   const hour = new Date().getHours();
@@ -58,6 +60,9 @@ export default function HomeScreen() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [renameTarget, setRenameTarget] = useState<StudySet | null>(null);
   const [isRenaming, setIsRenaming] = useState(false);
+
+  const [momoVisible, setMomoVisible] = useState(true);
+  const [momoQuote, setMomoQuote] = useState<StudyQuote>(() => getRandomStudyQuote());
 
   const handleConfirmRename = async (newTitle: string) => {
     if (!renameTarget) return;
@@ -118,6 +123,7 @@ export default function HomeScreen() {
   };
 
   const featured = sets.length > 0 ? sets[0] : null;
+  const totalCards = sets.reduce((sum, s) => sum + (s.item_count || 0), 0);
 
   return (
     <TabTransitionView style={styles.screen}>
@@ -127,26 +133,25 @@ export default function HomeScreen() {
           styles.content,
           {
             paddingTop: Platform.OS === 'android'
-              ? Math.max(insets.top, RNStatusBar.currentHeight || 0, 28) + 14
-              : Math.max(insets.top, 20),
-            paddingBottom: Math.max(insets.bottom, 24) + 88, // Clearance for floating tab bar
+              ? Math.max(insets.top, RNStatusBar.currentHeight || spacing[0], spacing[28]) + spacing[14]
+              : Math.max(insets.top, spacing[20]),
+            paddingBottom: Math.max(insets.bottom, spacing[24]) + spacing[88],
           },
         ]}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            tintColor="#4F46E5"
-            colors={['#4F46E5']}
+            tintColor={colors.primary}
+            colors={[colors.primary]}
           />
         }
       >
-        {/* Header with Greeting & Date */}
+        {/* Modular Header */}
         <View style={styles.header}>
           <View style={styles.headerTextCol}>
             <Text style={styles.dateLabel}>{getFormattedDate()}</Text>
             <Text style={styles.greeting}>{getGreeting()}</Text>
-            <Text style={styles.subtitle}>Ready to master your study materials?</Text>
           </View>
           <TouchableOpacity
             style={styles.profileBadge}
@@ -159,46 +164,91 @@ export default function HomeScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Study Mascot Momo with Daily Tips & Quotes */}
-        <StudyMascotCard />
+        {/* Dismissible Momo Tip Banner (Interactive) */}
+        {momoVisible && (
+          <View style={styles.momoBanner}>
+            <TouchableOpacity
+              style={styles.momoContent}
+              activeOpacity={0.7}
+              onPress={() => setMomoQuote(getRandomStudyQuote(momoQuote.id))}
+            >
+              <View style={styles.momoIconContainer}>
+                <View style={{ transform: [{ scale: 0.6 }], width: 92, height: 92, alignItems: 'center', justifyContent: 'center' }}>
+                  <DynamicMomoHead quote={momoQuote} />
+                </View>
+              </View>
+              <View style={styles.momoTextCol}>
+                <Text style={styles.momoTipTitle}>{momoQuote.emoji} {momoQuote.categoryLabel}</Text>
+                <Text style={styles.momoTipDesc}>{momoQuote.quote}</Text>
+              </View>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.momoCloseBtn} onPress={() => setMomoVisible(false)}>
+              <Text style={styles.momoCloseText}>✕</Text>
+            </TouchableOpacity>
+          </View>
+        )}
 
-        {/* Enhanced Continue Studying Hero Section */}
+        {/* Horizontal Streak Timeline */}
+        <View style={styles.streakTimelineContainer}>
+          <View style={styles.streakHeader}>
+            <Text style={styles.streakTitle}>🔥 3 Day Streak</Text>
+            <Text style={styles.streakSub}>You're on a roll!</Text>
+          </View>
+          <View style={styles.streakDays}>
+            {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((day, idx) => {
+              const isActive = idx < 3; // Mocking a 3-day streak
+              const isToday = idx === 2; // Mocking today is Wednesday
+              return (
+                <View key={idx} style={styles.streakDayWrapper}>
+                  <View style={[styles.streakDayCircle, isActive && styles.streakDayActive, isToday && styles.streakDayToday]}>
+                    {isActive ? (
+                      <HugeiconsIcon
+                        icon={CheckmarkCircle02Icon}
+                        size={16}
+                        color={isToday ? colors.onPrimary : colors.primary}
+                      />
+                    ) : (
+                      <Text style={styles.streakDayText}>{day}</Text>
+                    )}
+                  </View>
+                  <Text style={[styles.streakDayLabel, isActive && styles.streakDayLabelActive]}>{day}</Text>
+                </View>
+              );
+            })}
+          </View>
+        </View>
+
+        {/* Study Stats Widget (2 Cards) */}
+        <View style={styles.statsRow}>
+          <View style={styles.statCard}>
+            <Text style={styles.statValue}>{totalCards}</Text>
+            <Text style={styles.statLabel}>Total Cards</Text>
+          </View>
+          <View style={styles.statCard}>
+            <Text style={styles.statValue}>{sets.length}</Text>
+            <Text style={styles.statLabel}>Study Sets</Text>
+          </View>
+        </View>
+
+        {/* Resume Study Widget */}
         {featured ? (
           <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Continue Studying</Text>
-              <View style={styles.heroLiveBadge}>
-                <View style={styles.pulseDot} />
-                <Text style={styles.heroLiveText}>ACTIVE REVIEWER</Text>
-              </View>
-            </View>
+            <Text style={styles.sectionTitle}>Resume Study</Text>
 
-            <View style={styles.heroCard}>
-              {/* Card Header Tags */}
-              <View style={styles.heroCardHeaderRow}>
-                <View style={styles.groundedTag}>
-                  <HugeiconsIcon icon={CheckmarkCircle02Icon} size={12} color="#A7F3D0" strokeWidth={2.5} />
-                  <Text style={styles.groundedTagText}>Verified from Notes</Text>
+            <View style={styles.resumeWidget}>
+              <View style={styles.resumeHeader}>
+                <View style={styles.resumeActiveBadge}>
+                  <View style={styles.pulseDot} />
+                  <Text style={styles.resumeActiveText}>ACTIVE</Text>
                 </View>
-                <View style={styles.itemsCountBadge}>
-                  <Text style={styles.itemsCountText}>{featured.item_count} Items</Text>
-                </View>
+                <Text style={styles.resumeCountText}>{featured.item_count} Items</Text>
               </View>
 
-              {/* Title */}
-              <Text style={styles.heroTitle} numberOfLines={2}>
-                {featured.title}
-              </Text>
-              {featured.description ? (
-                <Text style={styles.heroDesc} numberOfLines={2}>
-                  {featured.description}
-                </Text>
-              ) : null}
+              <Text style={styles.resumeTitle} numberOfLines={2}>{featured.title}</Text>
 
-              {/* Dual Launch Action Buttons */}
-              <View style={styles.heroActionGrid}>
+              <View style={styles.resumeActionGrid}>
                 <PlatformPressable
-                  style={styles.heroPrimaryBtn}
+                  style={styles.resumePrimaryBtn}
                   onPress={() =>
                     router.push({
                       pathname: '/study/[studySetId]',
@@ -206,14 +256,14 @@ export default function HomeScreen() {
                     })
                   }
                 >
-                  <View style={styles.heroBtnContent}>
-                    <HugeiconsIcon icon={FlashIcon} size={16} color="#312E81" strokeWidth={2.5} />
-                    <Text style={styles.heroPrimaryBtnText}>Flashcards</Text>
+                  <View style={styles.resumeBtnContent}>
+                    <HugeiconsIcon icon={FlashIcon} size={16} color={colors.onPrimary} strokeWidth={2.5} />
+                    <Text style={styles.resumePrimaryBtnText}>Flashcards</Text>
                   </View>
                 </PlatformPressable>
 
                 <PlatformPressable
-                  style={styles.heroSecondaryBtn}
+                  style={styles.resumeSecondaryBtn}
                   onPress={() =>
                     router.push({
                       pathname: '/study/[studySetId]',
@@ -221,9 +271,9 @@ export default function HomeScreen() {
                     })
                   }
                 >
-                  <View style={styles.heroBtnContent}>
-                    <HugeiconsIcon icon={HelpCircleIcon} size={16} color="#FFFFFF" strokeWidth={2.2} />
-                    <Text style={styles.heroSecondaryBtnText}>Practice Quiz</Text>
+                  <View style={styles.resumeBtnContent}>
+                    <HugeiconsIcon icon={HelpCircleIcon} size={16} color={colors.primaryDark} strokeWidth={2.2} />
+                    <Text style={styles.resumeSecondaryBtnText}>Quiz</Text>
                   </View>
                 </PlatformPressable>
               </View>
@@ -231,10 +281,10 @@ export default function HomeScreen() {
           </View>
         ) : null}
 
-        {/* Recent Study Sets / Reviewers */}
+        {/* Library Carousel Widget */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Recent Reviewers</Text>
+            <Text style={styles.sectionTitle}>Your Library</Text>
             <TouchableOpacity
               onPress={() => router.push('/(tabs)/library')}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
@@ -246,80 +296,67 @@ export default function HomeScreen() {
           {sets.length === 0 ? (
             <View style={styles.emptyState}>
               <View style={styles.emptyIconCircle}>
-                <HugeiconsIcon icon={BookOpen01Icon} size={28} color="#4F46E5" strokeWidth={1.8} />
+                <HugeiconsIcon icon={BookOpen01Icon} size={28} color={colors.primary} strokeWidth={1.8} />
               </View>
               <Text style={styles.emptyTitle}>No study sets yet</Text>
               <Text style={styles.emptySubtitle}>
-                Tap the action button to upload study material and generate an AI reviewer.
+                Tap the + button to upload material and create a reviewer.
               </Text>
-              <TouchableOpacity
-                style={styles.emptyActionBtn}
-                onPress={() => router.push('/documents/upload')}
-                activeOpacity={0.8}
-              >
-                <HugeiconsIcon icon={Upload01Icon} size={16} color="#FFFFFF" strokeWidth={2.2} />
-                <Text style={styles.emptyActionBtnText}>Upload Document</Text>
-              </TouchableOpacity>
             </View>
           ) : (
-            sets.slice(0, 5).map((s) => (
-              <View key={s.id} style={styles.itemCard}>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.carouselContainer}
+              snapToInterval={280 + spacing[12]}
+              decelerationRate="fast"
+            >
+              {sets.map((s) => (
                 <TouchableOpacity
-                  style={styles.itemContent}
+                  key={s.id}
+                  style={styles.carouselCard}
                   onPress={() => router.push(`/study/${s.id}`)}
-                  activeOpacity={0.7}
+                  activeOpacity={0.8}
                 >
-                  <View style={styles.itemTitleRow}>
-                    <Text style={styles.itemTitle} numberOfLines={1}>
+                  <View style={styles.carouselCardTop}>
+                    <Text style={styles.carouselTitle} numberOfLines={2}>
                       {s.title}
                     </Text>
-                    <View style={styles.countBadge}>
-                      <Text style={styles.countBadgeText}>{s.item_count} cards</Text>
+                  </View>
+                  <View style={styles.carouselCardBottom}>
+                    <Text style={styles.carouselMeta}>{s.item_count} items</Text>
+                    <View style={styles.carouselActions}>
+                      <TouchableOpacity
+                        onPress={() => setRenameTarget(s)}
+                        style={styles.iconBtn}
+                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                      >
+                        <HugeiconsIcon icon={Edit02Icon} size={16} color={colors.textSecondary} />
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        onPress={() => setDeleteTarget(s)}
+                        style={styles.iconBtn}
+                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                      >
+                        <HugeiconsIcon icon={Delete02Icon} size={16} color={colors.dangerAccent} />
+                      </TouchableOpacity>
                     </View>
                   </View>
-                  <Text style={styles.itemMeta}>
-                    Created {new Date(s.created_at).toLocaleDateString()}
-                  </Text>
                 </TouchableOpacity>
-                <View style={styles.itemActions}>
-                  <TouchableOpacity
-                    style={styles.editBtn}
-                    onPress={() => setRenameTarget(s)}
-                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                    accessibilityLabel="Rename quiz"
-                  >
-                    <HugeiconsIcon icon={Edit02Icon} size={16} color="#4F46E5" strokeWidth={1.75} />
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.deleteBtn}
-                    onPress={() => setDeleteTarget(s)}
-                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                    accessibilityLabel="Delete reviewer"
-                  >
-                    <HugeiconsIcon icon={Delete02Icon} size={16} color="#EF4444" strokeWidth={1.75} />
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.arrowCircle}
-                    onPress={() => router.push(`/study/${s.id}`)}
-                    accessibilityLabel="Open reviewer"
-                  >
-                    <HugeiconsIcon icon={ArrowRight01Icon} size={16} color="#475569" strokeWidth={2.2} />
-                  </TouchableOpacity>
-                </View>
-              </View>
-            ))
+              ))}
+            </ScrollView>
           )}
         </View>
       </SmoothScrollView>
 
-      {/* Floating Action Button (FAB) for Upload Document & Study Sets */}
+      {/* Floating Action Button */}
       <DashboardFAB
         onUpload={() => router.push('/documents/upload')}
         onStudySets={() => router.push('/(tabs)/library')}
         studySetsCount={sets.length}
       />
 
-      {/* Reusable Animated Confirmation Modal */}
+      {/* Modals */}
       <ConfirmationModal
         visible={deleteTarget !== null}
         title="Delete Reviewer?"
@@ -331,7 +368,6 @@ export default function HomeScreen() {
         onCancel={() => setDeleteTarget(null)}
       />
 
-      {/* Rename Modal */}
       <RenameModal
         visible={renameTarget !== null}
         initialTitle={renameTarget?.title || ''}
@@ -346,321 +382,398 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: colors.background,
   },
   container: {
     flex: 1,
   },
   content: {
-    paddingHorizontal: 18,
+    paddingHorizontal: spacing[18],
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 20,
+    alignItems: 'center',
+    marginBottom: spacing[20],
   },
   headerTextCol: {
     flex: 1,
-    marginRight: 12,
+    marginRight: spacing[12],
   },
   dateLabel: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#64748B',
+    fontSize: typography.fontSize[12],
+    fontWeight: typography.fontWeight.bold,
+    color: colors.primary,
     textTransform: 'uppercase',
-    letterSpacing: 0.6,
-    marginBottom: 2,
+    letterSpacing: typography.letterSpacing[0.6],
+    marginBottom: spacing[2],
   },
   greeting: {
-    fontSize: 26,
-    fontWeight: '800',
-    color: '#0F172A',
+    fontSize: typography.fontSize[26],
+    fontWeight: typography.fontWeight.extraBold,
+    color: colors.text,
     letterSpacing: -0.5,
   },
-  subtitle: {
-    fontSize: 14,
-    color: '#64748B',
-    marginTop: 2,
-  },
-  profileBadge: {
-    marginTop: 4,
-  },
+  profileBadge: {},
   avatarMini: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#EEF2FF',
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colors.primarySoft,
     borderWidth: 2,
-    borderColor: '#C7D2FE',
+    borderColor: colors.primaryBorder,
     alignItems: 'center',
     justifyContent: 'center',
   },
   avatarMiniText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#4F46E5',
+    fontSize: typography.fontSize[15],
+    fontWeight: typography.fontWeight.bold,
+    color: colors.primary,
+  },
+  momoBanner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: '#FEF3C7',
+    padding: spacing[12],
+    borderRadius: 14,
+    marginBottom: spacing[20],
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+  },
+  momoContent: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing[10],
+  },
+  momoIconContainer: {
+    width: 48,
+    height: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  momoTextCol: {
+    flex: 1,
+    paddingRight: spacing[8],
+  },
+  momoTipTitle: {
+    fontSize: typography.fontSize[13],
+    fontWeight: typography.fontWeight.bold,
+    color: '#92400E',
+    marginBottom: 2,
+  },
+  momoTipDesc: {
+    fontSize: typography.fontSize[12],
+    color: '#B45309',
+    lineHeight: typography.lineHeight[17],
+  },
+  momoCloseBtn: {
+    padding: spacing[4],
+  },
+  momoCloseText: {
+    fontSize: 16,
+    color: '#B45309',
+    fontWeight: 'bold',
+  },
+  streakTimelineContainer: {
+    backgroundColor: colors.surface,
+    borderRadius: 16,
+    padding: spacing[16],
+    marginBottom: spacing[16],
+    borderWidth: 1,
+    borderColor: colors.border,
+    ...Platform.select({
+      ios: {
+        shadowColor: colors.shadow,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
+  },
+  streakHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-end',
+    marginBottom: spacing[16],
+  },
+  streakTitle: {
+    fontSize: typography.fontSize[16],
+    fontWeight: typography.fontWeight.bold,
+    color: colors.text,
+  },
+  streakSub: {
+    fontSize: typography.fontSize[13],
+    color: colors.primary,
+    fontWeight: typography.fontWeight.medium,
+  },
+  streakDays: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  streakDayWrapper: {
+    alignItems: 'center',
+    gap: spacing[6],
+  },
+  streakDayCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: colors.surfaceMuted,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  streakDayActive: {
+    backgroundColor: colors.primarySoft,
+  },
+  streakDayToday: {
+    backgroundColor: colors.primary,
+  },
+  streakDayText: {
+    fontSize: typography.fontSize[12],
+    fontWeight: typography.fontWeight.bold,
+    color: colors.textMuted,
+  },
+  streakDayLabel: {
+    fontSize: typography.fontSize[11],
+    fontWeight: typography.fontWeight.medium,
+    color: colors.textMuted,
+  },
+  streakDayLabelActive: {
+    color: colors.primary,
+    fontWeight: typography.fontWeight.bold,
+  },
+  statsRow: {
+    flexDirection: 'row',
+    gap: spacing[12],
+    marginBottom: spacing[24],
+  },
+  statCard: {
+    flex: 1,
+    backgroundColor: colors.surface,
+    paddingVertical: spacing[16],
+    paddingHorizontal: spacing[12],
+    borderRadius: 16,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.border,
+    ...Platform.select({
+      ios: {
+        shadowColor: colors.shadow,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
+  },
+  statValue: {
+    fontSize: typography.fontSize[24],
+    fontWeight: typography.fontWeight.black,
+    color: colors.primary,
+    marginBottom: spacing[2],
+  },
+  statLabel: {
+    fontSize: typography.fontSize[11],
+    fontWeight: typography.fontWeight.semiBold,
+    color: colors.textMuted,
+    textTransform: 'uppercase',
   },
   section: {
-    marginBottom: 24,
+    marginBottom: spacing[28],
   },
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: spacing[12],
   },
   sectionTitle: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: '#0F172A',
+    fontSize: typography.fontSize[19],
+    fontWeight: typography.fontWeight.bold,
+    color: colors.text,
     letterSpacing: -0.3,
+    marginBottom: spacing[12],
   },
   seeAllText: {
-    fontSize: 13,
-    color: '#4F46E5',
-    fontWeight: '600',
+    fontSize: typography.fontSize[13],
+    color: colors.primary,
+    fontWeight: typography.fontWeight.semiBold,
   },
-  heroLiveBadge: {
+  resumeWidget: {
+    backgroundColor: colors.primaryDark,
+    borderRadius: 20,
+    padding: spacing[20],
+    ...Platform.select({
+      ios: {
+        shadowColor: colors.primaryDark,
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.25,
+        shadowRadius: 16,
+      },
+      android: {
+        elevation: 8,
+      },
+    }),
+  },
+  resumeHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing[12],
+  },
+  resumeActiveBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#ECFDF5',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 12,
-    gap: 5,
+    backgroundColor: 'rgba(16, 185, 129, 0.2)',
+    paddingHorizontal: spacing[8],
+    paddingVertical: spacing[4],
+    borderRadius: 8,
+    gap: spacing[6],
   },
   pulseDot: {
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: '#10B981',
+    backgroundColor: colors.successAccent,
   },
-  heroLiveText: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: '#059669',
+  resumeActiveText: {
+    fontSize: typography.fontSize[10],
+    fontWeight: typography.fontWeight.bold,
+    color: colors.successBorder,
     letterSpacing: 0.5,
   },
-  heroCard: {
-    backgroundColor: '#1E1B4B',
-    borderRadius: 20,
-    padding: 20,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#1E1B4B',
-        shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.32,
-        shadowRadius: 16,
-      },
-      android: {
-        elevation: 6,
-      },
-    }),
+  resumeCountText: {
+    fontSize: typography.fontSize[12],
+    fontWeight: typography.fontWeight.semiBold,
+    color: colors.primaryBorder,
   },
-  heroCardHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  groundedTag: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    backgroundColor: 'rgba(16, 185, 129, 0.18)',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-  },
-  groundedTagText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#A7F3D0',
-  },
-  itemsCountBadge: {
-    backgroundColor: 'rgba(255, 255, 255, 0.12)',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-  },
-  itemsCountText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#E0E7FF',
-  },
-  heroTitle: {
-    fontSize: 19,
-    fontWeight: '800',
-    color: '#FFFFFF',
-    marginBottom: 6,
-    lineHeight: 25,
+  resumeTitle: {
+    fontSize: typography.fontSize[22],
+    fontWeight: typography.fontWeight.extraBold,
+    color: colors.onPrimary,
+    marginBottom: spacing[20],
+    lineHeight: typography.lineHeight[26],
     letterSpacing: -0.3,
   },
-  heroDesc: {
-    fontSize: 13,
-    color: '#C7D2FE',
-    lineHeight: 18,
-    marginBottom: 16,
-  },
-  heroActionGrid: {
+  resumeActionGrid: {
     flexDirection: 'row',
-    gap: 10,
-    marginTop: 6,
+    gap: spacing[12],
   },
-  heroPrimaryBtn: {
+  resumePrimaryBtn: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.primary,
     borderRadius: 12,
   },
-  heroSecondaryBtn: {
+  resumeSecondaryBtn: {
     flex: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+    backgroundColor: colors.surface,
     borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
   },
-  heroBtnContent: {
-    paddingVertical: 12,
+  resumeBtnContent: {
+    paddingVertical: spacing[14],
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    gap: 6,
+    gap: spacing[8],
   },
-  heroPrimaryBtnText: {
-    color: '#312E81',
-    fontWeight: '800',
-    fontSize: 13,
+  resumePrimaryBtnText: {
+    color: colors.onPrimary,
+    fontWeight: typography.fontWeight.bold,
+    fontSize: typography.fontSize[14],
   },
-  heroSecondaryBtnText: {
-    color: '#FFFFFF',
-    fontWeight: '700',
-    fontSize: 13,
+  resumeSecondaryBtnText: {
+    color: colors.primaryDark,
+    fontWeight: typography.fontWeight.bold,
+    fontSize: typography.fontSize[14],
   },
-  itemCard: {
-    backgroundColor: '#FFFFFF',
-    padding: 14,
-    borderRadius: 14,
-    marginBottom: 10,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+  carouselContainer: {
+    gap: spacing[12],
+    paddingRight: spacing[18],
+  },
+  carouselCard: {
+    width: 280,
+    backgroundColor: colors.surface,
+    borderRadius: 16,
+    padding: spacing[16],
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: colors.border,
+    justifyContent: 'space-between',
+    minHeight: 120,
     ...Platform.select({
       ios: {
-        shadowColor: '#0F172A',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.03,
-        shadowRadius: 4,
+        shadowColor: colors.shadow,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 6,
       },
       android: {
         elevation: 1,
       },
     }),
   },
-  itemContent: {
-    flex: 1,
-    marginRight: 10,
+  carouselCardTop: {
+    marginBottom: spacing[12],
   },
-  itemTitleRow: {
+  carouselTitle: {
+    fontSize: typography.fontSize[16],
+    fontWeight: typography.fontWeight.bold,
+    color: colors.text,
+    lineHeight: typography.lineHeight[22],
+  },
+  carouselCardBottom: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    gap: 8,
-    marginBottom: 3,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    paddingTop: spacing[12],
   },
-  itemTitle: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#0F172A',
-    flex: 1,
+  carouselMeta: {
+    fontSize: typography.fontSize[13],
+    fontWeight: typography.fontWeight.medium,
+    color: colors.textMuted,
   },
-  countBadge: {
-    backgroundColor: '#EEF2FF',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
-  },
-  countBadgeText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#4F46E5',
-  },
-  itemMeta: {
-    fontSize: 12,
-    color: '#64748B',
-  },
-  itemActions: {
+  carouselActions: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+    gap: spacing[12],
   },
-  editBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#EEF2FF',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  deleteBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#FEE2E2',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  arrowCircle: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#F1F5F9',
-    alignItems: 'center',
-    justifyContent: 'center',
+  iconBtn: {
+    padding: spacing[2],
   },
   emptyState: {
-    padding: 24,
+    padding: spacing[32],
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
+    backgroundColor: colors.surface,
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: colors.border,
+    borderStyle: 'dashed',
   },
   emptyIconCircle: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#EEF2FF',
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: colors.primarySoft,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 10,
+    marginBottom: spacing[16],
   },
   emptyTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#0F172A',
+    fontSize: typography.fontSize[17],
+    fontWeight: typography.fontWeight.bold,
+    color: colors.text,
   },
   emptySubtitle: {
-    fontSize: 13,
-    color: '#64748B',
+    fontSize: typography.fontSize[14],
+    color: colors.textMuted,
     textAlign: 'center',
-    marginTop: 4,
-    marginBottom: 14,
-    lineHeight: 18,
-  },
-  emptyActionBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: '#4F46E5',
-    paddingHorizontal: 16,
-    paddingVertical: 9,
-    borderRadius: 10,
-  },
-  emptyActionBtnText: {
-    color: '#FFFFFF',
-    fontSize: 13,
-    fontWeight: '700',
+    marginTop: spacing[6],
+    lineHeight: typography.lineHeight[20],
   },
 });

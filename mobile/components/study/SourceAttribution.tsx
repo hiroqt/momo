@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { colors, spacing, typography } from '@/constants/theme';
+import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import { AppText as Text } from '@/components/common/app-text';
 import { HugeiconsIcon } from '@hugeicons/react-native';
 import {
   Shield01Icon,
@@ -33,7 +35,7 @@ export const SourceAttribution: React.FC<Props> = ({ source, defaultExpanded = f
       >
         <View style={styles.titleRow}>
           <View style={styles.shieldIconBox}>
-            <HugeiconsIcon icon={Shield01Icon} size={14} color="#4F46E5" strokeWidth={2.4} />
+            <HugeiconsIcon icon={Shield01Icon} size={14} color={colors.primary} strokeWidth={2.4} />
           </View>
           <View>
             <Text style={styles.label}>DOCUMENT REFERENCE</Text>
@@ -45,7 +47,7 @@ export const SourceAttribution: React.FC<Props> = ({ source, defaultExpanded = f
           <HugeiconsIcon
             icon={expanded ? ArrowUp01Icon : ArrowDown01Icon}
             size={14}
-            color="#6366F1"
+            color={colors.primaryLight}
             strokeWidth={2.4}
           />
         </View>
@@ -55,7 +57,7 @@ export const SourceAttribution: React.FC<Props> = ({ source, defaultExpanded = f
       <View style={styles.chipsRow}>
         {source.document_name ? (
           <View style={styles.chipDocument}>
-            <HugeiconsIcon icon={File01Icon} size={13} color="#475569" strokeWidth={2.2} />
+            <HugeiconsIcon icon={File01Icon} size={13} color={colors.textSecondary} strokeWidth={2.2} />
             <Text style={styles.chipDocumentText} numberOfLines={1}>
               {source.document_name}
             </Text>
@@ -64,14 +66,14 @@ export const SourceAttribution: React.FC<Props> = ({ source, defaultExpanded = f
 
         {source.page ? (
           <View style={styles.chipPage}>
-            <HugeiconsIcon icon={BookOpen01Icon} size={12} color="#4F46E5" strokeWidth={2.2} />
+            <HugeiconsIcon icon={BookOpen01Icon} size={12} color={colors.primary} strokeWidth={2.2} />
             <Text style={styles.chipPageText}>Page {source.page}</Text>
           </View>
         ) : null}
 
         {isMeaningfulSection(source.section) ? (
           <View style={styles.chipSection}>
-            <HugeiconsIcon icon={Layers01Icon} size={12} color="#475569" strokeWidth={2} />
+            <HugeiconsIcon icon={Layers01Icon} size={12} color={colors.textSecondary} strokeWidth={2} />
             <Text style={styles.chipSectionText} numberOfLines={1}>
               {source.section}
             </Text>
@@ -96,144 +98,144 @@ export const SourceAttribution: React.FC<Props> = ({ source, defaultExpanded = f
 
 const styles = StyleSheet.create({
   container: {
-    marginTop: 14,
-    padding: 14,
-    backgroundColor: '#F8FAFC',
+    marginTop: spacing[14],
+    padding: spacing[14],
+    backgroundColor: colors.background,
     borderRadius: 14,
     borderWidth: 1.5,
-    borderColor: '#E2E8F0',
+    borderColor: colors.border,
   },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 10,
+    marginBottom: spacing[10],
   },
   titleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: spacing[8],
   },
   shieldIconBox: {
     width: 28,
     height: 28,
     borderRadius: 8,
-    backgroundColor: '#EEF2FF',
+    backgroundColor: colors.primarySoft,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: '#E0E7FF',
+    borderColor: colors.primarySoftStrong,
   },
   label: {
-    fontSize: 10.5,
-    fontWeight: '800',
-    color: '#4F46E5',
-    letterSpacing: 0.5,
+    fontSize: typography.fontSize[10.5],
+    fontWeight: typography.fontWeight.extraBold,
+    color: colors.primary,
+    letterSpacing: typography.letterSpacing[0.5],
   },
   sublabel: {
-    fontSize: 10.5,
-    color: '#64748B',
-    fontWeight: '500',
-    marginTop: 1,
+    fontSize: typography.fontSize[10.5],
+    color: colors.textMuted,
+    fontWeight: typography.fontWeight.medium,
+    marginTop: spacing[1],
   },
   expandToggleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    backgroundColor: '#EEF2FF',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    gap: spacing[4],
+    backgroundColor: colors.primarySoft,
+    paddingHorizontal: spacing[8],
+    paddingVertical: spacing[4],
     borderRadius: 8,
   },
   expandToggleText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#4F46E5',
+    fontSize: typography.fontSize[11],
+    fontWeight: typography.fontWeight.bold,
+    color: colors.primary,
   },
   chipsRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 7,
-    marginTop: 2,
+    gap: spacing[7],
+    marginTop: spacing[2],
   },
   chipDocument: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
-    backgroundColor: '#FFFFFF',
+    gap: spacing[5],
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: '#CBD5E1',
-    paddingHorizontal: 9,
-    paddingVertical: 4,
+    borderColor: colors.borderStrong,
+    paddingHorizontal: spacing[9],
+    paddingVertical: spacing[4],
     borderRadius: 8,
     maxWidth: '100%',
   },
   chipDocumentText: {
-    fontSize: 11.5,
-    fontWeight: '600',
-    color: '#334155',
+    fontSize: typography.fontSize[11.5],
+    fontWeight: typography.fontWeight.semiBold,
+    color: colors.textSecondary,
   },
   chipPage: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    backgroundColor: '#EEF2FF',
-    paddingHorizontal: 9,
-    paddingVertical: 4,
+    gap: spacing[4],
+    backgroundColor: colors.primarySoft,
+    paddingHorizontal: spacing[9],
+    paddingVertical: spacing[4],
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#C7D2FE',
+    borderColor: colors.primaryBorder,
   },
   chipPageText: {
-    fontSize: 11.5,
-    fontWeight: '700',
-    color: '#4F46E5',
+    fontSize: typography.fontSize[11.5],
+    fontWeight: typography.fontWeight.bold,
+    color: colors.primary,
   },
   chipSection: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
-    backgroundColor: '#FFFFFF',
+    gap: spacing[5],
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
-    paddingHorizontal: 9,
-    paddingVertical: 4,
+    borderColor: colors.border,
+    paddingHorizontal: spacing[9],
+    paddingVertical: spacing[4],
     borderRadius: 8,
     maxWidth: '100%',
   },
   chipSectionText: {
-    fontSize: 11.5,
-    fontWeight: '600',
-    color: '#475569',
+    fontSize: typography.fontSize[11.5],
+    fontWeight: typography.fontWeight.semiBold,
+    color: colors.textSecondary,
   },
   snippetContainer: {
-    marginTop: 12,
-    paddingTop: 10,
+    marginTop: spacing[12],
+    paddingTop: spacing[10],
     borderTopWidth: 1,
-    borderTopColor: '#E2E8F0',
+    borderTopColor: colors.border,
   },
   snippetHeaderRow: {
-    marginBottom: 6,
+    marginBottom: spacing[6],
   },
   snippetHeaderLabel: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: '#64748B',
-    letterSpacing: 0.5,
+    fontSize: typography.fontSize[10],
+    fontWeight: typography.fontWeight.extraBold,
+    color: colors.textMuted,
+    letterSpacing: typography.letterSpacing[0.5],
   },
   snippetQuoteBox: {
-    backgroundColor: '#FFFFFF',
-    padding: 12,
+    backgroundColor: colors.surface,
+    padding: spacing[12],
     borderRadius: 10,
     borderLeftWidth: 3.5,
-    borderLeftColor: '#4F46E5',
+    borderLeftColor: colors.primary,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: colors.border,
   },
   snippetText: {
-    fontSize: 12.5,
+    fontSize: typography.fontSize[12.5],
     fontStyle: 'italic',
-    color: '#334155',
-    lineHeight: 19,
+    color: colors.textSecondary,
+    lineHeight: typography.lineHeight[19],
   },
 });

@@ -1,13 +1,14 @@
 import React, { useEffect, useState } from 'react';
+import { colors, spacing, typography } from '@/constants/theme';
 import {
   View,
-  Text,
   StyleSheet,
   ScrollView,
   Alert,
   Platform,
   StatusBar as RNStatusBar,
 } from 'react-native';
+import { AppText as Text } from '@/components/common/app-text';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { HugeiconsIcon } from '@hugeicons/react-native';
 import {
@@ -50,9 +51,9 @@ export default function ProfileScreen() {
   const remaining = Math.max(0, limit - used);
 
   const getBarColor = () => {
-    if (percent > 85) return '#EF4444';
-    if (percent > 60) return '#F59E0B';
-    return '#10B981';
+    if (percent > 85) return colors.dangerAccent;
+    if (percent > 60) return colors.warningAccent;
+    return colors.successAccent;
   };
 
   const confirmSignOut = () => {
@@ -68,9 +69,9 @@ export default function ProfileScreen() {
           styles.contentContainer,
           {
             paddingTop: Platform.OS === 'android'
-              ? Math.max(insets.top, RNStatusBar.currentHeight || 0, 28) + 14
-              : Math.max(insets.top, 20),
-            paddingBottom: Math.max(insets.bottom, 24) + 88, // Floating nav clearance
+              ? Math.max(insets.top, RNStatusBar.currentHeight || spacing[0], spacing[28]) + spacing[14]
+              : Math.max(insets.top, spacing[20]),
+            paddingBottom: Math.max(insets.bottom, spacing[24]) + spacing[88], // Floating nav clearance
           },
         ]}
       >
@@ -83,17 +84,17 @@ export default function ProfileScreen() {
         {/* Account Info Card */}
         <View style={styles.card}>
           <View style={styles.avatarCircle}>
-            <HugeiconsIcon icon={UserCircleIcon} size={48} color="#4F46E5" strokeWidth={1.5} />
+            <HugeiconsIcon icon={UserCircleIcon} size={48} color={colors.primary} strokeWidth={1.5} />
           </View>
           <Text style={styles.name}>{profile?.full_name || 'Student Account'}</Text>
           <Text style={styles.email}>{profile?.email}</Text>
           <View style={styles.badgeRow}>
             <View style={styles.roleBadge}>
-              <HugeiconsIcon icon={CheckmarkCircle02Icon} size={12} color="#059669" strokeWidth={2.5} />
+              <HugeiconsIcon icon={CheckmarkCircle02Icon} size={12} color={colors.success} strokeWidth={2.5} />
               <Text style={styles.roleBadgeText}>Active Student</Text>
             </View>
             <View style={styles.cloudBadge}>
-              <HugeiconsIcon icon={FlashIcon} size={12} color="#4F46E5" strokeWidth={2.5} />
+              <HugeiconsIcon icon={FlashIcon} size={12} color={colors.primary} strokeWidth={2.5} />
               <Text style={styles.cloudBadgeText}>Offline Ready</Text>
             </View>
           </View>
@@ -136,7 +137,7 @@ export default function ProfileScreen() {
         {/* Storage Retention Policy Notice (PRD Section 7 & Rule 8) */}
         <View style={styles.retentionNotice}>
           <View style={styles.noticeHeader}>
-            <HugeiconsIcon icon={InformationCircleIcon} size={18} color="#3730A3" strokeWidth={2} />
+            <HugeiconsIcon icon={InformationCircleIcon} size={18} color={colors.primaryDark} strokeWidth={2} />
             <Text style={styles.noticeTitle}>3-Day Document Retention Policy</Text>
           </View>
           <Text style={styles.noticeText}>
@@ -148,7 +149,7 @@ export default function ProfileScreen() {
         {/* Privacy & Security Card */}
         <View style={styles.securityCard}>
           <View style={styles.securityHeader}>
-            <HugeiconsIcon icon={Shield01Icon} size={18} color="#059669" strokeWidth={2} />
+            <HugeiconsIcon icon={Shield01Icon} size={18} color={colors.success} strokeWidth={2} />
             <Text style={styles.securityTitle}>Document-Verified Guarantee</Text>
           </View>
           <Text style={styles.securityText}>
@@ -159,7 +160,7 @@ export default function ProfileScreen() {
         {/* Sign Out Button */}
         <PlatformPressable style={styles.logoutBtn} onPress={() => setShowSignOutModal(true)}>
           <View style={styles.logoutContent}>
-            <HugeiconsIcon icon={Logout01Icon} size={18} color="#DC2626" strokeWidth={2} />
+            <HugeiconsIcon icon={Logout01Icon} size={18} color={colors.danger} strokeWidth={2} />
             <Text style={styles.logoutText}>Sign Out</Text>
           </View>
         </PlatformPressable>
@@ -183,39 +184,39 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: colors.background,
   },
   container: {
     flex: 1,
   },
   contentContainer: {
-    paddingHorizontal: 16,
+    paddingHorizontal: spacing[16],
   },
   header: {
-    marginBottom: 16,
+    marginBottom: spacing[16],
   },
   headerTitle: {
-    fontSize: 24,
-    fontWeight: '800',
-    color: '#0F172A',
-    letterSpacing: -0.4,
+    fontSize: typography.fontSize[24],
+    fontWeight: typography.fontWeight.extraBold,
+    color: colors.text,
+    letterSpacing: typography.letterSpacing[-0.4],
   },
   headerSub: {
-    fontSize: 13,
-    color: '#64748B',
-    marginTop: 2,
+    fontSize: typography.fontSize[13],
+    color: colors.textMuted,
+    marginTop: spacing[2],
   },
   card: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
     borderRadius: 18,
-    padding: 22,
+    padding: spacing[22],
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: spacing[16],
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: colors.border,
     ...Platform.select({
       ios: {
-        shadowColor: '#0F172A',
+        shadowColor: colors.shadow,
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.04,
         shadowRadius: 6,
@@ -229,66 +230,66 @@ const styles = StyleSheet.create({
     width: 68,
     height: 68,
     borderRadius: 34,
-    backgroundColor: '#EEF2FF',
+    backgroundColor: colors.primarySoft,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 10,
+    marginBottom: spacing[10],
     borderWidth: 2,
-    borderColor: '#C7D2FE',
+    borderColor: colors.primaryBorder,
   },
   name: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#0F172A',
+    fontSize: typography.fontSize[18],
+    fontWeight: typography.fontWeight.bold,
+    color: colors.text,
   },
   email: {
-    fontSize: 13,
-    color: '#64748B',
-    marginTop: 2,
+    fontSize: typography.fontSize[13],
+    color: colors.textMuted,
+    marginTop: spacing[2],
   },
   badgeRow: {
     flexDirection: 'row',
-    gap: 8,
-    marginTop: 12,
+    gap: spacing[8],
+    marginTop: spacing[12],
   },
   roleBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#ECFDF5',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
+    backgroundColor: colors.successSoft,
+    paddingHorizontal: spacing[8],
+    paddingVertical: spacing[3],
     borderRadius: 8,
-    gap: 4,
+    gap: spacing[4],
   },
   roleBadgeText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#059669',
+    fontSize: typography.fontSize[11],
+    fontWeight: typography.fontWeight.bold,
+    color: colors.success,
   },
   cloudBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#EEF2FF',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
+    backgroundColor: colors.primarySoft,
+    paddingHorizontal: spacing[8],
+    paddingVertical: spacing[3],
     borderRadius: 8,
-    gap: 4,
+    gap: spacing[4],
   },
   cloudBadgeText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#4F46E5',
+    fontSize: typography.fontSize[11],
+    fontWeight: typography.fontWeight.bold,
+    color: colors.primary,
   },
   quotaCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
     borderRadius: 18,
-    padding: 20,
-    marginBottom: 16,
+    padding: spacing[20],
+    marginBottom: spacing[16],
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: colors.border,
     ...Platform.select({
       ios: {
-        shadowColor: '#0F172A',
+        shadowColor: colors.shadow,
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.04,
         shadowRadius: 6,
@@ -304,115 +305,115 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   quotaHeader: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#334155',
+    fontSize: typography.fontSize[13],
+    fontWeight: typography.fontWeight.bold,
+    color: colors.textSecondary,
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    letterSpacing: typography.letterSpacing[0.5],
   },
   quotaPill: {
-    backgroundColor: '#F1F5F9',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
+    backgroundColor: colors.surfaceMuted,
+    paddingHorizontal: spacing[8],
+    paddingVertical: spacing[2],
     borderRadius: 6,
   },
   quotaPillText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#475569',
+    fontSize: typography.fontSize[11],
+    fontWeight: typography.fontWeight.bold,
+    color: colors.textSecondary,
   },
   quotaNumbers: {
     flexDirection: 'row',
     alignItems: 'baseline',
-    marginVertical: 10,
+    marginVertical: spacing[10],
   },
   usedNum: {
-    fontSize: 32,
-    fontWeight: '800',
+    fontSize: typography.fontSize[32],
+    fontWeight: typography.fontWeight.extraBold,
   },
   limitNum: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#64748B',
+    fontSize: typography.fontSize[18],
+    fontWeight: typography.fontWeight.semiBold,
+    color: colors.textMuted,
   },
   barBackground: {
     height: 10,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: colors.surfaceMuted,
     borderRadius: 5,
     overflow: 'hidden',
-    marginBottom: 8,
+    marginBottom: spacing[8],
   },
   barFill: {
     height: '100%',
     borderRadius: 5,
   },
   quotaHint: {
-    fontSize: 12,
-    color: '#64748B',
-    lineHeight: 18,
+    fontSize: typography.fontSize[12],
+    color: colors.textMuted,
+    lineHeight: typography.lineHeight[18],
   },
   retentionNotice: {
-    backgroundColor: '#EEF2FF',
-    padding: 16,
+    backgroundColor: colors.primarySoft,
+    padding: spacing[16],
     borderRadius: 16,
-    marginBottom: 14,
+    marginBottom: spacing[14],
     borderWidth: 1,
-    borderColor: '#E0E7FF',
+    borderColor: colors.primarySoftStrong,
   },
   noticeHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginBottom: 6,
+    gap: spacing[8],
+    marginBottom: spacing[6],
   },
   noticeTitle: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#312E81',
+    fontSize: typography.fontSize[13],
+    fontWeight: typography.fontWeight.bold,
+    color: colors.primaryDark,
   },
   noticeText: {
-    fontSize: 12,
-    color: '#4338CA',
-    lineHeight: 18,
+    fontSize: typography.fontSize[12],
+    color: colors.primaryPressed,
+    lineHeight: typography.lineHeight[18],
   },
   securityCard: {
-    backgroundColor: '#ECFDF5',
-    padding: 16,
+    backgroundColor: colors.successSoft,
+    padding: spacing[16],
     borderRadius: 16,
-    marginBottom: 24,
+    marginBottom: spacing[24],
     borderWidth: 1,
-    borderColor: '#D1FAE5',
+    borderColor: colors.successBorder,
   },
   securityHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginBottom: 6,
+    gap: spacing[8],
+    marginBottom: spacing[6],
   },
   securityTitle: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#065F46',
+    fontSize: typography.fontSize[13],
+    fontWeight: typography.fontWeight.bold,
+    color: colors.success,
   },
   securityText: {
-    fontSize: 12,
-    color: '#047857',
-    lineHeight: 18,
+    fontSize: typography.fontSize[12],
+    color: colors.success,
+    lineHeight: typography.lineHeight[18],
   },
   logoutBtn: {
-    backgroundColor: '#FEE2E2',
+    backgroundColor: colors.dangerSoft,
     borderRadius: 14,
   },
   logoutContent: {
-    paddingVertical: 14,
+    paddingVertical: spacing[14],
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    gap: 8,
+    gap: spacing[8],
   },
   logoutText: {
-    color: '#DC2626',
-    fontWeight: '700',
-    fontSize: 15,
+    color: colors.danger,
+    fontWeight: typography.fontWeight.bold,
+    fontSize: typography.fontSize[15],
   },
 });

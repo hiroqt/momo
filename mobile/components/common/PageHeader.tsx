@@ -1,7 +1,7 @@
 import React from 'react';
+import { colors, spacing, typography } from '@/constants/theme';
 import {
   View,
-  Text,
   StyleSheet,
   TouchableOpacity,
   Platform,
@@ -9,6 +9,7 @@ import {
   ViewStyle,
   StatusBar as RNStatusBar,
 } from 'react-native';
+import { AppText as Text } from '@/components/common/app-text';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { HugeiconsIcon } from '@hugeicons/react-native';
@@ -47,8 +48,8 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
 
   const statusBarHeight = isAndroid ? (RNStatusBar.currentHeight || 0) : 0;
   const topPadding = isAndroid
-    ? Math.max(insets.top, statusBarHeight, 28) + 14
-    : Math.max(insets.top, 16);
+    ? Math.max(insets.top, statusBarHeight, spacing[28]) + spacing[14]
+    : Math.max(insets.top, spacing[16]);
 
   return (
     <View
@@ -73,7 +74,7 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
               <HugeiconsIcon
                 icon={isModal ? Cancel01Icon : ArrowLeft01Icon}
                 size={20}
-                color="#1E293B"
+                color={colors.text}
                 strokeWidth={2}
               />
             </TouchableOpacity>
@@ -101,11 +102,11 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#E2E8F0',
-    paddingHorizontal: 16,
-    paddingBottom: 12,
+    borderBottomColor: colors.border,
+    paddingHorizontal: spacing[16],
+    paddingBottom: spacing[12],
     zIndex: 10,
   },
   contentRow: {
@@ -124,7 +125,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: colors.surfaceMuted,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -132,20 +133,20 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 8,
+    paddingHorizontal: spacing[8],
     overflow: 'hidden',
   },
   title: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: '#0F172A',
+    fontSize: typography.fontSize[17],
+    fontWeight: typography.fontWeight.bold,
+    color: colors.text,
     textAlign: 'center',
-    letterSpacing: -0.3,
+    letterSpacing: typography.letterSpacing[-0.3],
   },
   subtitle: {
-    fontSize: 12,
-    color: '#64748B',
-    marginTop: 1,
+    fontSize: typography.fontSize[12],
+    color: colors.textMuted,
+    marginTop: spacing[1],
     textAlign: 'center',
   },
   rightCol: {

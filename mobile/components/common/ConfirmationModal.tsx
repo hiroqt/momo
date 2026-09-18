@@ -1,8 +1,8 @@
 import React, { useEffect, useRef } from 'react';
+import { colors, spacing, typography } from '@/constants/theme';
 import {
   Modal,
   View,
-  Text,
   StyleSheet,
   Animated,
   ActivityIndicator,
@@ -10,6 +10,7 @@ import {
   TouchableWithoutFeedback,
   TouchableOpacity,
 } from 'react-native';
+import { AppText as Text } from '@/components/common/app-text';
 import { HugeiconsIcon } from '@hugeicons/react-native';
 import {
   AlertCircleIcon,
@@ -89,13 +90,13 @@ export const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
     if (icon === 'logout') {
       return (
         <View style={[styles.iconCircle, styles.destructiveIconBg]}>
-          <HugeiconsIcon icon={Logout01Icon} size={28} color="#DC2626" strokeWidth={2} />
+          <HugeiconsIcon icon={Logout01Icon} size={28} color={colors.danger} strokeWidth={2} />
         </View>
       );
     }
     return (
       <View style={[styles.iconCircle, styles.warningIconBg]}>
-        <HugeiconsIcon icon={AlertCircleIcon} size={28} color="#D97706" strokeWidth={2} />
+        <HugeiconsIcon icon={AlertCircleIcon} size={28} color={colors.warning} strokeWidth={2} />
       </View>
     );
   };
@@ -155,7 +156,7 @@ export const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
                   accessibilityLabel={confirmText}
                 >
                   {isLoading ? (
-                    <ActivityIndicator size="small" color="#FFFFFF" />
+                    <ActivityIndicator size="small" color={colors.onPrimary} />
                   ) : (
                     <Text style={styles.confirmBtnText}>{confirmText}</Text>
                   )}
@@ -172,23 +173,23 @@ export const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
 const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.65)',
+    backgroundColor: colors.overlay,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 24,
+    padding: spacing[24],
   },
   dialogCard: {
     width: '100%',
     maxWidth: 380,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
     borderRadius: 24,
-    padding: 24,
+    padding: spacing[24],
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: colors.border,
     ...Platform.select({
       ios: {
-        shadowColor: '#0F172A',
+        shadowColor: colors.shadow,
         shadowOffset: { width: 0, height: 10 },
         shadowOpacity: 0.18,
         shadowRadius: 24,
@@ -199,7 +200,7 @@ const styles = StyleSheet.create({
     }),
   },
   momoContainer: {
-    marginBottom: 12,
+    marginBottom: spacing[12],
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -209,56 +210,56 @@ const styles = StyleSheet.create({
     borderRadius: 30,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 16,
+    marginBottom: spacing[16],
   },
   destructiveIconBg: {
-    backgroundColor: '#FEE2E2',
+    backgroundColor: colors.dangerSoft,
   },
   warningIconBg: {
-    backgroundColor: '#FEF3C7',
+    backgroundColor: colors.warningSoft,
   },
   title: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: '#0F172A',
+    fontSize: typography.fontSize[20],
+    fontWeight: typography.fontWeight.extraBold,
+    color: colors.text,
     textAlign: 'center',
-    marginBottom: 8,
-    letterSpacing: -0.3,
+    marginBottom: spacing[8],
+    letterSpacing: typography.letterSpacing[-0.3],
   },
   message: {
-    fontSize: 14,
-    color: '#64748B',
+    fontSize: typography.fontSize[14],
+    color: colors.textMuted,
     textAlign: 'center',
-    lineHeight: 20,
-    marginBottom: 20,
-    paddingHorizontal: 8,
+    lineHeight: typography.lineHeight[20],
+    marginBottom: spacing[20],
+    paddingHorizontal: spacing[8],
   },
   extraContentWrapper: {
     width: '100%',
-    marginBottom: 20,
+    marginBottom: spacing[20],
     alignItems: 'center',
   },
   actionsRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 12,
+    gap: spacing[12],
     width: '100%',
   },
   cancelBtn: {
     flex: 1,
     height: 48,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: colors.surfaceMuted,
     borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: colors.border,
   },
   cancelBtnText: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#475569',
+    fontSize: typography.fontSize[15],
+    fontWeight: typography.fontWeight.bold,
+    color: colors.textSecondary,
     textAlign: 'center',
     includeFontPadding: false,
   },
@@ -270,10 +271,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   destructiveBtn: {
-    backgroundColor: '#DC2626',
+    backgroundColor: colors.danger,
     ...Platform.select({
       ios: {
-        shadowColor: '#DC2626',
+        shadowColor: colors.shadow,
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.25,
         shadowRadius: 8,
@@ -284,10 +285,10 @@ const styles = StyleSheet.create({
     }),
   },
   primaryConfirmBtn: {
-    backgroundColor: '#4F46E5',
+    backgroundColor: colors.primary,
     ...Platform.select({
       ios: {
-        shadowColor: '#4F46E5',
+        shadowColor: colors.shadow,
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.25,
         shadowRadius: 8,
@@ -301,9 +302,9 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   confirmBtnText: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#FFFFFF',
+    fontSize: typography.fontSize[15],
+    fontWeight: typography.fontWeight.bold,
+    color: colors.onPrimary,
     textAlign: 'center',
     includeFontPadding: false,
   },

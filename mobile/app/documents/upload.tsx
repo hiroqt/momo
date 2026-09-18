@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
+import { colors, spacing, typography } from '@/constants/theme';
 import {
   View,
-  Text,
   StyleSheet,
   TouchableOpacity,
   ActivityIndicator,
@@ -9,6 +9,7 @@ import {
   ScrollView,
   Platform,
 } from 'react-native';
+import { AppText as Text } from '@/components/common/app-text';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as DocumentPicker from 'expo-document-picker';
@@ -138,7 +139,7 @@ export default function UploadScreen() {
         style={styles.container}
         contentContainerStyle={[
           styles.scrollContent,
-          { paddingBottom: Math.max(insets.bottom, 24) + 20 },
+          { paddingBottom: Math.max(insets.bottom, spacing[24]) + spacing[20] },
         ]}
       >
         <View style={styles.cardWrapper}>
@@ -168,7 +169,7 @@ export default function UploadScreen() {
               <HugeiconsIcon
                 icon={selectedFile ? File01Icon : Upload01Icon}
                 size={34}
-                color={selectedFile ? '#059669' : '#4F46E5'}
+                color={selectedFile ? colors.success : colors.primary}
                 strokeWidth={1.8}
               />
             </View>
@@ -194,7 +195,7 @@ export default function UploadScreen() {
 
           {/* Retention notice card */}
           <View style={styles.infoBanner}>
-            <HugeiconsIcon icon={CheckmarkCircle02Icon} size={16} color="#059669" strokeWidth={2} />
+            <HugeiconsIcon icon={CheckmarkCircle02Icon} size={16} color={colors.success} strokeWidth={2} />
             <Text style={styles.infoBannerText}>
               Files are stored temporarily for 3 days and used to build your custom study material.
             </Text>
@@ -202,7 +203,7 @@ export default function UploadScreen() {
 
           {isProcessing && (
             <View style={styles.processingBox}>
-              <ActivityIndicator size="small" color="#4F46E5" />
+              <ActivityIndicator size="small" color={colors.primary} />
               <Text style={styles.processingText}>{statusMessage}</Text>
             </View>
           )}
@@ -213,7 +214,7 @@ export default function UploadScreen() {
               onPress={handleUploadAndProcess}
             >
               <View style={styles.uploadBtnContent}>
-                <HugeiconsIcon icon={SparklesIcon} size={18} color="#FFFFFF" strokeWidth={2.2} />
+                <HugeiconsIcon icon={SparklesIcon} size={18} color={colors.onPrimary} strokeWidth={2.2} />
                 <Text style={styles.uploadBtnText}>Upload & Analyze Material</Text>
               </View>
             </PlatformPressable>
@@ -227,14 +228,14 @@ export default function UploadScreen() {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: colors.background,
   },
   container: {
     flex: 1,
   },
   scrollContent: {
-    padding: 20,
-    paddingTop: 16,
+    padding: spacing[20],
+    paddingTop: spacing[16],
   },
   cardWrapper: {
     width: '100%',
@@ -242,67 +243,67 @@ const styles = StyleSheet.create({
   formatPillsRow: {
     flexDirection: 'row',
     justifyContent: 'center',
-    gap: 8,
-    marginBottom: 20,
+    gap: spacing[8],
+    marginBottom: spacing[20],
   },
   formatPill: {
-    paddingHorizontal: 12,
-    paddingVertical: 5,
+    paddingHorizontal: spacing[12],
+    paddingVertical: spacing[5],
     borderRadius: 8,
     borderWidth: 1,
   },
   formatPillText: {
-    fontSize: 12,
-    fontWeight: '700',
+    fontSize: typography.fontSize[12],
+    fontWeight: typography.fontWeight.bold,
   },
   pdfPill: {
-    backgroundColor: '#FEF2F2',
-    borderColor: '#FECACA',
+    backgroundColor: colors.dangerSoft,
+    borderColor: colors.dangerBorder,
   },
   pdfPillText: {
-    color: '#DC2626',
-    fontWeight: '700',
-    fontSize: 12,
+    color: colors.danger,
+    fontWeight: typography.fontWeight.bold,
+    fontSize: typography.fontSize[12],
   },
   docxPill: {
-    backgroundColor: '#EFF6FF',
-    borderColor: '#BFDBFE',
+    backgroundColor: colors.infoSoft,
+    borderColor: colors.infoBorder,
   },
   docxPillText: {
-    color: '#2563EB',
-    fontWeight: '700',
-    fontSize: 12,
+    color: colors.info,
+    fontWeight: typography.fontWeight.bold,
+    fontSize: typography.fontSize[12],
   },
   pptxPill: {
-    backgroundColor: '#FFF7ED',
-    borderColor: '#FED7AA',
+    backgroundColor: colors.warningSoft,
+    borderColor: colors.warningBorder,
   },
   pptxPillText: {
-    color: '#EA580C',
-    fontWeight: '700',
-    fontSize: 12,
+    color: colors.primary,
+    fontWeight: typography.fontWeight.bold,
+    fontSize: typography.fontSize[12],
   },
   txtPill: {
-    backgroundColor: '#F1F5F9',
-    borderColor: '#E2E8F0',
+    backgroundColor: colors.surfaceMuted,
+    borderColor: colors.border,
   },
   txtPillText: {
-    color: '#475569',
-    fontWeight: '700',
-    fontSize: 12,
+    color: colors.textSecondary,
+    fontWeight: typography.fontWeight.bold,
+    fontSize: typography.fontSize[12],
   },
   dropzone: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
     borderWidth: 2,
-    borderColor: '#CBD5E1',
+    borderColor: colors.borderStrong,
     borderStyle: 'dashed',
     borderRadius: 18,
-    padding: 28,
+    padding: spacing[28],
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: spacing[16],
     ...Platform.select({
       ios: {
-        shadowColor: '#0F172A',
+        shadowColor: colors.shadow,
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.03,
         shadowRadius: 6,
@@ -313,81 +314,81 @@ const styles = StyleSheet.create({
     }),
   },
   dropzoneActive: {
-    borderColor: '#10B981',
-    backgroundColor: '#F0FDF4',
+    borderColor: colors.successAccent,
+    backgroundColor: colors.successSoft,
   },
   iconCircle: {
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: '#EEF2FF',
+    backgroundColor: colors.primarySoft,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 14,
+    marginBottom: spacing[14],
   },
   iconCircleActive: {
-    backgroundColor: '#ECFDF5',
+    backgroundColor: colors.successSoft,
   },
   fileInfo: {
     alignItems: 'center',
-    paddingHorizontal: 8,
+    paddingHorizontal: spacing[8],
   },
   chooseText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#4F46E5',
+    fontSize: typography.fontSize[16],
+    fontWeight: typography.fontWeight.bold,
+    color: colors.primary,
   },
   chooseSubtext: {
-    fontSize: 13,
-    color: '#94A3B8',
-    marginTop: 4,
+    fontSize: typography.fontSize[13],
+    color: colors.textDisabled,
+    marginTop: spacing[4],
   },
   fileName: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#0F172A',
+    fontSize: typography.fontSize[15],
+    fontWeight: typography.fontWeight.bold,
+    color: colors.text,
     textAlign: 'center',
   },
   fileSize: {
-    fontSize: 13,
-    color: '#64748B',
-    marginTop: 4,
+    fontSize: typography.fontSize[13],
+    color: colors.textMuted,
+    marginTop: spacing[4],
   },
   changeBadge: {
-    marginTop: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+    marginTop: spacing[8],
+    paddingHorizontal: spacing[10],
+    paddingVertical: spacing[4],
     borderRadius: 6,
-    backgroundColor: '#EEF2FF',
+    backgroundColor: colors.primarySoft,
   },
   changeText: {
-    fontSize: 12,
-    color: '#4F46E5',
-    fontWeight: '600',
+    fontSize: typography.fontSize[12],
+    color: colors.primary,
+    fontWeight: typography.fontWeight.semiBold,
   },
   infoBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#ECFDF5',
-    padding: 12,
+    backgroundColor: colors.successSoft,
+    padding: spacing[12],
     borderRadius: 12,
-    marginBottom: 20,
-    gap: 8,
+    marginBottom: spacing[20],
+    gap: spacing[8],
     borderWidth: 1,
-    borderColor: '#D1FAE5',
+    borderColor: colors.successBorder,
   },
   infoBannerText: {
-    fontSize: 12,
-    color: '#065F46',
+    fontSize: typography.fontSize[12],
+    color: colors.success,
     flex: 1,
-    lineHeight: 17,
+    lineHeight: typography.lineHeight[17],
   },
   uploadBtn: {
-    backgroundColor: '#4F46E5',
+    backgroundColor: colors.primary,
     borderRadius: 14,
     ...Platform.select({
       ios: {
-        shadowColor: '#4F46E5',
+        shadowColor: colors.shadow,
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.25,
         shadowRadius: 8,
@@ -398,34 +399,34 @@ const styles = StyleSheet.create({
     }),
   },
   uploadBtnContent: {
-    paddingVertical: 15,
+    paddingVertical: spacing[15],
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    gap: 8,
+    gap: spacing[8],
   },
   uploadBtnText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '700',
-    letterSpacing: -0.2,
+    color: colors.onPrimary,
+    fontSize: typography.fontSize[16],
+    fontWeight: typography.fontWeight.bold,
+    letterSpacing: typography.letterSpacing[-0.2],
   },
   processingBox: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 10,
-    padding: 16,
-    backgroundColor: '#EEF2FF',
+    gap: spacing[10],
+    padding: spacing[16],
+    backgroundColor: colors.primarySoft,
     borderRadius: 14,
-    marginBottom: 16,
+    marginBottom: spacing[16],
     borderWidth: 1,
-    borderColor: '#E0E7FF',
+    borderColor: colors.primarySoftStrong,
   },
   processingText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#4F46E5',
-    lineHeight: 20,
+    fontSize: typography.fontSize[14],
+    fontWeight: typography.fontWeight.semiBold,
+    color: colors.primary,
+    lineHeight: typography.lineHeight[20],
   },
 });

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
+import { colors, spacing, typography } from '@/constants/theme';
 import {
   View,
-  Text,
   StyleSheet,
   TouchableOpacity,
   ActivityIndicator,
@@ -9,6 +9,7 @@ import {
   Alert,
   Platform,
 } from 'react-native';
+import { AppText as Text } from '@/components/common/app-text';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { HugeiconsIcon } from '@hugeicons/react-native';
@@ -176,7 +177,7 @@ export default function StudySessionScreen() {
   if (isLoading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color="#4F46E5" />
+        <ActivityIndicator size="large" color={colors.primary} />
         <Text style={styles.loadingText}>Loading study reviewer...</Text>
       </View>
     );
@@ -196,7 +197,13 @@ export default function StudySessionScreen() {
           style={styles.finishContainer}
           contentContainerStyle={[
             styles.finishScrollContent,
-            { paddingBottom: Math.max(insets.bottom, Platform.OS === 'android' ? 28 : 24) + 20 },
+            {
+              paddingBottom:
+                Math.max(
+                  insets.bottom,
+                  Platform.OS === 'android' ? spacing[28] : spacing[24],
+                ) + spacing[20],
+            },
           ]}
         >
           <View style={styles.finishCard}>
@@ -209,7 +216,7 @@ export default function StudySessionScreen() {
               <HugeiconsIcon
                 icon={isMastered ? TrophyIcon : BookOpen01Icon}
                 size={42}
-                color={isMastered ? '#D97706' : '#4F46E5'}
+                color={isMastered ? colors.warning : colors.primary}
                 strokeWidth={1.8}
               />
             </View>
@@ -238,7 +245,7 @@ export default function StudySessionScreen() {
             <View style={styles.finishActionCol}>
               <PlatformPressable style={styles.restartBtn} onPress={handleRestart}>
                 <View style={styles.btnRow}>
-                  <HugeiconsIcon icon={RefreshIcon} size={18} color="#4F46E5" strokeWidth={2.2} />
+                  <HugeiconsIcon icon={RefreshIcon} size={18} color={colors.primary} strokeWidth={2.2} />
                   <Text style={styles.restartBtnText}>Practice Again</Text>
                 </View>
               </PlatformPressable>
@@ -305,7 +312,7 @@ export default function StudySessionScreen() {
                 <HugeiconsIcon
                   icon={m.icon}
                   size={14}
-                  color={isActive ? '#4F46E5' : '#64748B'}
+                  color={isActive ? colors.primary : colors.textMuted}
                   strokeWidth={isActive ? 2.4 : 2}
                 />
                 <Text style={[styles.modeTabText, isActive && styles.activeModeTabText]}>
@@ -397,25 +404,25 @@ export default function StudySessionScreen() {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: colors.background,
   },
   actionToolbar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#FFFFFF',
-    marginHorizontal: 16,
-    marginTop: 4,
-    marginBottom: 8,
-    paddingVertical: 6,
-    paddingHorizontal: 8,
+    backgroundColor: colors.surface,
+    marginHorizontal: spacing[16],
+    marginTop: spacing[4],
+    marginBottom: spacing[8],
+    paddingVertical: spacing[6],
+    paddingHorizontal: spacing[8],
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
-    gap: 8,
+    borderColor: colors.border,
+    gap: spacing[8],
     ...Platform.select({
       ios: {
-        shadowColor: '#0F172A',
+        shadowColor: colors.shadow,
         shadowOffset: { width: 0, height: 1 },
         shadowOpacity: 0.05,
         shadowRadius: 3,
@@ -430,52 +437,52 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 8,
-    paddingHorizontal: 6,
+    gap: spacing[6],
+    paddingVertical: spacing[8],
+    paddingHorizontal: spacing[6],
     borderRadius: 8,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: colors.background,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: colors.border,
   },
   toolbarBtnText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#334155',
+    fontSize: typography.fontSize[12],
+    fontWeight: typography.fontWeight.bold,
+    color: colors.textSecondary,
   },
   toolbarDeleteBtn: {
-    backgroundColor: '#FEF2F2',
-    borderColor: '#FEE2E2',
+    backgroundColor: colors.dangerSoft,
+    borderColor: colors.dangerBorder,
   },
   toolbarDeleteText: {
-    color: '#DC2626',
-    fontWeight: '700',
+    color: colors.danger,
+    fontWeight: typography.fontWeight.bold,
   },
   modeBar: {
     flexDirection: 'row',
-    backgroundColor: '#F1F5F9',
-    padding: 4,
-    marginHorizontal: 16,
-    marginTop: 10,
-    marginBottom: 8,
+    backgroundColor: colors.surfaceMuted,
+    padding: spacing[4],
+    marginHorizontal: spacing[16],
+    marginTop: spacing[10],
+    marginBottom: spacing[8],
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: colors.border,
   },
   modeTab: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 9,
+    gap: spacing[6],
+    paddingVertical: spacing[9],
     borderRadius: 9,
   },
   activeModeTab: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
     ...Platform.select({
       ios: {
-        shadowColor: '#0F172A',
+        shadowColor: colors.shadow,
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.08,
         shadowRadius: 4,
@@ -486,13 +493,13 @@ const styles = StyleSheet.create({
     }),
   },
   modeTabText: {
-    fontSize: 12.5,
-    fontWeight: '600',
-    color: '#64748B',
+    fontSize: typography.fontSize[12.5],
+    fontWeight: typography.fontWeight.semiBold,
+    color: colors.textMuted,
   },
   activeModeTabText: {
-    color: '#4F46E5',
-    fontWeight: '700',
+    color: colors.primary,
+    fontWeight: typography.fontWeight.bold,
   },
   contentArea: {
     flex: 1,
@@ -501,12 +508,12 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#F8FAFC',
+    backgroundColor: colors.background,
   },
   loadingText: {
-    marginTop: 12,
-    fontSize: 14,
-    color: '#64748B',
+    marginTop: spacing[12],
+    fontSize: typography.fontSize[14],
+    color: colors.textMuted,
   },
   finishContainer: {
     flex: 1,
@@ -515,21 +522,21 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 20,
-    paddingVertical: 32,
+    padding: spacing[20],
+    paddingVertical: spacing[32],
   },
   finishCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
     borderRadius: 24,
-    padding: 28,
+    padding: spacing[28],
     alignItems: 'center',
     width: '100%',
     maxWidth: 400,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: colors.border,
     ...Platform.select({
       ios: {
-        shadowColor: '#0F172A',
+        shadowColor: colors.shadow,
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.08,
         shadowRadius: 16,
@@ -545,74 +552,74 @@ const styles = StyleSheet.create({
     borderRadius: 38,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 14,
+    marginBottom: spacing[14],
   },
   trophyBadge: {
-    backgroundColor: '#FEF3C7',
+    backgroundColor: colors.warningSoft,
     borderWidth: 2,
-    borderColor: '#FDE68A',
+    borderColor: colors.warningBorder,
   },
   bookBadge: {
-    backgroundColor: '#EEF2FF',
+    backgroundColor: colors.primarySoft,
     borderWidth: 2,
-    borderColor: '#E0E7FF',
+    borderColor: colors.primarySoftStrong,
   },
   finishTitle: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: '#0F172A',
-    marginBottom: 6,
-    letterSpacing: -0.3,
+    fontSize: typography.fontSize[22],
+    fontWeight: typography.fontWeight.extraBold,
+    color: colors.text,
+    marginBottom: spacing[6],
+    letterSpacing: typography.letterSpacing[-0.3],
   },
   finishScore: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#64748B',
-    marginBottom: 8,
+    fontSize: typography.fontSize[16],
+    fontWeight: typography.fontWeight.semiBold,
+    color: colors.textMuted,
+    marginBottom: spacing[8],
   },
   masteryPill: {
-    paddingHorizontal: 12,
-    paddingVertical: 4,
+    paddingHorizontal: spacing[12],
+    paddingVertical: spacing[4],
     borderRadius: 16,
-    marginBottom: 24,
+    marginBottom: spacing[24],
   },
   masteryPillHigh: {
-    backgroundColor: '#ECFDF5',
+    backgroundColor: colors.successSoft,
   },
   masteryPillLow: {
-    backgroundColor: '#EEF2FF',
+    backgroundColor: colors.primarySoft,
   },
   masteryPillText: {
-    fontSize: 14,
-    fontWeight: '800',
+    fontSize: typography.fontSize[14],
+    fontWeight: typography.fontWeight.extraBold,
   },
   masteryTextHigh: {
-    color: '#059669',
+    color: colors.success,
   },
   masteryTextLow: {
-    color: '#4F46E5',
+    color: colors.primary,
   },
   finishActionCol: {
     width: '100%',
-    gap: 10,
+    gap: spacing[10],
   },
   restartBtn: {
-    backgroundColor: '#EEF2FF',
+    backgroundColor: colors.primarySoft,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#C7D2FE',
+    borderColor: colors.primaryBorder,
   },
   restartBtnText: {
-    color: '#4F46E5',
-    fontWeight: '700',
-    fontSize: 15,
+    color: colors.primary,
+    fontWeight: typography.fontWeight.bold,
+    fontSize: typography.fontSize[15],
   },
   doneBtn: {
-    backgroundColor: '#4F46E5',
+    backgroundColor: colors.primary,
     borderRadius: 14,
     ...Platform.select({
       ios: {
-        shadowColor: '#4F46E5',
+        shadowColor: colors.shadow,
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.25,
         shadowRadius: 8,
@@ -623,15 +630,15 @@ const styles = StyleSheet.create({
     }),
   },
   doneBtnText: {
-    color: '#FFFFFF',
-    fontWeight: '700',
-    fontSize: 15,
+    color: colors.onPrimary,
+    fontWeight: typography.fontWeight.bold,
+    fontSize: typography.fontSize[15],
   },
   btnRow: {
-    paddingVertical: 14,
+    paddingVertical: spacing[14],
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    gap: 8,
+    gap: spacing[8],
   },
 });

@@ -1,4 +1,5 @@
 import React, { useRef } from 'react';
+import { colors } from '@/constants/theme';
 import {
   Pressable,
   PressableProps,
@@ -19,7 +20,7 @@ interface PlatformPressableProps extends PressableProps {
 export const PlatformPressable: React.FC<PlatformPressableProps> = ({
   style,
   activeScale = 0.97,
-  rippleColor = 'rgba(79, 70, 229, 0.1)',
+  rippleColor = colors.primaryRipple,
   disabled,
   children,
   onPressIn,

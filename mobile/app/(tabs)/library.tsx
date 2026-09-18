@@ -1,16 +1,16 @@
 import React, { useState, useEffect } from 'react';
+import { colors, spacing, typography } from '@/constants/theme';
 import {
   View,
-  Text,
   StyleSheet,
   FlatList,
   TouchableOpacity,
-  TextInput,
   ScrollView,
   RefreshControl,
   Platform,
   StatusBar as RNStatusBar,
 } from 'react-native';
+import { AppText as Text, AppTextInput as TextInput } from '@/components/common/app-text';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { HugeiconsIcon } from '@hugeicons/react-native';
@@ -140,7 +140,7 @@ export default function LibraryScreen() {
     return matchesSearch;
   });
 
-  const bottomListPadding = Math.max(insets.bottom, 24) + 88; // Floating nav clearance
+  const bottomListPadding = Math.max(insets.bottom, spacing[24]) + spacing[88]; // Floating nav clearance
 
   return (
     <TabTransitionView
@@ -148,8 +148,8 @@ export default function LibraryScreen() {
         styles.container,
         {
           paddingTop: Platform.OS === 'android'
-            ? Math.max(insets.top, RNStatusBar.currentHeight || 0, 28) + 14
-            : Math.max(insets.top, 20),
+            ? Math.max(insets.top, RNStatusBar.currentHeight || spacing[0], spacing[28]) + spacing[14]
+            : Math.max(insets.top, spacing[20]),
         },
       ]}
     >
@@ -184,19 +184,19 @@ export default function LibraryScreen() {
       {/* Search Input */}
       <View style={styles.searchBox}>
         <View style={styles.searchIconWrapper}>
-          <HugeiconsIcon icon={Search01Icon} size={18} color="#94A3B8" strokeWidth={2} />
+          <HugeiconsIcon icon={Search01Icon} size={18} color={colors.textDisabled} strokeWidth={2} />
         </View>
         <TextInput
           style={styles.searchInput}
           placeholder={activeTab === 'reviewers' ? 'Search study sets...' : 'Search documents...'}
-          placeholderTextColor="#94A3B8"
+          placeholderTextColor={colors.textDisabled}
           value={search}
           onChangeText={setSearch}
           clearButtonMode="while-editing"
         />
         {search.length > 0 && Platform.OS === 'android' && (
           <TouchableOpacity onPress={() => setSearch('')} style={styles.clearBtn}>
-            <HugeiconsIcon icon={Cancel01Icon} size={16} color="#94A3B8" strokeWidth={2} />
+            <HugeiconsIcon icon={Cancel01Icon} size={16} color={colors.textDisabled} strokeWidth={2} />
           </TouchableOpacity>
         )}
       </View>
@@ -249,8 +249,8 @@ export default function LibraryScreen() {
               <RefreshControl
                 refreshing={refreshing}
                 onRefresh={onRefresh}
-                tintColor="#4F46E5"
-                colors={['#4F46E5']}
+                tintColor={colors.primary}
+                colors={[colors.primary]}
               />
             }
             renderItem={({ item }) => (
@@ -279,7 +279,7 @@ export default function LibraryScreen() {
                     </Text>
                     <View style={styles.openHint}>
                       <Text style={styles.openHintText}>Study Now</Text>
-                      <HugeiconsIcon icon={ArrowRight01Icon} size={14} color="#4F46E5" strokeWidth={2.5} />
+                      <HugeiconsIcon icon={ArrowRight01Icon} size={14} color={colors.primary} strokeWidth={2.5} />
                     </View>
                   </View>
                 </TouchableOpacity>
@@ -290,7 +290,7 @@ export default function LibraryScreen() {
                     hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                     accessibilityLabel="Rename quiz"
                   >
-                    <HugeiconsIcon icon={Edit02Icon} size={16} color="#4F46E5" strokeWidth={1.8} />
+                    <HugeiconsIcon icon={Edit02Icon} size={16} color={colors.primary} strokeWidth={1.8} />
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={styles.deleteBtn}
@@ -298,7 +298,7 @@ export default function LibraryScreen() {
                     hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                     accessibilityLabel="Delete reviewer"
                   >
-                    <HugeiconsIcon icon={Delete02Icon} size={18} color="#EF4444" strokeWidth={1.75} />
+                    <HugeiconsIcon icon={Delete02Icon} size={18} color={colors.dangerAccent} strokeWidth={1.75} />
                   </TouchableOpacity>
                 </View>
               </View>
@@ -306,7 +306,7 @@ export default function LibraryScreen() {
             ListEmptyComponent={
               <View style={styles.empty}>
                 <View style={styles.emptyIconCircle}>
-                  <HugeiconsIcon icon={BookOpen01Icon} size={28} color="#94A3B8" strokeWidth={1.6} />
+                  <HugeiconsIcon icon={BookOpen01Icon} size={28} color={colors.textDisabled} strokeWidth={1.6} />
                 </View>
                 <Text style={styles.emptyTitle}>No study sets found</Text>
                 <Text style={styles.emptyText}>
@@ -344,8 +344,8 @@ export default function LibraryScreen() {
             <RefreshControl
               refreshing={refreshing}
               onRefresh={onRefresh}
-              tintColor="#4F46E5"
-              colors={['#4F46E5']}
+              tintColor={colors.primary}
+              colors={[colors.primary]}
             />
           }
           renderItem={({ item }) => {
@@ -353,7 +353,7 @@ export default function LibraryScreen() {
             return (
               <View style={styles.docCard}>
                 <View style={styles.docIconBox}>
-                  <HugeiconsIcon icon={File01Icon} size={20} color="#4F46E5" strokeWidth={1.8} />
+                  <HugeiconsIcon icon={File01Icon} size={20} color={colors.primary} strokeWidth={1.8} />
                 </View>
                 <View style={styles.docContent}>
                   <Text style={styles.docTitle} numberOfLines={1}>
@@ -397,7 +397,7 @@ export default function LibraryScreen() {
                       onPress={() => router.push(`/create/${item.id}`)}
                       hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
                     >
-                      <HugeiconsIcon icon={SparklesIcon} size={14} color="#4F46E5" strokeWidth={2} />
+                      <HugeiconsIcon icon={SparklesIcon} size={14} color={colors.primary} strokeWidth={2} />
                       <Text style={styles.studyActionText}>Study</Text>
                     </TouchableOpacity>
                   )}
@@ -407,7 +407,7 @@ export default function LibraryScreen() {
                     hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                     accessibilityLabel="Delete document"
                   >
-                    <HugeiconsIcon icon={Delete02Icon} size={18} color="#EF4444" strokeWidth={1.75} />
+                    <HugeiconsIcon icon={Delete02Icon} size={18} color={colors.dangerAccent} strokeWidth={1.75} />
                   </TouchableOpacity>
                 </View>
               </View>
@@ -416,7 +416,7 @@ export default function LibraryScreen() {
           ListEmptyComponent={
             <View style={styles.empty}>
               <View style={[styles.emptyIconCircle, styles.docEmptyIconCircle]}>
-                <HugeiconsIcon icon={File01Icon} size={28} color="#059669" strokeWidth={1.6} />
+                <HugeiconsIcon icon={File01Icon} size={28} color={colors.success} strokeWidth={1.6} />
               </View>
               <Text style={styles.emptyTitle}>No uploaded documents</Text>
               <Text style={styles.emptyText}>
@@ -466,41 +466,41 @@ export default function LibraryScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
-    paddingHorizontal: 16,
+    backgroundColor: colors.background,
+    paddingHorizontal: spacing[16],
   },
   header: {
-    marginBottom: 16,
+    marginBottom: spacing[16],
   },
   headerTitle: {
-    fontSize: 24,
-    fontWeight: '800',
-    color: '#0F172A',
-    letterSpacing: -0.4,
+    fontSize: typography.fontSize[24],
+    fontWeight: typography.fontWeight.extraBold,
+    color: colors.text,
+    letterSpacing: typography.letterSpacing[-0.4],
   },
   headerSub: {
-    fontSize: 13,
-    color: '#64748B',
-    marginTop: 2,
+    fontSize: typography.fontSize[13],
+    color: colors.textMuted,
+    marginTop: spacing[2],
   },
   segmentContainer: {
     flexDirection: 'row',
-    backgroundColor: '#E2E8F0',
+    backgroundColor: colors.surfaceMuted,
     borderRadius: 12,
-    padding: 3,
-    marginBottom: 12,
+    padding: spacing[3],
+    marginBottom: spacing[12],
   },
   segmentBtn: {
     flex: 1,
-    paddingVertical: 9,
+    paddingVertical: spacing[9],
     alignItems: 'center',
     borderRadius: 9,
   },
   activeSegmentBtn: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
     ...Platform.select({
       ios: {
-        shadowColor: '#0F172A',
+        shadowColor: colors.shadow,
         shadowOffset: { width: 0, height: 1 },
         shadowOpacity: 0.08,
         shadowRadius: 3,
@@ -511,26 +511,26 @@ const styles = StyleSheet.create({
     }),
   },
   segmentText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#64748B',
+    fontSize: typography.fontSize[14],
+    fontWeight: typography.fontWeight.semiBold,
+    color: colors.textMuted,
   },
   activeSegmentText: {
-    color: '#0F172A',
-    fontWeight: '700',
+    color: colors.text,
+    fontWeight: typography.fontWeight.bold,
   },
   searchBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: colors.border,
     borderRadius: 12,
-    paddingHorizontal: 12,
-    marginBottom: 12,
+    paddingHorizontal: spacing[12],
+    marginBottom: spacing[12],
     ...Platform.select({
       ios: {
-        shadowColor: '#0F172A',
+        shadowColor: colors.shadow,
         shadowOffset: { width: 0, height: 1 },
         shadowOpacity: 0.02,
         shadowRadius: 3,
@@ -541,60 +541,60 @@ const styles = StyleSheet.create({
     }),
   },
   searchIconWrapper: {
-    marginRight: 8,
+    marginRight: spacing[8],
   },
   searchInput: {
     flex: 1,
-    paddingVertical: Platform.OS === 'ios' ? 12 : 10,
-    fontSize: 14,
-    color: '#0F172A',
+    paddingVertical: Platform.OS === 'ios' ? spacing[12] : spacing[10],
+    fontSize: typography.fontSize[14],
+    color: colors.text,
   },
   clearBtn: {
-    padding: 4,
+    padding: spacing[4],
   },
   chipsWrapper: {
-    marginBottom: 12,
+    marginBottom: spacing[12],
   },
   chipRow: {
     flexDirection: 'row',
-    gap: 8,
-    paddingRight: 16,
+    gap: spacing[8],
+    paddingRight: spacing[16],
   },
   chip: {
-    paddingHorizontal: 14,
-    paddingVertical: 6,
+    paddingHorizontal: spacing[14],
+    paddingVertical: spacing[6],
     borderRadius: 20,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: colors.surfaceMuted,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: colors.border,
   },
   activeChip: {
-    backgroundColor: '#4F46E5',
-    borderColor: '#4F46E5',
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
   },
   chipText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#475569',
+    fontSize: typography.fontSize[13],
+    fontWeight: typography.fontWeight.semiBold,
+    color: colors.textSecondary,
   },
   activeChipText: {
-    color: '#FFFFFF',
+    color: colors.onPrimary,
   },
   listContent: {
-    paddingBottom: 24,
+    paddingBottom: spacing[24],
   },
   card: {
-    backgroundColor: '#FFFFFF',
-    padding: 16,
+    backgroundColor: colors.surface,
+    padding: spacing[16],
     borderRadius: 14,
-    marginBottom: 10,
+    marginBottom: spacing[10],
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: colors.border,
     flexDirection: 'row',
     alignItems: 'center',
     ...Platform.select({
       ios: {
-        shadowColor: '#0F172A',
+        shadowColor: colors.shadow,
         shadowOffset: { width: 0, height: 1 },
         shadowOpacity: 0.03,
         shadowRadius: 4,
@@ -606,38 +606,38 @@ const styles = StyleSheet.create({
   },
   cardMain: {
     flex: 1,
-    marginRight: 10,
+    marginRight: spacing[10],
   },
   cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 6,
+    marginBottom: spacing[6],
   },
   cardTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#0F172A',
+    fontSize: typography.fontSize[16],
+    fontWeight: typography.fontWeight.bold,
+    color: colors.text,
     flex: 1,
-    marginRight: 8,
-    letterSpacing: -0.2,
+    marginRight: spacing[8],
+    letterSpacing: typography.letterSpacing[-0.2],
   },
   badge: {
-    backgroundColor: '#EEF2FF',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
+    backgroundColor: colors.primarySoft,
+    paddingHorizontal: spacing[8],
+    paddingVertical: spacing[3],
     borderRadius: 6,
   },
   badgeText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#4F46E5',
+    fontSize: typography.fontSize[11],
+    fontWeight: typography.fontWeight.bold,
+    color: colors.primary,
   },
   cardDesc: {
-    fontSize: 13,
-    color: '#64748B',
-    marginBottom: 8,
-    lineHeight: 18,
+    fontSize: typography.fontSize[13],
+    color: colors.textMuted,
+    marginBottom: spacing[8],
+    lineHeight: typography.lineHeight[18],
   },
   cardFooter: {
     flexDirection: 'row',
@@ -645,29 +645,29 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   cardDate: {
-    fontSize: 11,
-    color: '#94A3B8',
+    fontSize: typography.fontSize[11],
+    color: colors.textDisabled,
   },
   openHint: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 3,
+    gap: spacing[3],
   },
   openHintText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#4F46E5',
+    fontSize: typography.fontSize[12],
+    fontWeight: typography.fontWeight.bold,
+    color: colors.primary,
   },
   cardSideActions: {
     flexDirection: 'column',
     alignItems: 'center',
-    gap: 8,
+    gap: spacing[8],
   },
   editBtn: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#EEF2FF',
+    backgroundColor: colors.primarySoft,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -675,22 +675,22 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#FEE2E2',
+    backgroundColor: colors.dangerSoft,
     alignItems: 'center',
     justifyContent: 'center',
   },
   docCard: {
-    backgroundColor: '#FFFFFF',
-    padding: 14,
+    backgroundColor: colors.surface,
+    padding: spacing[14],
     borderRadius: 14,
-    marginBottom: 10,
+    marginBottom: spacing[10],
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: colors.border,
     flexDirection: 'row',
     alignItems: 'center',
     ...Platform.select({
       ios: {
-        shadowColor: '#0F172A',
+        shadowColor: colors.shadow,
         shadowOffset: { width: 0, height: 1 },
         shadowOpacity: 0.03,
         shadowRadius: 4,
@@ -704,128 +704,128 @@ const styles = StyleSheet.create({
     width: 42,
     height: 42,
     borderRadius: 10,
-    backgroundColor: '#EEF2FF',
+    backgroundColor: colors.primarySoft,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 12,
+    marginRight: spacing[12],
   },
   docContent: {
     flex: 1,
-    marginRight: 8,
+    marginRight: spacing[8],
   },
   docTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#0F172A',
+    fontSize: typography.fontSize[14],
+    fontWeight: typography.fontWeight.bold,
+    color: colors.text,
   },
   docMetaRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 3,
-    gap: 6,
+    marginTop: spacing[3],
+    gap: spacing[6],
   },
   docMeta: {
-    fontSize: 12,
-    color: '#64748B',
+    fontSize: typography.fontSize[12],
+    color: colors.textMuted,
   },
   docMetaDot: {
-    fontSize: 12,
-    color: '#94A3B8',
+    fontSize: typography.fontSize[12],
+    color: colors.textDisabled,
   },
   statusBadge: {
-    paddingHorizontal: 6,
-    paddingVertical: 1,
+    paddingHorizontal: spacing[6],
+    paddingVertical: spacing[1],
     borderRadius: 4,
   },
   readyBadge: {
-    backgroundColor: '#ECFDF5',
+    backgroundColor: colors.successSoft,
   },
   pendingBadge: {
-    backgroundColor: '#FEF3C7',
+    backgroundColor: colors.warningSoft,
   },
   failedBadge: {
-    backgroundColor: '#FEE2E2',
+    backgroundColor: colors.dangerSoft,
   },
   statusText: {
-    fontSize: 11,
-    fontWeight: '700',
+    fontSize: typography.fontSize[11],
+    fontWeight: typography.fontWeight.bold,
   },
   readyText: {
-    color: '#059669',
+    color: colors.success,
   },
   pendingText: {
-    color: '#D97706',
+    color: colors.warning,
   },
   failedText: {
-    color: '#DC2626',
+    color: colors.danger,
   },
   docDate: {
-    fontSize: 11,
-    color: '#94A3B8',
-    marginTop: 4,
+    fontSize: typography.fontSize[11],
+    color: colors.textDisabled,
+    marginTop: spacing[4],
   },
   docActions: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: spacing[8],
   },
   studyActionBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#EEF2FF',
-    paddingHorizontal: 10,
-    paddingVertical: 7,
+    backgroundColor: colors.primarySoft,
+    paddingHorizontal: spacing[10],
+    paddingVertical: spacing[7],
     borderRadius: 8,
-    gap: 4,
+    gap: spacing[4],
   },
   studyActionText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#4F46E5',
+    fontSize: typography.fontSize[12],
+    fontWeight: typography.fontWeight.bold,
+    color: colors.primary,
   },
   empty: {
-    padding: 36,
+    padding: spacing[36],
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
-    marginTop: 12,
+    borderColor: colors.border,
+    marginTop: spacing[12],
   },
   emptyIconCircle: {
     width: 52,
     height: 52,
     borderRadius: 26,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: colors.surfaceMuted,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 12,
+    marginBottom: spacing[12],
   },
   docEmptyIconCircle: {
-    backgroundColor: '#ECFDF5',
+    backgroundColor: colors.successSoft,
   },
   emptyTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#0F172A',
-    marginBottom: 4,
+    fontSize: typography.fontSize[16],
+    fontWeight: typography.fontWeight.bold,
+    color: colors.text,
+    marginBottom: spacing[4],
   },
   emptyText: {
-    color: '#64748B',
-    fontSize: 13,
+    color: colors.textMuted,
+    fontSize: typography.fontSize[13],
     textAlign: 'center',
-    marginBottom: 16,
+    marginBottom: spacing[16],
   },
   emptyActionBtn: {
-    backgroundColor: '#4F46E5',
-    paddingHorizontal: 18,
-    paddingVertical: 10,
+    backgroundColor: colors.primary,
+    paddingHorizontal: spacing[18],
+    paddingVertical: spacing[10],
     borderRadius: 10,
   },
   emptyActionText: {
-    color: '#FFFFFF',
-    fontWeight: '700',
-    fontSize: 13,
+    color: colors.onPrimary,
+    fontWeight: typography.fontWeight.bold,
+    fontSize: typography.fontSize[13],
   },
 });

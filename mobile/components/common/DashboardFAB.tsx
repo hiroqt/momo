@@ -1,13 +1,14 @@
 import React, { useState, useRef } from 'react';
+import { colors, spacing, typography } from '@/constants/theme';
 import {
   View,
-  Text,
   StyleSheet,
   TouchableOpacity,
   TouchableWithoutFeedback,
   Animated,
   Platform,
 } from 'react-native';
+import { AppText as Text } from '@/components/common/app-text';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { HugeiconsIcon } from '@hugeicons/react-native';
 import {
@@ -105,7 +106,7 @@ export const DashboardFAB: React.FC<DashboardFABProps> = ({
   });
 
   // Position above the floating dock bar (dock is at insets.bottom + 4, height 58)
-  const bottomPosition = Math.max(insets.bottom, 12) + 76;
+  const bottomPosition = Math.max(insets.bottom, spacing[12]) + spacing[76];
 
   return (
     <>
@@ -162,7 +163,7 @@ export const DashboardFAB: React.FC<DashboardFABProps> = ({
               accessibilityLabel="View Study Sets"
               accessibilityRole="button"
             >
-              <HugeiconsIcon icon={BookOpen01Icon} size={20} color="#4F46E5" strokeWidth={2.2} />
+              <HugeiconsIcon icon={BookOpen01Icon} size={20} color={colors.primary} strokeWidth={2.2} />
             </TouchableOpacity>
           </Animated.View>
 
@@ -194,7 +195,7 @@ export const DashboardFAB: React.FC<DashboardFABProps> = ({
               accessibilityLabel="Upload Document"
               accessibilityRole="button"
             >
-              <HugeiconsIcon icon={Upload01Icon} size={20} color="#059669" strokeWidth={2.2} />
+              <HugeiconsIcon icon={Upload01Icon} size={20} color={colors.success} strokeWidth={2.2} />
             </TouchableOpacity>
           </Animated.View>
         </View>
@@ -208,7 +209,7 @@ export const DashboardFAB: React.FC<DashboardFABProps> = ({
           accessibilityRole="button"
         >
           <Animated.View style={{ transform: [{ rotate: rotation }] }}>
-            <HugeiconsIcon icon={Add01Icon} size={26} color="#FFFFFF" strokeWidth={2.6} />
+            <HugeiconsIcon icon={Add01Icon} size={26} color={colors.onPrimary} strokeWidth={2.6} />
           </Animated.View>
         </TouchableOpacity>
       </View>
@@ -219,7 +220,7 @@ export const DashboardFAB: React.FC<DashboardFABProps> = ({
 const styles = StyleSheet.create({
   backdrop: {
     ...StyleSheet.absoluteFill,
-    backgroundColor: 'rgba(15, 23, 42, 0.35)',
+    backgroundColor: colors.overlaySoft,
     zIndex: 90,
   },
   container: {
@@ -230,28 +231,28 @@ const styles = StyleSheet.create({
   },
   actionsContainer: {
     alignItems: 'flex-end',
-    marginBottom: 14,
-    gap: 12,
+    marginBottom: spacing[14],
+    gap: spacing[12],
   },
   actionItemRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'flex-end',
-    gap: 10,
+    gap: spacing[10],
   },
   labelPill: {
-    backgroundColor: '#FFFFFF',
-    paddingVertical: 7,
-    paddingHorizontal: 12,
+    backgroundColor: colors.surface,
+    paddingVertical: spacing[7],
+    paddingHorizontal: spacing[12],
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: colors.border,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: spacing[6],
     ...Platform.select({
       ios: {
-        shadowColor: '#0F172A',
+        shadowColor: colors.shadow,
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.12,
         shadowRadius: 6,
@@ -262,25 +263,25 @@ const styles = StyleSheet.create({
     }),
   },
   labelText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#0F172A',
+    fontSize: typography.fontSize[13],
+    fontWeight: typography.fontWeight.bold,
+    color: colors.text,
   },
   labelSubText: {
-    fontSize: 11,
-    fontWeight: '500',
-    color: '#64748B',
+    fontSize: typography.fontSize[11],
+    fontWeight: typography.fontWeight.medium,
+    color: colors.textMuted,
   },
   countBadge: {
-    backgroundColor: '#EEF2FF',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
+    backgroundColor: colors.primarySoft,
+    paddingHorizontal: spacing[6],
+    paddingVertical: spacing[2],
     borderRadius: 6,
   },
   countBadgeText: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: '#4F46E5',
+    fontSize: typography.fontSize[11],
+    fontWeight: typography.fontWeight.extraBold,
+    color: colors.primary,
   },
   miniFab: {
     width: 46,
@@ -291,7 +292,7 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     ...Platform.select({
       ios: {
-        shadowColor: '#0F172A',
+        shadowColor: colors.shadow,
         shadowOffset: { width: 0, height: 3 },
         shadowOpacity: 0.14,
         shadowRadius: 6,
@@ -302,23 +303,23 @@ const styles = StyleSheet.create({
     }),
   },
   uploadMiniFab: {
-    backgroundColor: '#ECFDF5',
-    borderColor: '#A7F3D0',
+    backgroundColor: colors.successSoft,
+    borderColor: colors.successBorder,
   },
   studySetsMiniFab: {
-    backgroundColor: '#EEF2FF',
-    borderColor: '#C7D2FE',
+    backgroundColor: colors.primarySoft,
+    borderColor: colors.primaryBorder,
   },
   mainFab: {
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: '#4F46E5',
+    backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
     ...Platform.select({
       ios: {
-        shadowColor: '#4F46E5',
+        shadowColor: colors.shadow,
         shadowOffset: { width: 0, height: 6 },
         shadowOpacity: 0.38,
         shadowRadius: 10,

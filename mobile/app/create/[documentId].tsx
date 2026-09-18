@@ -1,15 +1,15 @@
 import React, { useEffect, useState, useRef } from 'react';
+import { colors, spacing, typography } from '@/constants/theme';
 import {
   View,
-  Text,
   StyleSheet,
-  TextInput,
   TouchableOpacity,
   Alert,
   Platform,
   Animated,
   KeyboardAvoidingView,
 } from 'react-native';
+import { AppText as Text, AppTextInput as TextInput } from '@/components/common/app-text';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { HugeiconsIcon } from '@hugeicons/react-native';
@@ -211,7 +211,7 @@ export default function CreateReviewerScreen() {
                   ]}
                 >
                   {isCompleted ? (
-                    <HugeiconsIcon icon={Tick01Icon} size={10} color="#FFFFFF" strokeWidth={3} />
+                    <HugeiconsIcon icon={Tick01Icon} size={10} color={colors.onPrimary} strokeWidth={3} />
                   ) : (
                     <Text
                       style={[
@@ -233,7 +233,7 @@ export default function CreateReviewerScreen() {
         style={styles.container}
         contentContainerStyle={[
           styles.content,
-          { paddingBottom: Math.max(insets.bottom, 24) + 90 },
+          { paddingBottom: Math.max(insets.bottom, spacing[24]) + spacing[90] },
         ]}
       >
         {/* STEP 1: Name of the Reviewer */}
@@ -242,7 +242,7 @@ export default function CreateReviewerScreen() {
             <View style={styles.sectionHeader}>
               <View style={styles.stepTitleRow}>
                 <View style={styles.stepIconBox}>
-                  <HugeiconsIcon icon={Edit02Icon} size={18} color="#4F46E5" strokeWidth={2.2} />
+                  <HugeiconsIcon icon={Edit02Icon} size={18} color={colors.primary} strokeWidth={2.2} />
                 </View>
                 <Text style={styles.stepTitle}>Name your reviewer</Text>
               </View>
@@ -256,7 +256,7 @@ export default function CreateReviewerScreen() {
               <TextInput
                 style={styles.input}
                 placeholder="e.g. Cardiovascular Exam Prep, Biology Ch. 3"
-                placeholderTextColor="#94A3B8"
+                placeholderTextColor={colors.textDisabled}
                 value={title}
                 onChangeText={setTitle}
                 autoFocus={true}
@@ -280,7 +280,7 @@ export default function CreateReviewerScreen() {
             <View style={styles.sectionHeader}>
               <View style={styles.stepTitleRow}>
                 <View style={styles.stepIconBox}>
-                  <HugeiconsIcon icon={Target02Icon} size={18} color="#4F46E5" strokeWidth={2.2} />
+                  <HugeiconsIcon icon={Target02Icon} size={18} color={colors.primary} strokeWidth={2.2} />
                 </View>
                 <Text style={styles.stepTitle}>What topic are you studying?</Text>
               </View>
@@ -310,7 +310,7 @@ export default function CreateReviewerScreen() {
                         <HugeiconsIcon
                           icon={isSelected ? Tick01Icon : Add01Icon}
                           size={13}
-                          color={isSelected ? '#4F46E5' : '#64748B'}
+                          color={isSelected ? colors.primary : colors.textMuted}
                           strokeWidth={2.5}
                         />
                         <Text style={[styles.topicChipText, isSelected && styles.activeTopicChipText]}>
@@ -328,7 +328,7 @@ export default function CreateReviewerScreen() {
               <TextInput
                 style={styles.input}
                 placeholder="e.g. Action Potential, Cardiac Cycle, Chapter 4"
-                placeholderTextColor="#94A3B8"
+                placeholderTextColor={colors.textDisabled}
                 value={topic}
                 onChangeText={setTopic}
                 returnKeyType="next"
@@ -344,7 +344,7 @@ export default function CreateReviewerScreen() {
             <View style={styles.sectionHeader}>
               <View style={styles.stepTitleRow}>
                 <View style={styles.stepIconBox}>
-                  <HugeiconsIcon icon={Layers01Icon} size={18} color="#4F46E5" strokeWidth={2.2} />
+                  <HugeiconsIcon icon={Layers01Icon} size={18} color={colors.primary} strokeWidth={2.2} />
                 </View>
                 <Text style={styles.stepTitle}>How many items?</Text>
               </View>
@@ -394,7 +394,7 @@ export default function CreateReviewerScreen() {
             <View style={styles.sectionHeader}>
               <View style={styles.stepTitleRow}>
                 <View style={styles.stepIconBox}>
-                  <HugeiconsIcon icon={FlashIcon} size={18} color="#4F46E5" strokeWidth={2.2} />
+                  <HugeiconsIcon icon={FlashIcon} size={18} color={colors.primary} strokeWidth={2.2} />
                 </View>
                 <Text style={styles.stepTitle}>Choose difficulty level</Text>
               </View>
@@ -408,25 +408,25 @@ export default function CreateReviewerScreen() {
                 {
                   id: 'easy',
                   label: 'Easy',
-                  color: '#059669',
-                  bg: '#ECFDF5',
-                  borderColor: '#A7F3D0',
+                  color: colors.success,
+                  bg: colors.successSoft,
+                  borderColor: colors.successBorder,
                   desc: 'Core definitions, foundational terms, and direct factual recall.',
                 },
                 {
                   id: 'medium',
                   label: 'Medium (Balanced)',
-                  color: '#4F46E5',
-                  bg: '#EEF2FF',
-                  borderColor: '#C7D2FE',
+                  color: colors.primary,
+                  bg: colors.primarySoft,
+                  borderColor: colors.primaryBorder,
                   desc: 'Cause-and-effect relationships, mechanisms, and interactions between concepts.',
                 },
                 {
                   id: 'hard',
                   label: 'Hard (Mastery)',
-                  color: '#D97706',
-                  bg: '#FFFBEB',
-                  borderColor: '#FDE68A',
+                  color: colors.warning,
+                  bg: colors.warningSoft,
+                  borderColor: colors.warningBorder,
                   desc: 'In-depth mechanisms, clinical scenarios, nuanced distinctions, and multi-step pathways.',
                 },
               ].map((d) => {
@@ -471,7 +471,7 @@ export default function CreateReviewerScreen() {
             <View style={styles.sectionHeader}>
               <View style={styles.stepTitleRow}>
                 <View style={styles.stepIconBox}>
-                  <HugeiconsIcon icon={Task01Icon} size={18} color="#4F46E5" strokeWidth={2.2} />
+                  <HugeiconsIcon icon={Task01Icon} size={18} color={colors.primary} strokeWidth={2.2} />
                 </View>
                 <Text style={styles.stepTitle}>Select study formats</Text>
               </View>
@@ -518,7 +518,7 @@ export default function CreateReviewerScreen() {
                   >
                     <View style={[styles.checkbox, isChecked && styles.checkboxChecked]}>
                       {isChecked && (
-                        <HugeiconsIcon icon={Tick01Icon} size={13} color="#FFFFFF" strokeWidth={3} />
+                        <HugeiconsIcon icon={Tick01Icon} size={13} color={colors.onPrimary} strokeWidth={3} />
                       )}
                     </View>
                     <View style={styles.formatInfo}>
@@ -538,7 +538,7 @@ export default function CreateReviewerScreen() {
               <TextInput
                 style={[styles.input, styles.textArea]}
                 placeholder="e.g. Focus heavily on exam-relevant definitions and clinical symptoms..."
-                placeholderTextColor="#94A3B8"
+                placeholderTextColor={colors.textDisabled}
                 value={instructions}
                 onChangeText={setInstructions}
                 multiline
@@ -550,7 +550,12 @@ export default function CreateReviewerScreen() {
       </SmoothScrollView>
 
       {/* Bottom Sticky Action Bar */}
-      <View style={[styles.bottomBar, { paddingBottom: Math.max(insets.bottom, 16) + 8 }]}>
+      <View
+        style={[
+          styles.bottomBar,
+          { paddingBottom: Math.max(insets.bottom, spacing[16]) + spacing[8] },
+        ]}
+      >
         <TouchableOpacity
           style={[styles.prevBtn, currentStep === 1 && styles.prevBtnDisabled]}
           onPress={goToPreviousStep}
@@ -559,7 +564,7 @@ export default function CreateReviewerScreen() {
           <HugeiconsIcon
             icon={ArrowLeft01Icon}
             size={18}
-            color={currentStep === 1 ? '#94A3B8' : '#475569'}
+            color={currentStep === 1 ? colors.textDisabled : colors.textSecondary}
             strokeWidth={2}
           />
           <Text style={[styles.prevBtnText, currentStep === 1 && styles.prevBtnTextDisabled]}>
@@ -583,7 +588,7 @@ export default function CreateReviewerScreen() {
             <HugeiconsIcon
               icon={currentStep === TOTAL_STEPS ? SparklesIcon : ArrowRight01Icon}
               size={18}
-              color="#FFFFFF"
+              color={colors.onPrimary}
               strokeWidth={2.2}
             />
           </View>
@@ -596,33 +601,33 @@ export default function CreateReviewerScreen() {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: colors.background,
   },
   topProgressArea: {
-    paddingHorizontal: 20,
-    paddingTop: 8,
-    paddingBottom: 14,
-    backgroundColor: '#FFFFFF',
+    paddingHorizontal: spacing[20],
+    paddingTop: spacing[8],
+    paddingBottom: spacing[14],
+    backgroundColor: colors.surface,
     borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
+    borderBottomColor: colors.surfaceMuted,
   },
   stepTrack: {
     height: 6,
-    backgroundColor: '#E2E8F0',
+    backgroundColor: colors.surfaceMuted,
     borderRadius: 3,
     overflow: 'hidden',
-    marginBottom: 12,
+    marginBottom: spacing[12],
   },
   stepBarFill: {
     height: '100%',
-    backgroundColor: '#4F46E5',
+    backgroundColor: colors.primary,
     borderRadius: 3,
   },
   stepPillRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 4,
+    paddingHorizontal: spacing[4],
   },
   pillItem: {
     alignItems: 'center',
@@ -631,220 +636,220 @@ const styles = StyleSheet.create({
     width: 22,
     height: 22,
     borderRadius: 11,
-    backgroundColor: '#E2E8F0',
+    backgroundColor: colors.surfaceMuted,
     alignItems: 'center',
     justifyContent: 'center',
   },
   pillDotCompleted: {
-    backgroundColor: '#059669',
+    backgroundColor: colors.success,
   },
   pillDotCurrent: {
-    backgroundColor: '#4F46E5',
+    backgroundColor: colors.primary,
   },
   pillNumber: {
-    fontSize: 10.5,
-    fontWeight: '700',
-    color: '#64748B',
+    fontSize: typography.fontSize[10.5],
+    fontWeight: typography.fontWeight.bold,
+    color: colors.textMuted,
   },
   pillNumberCurrent: {
-    color: '#FFFFFF',
+    color: colors.onPrimary,
   },
   container: {
     flex: 1,
   },
   content: {
-    padding: 20,
+    padding: spacing[20],
   },
   stepSection: {
     flex: 1,
   },
   sectionHeader: {
-    marginBottom: 20,
+    marginBottom: spacing[20],
   },
   stepTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    marginBottom: 6,
+    gap: spacing[10],
+    marginBottom: spacing[6],
   },
   stepIconBox: {
     width: 32,
     height: 32,
     borderRadius: 8,
-    backgroundColor: '#EEF2FF',
+    backgroundColor: colors.primarySoft,
     alignItems: 'center',
     justifyContent: 'center',
   },
   stepTitle: {
-    fontSize: 21,
-    fontWeight: '800',
-    color: '#0F172A',
-    letterSpacing: -0.3,
+    fontSize: typography.fontSize[21],
+    fontWeight: typography.fontWeight.extraBold,
+    color: colors.text,
+    letterSpacing: typography.letterSpacing[-0.3],
   },
   stepDesc: {
-    fontSize: 13.5,
-    color: '#64748B',
-    lineHeight: 20,
+    fontSize: typography.fontSize[13.5],
+    color: colors.textMuted,
+    lineHeight: typography.lineHeight[20],
   },
   inputWrapper: {
-    marginBottom: 16,
+    marginBottom: spacing[16],
   },
   label: {
-    fontSize: 13.5,
-    fontWeight: '700',
-    color: '#1E293B',
-    marginBottom: 8,
-    letterSpacing: -0.2,
+    fontSize: typography.fontSize[13.5],
+    fontWeight: typography.fontWeight.bold,
+    color: colors.text,
+    marginBottom: spacing[8],
+    letterSpacing: typography.letterSpacing[-0.2],
   },
   sublabel: {
-    fontSize: 12.5,
-    fontWeight: '600',
-    color: '#64748B',
-    marginBottom: 10,
+    fontSize: typography.fontSize[12.5],
+    fontWeight: typography.fontWeight.semiBold,
+    color: colors.textMuted,
+    marginBottom: spacing[10],
   },
   input: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
     borderWidth: 1.5,
-    borderColor: '#CBD5E1',
+    borderColor: colors.borderStrong,
     borderRadius: 14,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    fontSize: 15,
-    color: '#0F172A',
+    paddingHorizontal: spacing[16],
+    paddingVertical: spacing[14],
+    fontSize: typography.fontSize[15],
+    color: colors.text,
   },
   textArea: {
     minHeight: 90,
     textAlignVertical: 'top',
-    paddingTop: 12,
+    paddingTop: spacing[12],
   },
   docHintBox: {
-    marginTop: 8,
-    padding: 12,
-    backgroundColor: '#EEF2FF',
+    marginTop: spacing[8],
+    padding: spacing[12],
+    backgroundColor: colors.primarySoft,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#E0E7FF',
+    borderColor: colors.primarySoftStrong,
   },
   docHintLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#4F46E5',
+    fontSize: typography.fontSize[11],
+    fontWeight: typography.fontWeight.bold,
+    color: colors.primary,
     textTransform: 'uppercase',
-    marginBottom: 2,
+    marginBottom: spacing[2],
   },
   docHintValue: {
-    fontSize: 13,
-    color: '#312E81',
-    fontWeight: '600',
+    fontSize: typography.fontSize[13],
+    color: colors.primaryDark,
+    fontWeight: typography.fontWeight.semiBold,
   },
   suggestedArea: {
-    marginBottom: 18,
+    marginBottom: spacing[18],
   },
   suggestedContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
+    gap: spacing[8],
   },
   topicChip: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
     borderWidth: 1.5,
-    borderColor: '#E2E8F0',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    borderColor: colors.border,
+    paddingHorizontal: spacing[12],
+    paddingVertical: spacing[8],
     borderRadius: 20,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: spacing[6],
   },
   activeTopicChip: {
-    backgroundColor: '#EEF2FF',
-    borderColor: '#4F46E5',
+    backgroundColor: colors.primarySoft,
+    borderColor: colors.primary,
   },
   topicChipText: {
-    fontSize: 12.5,
-    color: '#475569',
-    fontWeight: '600',
+    fontSize: typography.fontSize[12.5],
+    color: colors.textSecondary,
+    fontWeight: typography.fontWeight.semiBold,
   },
   activeTopicChipText: {
-    color: '#4F46E5',
-    fontWeight: '700',
+    color: colors.primary,
+    fontWeight: typography.fontWeight.bold,
   },
   countGrid: {
-    gap: 12,
+    gap: spacing[12],
   },
   countCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
     borderWidth: 1.5,
-    borderColor: '#E2E8F0',
+    borderColor: colors.border,
     borderRadius: 16,
-    padding: 16,
+    padding: spacing[16],
   },
   countCardActive: {
-    borderColor: '#4F46E5',
-    backgroundColor: '#EEF2FF',
+    borderColor: colors.primary,
+    backgroundColor: colors.primarySoft,
   },
   countCardTop: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 4,
+    marginBottom: spacing[4],
   },
   countCardNum: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: '#1E293B',
+    fontSize: typography.fontSize[22],
+    fontWeight: typography.fontWeight.extraBold,
+    color: colors.text,
   },
   countCardNumActive: {
-    color: '#4F46E5',
+    color: colors.primary,
   },
   countBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
+    paddingHorizontal: spacing[8],
+    paddingVertical: spacing[3],
     borderRadius: 8,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: colors.surfaceMuted,
   },
   countBadgeActive: {
-    backgroundColor: '#C7D2FE',
+    backgroundColor: colors.primarySoftStrong,
   },
   countBadgeText: {
-    fontSize: 11.5,
-    fontWeight: '700',
-    color: '#64748B',
+    fontSize: typography.fontSize[11.5],
+    fontWeight: typography.fontWeight.bold,
+    color: colors.textMuted,
   },
   countBadgeTextActive: {
-    color: '#312E81',
+    color: colors.primaryDark,
   },
   countCardLabel: {
-    fontSize: 13,
-    color: '#64748B',
-    fontWeight: '500',
+    fontSize: typography.fontSize[13],
+    color: colors.textMuted,
+    fontWeight: typography.fontWeight.medium,
   },
   countCardLabelActive: {
-    color: '#4F46E5',
-    fontWeight: '700',
+    color: colors.primary,
+    fontWeight: typography.fontWeight.bold,
   },
   diffCardList: {
-    gap: 12,
+    gap: spacing[12],
   },
   diffCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
     borderWidth: 1.5,
-    borderColor: '#E2E8F0',
+    borderColor: colors.border,
     borderRadius: 16,
-    padding: 16,
+    padding: spacing[16],
   },
   diffHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    marginBottom: 6,
+    gap: spacing[10],
+    marginBottom: spacing[6],
   },
   diffRadio: {
     width: 20,
     height: 20,
     borderRadius: 10,
     borderWidth: 2,
-    borderColor: '#CBD5E1',
+    borderColor: colors.borderStrong,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -852,86 +857,86 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
   },
   diffTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#1E293B',
+    fontSize: typography.fontSize[15],
+    fontWeight: typography.fontWeight.bold,
+    color: colors.text,
   },
   diffDesc: {
-    fontSize: 12.5,
-    color: '#64748B',
-    lineHeight: 18,
-    marginLeft: 30,
+    fontSize: typography.fontSize[12.5],
+    color: colors.textMuted,
+    lineHeight: typography.lineHeight[18],
+    marginLeft: spacing[30],
   },
   formatGroup: {
-    gap: 10,
-    marginBottom: 20,
+    gap: spacing[10],
+    marginBottom: spacing[20],
   },
   formatCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
     borderWidth: 1.5,
-    borderColor: '#E2E8F0',
+    borderColor: colors.border,
     borderRadius: 14,
-    padding: 14,
+    padding: spacing[14],
   },
   formatCardChecked: {
-    borderColor: '#4F46E5',
-    backgroundColor: '#F5F3FF',
+    borderColor: colors.primary,
+    backgroundColor: colors.primarySoft,
   },
   checkbox: {
     width: 22,
     height: 22,
     borderRadius: 6,
     borderWidth: 2,
-    borderColor: '#CBD5E1',
+    borderColor: colors.borderStrong,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 12,
-    backgroundColor: '#FFFFFF',
+    marginRight: spacing[12],
+    backgroundColor: colors.surface,
   },
   checkboxChecked: {
-    backgroundColor: '#4F46E5',
-    borderColor: '#4F46E5',
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
   },
   formatInfo: {
     flex: 1,
   },
   formatTitle: {
-    fontSize: 14.5,
-    fontWeight: '700',
-    color: '#1E293B',
+    fontSize: typography.fontSize[14.5],
+    fontWeight: typography.fontWeight.bold,
+    color: colors.text,
   },
   formatTitleChecked: {
-    color: '#4F46E5',
+    color: colors.primary,
   },
   formatDesc: {
-    fontSize: 12,
-    color: '#64748B',
-    marginTop: 2,
+    fontSize: typography.fontSize[12],
+    color: colors.textMuted,
+    marginTop: spacing[2],
   },
   instructionBox: {
-    marginTop: 6,
+    marginTop: spacing[6],
   },
   bottomBar: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
     borderTopWidth: 1,
-    borderTopColor: '#E2E8F0',
-    paddingHorizontal: 20,
-    paddingTop: 12,
+    borderTopColor: colors.border,
+    paddingHorizontal: spacing[20],
+    paddingTop: spacing[12],
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: spacing[12],
     ...Platform.select({
       ios: {
-        shadowColor: '#0F172A',
+        shadowColor: colors.shadow,
         shadowOffset: { width: 0, height: -3 },
         shadowOpacity: 0.05,
         shadowRadius: 6,
@@ -944,30 +949,30 @@ const styles = StyleSheet.create({
   prevBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
+    gap: spacing[6],
+    paddingVertical: spacing[14],
+    paddingHorizontal: spacing[16],
     borderRadius: 12,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: colors.surfaceMuted,
   },
   prevBtnDisabled: {
     opacity: 0.5,
   },
   prevBtnText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#475569',
+    fontSize: typography.fontSize[14],
+    fontWeight: typography.fontWeight.semiBold,
+    color: colors.textSecondary,
   },
   prevBtnTextDisabled: {
-    color: '#94A3B8',
+    color: colors.textDisabled,
   },
   nextBtn: {
     flex: 1,
-    backgroundColor: '#4F46E5',
+    backgroundColor: colors.primary,
     borderRadius: 14,
     ...Platform.select({
       ios: {
-        shadowColor: '#4F46E5',
+        shadowColor: colors.shadow,
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.25,
         shadowRadius: 8,
@@ -978,19 +983,19 @@ const styles = StyleSheet.create({
     }),
   },
   nextBtnContent: {
-    paddingVertical: 15,
+    paddingVertical: spacing[15],
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    gap: 8,
+    gap: spacing[8],
   },
   disabledBtn: {
-    backgroundColor: '#94A3B8',
+    backgroundColor: colors.textDisabled,
   },
   nextBtnText: {
-    color: '#FFFFFF',
-    fontSize: 15.5,
-    fontWeight: '700',
-    letterSpacing: -0.2,
+    color: colors.onPrimary,
+    fontSize: typography.fontSize[15.5],
+    fontWeight: typography.fontWeight.bold,
+    letterSpacing: typography.letterSpacing[-0.2],
   },
 });

@@ -1,20 +1,20 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { colors, spacing, typography } from '@/constants/theme';
 import {
   View,
-  Text,
   TouchableOpacity,
   StyleSheet,
   ScrollView,
   Animated,
   Platform,
 } from 'react-native';
+import { AppText as Text } from '@/components/common/app-text';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { HugeiconsIcon } from '@hugeicons/react-native';
 import {
   RefreshIcon,
   CheckmarkCircle02Icon,
   Cancel01Icon,
-  SparklesIcon,
   EyeIcon,
   BookOpen01Icon,
 } from '@hugeicons/core-free-icons';
@@ -32,7 +32,7 @@ interface Props {
 export const FlashcardDeck: React.FC<Props> = ({ items, onFinish }) => {
   const insets = useSafeAreaInsets();
   const isAndroid = Platform.OS === 'android';
-  const bottomPadding = Math.max(insets.bottom, isAndroid ? 28 : 16) + 16;
+  const bottomPadding = Math.max(insets.bottom, isAndroid ? spacing[28] : spacing[16]) + spacing[16];
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
@@ -194,7 +194,7 @@ export const FlashcardDeck: React.FC<Props> = ({ items, onFinish }) => {
               activeOpacity={0.7}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             >
-              <HugeiconsIcon icon={EyeIcon} size={13} color="#4F46E5" strokeWidth={2.2} />
+               <HugeiconsIcon icon={EyeIcon} size={13} color={colors.primary} strokeWidth={2.2} />
               <Text style={styles.flipHint}>Tap to reveal</Text>
             </TouchableOpacity>
           </View>
@@ -213,7 +213,7 @@ export const FlashcardDeck: React.FC<Props> = ({ items, onFinish }) => {
             >
               {isMeaningfulSection(currentItem.source_metadata?.section) ? (
                 <View style={styles.topicBadge}>
-                  <HugeiconsIcon icon={BookOpen01Icon} size={12} color="#4F46E5" strokeWidth={2.2} />
+                  <HugeiconsIcon icon={BookOpen01Icon} size={12} color={colors.primary} strokeWidth={2.2} />
                   <Text style={styles.topicBadgeText} numberOfLines={1}>
                     {currentItem.source_metadata?.section?.toUpperCase()}
                   </Text>
@@ -246,7 +246,7 @@ export const FlashcardDeck: React.FC<Props> = ({ items, onFinish }) => {
         >
           <View style={styles.cardHeaderRow}>
             <View style={styles.backTag}>
-              <HugeiconsIcon icon={CheckmarkCircle02Icon} size={13} color="#059669" strokeWidth={2.4} />
+              <HugeiconsIcon icon={CheckmarkCircle02Icon} size={13} color={colors.success} strokeWidth={2.4} />
               <Text style={styles.backTagText}>ANSWER REVEALED</Text>
             </View>
             <TouchableOpacity
@@ -255,7 +255,7 @@ export const FlashcardDeck: React.FC<Props> = ({ items, onFinish }) => {
               activeOpacity={0.7}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             >
-              <HugeiconsIcon icon={RefreshIcon} size={13} color="#64748B" strokeWidth={2} />
+              <HugeiconsIcon icon={RefreshIcon} size={13} color={colors.textMuted} strokeWidth={2} />
               <Text style={styles.backFlipHint}>Flip back</Text>
             </TouchableOpacity>
           </View>
@@ -270,7 +270,7 @@ export const FlashcardDeck: React.FC<Props> = ({ items, onFinish }) => {
             {/* Prominent Answer Hero Box */}
             <View style={styles.prominentAnswerCard}>
               <View style={styles.prominentAnswerHeader}>
-                <HugeiconsIcon icon={CheckmarkCircle02Icon} size={14} color="#047857" strokeWidth={2.4} />
+                <HugeiconsIcon icon={CheckmarkCircle02Icon} size={14} color={colors.success} strokeWidth={2.4} />
                 <Text style={styles.prominentAnswerBadgeLabel}>CORRECT ANSWER</Text>
               </View>
               <Text style={styles.answerText}>{currentItem.answer}</Text>
@@ -280,7 +280,7 @@ export const FlashcardDeck: React.FC<Props> = ({ items, onFinish }) => {
             {currentItem.explanation ? (
               <View style={styles.explanationBox}>
                 <View style={styles.explanationHeaderRow}>
-                  <HugeiconsIcon icon={BookOpen01Icon} size={14} color="#4F46E5" strokeWidth={2.2} />
+                  <HugeiconsIcon icon={BookOpen01Icon} size={14} color={colors.primary} strokeWidth={2.2} />
                   <Text style={styles.explanationLabel}>EXPLANATION & CONTEXT</Text>
                 </View>
                 <Text style={styles.explanationText}>{currentItem.explanation}</Text>
@@ -308,7 +308,7 @@ export const FlashcardDeck: React.FC<Props> = ({ items, onFinish }) => {
         >
           <PlatformPressable style={styles.revealButton} onPress={flipCard}>
             <View style={styles.revealContent}>
-              <HugeiconsIcon icon={EyeIcon} size={18} color="#FFFFFF" strokeWidth={2.2} />
+              <HugeiconsIcon icon={EyeIcon} size={18} color={colors.onPrimary} strokeWidth={2.2} />
               <Text style={styles.revealButtonText}>Show Answer</Text>
             </View>
           </PlatformPressable>
@@ -332,7 +332,7 @@ export const FlashcardDeck: React.FC<Props> = ({ items, onFinish }) => {
               onPress={() => handleNext(false)}
             >
               <View style={styles.actionBtnContent}>
-                <HugeiconsIcon icon={Cancel01Icon} size={18} color="#DC2626" strokeWidth={2.4} />
+                <HugeiconsIcon icon={Cancel01Icon} size={18} color={colors.danger} strokeWidth={2.4} />
                 <Text style={styles.reviewAgainText}>Review Again</Text>
               </View>
             </PlatformPressable>
@@ -342,7 +342,7 @@ export const FlashcardDeck: React.FC<Props> = ({ items, onFinish }) => {
               onPress={() => handleNext(true)}
             >
               <View style={styles.actionBtnContent}>
-                <HugeiconsIcon icon={CheckmarkCircle02Icon} size={18} color="#FFFFFF" strokeWidth={2.4} />
+                <HugeiconsIcon icon={CheckmarkCircle02Icon} size={18} color={colors.onPrimary} strokeWidth={2.4} />
                 <Text style={styles.gotItText}>Got It</Text>
               </View>
             </PlatformPressable>
@@ -356,75 +356,75 @@ export const FlashcardDeck: React.FC<Props> = ({ items, onFinish }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 16,
+    padding: spacing[16],
     justifyContent: 'space-between',
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: spacing[12],
   },
   progressCol: {
     flex: 1,
-    marginRight: 12,
+    marginRight: spacing[12],
   },
   progressText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#64748B',
-    marginBottom: 4,
+    fontSize: typography.fontSize[13],
+    fontWeight: typography.fontWeight.bold,
+    color: colors.textMuted,
+    marginBottom: spacing[4],
   },
   miniProgressBar: {
     height: 6,
-    backgroundColor: '#E2E8F0',
+    backgroundColor: colors.surfaceMuted,
     borderRadius: 3,
     overflow: 'hidden',
   },
   miniProgressFill: {
     height: '100%',
-    backgroundColor: '#4F46E5',
+    backgroundColor: colors.primary,
     borderRadius: 3,
   },
   badgeRow: {
     flexDirection: 'row',
-    gap: 6,
+    gap: spacing[6],
   },
   masteredBadge: {
-    backgroundColor: '#ECFDF5',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
+    backgroundColor: colors.successSoft,
+    paddingHorizontal: spacing[8],
+    paddingVertical: spacing[3],
     borderRadius: 6,
   },
   masteredText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#059669',
+    fontSize: typography.fontSize[11],
+    fontWeight: typography.fontWeight.bold,
+    color: colors.success,
   },
   difficultyBadge: {
-    backgroundColor: '#EEF2FF',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
+    backgroundColor: colors.primarySoft,
+    paddingHorizontal: spacing[8],
+    paddingVertical: spacing[3],
     borderRadius: 6,
   },
   difficultyText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#4F46E5',
+    fontSize: typography.fontSize[11],
+    fontWeight: typography.fontWeight.bold,
+    color: colors.primary,
   },
   cardWrapper: {
     flex: 1,
     minHeight: 360,
     maxHeight: 540,
-    marginBottom: 16,
+    marginBottom: spacing[16],
     position: 'relative',
   },
   cardFace: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
     borderRadius: 20,
-    padding: 20,
+    padding: spacing[20],
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: colors.border,
     position: 'absolute',
     top: 0,
     left: 0,
@@ -433,7 +433,7 @@ const styles = StyleSheet.create({
     backfaceVisibility: 'hidden',
     ...Platform.select({
       ios: {
-        shadowColor: '#0F172A',
+        shadowColor: colors.shadow,
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.08,
         shadowRadius: 14,
@@ -444,93 +444,93 @@ const styles = StyleSheet.create({
     }),
   },
   cardFront: {
-    borderColor: '#E2E8F0',
+    borderColor: colors.border,
     justifyContent: 'space-between',
   },
   cardBack: {
-    borderColor: '#C7D2FE',
+    borderColor: colors.primaryBorder,
   },
   cardHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: spacing[12],
   },
   frontTag: {
-    backgroundColor: '#EEF2FF',
-    paddingHorizontal: 8,
+    backgroundColor: colors.primarySoft,
+    paddingHorizontal: spacing[8],
     paddingVertical: 3.5,
     borderRadius: 6,
   },
   frontTagText: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: '#4F46E5',
-    letterSpacing: 0.6,
+    fontSize: typography.fontSize[10],
+    fontWeight: typography.fontWeight.extraBold,
+    color: colors.primary,
+    letterSpacing: typography.letterSpacing[0.6],
   },
   backTag: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    backgroundColor: '#ECFDF5',
-    paddingHorizontal: 8,
+    gap: spacing[4],
+    backgroundColor: colors.successSoft,
+    paddingHorizontal: spacing[8],
     paddingVertical: 3.5,
     borderRadius: 6,
   },
   backTagText: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: '#059669',
-    letterSpacing: 0.6,
+    fontSize: typography.fontSize[10],
+    fontWeight: typography.fontWeight.extraBold,
+    color: colors.success,
+    letterSpacing: typography.letterSpacing[0.6],
   },
   flipHintRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: spacing[4],
     flexShrink: 0,
-    backgroundColor: '#EEF2FF',
-    paddingHorizontal: 8,
+    backgroundColor: colors.primarySoft,
+    paddingHorizontal: spacing[8],
     paddingVertical: 3.5,
     borderRadius: 6,
   },
   flipHint: {
-    fontSize: 11,
-    color: '#4F46E5',
-    fontWeight: '600',
+    fontSize: typography.fontSize[11],
+    color: colors.primary,
+    fontWeight: typography.fontWeight.semiBold,
   },
   backFlipHintRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: spacing[4],
     flexShrink: 0,
-    backgroundColor: '#F1F5F9',
-    paddingHorizontal: 8,
+    backgroundColor: colors.surfaceMuted,
+    paddingHorizontal: spacing[8],
     paddingVertical: 3.5,
     borderRadius: 6,
   },
   backFlipHint: {
-    fontSize: 11,
-    color: '#64748B',
-    fontWeight: '600',
+    fontSize: typography.fontSize[11],
+    color: colors.textMuted,
+    fontWeight: typography.fontWeight.semiBold,
   },
   topicBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
-    backgroundColor: '#F8FAFC',
+    gap: spacing[5],
+    backgroundColor: colors.background,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+    borderColor: colors.border,
+    paddingHorizontal: spacing[10],
+    paddingVertical: spacing[4],
     borderRadius: 8,
-    marginBottom: 14,
+    marginBottom: spacing[14],
     maxWidth: '90%',
   },
   topicBadgeText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#475569',
-    letterSpacing: 0.5,
+    fontSize: typography.fontSize[10],
+    fontWeight: typography.fontWeight.bold,
+    color: colors.textSecondary,
+    letterSpacing: typography.letterSpacing[0.5],
   },
   cardScroll: {
     flex: 1,
@@ -538,7 +538,7 @@ const styles = StyleSheet.create({
   frontScrollContent: {
     flexGrow: 1,
     justifyContent: 'center',
-    paddingVertical: 12,
+    paddingVertical: spacing[12],
   },
   frontQuestionTouch: {
     width: '100%',
@@ -546,84 +546,84 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   questionText: {
-    fontSize: 19,
-    fontWeight: '700',
-    color: '#0F172A',
-    lineHeight: 28,
+    fontSize: typography.fontSize[19],
+    fontWeight: typography.fontWeight.bold,
+    color: colors.text,
+    lineHeight: typography.lineHeight[28],
     textAlign: 'center',
   },
   cardBottomBar: {
     alignItems: 'center',
-    paddingTop: 12,
+    paddingTop: spacing[12],
     borderTopWidth: 1,
-    borderTopColor: '#F1F5F9',
+    borderTopColor: colors.surfaceMuted,
   },
   cardBottomHint: {
-    fontSize: 12,
-    color: '#94A3B8',
-    fontWeight: '500',
+    fontSize: typography.fontSize[12],
+    color: colors.textDisabled,
+    fontWeight: typography.fontWeight.medium,
   },
   backScrollContent: {
-    paddingBottom: 16,
+    paddingBottom: spacing[16],
   },
   prominentAnswerCard: {
-    backgroundColor: '#F0FDF4',
+    backgroundColor: colors.successSoft,
     borderRadius: 14,
-    padding: 16,
+    padding: spacing[16],
     borderWidth: 1.5,
-    borderColor: '#86EFAC',
-    marginBottom: 12,
+    borderColor: colors.successBorder,
+    marginBottom: spacing[12],
   },
   prominentAnswerHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
-    marginBottom: 6,
+    gap: spacing[5],
+    marginBottom: spacing[6],
   },
   prominentAnswerBadgeLabel: {
-    fontSize: 10.5,
-    fontWeight: '800',
-    color: '#047857',
-    letterSpacing: 0.5,
+    fontSize: typography.fontSize[10.5],
+    fontWeight: typography.fontWeight.extraBold,
+    color: colors.success,
+    letterSpacing: typography.letterSpacing[0.5],
   },
   answerText: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: '#064E3B',
-    lineHeight: 25,
+    fontSize: typography.fontSize[18],
+    fontWeight: typography.fontWeight.extraBold,
+    color: colors.success,
+    lineHeight: typography.lineHeight[25],
   },
   explanationBox: {
-    backgroundColor: '#F8FAFC',
-    padding: 14,
+    backgroundColor: colors.background,
+    padding: spacing[14],
     borderRadius: 12,
     borderLeftWidth: 3.5,
-    borderLeftColor: '#4F46E5',
+    borderLeftColor: colors.primary,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
-    marginBottom: 8,
+    borderColor: colors.border,
+    marginBottom: spacing[8],
   },
   explanationHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    marginBottom: 6,
+    gap: spacing[6],
+    marginBottom: spacing[6],
   },
   explanationLabel: {
-    fontSize: 10.5,
-    fontWeight: '800',
-    color: '#4F46E5',
-    letterSpacing: 0.5,
+    fontSize: typography.fontSize[10.5],
+    fontWeight: typography.fontWeight.extraBold,
+    color: colors.primary,
+    letterSpacing: typography.letterSpacing[0.5],
   },
   explanationText: {
-    fontSize: 13.5,
-    color: '#334155',
-    lineHeight: 20,
+    fontSize: typography.fontSize[13.5],
+    color: colors.textSecondary,
+    lineHeight: typography.lineHeight[20],
   },
   controls: {
     position: 'relative',
     minHeight: 56,
     justifyContent: 'center',
-    marginBottom: 8,
+    marginBottom: spacing[8],
   },
   buttonLayer: {
     width: '100%',
@@ -636,11 +636,11 @@ const styles = StyleSheet.create({
     bottom: 0,
   },
   revealButton: {
-    backgroundColor: '#4F46E5',
+    backgroundColor: colors.primary,
     borderRadius: 14,
     ...Platform.select({
       ios: {
-        shadowColor: '#4F46E5',
+        shadowColor: colors.shadow,
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.25,
         shadowRadius: 8,
@@ -651,47 +651,47 @@ const styles = StyleSheet.create({
     }),
   },
   revealContent: {
-    paddingVertical: 16,
+    paddingVertical: spacing[16],
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    gap: 8,
+    gap: spacing[8],
   },
   revealButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '700',
+    color: colors.onPrimary,
+    fontSize: typography.fontSize[16],
+    fontWeight: typography.fontWeight.bold,
   },
   actionRow: {
     flexDirection: 'row',
-    gap: 12,
+    gap: spacing[12],
   },
   actionBtnContent: {
-    paddingVertical: 15,
+    paddingVertical: spacing[15],
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    gap: 8,
+    gap: spacing[8],
   },
   reviewAgainBtn: {
     flex: 1,
-    backgroundColor: '#FEE2E2',
+    backgroundColor: colors.dangerSoft,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#FECACA',
+    borderColor: colors.dangerBorder,
   },
   reviewAgainText: {
-    color: '#DC2626',
-    fontWeight: '700',
-    fontSize: 15,
+    color: colors.danger,
+    fontWeight: typography.fontWeight.bold,
+    fontSize: typography.fontSize[15],
   },
   gotItBtn: {
     flex: 1,
-    backgroundColor: '#059669',
+    backgroundColor: colors.success,
     borderRadius: 14,
     ...Platform.select({
       ios: {
-        shadowColor: '#059669',
+        shadowColor: colors.shadow,
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.25,
         shadowRadius: 8,
@@ -702,18 +702,18 @@ const styles = StyleSheet.create({
     }),
   },
   gotItText: {
-    color: '#FFFFFF',
-    fontWeight: '700',
-    fontSize: 15,
+    color: colors.onPrimary,
+    fontWeight: typography.fontWeight.bold,
+    fontSize: typography.fontSize[15],
   },
   emptyContainer: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 32,
+    padding: spacing[32],
   },
   emptyText: {
-    fontSize: 15,
-    color: '#64748B',
+    fontSize: typography.fontSize[15],
+    color: colors.textMuted,
   },
 });

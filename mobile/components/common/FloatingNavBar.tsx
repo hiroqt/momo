@@ -1,13 +1,14 @@
 import React, { useEffect, useState, useRef } from "react";
+import { colors, spacing, typography } from '@/constants/theme';
 import {
   View,
-  Text,
   StyleSheet,
   Pressable,
   Animated,
   Platform,
   Keyboard,
 } from "react-native";
+import { AppText as Text } from "@/components/common/app-text";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { HugeiconsIcon } from "@hugeicons/react-native";
 import {
@@ -76,8 +77,8 @@ export const FloatingNavBar: React.FC<FloatingNavBarProps> = ({
     return null;
   }
 
-  const bottomOffset = Math.max(insets.bottom, 12) + 4;
-  const horizontalPadding = 6;
+  const bottomOffset = Math.max(insets.bottom, spacing[12]) + spacing[4];
+  const horizontalPadding = spacing[6];
   const innerWidth = Math.max(dockWidth - horizontalPadding * 2, 60);
   const tabWidth = innerWidth / TABS.length;
 
@@ -194,7 +195,7 @@ const TabItem: React.FC<TabItemProps> = ({ tab, isFocused, onPress }) => {
         <HugeiconsIcon
           icon={tab.icon}
           size={20}
-          color={isFocused ? "#4F46E5" : "#64748B"}
+          color={isFocused ? colors.primary : colors.textMuted}
           strokeWidth={isFocused ? 2.4 : 1.8}
         />
         <Text
@@ -224,17 +225,17 @@ const styles = StyleSheet.create({
     width: "90%",
     maxWidth: 360,
     height: 58,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: colors.surface,
     borderRadius: 30,
-    paddingHorizontal: 6,
-    paddingVertical: 5,
+    paddingHorizontal: spacing[6],
+    paddingVertical: spacing[5],
     borderWidth: 1.5,
-    borderColor: "#E2E8F0",
+    borderColor: colors.border,
     position: "relative",
     justifyContent: "center",
     ...Platform.select({
       ios: {
-        shadowColor: "#0F172A",
+        shadowColor: colors.shadow,
         shadowOffset: { width: 0, height: 10 },
         shadowOpacity: 0.12,
         shadowRadius: 22,
@@ -248,10 +249,10 @@ const styles = StyleSheet.create({
     position: "absolute",
     top: 5,
     bottom: 5,
-    backgroundColor: "#EEF2FF",
+    backgroundColor: colors.primarySoft,
     borderRadius: 24,
     borderWidth: 1,
-    borderColor: "#C7D2FE",
+    borderColor: colors.primaryBorder,
     zIndex: 1,
   },
   tabsRow: {
@@ -271,19 +272,19 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 6,
+    gap: spacing[6],
     borderRadius: 24,
   },
   tabLabel: {
-    fontSize: 13,
-    letterSpacing: -0.2,
+    fontSize: typography.fontSize[13],
+    letterSpacing: typography.letterSpacing[-0.2],
   },
   activeTabLabel: {
-    fontWeight: "800",
-    color: "#4F46E5",
+    fontWeight: typography.fontWeight.extraBold,
+    color: colors.primary,
   },
   inactiveTabLabel: {
-    fontWeight: "600",
-    color: "#64748B",
+    fontWeight: typography.fontWeight.semiBold,
+    color: colors.textMuted,
   },
 });

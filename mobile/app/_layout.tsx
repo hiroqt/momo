@@ -7,6 +7,8 @@ import * as SplashScreen from "expo-splash-screen";
 import { useFonts } from "expo-font";
 import { colors, typography } from "@/constants/theme";
 
+import { CreditsProvider } from '../context/CreditsContext';
+
 export default function RootLayout() {
   const isIOS = Platform.OS === "ios";
 
@@ -28,7 +30,8 @@ export default function RootLayout() {
   }
 
   return (
-    <SafeAreaProvider>
+    <CreditsProvider>
+      <SafeAreaProvider>
       <StatusBar style="dark" />
       <Stack
         screenOptions={{
@@ -83,5 +86,6 @@ export default function RootLayout() {
         />
       </Stack>
     </SafeAreaProvider>
+    </CreditsProvider>
   );
 }

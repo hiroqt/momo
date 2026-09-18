@@ -32,6 +32,9 @@ import { PlatformPressable } from '../common/PlatformPressable';
 import { SmoothScrollView } from '../common/SmoothScrollView';
 import { syncEngine } from '../../lib/sync/syncEngine';
 import { isMeaningfulSection, sanitizeQuestionText } from '../../utils/formatters';
+import { useCredits } from '../../context/CreditsContext';
+import { MomoMoney } from '../mascot/MomoMoney';
+import { Modal } from 'react-native';
 
 interface Props {
   items: StudyItem[];
@@ -125,6 +128,9 @@ export const QuizRunner: React.FC<Props> = ({ items, onFinish, onRestart }) => {
     >
   >({});
 
+  const { credits, deductCredits, addXP } = useCredits();
+  const [showCreditsModal, setShowCreditsModal] = useState(false);
+
   // Animated values
   const xpBarAnim = useRef(new Animated.Value(0)).current;
   const floatAnim = useRef(new Animated.Value(0)).current;
@@ -150,6 +156,12 @@ export const QuizRunner: React.FC<Props> = ({ items, onFinish, onRestart }) => {
 
   const handleRevealAnswer = () => {
     if (isCurrentQuestionRevealed || isSubmittingFeedback) return;
+    
+    if (!deductCredits(50)) {
+      setShowCreditsModal(true);
+      return;
+    }
+
     setIsCurrentQuestionRevealed(true);
 
     if (options.length > 0) {
@@ -195,6 +207,7 @@ export const QuizRunner: React.FC<Props> = ({ items, onFinish, onRestart }) => {
 
     if (isCorrect) {
       setCurrentXP(nextXP);
+      addXP(earnedXP); // Add earned XP to credits
       const targetPercent = maxSessionXP > 0 ? (nextXP / maxSessionXP) * 100 : 0;
       Animated.timing(xpBarAnim, {
         toValue: targetPercent,
@@ -850,7 +863,7 @@ export const QuizRunner: React.FC<Props> = ({ items, onFinish, onRestart }) => {
                 (isCurrentQuestionRevealed || isSubmittingFeedback) && styles.revealBtnTextActive,
               ]}
             >
-              {isCurrentQuestionRevealed ? 'Revealed' : 'Reveal Answer'}
+              {isCurrentQuestionRevealed ? 'Revealed' : `Reveal Answer (50) • ${credits} left`}
             </Text>
           </TouchableOpacity>
 
@@ -882,11 +895,105 @@ export const QuizRunner: React.FC<Props> = ({ items, onFinish, onRestart }) => {
           </PlatformPressable>
         </View>
       </View>
+
+      {/* Insufficient Credits Modal */}
+      <Modal
+        visible={showCreditsModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowCreditsModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <MomoMoney size={120} />
+            <Text style={styles.modalTitle}>Out of Credits!</Text>
+            <Text style={styles.modalDesc}>
+              You need 50 credits to reveal an answer. You currently have {credits}.
+            </Text>
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={styles.modalCancelBtn}
+                onPress={() => setShowCreditsModal(false)}
+              >
+                <Text style={styles.modalCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.modalPurchaseBtn}
+                onPress={() => {
+                  setShowCreditsModal(false);
+                  router.push('/shop');
+                }}
+              >
+                <Text style={styles.modalPurchaseText}>Purchase more credits</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
     </SmoothScrollView>
   );
 };
 
 const styles = StyleSheet.create({
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContent: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    padding: 24,
+    alignItems: 'center',
+    width: '100%',
+    maxWidth: 340,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#0F172A',
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  modalDesc: {
+    fontSize: 14,
+    color: '#475569',
+    textAlign: 'center',
+    marginBottom: 24,
+    lineHeight: 20,
+  },
+  modalActions: {
+    flexDirection: 'row',
+    gap: 12,
+    width: '100%',
+  },
+  modalCancelBtn: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 14,
+    backgroundColor: '#F1F5F9',
+    alignItems: 'center',
+  },
+  modalCancelText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#475569',
+  },
+  modalPurchaseBtn: {
+    flex: 1.5,
+    paddingVertical: 14,
+    borderRadius: 14,
+    backgroundColor: '#4F46E5',
+    alignItems: 'center',
+  },
+  modalPurchaseText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
   container: {
     padding: 16,
     flexGrow: 1,

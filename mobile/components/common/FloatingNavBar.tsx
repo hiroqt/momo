@@ -15,6 +15,7 @@ import {
   Home01Icon,
   BookOpen01Icon,
   UserCircleIcon,
+  BitcoinShoppingIcon,
 } from "@hugeicons/core-free-icons";
 
 interface TabConfig {
@@ -26,6 +27,7 @@ interface TabConfig {
 const TABS: TabConfig[] = [
   { name: "index", label: "Home", icon: Home01Icon },
   { name: "library", label: "Library", icon: BookOpen01Icon },
+  { name: "shop", label: "Shop", icon: BitcoinShoppingIcon },
   { name: "profile", label: "Profile", icon: UserCircleIcon },
 ];
 
@@ -83,11 +85,12 @@ export const FloatingNavBar: React.FC<FloatingNavBarProps> = ({
   const tabWidth = innerWidth / TABS.length;
 
   const translateX = indicatorAnim.interpolate({
-    inputRange: [0, 1, 2],
+    inputRange: [0, 1, 2, 3],
     outputRange: [
       horizontalPadding,
       horizontalPadding + tabWidth,
       horizontalPadding + tabWidth * 2,
+      horizontalPadding + tabWidth * 3,
     ],
   });
 

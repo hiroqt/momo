@@ -7,6 +7,7 @@ import {
   ScrollView,
   Animated,
   Platform,
+  Image,
 } from 'react-native';
 import { AppText as Text } from '@/components/common/app-text';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -124,6 +125,11 @@ export default function GenerationProgressScreen() {
           {/* Animated Momo Crafting Mascot */}
           <View style={styles.mascotBox}>
             <MomoMaker size={145} />
+            <Image 
+              source={require('@/assets/momo_logo.png')} 
+              style={styles.logoImage}
+              resizeMode="contain"
+            />
           </View>
 
           <Text style={styles.title}>Cooking up your reviewer</Text>
@@ -261,7 +267,13 @@ const styles = StyleSheet.create({
   mascotBox: {
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: spacing[8],
+    flexDirection: 'row',
+    gap: spacing[12],
+    marginBottom: spacing[16],
+  },
+  logoImage: {
+    width: 150,
+    height: 150,
   },
   formatRow: {
     alignItems: 'center',

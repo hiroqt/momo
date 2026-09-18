@@ -8,6 +8,7 @@ import {
   ScrollView,
   Alert,
   Platform,
+  Image,
 } from 'react-native';
 import { AppText as Text } from '@/components/common/app-text';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -31,6 +32,7 @@ import { PlatformPressable } from '../../components/common/PlatformPressable';
 import { ConfirmationModal } from '../../components/common/ConfirmationModal';
 import { RenameModal } from '../../components/common/RenameModal';
 import { SmoothScrollView } from '../../components/common/SmoothScrollView';
+import { MomoMaker } from '../../components/mascot/MomoMaker';
 import { StudySet, StudyItem } from '../../types';
 
 function shuffleArray<T>(array: T[]): T[] {
@@ -176,9 +178,24 @@ export default function StudySessionScreen() {
 
   if (isLoading) {
     return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={styles.loadingText}>Loading study reviewer...</Text>
+      <View style={[styles.center, { backgroundColor: '#FFFFFF' }]}>
+        <Image 
+          source={require('@/assets/momo_logo.png')} 
+          style={{ width: '100%', height: '100%', position: 'absolute' }} 
+          resizeMode="cover" 
+        />
+        <ActivityIndicator size="large" color="#4F46E5" style={{ marginTop: 200 }} />
+        <Text style={[styles.loadingText, { 
+          color: '#000', 
+          backgroundColor: 'rgba(255,255,255,0.85)', 
+          paddingHorizontal: 16, 
+          paddingVertical: 8, 
+          borderRadius: 12,
+          fontWeight: 'bold',
+          marginTop: 12
+        }]}>
+          Loading study reviewer...
+        </Text>
       </View>
     );
   }

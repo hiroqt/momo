@@ -37,13 +37,13 @@ export const SourceAttribution: React.FC<Props> = ({ source, defaultExpanded = f
           <View style={styles.shieldIconBox}>
             <HugeiconsIcon icon={Shield01Icon} size={14} color={colors.primary} strokeWidth={2.4} />
           </View>
-          <View>
+          <View style={{ flex: 1 }}>
             <Text style={styles.label}>DOCUMENT REFERENCE</Text>
             <Text style={styles.sublabel}>Verified directly against your material</Text>
           </View>
         </View>
         <View style={styles.expandToggleRow}>
-          <Text style={styles.expandToggleText}>{expanded ? 'Hide Excerpt' : 'View Excerpt'}</Text>
+          <Text style={styles.expandToggleText}>{expanded ? 'Collapse' : 'Expand'}</Text>
           <HugeiconsIcon
             icon={expanded ? ArrowUp01Icon : ArrowDown01Icon}
             size={14}
@@ -112,9 +112,11 @@ const styles = StyleSheet.create({
     marginBottom: spacing[10],
   },
   titleRow: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing[8],
+    paddingRight: spacing[8],
   },
   shieldIconBox: {
     width: 28,
@@ -149,7 +151,7 @@ const styles = StyleSheet.create({
   },
   expandToggleText: {
     fontSize: typography.fontSize[11],
-    fontWeight: typography.fontWeight.bold,
+    fontFamily: typography.fontFamily.bold,
     color: colors.primary,
   },
   chipsRow: {

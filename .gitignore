@@ -134,3 +134,8 @@ tmp/
 temp/
 scratch/
 *.tmp
+
+# Expo Prebuild Native Folders
+mobile/ios/
+mobile/android/
+

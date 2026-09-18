@@ -8,6 +8,7 @@ import {
   StyleProp,
   ViewStyle,
   TextStyle,
+  ScrollView,
 } from 'react-native';
 import { AppText as Text, AppTextInput as TextInput } from '@/components/common/app-text';
 import { useRouter } from 'expo-router';
@@ -110,6 +111,7 @@ export const QuizRunner: React.FC<Props> = ({ items, onFinish, onRestart }) => {
   const [isCurrentQuestionRevealed, setIsCurrentQuestionRevealed] = useState(false);
   const [currentXP, setCurrentXP] = useState(0);
   const [isQuizFinished, setIsQuizFinished] = useState(false);
+  const [selectedReviewIndex, setSelectedReviewIndex] = useState<number | null>(null);
   const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false);
   const [lastAnswerResult, setLastAnswerResult] = useState<{
     isCorrect: boolean;
@@ -261,6 +263,7 @@ export const QuizRunner: React.FC<Props> = ({ items, onFinish, onRestart }) => {
     setUserAnswers({});
     setCurrentXP(0);
     setIsQuizFinished(false);
+    setSelectedReviewIndex(null);
     xpBarAnim.setValue(0);
     if (onRestart) {
       onRestart();
@@ -348,8 +351,60 @@ export const QuizRunner: React.FC<Props> = ({ items, onFinish, onRestart }) => {
           </Text>
         </View>
 
-        {/* Question Cards: User Answer (Green/Red), Correct Answer, and Grounded Explanation */}
-        {items.map((item, idx) => {
+        {/* Number Pagination */}
+        <View style={styles.paginationContainer}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.paginationScroll}>
+            {items.map((_, idx) => {
+              const uRecord = userAnswers[idx];
+              const isCorrect = uRecord?.isCorrect ?? false;
+              const isRevealed = uRecord?.wasRevealed ?? false;
+              const isSelected = selectedReviewIndex === idx;
+
+              let btnStyle: StyleProp<ViewStyle> = styles.pageBtnDefault;
+              let txtStyle: StyleProp<TextStyle> = styles.pageBtnTextDefault;
+
+              if (isRevealed) {
+                btnStyle = styles.pageBtnRevealed;
+                txtStyle = styles.pageBtnTextRevealed;
+              } else if (isCorrect) {
+                btnStyle = styles.pageBtnCorrect;
+                txtStyle = styles.pageBtnTextCorrect;
+              } else {
+                btnStyle = styles.pageBtnWrong;
+                txtStyle = styles.pageBtnTextWrong;
+              }
+
+              return (
+                <TouchableOpacity
+                  key={idx}
+                  style={[styles.pageBtn, btnStyle, isSelected && styles.pageBtnSelected]}
+                  onPress={() => setSelectedReviewIndex(idx)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.pageBtnText, txtStyle, isSelected && styles.pageBtnTextSelected]}>
+                    {idx + 1}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        </View>
+
+        {/* Selected Question Card */}
+        {(() => {
+          if (selectedReviewIndex === null) {
+            return (
+              <View style={styles.reviewInstructionBox}>
+                <HugeiconsIcon icon={ArrowUp01Icon} size={24} color="#64748B" strokeWidth={2} />
+                <Text style={styles.reviewInstructionText}>
+                  Select a question number above to view its detailed answer and explanation.
+                </Text>
+              </View>
+            );
+          }
+          const item = items[selectedReviewIndex];
+          if (!item) return null;
+          const idx = selectedReviewIndex;
           const userRecord = userAnswers[idx];
           const isCorrect = userRecord?.isCorrect ?? false;
           const userAnsText = userRecord?.userAnswer || '(Unanswered)';
@@ -357,7 +412,6 @@ export const QuizRunner: React.FC<Props> = ({ items, onFinish, onRestart }) => {
 
           return (
             <View
-              key={idx}
               style={[
                 styles.reviewQuestionCard,
                 userRecord?.wasRevealed
@@ -511,7 +565,7 @@ export const QuizRunner: React.FC<Props> = ({ items, onFinish, onRestart }) => {
               <SourceAttribution source={item.source_metadata} defaultExpanded={false} />
             </View>
           );
-        })}
+        })()}
 
         {/* Post-Quiz Actions */}
         <View style={styles.reviewActionFooter}>
@@ -870,7 +924,6 @@ export const QuizRunner: React.FC<Props> = ({ items, onFinish, onRestart }) => {
           <PlatformPressable
             style={[
               styles.primaryBtn,
-              styles.nextBtnFlex,
               (!hasAnswered || isSubmittingFeedback) && styles.disabledBtn,
             ]}
             disabled={!hasAnswered || isSubmittingFeedback}
@@ -912,12 +965,6 @@ export const QuizRunner: React.FC<Props> = ({ items, onFinish, onRestart }) => {
             </Text>
             <View style={styles.modalActions}>
               <TouchableOpacity
-                style={styles.modalCancelBtn}
-                onPress={() => setShowCreditsModal(false)}
-              >
-                <Text style={styles.modalCancelText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
                 style={styles.modalPurchaseBtn}
                 onPress={() => {
                   setShowCreditsModal(false);
@@ -925,6 +972,12 @@ export const QuizRunner: React.FC<Props> = ({ items, onFinish, onRestart }) => {
                 }}
               >
                 <Text style={styles.modalPurchaseText}>Purchase more credits</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.modalCancelBtn}
+                onPress={() => setShowCreditsModal(false)}
+              >
+                <Text style={styles.modalCancelText}>Cancel</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -966,32 +1019,33 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   modalActions: {
-    flexDirection: 'row',
+    flexDirection: 'column',
+    alignItems: 'stretch',
     gap: 12,
     width: '100%',
   },
   modalCancelBtn: {
-    flex: 1,
     paddingVertical: 14,
     borderRadius: 14,
     backgroundColor: '#F1F5F9',
     alignItems: 'center',
+    justifyContent: 'center',
   },
   modalCancelText: {
     fontSize: 15,
-    fontWeight: '700',
+    fontFamily: 'Poppins-Bold',
     color: '#475569',
   },
   modalPurchaseBtn: {
-    flex: 1.5,
     paddingVertical: 14,
     borderRadius: 14,
     backgroundColor: '#4F46E5',
     alignItems: 'center',
+    justifyContent: 'center',
   },
   modalPurchaseText: {
     fontSize: 15,
-    fontWeight: '700',
+    fontFamily: 'Poppins-Bold',
     color: '#FFFFFF',
   },
   container: {
@@ -1419,14 +1473,15 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   actionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: 'column',
+    alignItems: 'stretch',
     gap: 10,
     width: '100%',
   },
   revealBtn: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: 6,
     paddingHorizontal: 14,
     paddingVertical: 15,
@@ -1442,13 +1497,10 @@ const styles = StyleSheet.create({
   revealBtnText: {
     color: '#4F46E5',
     fontSize: 14,
-    fontWeight: '700',
+    fontFamily: 'Poppins-Bold',
   },
   revealBtnTextActive: {
     color: '#B45309',
-  },
-  nextBtnFlex: {
-    flex: 1,
   },
   primaryBtn: {
     backgroundColor: '#4F46E5',
@@ -1486,7 +1538,7 @@ const styles = StyleSheet.create({
   primaryBtnText: {
     color: '#FFFFFF',
     fontSize: 15.5,
-    fontWeight: '700',
+    fontFamily: 'Poppins-Bold',
     letterSpacing: -0.2,
   },
 
@@ -1630,6 +1682,82 @@ const styles = StyleSheet.create({
     fontSize: 12.5,
     color: '#64748B',
     lineHeight: 18,
+  },
+  reviewInstructionBox: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 16,
+    padding: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    marginBottom: 14,
+    borderStyle: 'dashed',
+  },
+  reviewInstructionText: {
+    marginTop: 12,
+    fontSize: 14,
+    color: '#64748B',
+    textAlign: 'center',
+    lineHeight: 20,
+    paddingHorizontal: 20,
+  },
+  paginationContainer: {
+    marginBottom: 16,
+  },
+  paginationScroll: {
+    gap: 8,
+    paddingHorizontal: 2,
+    paddingVertical: 4,
+  },
+  pageBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+  },
+  pageBtnDefault: {
+    backgroundColor: '#F1F5F9',
+    borderColor: '#CBD5E1',
+  },
+  pageBtnRevealed: {
+    backgroundColor: '#FFFBEB',
+    borderColor: '#FDE68A',
+  },
+  pageBtnCorrect: {
+    backgroundColor: '#ECFDF5',
+    borderColor: '#A7F3D0',
+  },
+  pageBtnWrong: {
+    backgroundColor: '#FEF2F2',
+    borderColor: '#FECACA',
+  },
+  pageBtnSelected: {
+    borderWidth: 2.5,
+    borderColor: '#4F46E5',
+    transform: [{ scale: 1.05 }],
+  },
+  pageBtnText: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  pageBtnTextDefault: {
+    color: '#64748B',
+  },
+  pageBtnTextRevealed: {
+    color: '#B45309',
+  },
+  pageBtnTextCorrect: {
+    color: '#047857',
+  },
+  pageBtnTextWrong: {
+    color: '#B91C1C',
+  },
+  pageBtnTextSelected: {
+    color: '#4F46E5',
+    fontWeight: '800',
   },
   reviewQuestionCard: {
     backgroundColor: '#FFFFFF',

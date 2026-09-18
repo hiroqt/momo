@@ -19,6 +19,7 @@
     "expo-document-picker": "~57.0.2",
     "expo-linking": "~57.0.10",
     "expo-router": "~57.0.21",
+    "expo-splash-screen": "~57.0.9",
     "expo-sqlite": "~57.0.3",
     "expo-status-bar": "~57.0.1",
     "lottie-react-native": "~7.3.8",

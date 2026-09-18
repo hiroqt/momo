@@ -1,0 +1,38 @@
+{
+  "name": "ai-study-platform-mobile",
+  "main": "expo-router/entry",
+  "version": "1.0.0",
+  "scripts": {
+    "start": "expo start",
+    "android": "expo run:android",
+    "ios": "expo run:ios",
+    "web": "expo start --web",
+    "lint": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@expo/vector-icons": "^15.0.2",
+    "@hugeicons/core-free-icons": "^4.3.3",
+    "@hugeicons/react-native": "^1.0.16",
+    "expo": "^57.0.0",
+    "expo-asset": "~57.0.17",
+    "expo-constants": "~57.0.18",
+    "expo-document-picker": "~57.0.2",
+    "expo-linking": "~57.0.10",
+    "expo-router": "~57.0.21",
+    "expo-sqlite": "~57.0.3",
+    "expo-status-bar": "~57.0.1",
+    "lottie-react-native": "~7.3.8",
+    "query-string": "^9.5.1",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "react-native": "0.86.3",
+    "react-native-safe-area-context": "~5.7.0",
+    "react-native-screens": "~4.26.0",
+    "react-native-svg": "^15.15.5"
+  },
+  "devDependencies": {
+    "@types/react": "~19.2.4",
+    "typescript": "^5.3.3"
+  },
+  "private": true
+}

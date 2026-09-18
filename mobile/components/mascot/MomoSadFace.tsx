@@ -1,0 +1,191 @@
+import React, { useEffect, useRef } from 'react';
+import { View, StyleSheet, Animated, Easing } from 'react-native';
+import Svg, { Circle, Path, Rect, G, Ellipse } from 'react-native-svg';
+
+interface MomoSadFaceProps {
+  size?: number;
+}
+
+/**
+ * High-fidelity Vector SVG of Momo with a cute, sad, tearful expression.
+ * Used for deletion and confirmation dialogs to provide an emotional,
+ * delightful touch when removing study materials.
+ */
+export const MomoSadFace: React.FC<MomoSadFaceProps> = ({ size = 88 }) => {
+  const floatAnim = useRef(new Animated.Value(0)).current;
+  const tearAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    // Subtle trembling / breathing float
+    const floatLoop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(floatAnim, {
+          toValue: -3,
+          duration: 1200,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: true,
+        }),
+        Animated.timing(floatAnim, {
+          toValue: 0,
+          duration: 1200,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: true,
+        }),
+      ])
+    );
+
+    // Glistening tear loop
+    const tearLoop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(tearAnim, {
+          toValue: 1,
+          duration: 1600,
+          easing: Easing.inOut(Easing.quad),
+          useNativeDriver: true,
+        }),
+        Animated.timing(tearAnim, {
+          toValue: 0,
+          duration: 1600,
+          easing: Easing.inOut(Easing.quad),
+          useNativeDriver: true,
+        }),
+      ])
+    );
+
+    floatLoop.start();
+    tearLoop.start();
+
+    return () => {
+      floatLoop.stop();
+      tearLoop.stop();
+    };
+  }, [floatAnim, tearAnim]);
+
+  const tearScale = tearAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.85, 1.15],
+  });
+
+  return (
+    <Animated.View
+      style={[
+        styles.container,
+        {
+          width: size,
+          height: size,
+          transform: [{ translateY: floatAnim }],
+        },
+      ]}
+    >
+      <Svg width={size} height={size} viewBox="0 0 300 300">
+        {/* Sad Sparkle Stars */}
+        <Circle cx="40" cy="70" r="5" fill="#93C5FD" opacity="0.6" />
+        <Circle cx="260" cy="65" r="6" fill="#93C5FD" opacity="0.6" />
+
+        {/* Drooping Tail Behind */}
+        <Path
+          d="M 110 230 C 70 240, 50 210, 60 190 C 65 180, 75 185, 70 195"
+          fill="none"
+          stroke="#8D5B4C"
+          strokeWidth="11"
+          strokeLinecap="round"
+        />
+
+        {/* Left Ear */}
+        <Circle cx="82" cy="138" r="28" fill="#8D5B4C" />
+        <Circle cx="84" cy="138" r="17" fill="#FED7AA" />
+
+        {/* Right Ear */}
+        <Circle cx="218" cy="138" r="28" fill="#8D5B4C" />
+        <Circle cx="216" cy="138" r="17" fill="#FED7AA" />
+
+        {/* Chibi Body & Tummy */}
+        <Circle cx="150" cy="220" r="44" fill="#8D5B4C" />
+        <Circle cx="150" cy="224" r="28" fill="#FED7AA" />
+
+        {/* Chibi Round Head */}
+        <Circle cx="150" cy="138" r="66" fill="#8D5B4C" />
+
+        {/* Peach Face Mask */}
+        <Circle cx="124" cy="130" r="35" fill="#FEF3C7" />
+        <Circle cx="176" cy="130" r="35" fill="#FEF3C7" />
+        <Circle cx="150" cy="152" r="38" fill="#FEF3C7" />
+
+        {/* Rosy Blush Cheeks */}
+        <Circle cx="110" cy="158" r="12" fill="#FDA4AF" opacity="0.8" />
+        <Circle cx="190" cy="158" r="12" fill="#FDA4AF" opacity="0.8" />
+
+        {/* Tiny Button Nose */}
+        <Circle cx="150" cy="146" r="5" fill="#451A03" />
+
+        {/* SAD POUTY FROWN MOUTH */}
+        <Path
+          d="M 137 166 Q 150 154 163 166"
+          fill="none"
+          stroke="#451A03"
+          strokeWidth="3.6"
+          strokeLinecap="round"
+        />
+
+        {/* BIG TEARFUL PUPPY-DOG EYES */}
+        <G>
+          {/* Left Eye */}
+          <Ellipse cx="124" cy="133" rx="15" ry="20" fill="#0F172A" />
+          <Circle cx="121" cy="126" r="6.2" fill="#FFFFFF" />
+          <Circle cx="127" cy="140" r="3.2" fill="#FFFFFF" />
+
+          {/* Right Eye */}
+          <Ellipse cx="176" cy="133" rx="15" ry="20" fill="#0F172A" />
+          <Circle cx="173" cy="126" r="6.2" fill="#FFFFFF" />
+          <Circle cx="179" cy="140" r="3.2" fill="#FFFFFF" />
+        </G>
+
+        {/* GLISTENING TEARS */}
+        {/* Left Tear */}
+        <Path
+          d="M 112 144 C 107 152, 109 162, 114 161 C 119 160, 117 150, 112 144 Z"
+          fill="#60A5FA"
+          opacity="0.9"
+        />
+        <Circle cx="112" cy="168" r="3" fill="#93C5FD" opacity="0.85" />
+
+        {/* Right Tear */}
+        <Path
+          d="M 188 144 C 193 152, 191 162, 186 161 C 181 160, 183 150, 188 144 Z"
+          fill="#60A5FA"
+          opacity="0.9"
+        />
+        <Circle cx="188" cy="168" r="3" fill="#93C5FD" opacity="0.85" />
+
+        {/* Cute Worried Little Paws Held Up to Chin */}
+        <Circle cx="132" cy="188" r="11" fill="#FED7AA" stroke="#8D5B4C" strokeWidth="2.5" />
+        <Circle cx="168" cy="188" r="11" fill="#FED7AA" stroke="#8D5B4C" strokeWidth="2.5" />
+
+        {/* Scholar Cap Slightly Tilted */}
+        <G transform="rotate(4 150 78)">
+          <Rect x="128" y="76" width="44" height="14" rx="4" fill="#312E81" />
+          {/* Diamond top */}
+          <Path d="M 150 56 L 196 74 L 150 92 L 104 74 Z" fill="#1E1B4B" />
+          <Circle cx="150" cy="74" r="5" fill="#F59E0B" />
+          {/* Gold Tassel drooping */}
+          <Path
+            d="M 150 74 Q 172 84 180 98"
+            fill="none"
+            stroke="#F59E0B"
+            strokeWidth="2.8"
+            strokeLinecap="round"
+          />
+          <Circle cx="180" cy="100" r="4" fill="#F59E0B" />
+          <Rect x="178" y="102" width="5" height="10" rx="2" fill="#F59E0B" />
+        </G>
+      </Svg>
+    </Animated.View>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+});

@@ -1,0 +1,136 @@
+# ==============================================================================
+# Dependencies & Package Managers
+# ==============================================================================
+node_modules/
+.pnp
+.pnp.js
+.venv/
+venv/
+ENV/
+env/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# ==============================================================================
+# Environment Variables & Credentials
+# ==============================================================================
+.env
+.env.*
+!.env.example
+!.env.*.example
+*.pem
+*.key
+*.cert
+*.p12
+*.pfx
+*.keystore
+*.jks
+serviceAccountKey*.json
+
+# ==============================================================================
+# Python Build, Cache & Testing
+# ==============================================================================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.hypothesis/
+.mypy_cache/
+.ruff_cache/
+.dmypy.json
+dmypy.json
+
+# ==============================================================================
+# JavaScript, React Native & Expo
+# ==============================================================================
+.expo/
+.expo-shared/
+web-build/
+dist/
+build/
+*.jsbundle
+.metro-health-check*
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ==============================================================================
+# iOS (Native / Prebuild)
+# ==============================================================================
+Pods/
+DerivedData/
+*.xcworkspace/xcuserdata/
+*.xcodeproj/xcuserdata/
+*.xcodeproj/project.xcworkspace/xcuserdata/
+*.xcuserstate
+*.xccheckout
+.xcode.env.local
+*.hmap
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# ==============================================================================
+# Android (Native / Prebuild)
+# ==============================================================================
+.gradle/
+captures/
+local.properties
+*.apk
+*.aab
+*.dex
+
+# ==============================================================================
+# Local Databases & Storage
+# ==============================================================================
+*.sqlite
+*.sqlite3
+*.db
+*.db-shm
+*.db-wal
+
+# ==============================================================================
+# IDEs, Editors & Tooling
+# ==============================================================================
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+.idea/
+*.swp
+*.swo
+*~
+*.sublime-project
+*.sublime-workspace
+
+# ==============================================================================
+# OS Files
+# ==============================================================================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# ==============================================================================
+# Temporary & Scratch Files
+# ==============================================================================
+tmp/
+temp/
+scratch/
+*.tmp

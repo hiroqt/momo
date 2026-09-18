@@ -7,10 +7,6 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "scheme": "aistudy",
-    "splash": {
-      "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
-    },
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.aistudy.platform"
@@ -22,7 +18,8 @@
       "navigationBar": {
         "backgroundColor": "#ffffff",
         "barStyle": "dark-content"
-      }
+      },
+      "package": "com.aistudy.platform"
     },
     "web": {
       "bundler": "metro"
@@ -30,7 +27,15 @@
     "plugins": [
       "expo-router",
       "expo-asset",
-      "expo-sqlite"
+      "expo-sqlite",
+      [
+        "expo-splash-screen", {
+          "backgroundColor": "#ffffff",
+          "image": "./assets/icon.png",
+          "imageWidth": 100,
+          "resizeMode": "contain"
+        }
+      ]
     ]
   }
 }

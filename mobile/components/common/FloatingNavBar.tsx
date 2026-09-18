@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef } from "react";
 import {
   View,
   Text,
@@ -7,14 +7,14 @@ import {
   Animated,
   Platform,
   Keyboard,
-} from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { HugeiconsIcon } from '@hugeicons/react-native';
+} from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { HugeiconsIcon } from "@hugeicons/react-native";
 import {
   Home01Icon,
   BookOpen01Icon,
   UserCircleIcon,
-} from '@hugeicons/core-free-icons';
+} from "@hugeicons/core-free-icons";
 
 interface TabConfig {
   name: string;
@@ -23,9 +23,9 @@ interface TabConfig {
 }
 
 const TABS: TabConfig[] = [
-  { name: 'index', label: 'Home', icon: Home01Icon },
-  { name: 'library', label: 'Library', icon: BookOpen01Icon },
-  { name: 'profile', label: 'Profile', icon: UserCircleIcon },
+  { name: "index", label: "Home", icon: Home01Icon },
+  { name: "library", label: "Library", icon: BookOpen01Icon },
+  { name: "profile", label: "Profile", icon: UserCircleIcon },
 ];
 
 interface FloatingNavBarProps {
@@ -48,12 +48,12 @@ export const FloatingNavBar: React.FC<FloatingNavBarProps> = ({
   // Keyboard show/hide listener to prevent covering input fields
   useEffect(() => {
     const showSubscription = Keyboard.addListener(
-      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
-      () => setIsKeyboardVisible(true)
+      Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow",
+      () => setIsKeyboardVisible(true),
     );
     const hideSubscription = Keyboard.addListener(
-      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
-      () => setIsKeyboardVisible(false)
+      Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide",
+      () => setIsKeyboardVisible(false),
     );
 
     return () => {
@@ -131,7 +131,7 @@ export const FloatingNavBar: React.FC<FloatingNavBarProps> = ({
                 isFocused={isFocused}
                 onPress={() => {
                   const event = navigation.emit({
-                    type: 'tabPress',
+                    type: "tabPress",
                     target: state.routes[index]?.key,
                     canPreventDefault: true,
                   });
@@ -177,7 +177,9 @@ const TabItem: React.FC<TabItemProps> = ({ tab, isFocused, onPress }) => {
   };
 
   return (
-    <Animated.View style={[styles.tabButtonWrapper, { transform: [{ scale: scaleAnim }] }]}>
+    <Animated.View
+      style={[styles.tabButtonWrapper, { transform: [{ scale: scaleAnim }] }]}
+    >
       <Pressable
         onPress={onPress}
         onPressIn={handlePressIn}
@@ -192,11 +194,14 @@ const TabItem: React.FC<TabItemProps> = ({ tab, isFocused, onPress }) => {
         <HugeiconsIcon
           icon={tab.icon}
           size={20}
-          color={isFocused ? '#4F46E5' : '#64748B'}
+          color={isFocused ? "#4F46E5" : "#64748B"}
           strokeWidth={isFocused ? 2.4 : 1.8}
         />
         <Text
-          style={[styles.tabLabel, isFocused ? styles.activeTabLabel : styles.inactiveTabLabel]}
+          style={[
+            styles.tabLabel,
+            isFocused ? styles.activeTabLabel : styles.inactiveTabLabel,
+          ]}
           numberOfLines={1}
         >
           {tab.label}
@@ -208,28 +213,28 @@ const TabItem: React.FC<TabItemProps> = ({ tab, isFocused, onPress }) => {
 
 const styles = StyleSheet.create({
   dockWrapper: {
-    position: 'absolute',
+    position: "absolute",
     left: 0,
     right: 0,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     zIndex: 999,
   },
   dockCard: {
-    width: '90%',
+    width: "90%",
     maxWidth: 360,
     height: 58,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: "#FFFFFF",
     borderRadius: 30,
     paddingHorizontal: 6,
     paddingVertical: 5,
     borderWidth: 1.5,
-    borderColor: '#E2E8F0',
-    position: 'relative',
-    justifyContent: 'center',
+    borderColor: "#E2E8F0",
+    position: "relative",
+    justifyContent: "center",
     ...Platform.select({
       ios: {
-        shadowColor: '#0F172A',
+        shadowColor: "#0F172A",
         shadowOffset: { width: 0, height: 10 },
         shadowOpacity: 0.12,
         shadowRadius: 22,
@@ -240,32 +245,32 @@ const styles = StyleSheet.create({
     }),
   },
   slidingIndicator: {
-    position: 'absolute',
+    position: "absolute",
     top: 5,
     bottom: 5,
-    backgroundColor: '#EEF2FF',
+    backgroundColor: "#EEF2FF",
     borderRadius: 24,
     borderWidth: 1,
-    borderColor: '#C7D2FE',
+    borderColor: "#C7D2FE",
     zIndex: 1,
   },
   tabsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    width: '100%',
-    height: '100%',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    width: "100%",
+    height: "100%",
     zIndex: 2,
   },
   tabButtonWrapper: {
     flex: 1,
-    height: '100%',
+    height: "100%",
   },
   tabButton: {
     flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     gap: 6,
     borderRadius: 24,
   },
@@ -274,11 +279,11 @@ const styles = StyleSheet.create({
     letterSpacing: -0.2,
   },
   activeTabLabel: {
-    fontWeight: '800',
-    color: '#4F46E5',
+    fontWeight: "800",
+    color: "#4F46E5",
   },
   inactiveTabLabel: {
-    fontWeight: '600',
-    color: '#64748B',
+    fontWeight: "600",
+    color: "#64748B",
   },
 });

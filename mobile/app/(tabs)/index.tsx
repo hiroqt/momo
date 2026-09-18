@@ -178,7 +178,7 @@ export default function HomeScreen() {
               <View style={styles.heroCardHeaderRow}>
                 <View style={styles.groundedTag}>
                   <HugeiconsIcon icon={CheckmarkCircle02Icon} size={12} color="#A7F3D0" strokeWidth={2.5} />
-                  <Text style={styles.groundedTagText}>Grounded in Upload</Text>
+                  <Text style={styles.groundedTagText}>Verified from Notes</Text>
                 </View>
                 <View style={styles.itemsCountBadge}>
                   <Text style={styles.itemsCountText}>{featured.item_count} Items</Text>

@@ -91,7 +91,9 @@ export default function CreateReviewerScreen() {
           setSuggestedTopics(res.suggested_topics);
           setTopic(res.suggested_topics[0]);
           if (!title) {
-            setTitle(`${res.suggested_topics[0]} Reviewer`);
+            const rawTopic = res.suggested_topics[0];
+            const cleanTopic = rawTopic.replace(/^entire\s+document\s*(?:\((.*?)\))?/i, '$1').trim();
+            setTitle(`${cleanTopic || res.original_filename?.replace(/\.[^/.]+$/, '') || 'Study'} Reviewer`);
           }
         }
       })
@@ -484,13 +486,13 @@ export default function CreateReviewerScreen() {
                 {
                   key: 'flashcard',
                   label: 'Flashcards',
-                  desc: 'Front prompt & back answer with interactive 3D flip',
+                  desc: 'Key concept prompts & concise recall answers',
                   icon: BookOpen01Icon,
                 },
                 {
                   key: 'multiple_choice',
                   label: 'Multiple Choice',
-                  desc: '4 options with 1 verified ground truth',
+                  desc: '4 options with 1 verified correct answer',
                   icon: CheckmarkCircle02Icon,
                 },
                 {

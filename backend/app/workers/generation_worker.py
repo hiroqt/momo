@@ -54,7 +54,7 @@ class GenerationWorker:
                 status="PROCESSING",
                 stage="Preparing study material",
                 progress=40,
-                message="Synthesizing grounded facts..."
+                message="Extracting key study concepts from your document..."
             )
 
             synthesized = synthesis_service.synthesize_context(evidence_chunks)
@@ -108,7 +108,7 @@ class GenerationWorker:
                     status="FAILED",
                     stage="Generation Failed",
                     progress=100,
-                    message="Could not generate grounded questions from the material.",
+                    message="Could not generate study questions from the material.",
                     error="EMPTY_AI_RESPONSE"
                 )
                 return
@@ -119,7 +119,7 @@ class GenerationWorker:
                 status="VALIDATING",
                 stage="Fact-checking answers",
                 progress=85,
-                message="Fact-checking answers and grounding your questions..."
+                message="Fact-checking answers and verifying questions..."
             )
 
             valid_items = grounding_validator.validate_and_deduplicate(
@@ -134,7 +134,7 @@ class GenerationWorker:
                     status="FAILED",
                     stage="Validation Failed",
                     progress=100,
-                    message="Generated items failed grounding or schema validation.",
+                    message="Generated items could not be verified against the material.",
                     error="VALIDATION_FAILED"
                 )
                 return

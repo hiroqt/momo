@@ -50,7 +50,7 @@ class ChunkingService:
                             content=pc,
                             page_start=page.page_number,
                             page_end=page.page_number,
-                            section=f"Page {page.page_number}",
+                            section="General",
                             source_type=content.source_type,
                             metadata={"is_ocr": page.is_ocr}
                         )

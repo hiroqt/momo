@@ -89,7 +89,7 @@ export default function GenerationProgressScreen() {
     { title: 'Spotting main character topics', icon: Search01Icon, threshold: 25 },
     { title: 'Extracting high-yield facts', icon: SparklesIcon, threshold: 45 },
     { title: 'Momo crafting questions', icon: Edit02Icon, threshold: 70 },
-    { title: 'Fact-checking answers & grounding', icon: CheckmarkCircle02Icon, threshold: 85 },
+    { title: 'Fact-checking & verifying answers', icon: CheckmarkCircle02Icon, threshold: 85 },
     { title: 'Packaging your study pack', icon: Folder01Icon, threshold: 95 },
   ];
 

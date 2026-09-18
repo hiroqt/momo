@@ -149,7 +149,7 @@ export default function ProfileScreen() {
         <View style={styles.securityCard}>
           <View style={styles.securityHeader}>
             <HugeiconsIcon icon={Shield01Icon} size={18} color="#059669" strokeWidth={2} />
-            <Text style={styles.securityTitle}>Grounded AI Guarantee</Text>
+            <Text style={styles.securityTitle}>Document-Verified Guarantee</Text>
           </View>
           <Text style={styles.securityText}>
             Content is generated strictly from your uploaded files with source provenance. Missing information is never hallucinated.

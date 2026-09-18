@@ -66,14 +66,20 @@ export default function StudySessionScreen() {
 
   const [studySet, setStudySet] = useState<StudySet | null>(null);
   const [items, setItems] = useState<StudyItem[]>([]);
-  const [mode, setMode] = useState<'flashcard' | 'quiz' | 'exam'>('flashcard');
-  const [formatFilter, setFormatFilter] = useState<string>('all');
+  const [mode, setMode] = useState<'flashcard' | 'quiz'>('flashcard');
   const [isLoading, setIsLoading] = useState(true);
   const [isDeleting, setIsDeleting] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showRenameModal, setShowRenameModal] = useState(false);
   const [isRenaming, setIsRenaming] = useState(false);
   const [finishedScore, setFinishedScore] = useState<{ correct: number; total: number } | null>(null);
+  const [sessionKey, setSessionKey] = useState(0);
+
+  const handleShuffleReset = () => {
+    setItems((prev) => randomizeStudyItems(prev));
+    setSessionKey((prev) => prev + 1);
+    Alert.alert('Quiz Reset', 'The questions and answer choices have been randomized.');
+  };
 
   const handleRename = async (newTitle: string) => {
     setIsRenaming(true);
@@ -110,8 +116,6 @@ export default function StudySessionScreen() {
 
         if (initialMode === 'quiz' && hasQz) {
           setMode('quiz');
-        } else if (initialMode === 'exam' && hasQz) {
-          setMode('exam');
         } else if (hasFc) {
           setMode('flashcard');
         } else if (hasQz) {
@@ -135,8 +139,6 @@ export default function StudySessionScreen() {
 
           if (initialMode === 'quiz' && hasQz) {
             setMode('quiz');
-          } else if (initialMode === 'exam' && hasQz) {
-            setMode('exam');
           } else if (hasFc) {
             setMode('flashcard');
           } else if (hasQz) {
@@ -167,6 +169,7 @@ export default function StudySessionScreen() {
 
   const handleRestart = () => {
     setItems((prev) => randomizeStudyItems(prev));
+    setSessionKey((prev) => prev + 1);
     setFinishedScore(null);
   };
 
@@ -255,41 +258,6 @@ export default function StudySessionScreen() {
     );
   }
 
-  const headerActions = (
-    <View style={styles.headerActionRow}>
-      <TouchableOpacity
-        style={styles.headerShuffleBtn}
-        onPress={() => {
-          setItems((prev) => randomizeStudyItems(prev));
-          Alert.alert('Deck Reshuffled', 'The questions and answer choices have been randomized.');
-        }}
-        disabled={isRenaming || isDeleting}
-        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-        accessibilityLabel="Reshuffle question set"
-      >
-        <HugeiconsIcon icon={RefreshIcon} size={17} color="#4F46E5" strokeWidth={2.2} />
-      </TouchableOpacity>
-      <TouchableOpacity
-        style={styles.headerEditBtn}
-        onPress={() => setShowRenameModal(true)}
-        disabled={isRenaming || isDeleting}
-        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-        accessibilityLabel="Rename quiz"
-      >
-        <HugeiconsIcon icon={Edit02Icon} size={18} color="#4F46E5" strokeWidth={1.8} />
-      </TouchableOpacity>
-      <TouchableOpacity
-        style={styles.headerDeleteBtn}
-        onPress={() => setShowDeleteModal(true)}
-        disabled={isDeleting || isRenaming}
-        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-        accessibilityLabel="Delete reviewer"
-      >
-        <HugeiconsIcon icon={Delete02Icon} size={18} color="#EF4444" strokeWidth={1.8} />
-      </TouchableOpacity>
-    </View>
-  );
-
   const configuredTypes: string[] = studySet?.generation_config?.question_types || [];
   const flashcardSpecificItems = items.filter((i) => i.type === 'flashcard');
   const otherQuestionItems = items.filter((i) => i.type !== 'flashcard');
@@ -303,32 +271,23 @@ export default function StudySessionScreen() {
   const hasQuiz = otherQuestionItems.length > 0 || configuredTypes.some((f) => f !== 'flashcard');
   const actualQuizItems = otherQuestionItems.length > 0 ? otherQuestionItems : items;
 
-  const distinctQuizTypes = Array.from(new Set(actualQuizItems.map((i) => i.type)));
-  const activeQuizItems = formatFilter === 'all'
-    ? actualQuizItems
-    : actualQuizItems.filter((i) => i.type === formatFilter);
-
-  const availableModes: { key: 'flashcard' | 'quiz' | 'exam'; label: string; icon: any }[] = [];
+  const availableModes: { key: 'flashcard' | 'quiz'; label: string; icon: any }[] = [];
   if (hasFlashcards) {
     availableModes.push({ key: 'flashcard', label: 'Flashcards', icon: BookOpen01Icon });
   }
   if (hasQuiz) {
-    availableModes.push({ key: 'quiz', label: 'Practice Quiz', icon: CheckmarkCircle02Icon });
-    availableModes.push({ key: 'exam', label: 'Timed Exam', icon: Clock01Icon });
+    availableModes.push({ key: 'quiz', label: 'Quiz', icon: CheckmarkCircle02Icon });
   }
 
   const screenSubtitle = mode === 'flashcard'
     ? `${actualFlashcardItems.length} flashcards`
-    : mode === 'exam'
-    ? `${actualQuizItems.length} timed questions`
-    : `${activeQuizItems.length} quiz questions`;
+    : `${actualQuizItems.length} questions`;
 
   return (
     <View style={styles.screen}>
       <PageHeader
         title={studySet?.title || 'Reviewer'}
         subtitle={screenSubtitle}
-        rightAction={headerActions}
       />
 
       {/* Mode Switcher - Only shown if multiple modes exist */}
@@ -358,58 +317,55 @@ export default function StudySessionScreen() {
         </View>
       )}
 
-      {/* Format Filter Bar (Shown when multiple quiz formats are present) */}
-      {distinctQuizTypes.length > 1 && mode !== 'flashcard' && (
-        <View style={styles.formatFilterRow}>
-          <TouchableOpacity
-            style={[styles.formatFilterChip, formatFilter === 'all' && styles.activeFormatFilterChip]}
-            onPress={() => setFormatFilter('all')}
-            activeOpacity={0.7}
-          >
-            <Text style={[styles.formatFilterChipText, formatFilter === 'all' && styles.activeFormatFilterChipText]}>
-              All Selected ({actualQuizItems.length})
-            </Text>
-          </TouchableOpacity>
-          {distinctQuizTypes.map((t) => {
-            const countForType = actualQuizItems.filter((i) => i.type === t).length;
-            const label = t === 'multiple_choice'
-              ? 'Multiple Choice'
-              : t === 'true_false'
-              ? 'True / False'
-              : t === 'identification'
-              ? 'Identification'
-              : t;
-            const isSelected = formatFilter === t;
-            return (
-              <TouchableOpacity
-                key={t}
-                style={[styles.formatFilterChip, isSelected && styles.activeFormatFilterChip]}
-                onPress={() => setFormatFilter(t)}
-                activeOpacity={0.7}
-              >
-                <Text style={[styles.formatFilterChipText, isSelected && styles.activeFormatFilterChipText]}>
-                  {label} ({countForType})
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-      )}
+      {/* Reviewer Action Bar (Reset, Edit, Delete) - cleanly separated in its own container so nothing overlaps */}
+      <View style={styles.actionToolbar}>
+        <TouchableOpacity
+          style={styles.toolbarBtn}
+          onPress={handleShuffleReset}
+          disabled={isRenaming || isDeleting}
+          activeOpacity={0.7}
+          accessibilityLabel="Reset and reshuffle question set"
+        >
+          <HugeiconsIcon icon={RefreshIcon} size={15} color="#4F46E5" strokeWidth={2.2} />
+          <Text style={styles.toolbarBtnText}>Reset</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.toolbarBtn}
+          onPress={() => setShowRenameModal(true)}
+          disabled={isRenaming || isDeleting}
+          activeOpacity={0.7}
+          accessibilityLabel="Rename reviewer"
+        >
+          <HugeiconsIcon icon={Edit02Icon} size={15} color="#4F46E5" strokeWidth={2} />
+          <Text style={styles.toolbarBtnText}>Edit</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.toolbarBtn, styles.toolbarDeleteBtn]}
+          onPress={() => setShowDeleteModal(true)}
+          disabled={isDeleting || isRenaming}
+          activeOpacity={0.7}
+          accessibilityLabel="Delete reviewer"
+        >
+          <HugeiconsIcon icon={Delete02Icon} size={15} color="#DC2626" strokeWidth={2} />
+          <Text style={[styles.toolbarBtnText, styles.toolbarDeleteText]}>Delete</Text>
+        </TouchableOpacity>
+      </View>
 
       {/* Content Runner */}
       <View style={styles.contentArea}>
         {mode === 'flashcard' ? (
           <FlashcardDeck
-            key={`fc-${actualFlashcardItems.length}`}
+            key={`fc-${sessionKey}-${actualFlashcardItems.length}`}
             items={actualFlashcardItems}
             onFinish={() => setFinishedScore({ correct: actualFlashcardItems.length, total: actualFlashcardItems.length })}
           />
         ) : (
           <QuizRunner
-            key={`quiz-${mode}-${formatFilter}-${activeQuizItems.length}`}
-            items={activeQuizItems}
-            isExamMode={mode === 'exam'}
-            onFinish={(res) => setFinishedScore(res)}
+            key={`quiz-${sessionKey}-${actualQuizItems.map((i) => i.id).join('-')}`}
+            items={actualQuizItems}
+            onRestart={handleRestart}
           />
         )}
       </View>
@@ -443,36 +399,57 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F8FAFC',
   },
-  headerActionRow: {
+  actionToolbar: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-  },
-  headerShuffleBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#EEF2FF',
-    alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#FFFFFF',
+    marginHorizontal: 16,
+    marginTop: 4,
+    marginBottom: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#E0E7FF',
+    borderColor: '#E2E8F0',
+    gap: 8,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#0F172A',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.05,
+        shadowRadius: 3,
+      },
+      android: {
+        elevation: 1.5,
+      },
+    }),
   },
-  headerEditBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#EEF2FF',
+  toolbarBtn: {
+    flex: 1,
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 6,
+    borderRadius: 8,
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
   },
-  headerDeleteBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#FEE2E2',
-    alignItems: 'center',
-    justifyContent: 'center',
+  toolbarBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#334155',
+  },
+  toolbarDeleteBtn: {
+    backgroundColor: '#FEF2F2',
+    borderColor: '#FEE2E2',
+  },
+  toolbarDeleteText: {
+    color: '#DC2626',
+    fontWeight: '700',
   },
   modeBar: {
     flexDirection: 'row',
@@ -484,35 +461,6 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
     borderColor: '#E2E8F0',
-  },
-  formatFilterRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingBottom: 8,
-    gap: 8,
-    flexWrap: 'wrap',
-  },
-  formatFilterChip: {
-    paddingHorizontal: 11,
-    paddingVertical: 6,
-    borderRadius: 8,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-  },
-  activeFormatFilterChip: {
-    backgroundColor: '#EEF2FF',
-    borderColor: '#4F46E5',
-  },
-  formatFilterChipText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#64748B',
-  },
-  activeFormatFilterChipText: {
-    color: '#4F46E5',
-    fontWeight: '700',
   },
   modeTab: {
     flex: 1,

@@ -204,3 +204,148 @@ async def test_mock_provider_supports_high_item_count():
     assert len(items) == 35
     flashcard_items = [i for i in items if i["type"] == "flashcard"]
     assert len(flashcard_items) > 0
+
+@pytest.mark.asyncio
+async def test_mock_provider_avoids_page_metadata_and_dangling_fragments():
+    from app.services.ai.ai_provider import MockNemotronProvider, _clean_concept_entity
+    
+    # Test _clean_concept_entity handles conjunctions and fillers
+    assert _clean_concept_entity("tools and") == "Tools"
+    assert _clean_concept_entity("the mitochondria") == "Mitochondria"
+    assert _clean_concept_entity("Page 9 Core Concepts") == "Core Concepts"
+
+    mock_provider = MockNemotronProvider()
+    spec = {
+        "topic": "Software Engineering",
+        "count": 10,
+        "difficulty": "medium",
+        "question_types": ["flashcard", "multiple_choice", "true_false"]
+    }
+    evidence = (
+        "[Source #1 | Page 9 | Section: Page 9 Core Concepts]\n"
+        "Developer tools and frameworks are essential components for modern software architecture. "
+        "Automated testing ensures code quality and prevents regressions."
+    )
+    sources = [{"source_id": 1, "page": 9, "section": "Page 9 Core Concepts", "snippet": evidence}]
+
+    items = await mock_provider.generate_study_material("sys", spec, evidence, sources)
+    assert len(items) == 10
+    for item in items:
+        # Must not have leaked pagination or placeholder names in question stem
+        assert "Page 9" not in item["question"]
+        assert "in Page" not in item["question"]
+        assert "in Core Concepts" not in item["question"]
+        # Must not contain dangling conjunction fragments like 'tools and in'
+        assert "tools and in" not in item["question"]
+        assert not item["question"].endswith(" and?")
+
+@pytest.mark.asyncio
+async def test_quiz_generation_topic_relevance_and_importance():
+    from app.services.ai.ai_provider import MockNemotronProvider, OpenRouterNemotronProvider
+
+    # 1. Verify prompt engineering includes topic focus mandate in OpenRouterNemotronProvider
+    provider = OpenRouterNemotronProvider(api_key="test-key", model="test-model")
+    prompt = provider._build_system_prompt(
+        system_instruction="Generate study reviewer",
+        difficulty="hard",
+        custom_instruction=None,
+        question_types=["multiple_choice", "true_false", "identification"],
+        topic="Photosynthesis"
+    )
+    assert "CRITICAL TOPIC RELEVANCE & IMPORTANCE MANDATE" in prompt
+    assert "Photosynthesis" in prompt
+    assert "QUIZ QUESTION STEMS & PLAUSIBLE DISTRACTORS (TOPIC-GROUNDED & HIGH-YIELD)" in prompt
+
+    # 2. Verify MockNemotronProvider generates topic-anchored quiz questions
+    mock = MockNemotronProvider()
+    spec = {
+        "topic": "Cardiovascular System",
+        "count": 6,
+        "difficulty": "medium",
+        "question_types": ["multiple_choice", "true_false", "identification"]
+    }
+    evidence = (
+        "[Source #1 | Page 12 | Section: Cardiology]\n"
+        "The left ventricle pumps oxygenated blood into systemic circulation. "
+        "The mitral valve regulates unidirectional blood flow between heart chambers. "
+        "Unrelated tangential sentence about laboratory equipment calibration."
+    )
+    sources = [{"source_id": 1, "page": 12, "section": "Cardiology", "snippet": evidence}]
+
+    items = await mock.generate_study_material("sys", spec, evidence, sources)
+    assert len(items) == 6
+
+    mcq_items = [i for i in items if i["type"] == "multiple_choice"]
+    tf_items = [i for i in items if i["type"] == "true_false"]
+    id_items = [i for i in items if i["type"] == "identification"]
+
+    assert len(mcq_items) > 0
+    assert len(tf_items) > 0
+    assert len(id_items) > 0
+
+    for item in mcq_items:
+        # Question stem must be framed within the selected topic context
+        assert "In Cardiovascular System," in item["question"]
+        # Must have 4 options
+        assert len(item["options"]) == 4
+        # Correct answer must be among the options
+        assert item["answer"] in item["options"]
+        # Must not have leaked answer in question
+        assert item["answer"].lower() not in item["question"].lower()
+
+    for item in tf_items:
+        assert "In Cardiovascular System," in item["question"]
+        assert item["answer"] in ["True", "False"]
+        assert len(item["explanation"]) > 10
+
+    for item in id_items:
+        assert "In Cardiovascular System," in item["question"]
+        assert "hint" in item
+        assert "Cardiovascular System" in item["hint"]
+
+@pytest.mark.asyncio
+async def test_generation_avoids_in_entire_document_text():
+    from app.services.ai.ai_provider import MockNemotronProvider, OpenRouterNemotronProvider
+
+    mock = MockNemotronProvider()
+    spec = {
+        "topic": "Entire Document (Cardiovascular System.pdf)",
+        "count": 6,
+        "difficulty": "medium",
+        "question_types": ["multiple_choice", "true_false", "identification", "flashcard"]
+    }
+    evidence = (
+        "[Source #1 | Page 1 | Section: Entire Document (Cardiovascular System.pdf)]\n"
+        "The left ventricle pumps oxygenated blood into systemic circulation. "
+        "The mitral valve regulates unidirectional blood flow between heart chambers."
+    )
+    sources = [{"source_id": 1, "page": 1, "section": "Entire Document (Cardiovascular System.pdf)", "snippet": evidence}]
+
+    items = await mock.generate_study_material("sys", spec, evidence, sources)
+    assert len(items) == 6
+
+    for item in items:
+        q = item["question"]
+        # Ensure 'in entire document' does not appear in ANY question stem
+        assert "in entire document" not in q.lower()
+        assert "in the entire document" not in q.lower()
+        assert "in this document" not in q.lower()
+        # Verify question begins directly with interrogative or concept (just the question)
+        assert q[0].isupper()
+        assert not q.startswith("In Entire Document")
+        assert not q.startswith("In Cardiovascular System.pdf")
+
+    # Also test OpenRouter prompt builder strips "Entire Document" from topic directive
+    provider = OpenRouterNemotronProvider(api_key="test-key", model="test-model")
+    prompt = provider._build_system_prompt(
+        system_instruction="Generate reviewer",
+        difficulty="medium",
+        custom_instruction=None,
+        question_types=["multiple_choice"],
+        topic="Entire Document (Lecture1.pdf)"
+    )
+    assert "The user selected the study topic: \"Entire Document" not in prompt
+    assert "CRITICAL MANDATE — PURE QUESTIONS ONLY" in prompt
+
+
+

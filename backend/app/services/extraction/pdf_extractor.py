@@ -58,23 +58,23 @@ class PDFExtractor:
 
     def _extract_sections_from_page(self, lines: List[str], page_num: int) -> Tuple[List[ExtractedSection], str]:
         sections: List[ExtractedSection] = []
-        current_title = f"Page {page_num} Core Concepts"
+        current_title = ""
         current_lines: List[str] = []
         cleaned_body_lines: List[str] = []
 
         for line in lines:
             if self._is_heading_candidate(line):
-                if current_lines:
+                if current_lines and current_title:
                     sec_content = "\n".join(current_lines).strip()
                     if sec_content:
                         sections.append(ExtractedSection(title=current_title, content=sec_content))
-                    current_lines = []
+                current_lines = []
                 current_title = line.strip().rstrip(":")
             else:
                 current_lines.append(line)
                 cleaned_body_lines.append(line)
 
-        if current_lines:
+        if current_lines and current_title:
             sec_content = "\n".join(current_lines).strip()
             if sec_content:
                 sections.append(ExtractedSection(title=current_title, content=sec_content))

@@ -22,6 +22,7 @@ import { StudyItem } from '../../types';
 import { SourceAttribution } from './SourceAttribution';
 import { PlatformPressable } from '../common/PlatformPressable';
 import { syncEngine } from '../../lib/sync/syncEngine';
+import { isMeaningfulSection, sanitizeQuestionText } from '../../utils/formatters';
 
 interface Props {
   items: StudyItem[];
@@ -185,7 +186,7 @@ export const FlashcardDeck: React.FC<Props> = ({ items, onFinish }) => {
         >
           <View style={styles.cardHeaderRow}>
             <View style={styles.frontTag}>
-              <Text style={styles.frontTagText}>FLASHCARD PROMPT</Text>
+              <Text style={styles.frontTagText}>FLASHCARD</Text>
             </View>
             <TouchableOpacity
               style={styles.flipHintRow}
@@ -193,7 +194,7 @@ export const FlashcardDeck: React.FC<Props> = ({ items, onFinish }) => {
               activeOpacity={0.7}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             >
-              <HugeiconsIcon icon={EyeIcon} size={14} color="#6366F1" strokeWidth={2} />
+              <HugeiconsIcon icon={EyeIcon} size={13} color="#4F46E5" strokeWidth={2.2} />
               <Text style={styles.flipHint}>Tap to reveal</Text>
             </TouchableOpacity>
           </View>
@@ -210,7 +211,15 @@ export const FlashcardDeck: React.FC<Props> = ({ items, onFinish }) => {
               onPress={flipCard}
               style={styles.frontQuestionTouch}
             >
-              <Text style={styles.questionText}>{currentItem.question}</Text>
+              {isMeaningfulSection(currentItem.source_metadata?.section) ? (
+                <View style={styles.topicBadge}>
+                  <HugeiconsIcon icon={BookOpen01Icon} size={12} color="#4F46E5" strokeWidth={2.2} />
+                  <Text style={styles.topicBadgeText} numberOfLines={1}>
+                    {currentItem.source_metadata?.section?.toUpperCase()}
+                  </Text>
+                </View>
+              ) : null}
+              <Text style={styles.questionText}>{sanitizeQuestionText(currentItem.question)}</Text>
             </TouchableOpacity>
           </ScrollView>
 
@@ -241,13 +250,13 @@ export const FlashcardDeck: React.FC<Props> = ({ items, onFinish }) => {
               <Text style={styles.backTagText}>ANSWER REVEALED</Text>
             </View>
             <TouchableOpacity
-              style={styles.flipHintRow}
+              style={styles.backFlipHintRow}
               onPress={flipCard}
               activeOpacity={0.7}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             >
-              <HugeiconsIcon icon={RefreshIcon} size={13} color="#94A3B8" strokeWidth={2} />
-              <Text style={styles.flipHint}>Flip back</Text>
+              <HugeiconsIcon icon={RefreshIcon} size={13} color="#64748B" strokeWidth={2} />
+              <Text style={styles.backFlipHint}>Flip back</Text>
             </TouchableOpacity>
           </View>
 
@@ -261,8 +270,8 @@ export const FlashcardDeck: React.FC<Props> = ({ items, onFinish }) => {
             {/* Prominent Answer Hero Box */}
             <View style={styles.prominentAnswerCard}>
               <View style={styles.prominentAnswerHeader}>
-                <HugeiconsIcon icon={SparklesIcon} size={13} color="#047857" strokeWidth={2.2} />
-                <Text style={styles.prominentAnswerBadgeLabel}>GROUNDED ANSWER</Text>
+                <HugeiconsIcon icon={CheckmarkCircle02Icon} size={14} color="#047857" strokeWidth={2.4} />
+                <Text style={styles.prominentAnswerBadgeLabel}>CORRECT ANSWER</Text>
               </View>
               <Text style={styles.answerText}>{currentItem.answer}</Text>
             </View>
@@ -272,13 +281,13 @@ export const FlashcardDeck: React.FC<Props> = ({ items, onFinish }) => {
               <View style={styles.explanationBox}>
                 <View style={styles.explanationHeaderRow}>
                   <HugeiconsIcon icon={BookOpen01Icon} size={14} color="#4F46E5" strokeWidth={2.2} />
-                  <Text style={styles.explanationLabel}>KEY EXPLANATION & RELEVANCE</Text>
+                  <Text style={styles.explanationLabel}>EXPLANATION & CONTEXT</Text>
                 </View>
                 <Text style={styles.explanationText}>{currentItem.explanation}</Text>
               </View>
             ) : null}
 
-            {/* Source Grounding Chip Bar */}
+            {/* Source Reference Bar */}
             <SourceAttribution source={currentItem.source_metadata} />
           </ScrollView>
         </Animated.View>
@@ -450,7 +459,7 @@ const styles = StyleSheet.create({
   frontTag: {
     backgroundColor: '#EEF2FF',
     paddingHorizontal: 8,
-    paddingVertical: 3,
+    paddingVertical: 3.5,
     borderRadius: 6,
   },
   frontTagText: {
@@ -465,7 +474,7 @@ const styles = StyleSheet.create({
     gap: 4,
     backgroundColor: '#ECFDF5',
     paddingHorizontal: 8,
-    paddingVertical: 3,
+    paddingVertical: 3.5,
     borderRadius: 6,
   },
   backTagText: {
@@ -478,11 +487,50 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
+    flexShrink: 0,
+    backgroundColor: '#EEF2FF',
+    paddingHorizontal: 8,
+    paddingVertical: 3.5,
+    borderRadius: 6,
   },
   flipHint: {
     fontSize: 11,
-    color: '#94A3B8',
-    fontWeight: '500',
+    color: '#4F46E5',
+    fontWeight: '600',
+  },
+  backFlipHintRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    flexShrink: 0,
+    backgroundColor: '#F1F5F9',
+    paddingHorizontal: 8,
+    paddingVertical: 3.5,
+    borderRadius: 6,
+  },
+  backFlipHint: {
+    fontSize: 11,
+    color: '#64748B',
+    fontWeight: '600',
+  },
+  topicBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+    marginBottom: 14,
+    maxWidth: '90%',
+  },
+  topicBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#475569',
+    letterSpacing: 0.5,
   },
   cardScroll: {
     flex: 1,

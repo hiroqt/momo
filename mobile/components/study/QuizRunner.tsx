@@ -1,17 +1,17 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import {
   View,
   Text,
   TouchableOpacity,
   StyleSheet,
-  ScrollView,
   TextInput,
   Platform,
-  Alert,
+  Animated,
   StyleProp,
   ViewStyle,
   TextStyle,
 } from 'react-native';
+import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { HugeiconsIcon } from '@hugeicons/react-native';
 import {
@@ -20,26 +20,46 @@ import {
   ArrowRight01Icon,
   ArrowDown01Icon,
   ArrowUp01Icon,
-  EyeIcon,
-  Clock01Icon,
   BookOpen01Icon,
   TrophyIcon,
   Idea01Icon,
+  RefreshIcon,
+  SparklesIcon,
+  EyeIcon,
 } from '@hugeicons/core-free-icons';
 import { StudyItem } from '../../types';
 import { SourceAttribution } from './SourceAttribution';
 import { PlatformPressable } from '../common/PlatformPressable';
-import { ConfirmationModal } from '../common/ConfirmationModal';
 import { SmoothScrollView } from '../common/SmoothScrollView';
 import { syncEngine } from '../../lib/sync/syncEngine';
+import { isMeaningfulSection, sanitizeQuestionText } from '../../utils/formatters';
 
 interface Props {
   items: StudyItem[];
   isExamMode?: boolean;
-  onFinish?: (score: { correct: number; total: number }) => void;
+  onFinish?: (score: { correct: number; total: number; xp: number }) => void;
+  onRestart?: () => void;
 }
 
 const OPTION_LETTERS = ['A', 'B', 'C', 'D', 'E', 'F'];
+
+/**
+ * Returns the XP value awarded based on question type (exam format):
+ * - Identification (free typing active recall): 25 XP
+ * - Multiple Choice: 15 XP
+ * - True / False: 10 XP
+ */
+export function getQuestionXP(type: string): number {
+  switch (type) {
+    case 'identification':
+      return 25;
+    case 'true_false':
+      return 10;
+    case 'multiple_choice':
+    default:
+      return 15;
+  }
+}
 
 function generateIdentificationClue(answer: string): {
   masked: string;
@@ -64,7 +84,19 @@ function generateIdentificationClue(answer: string): {
   };
 }
 
-export const QuizRunner: React.FC<Props> = ({ items, isExamMode = false, onFinish }) => {
+function checkIsCorrect(userAns: string, item: StudyItem): boolean {
+  if (!userAns || !userAns.trim()) return false;
+  const cleanUser = userAns.trim().toLowerCase();
+  const cleanAns = item.answer.trim().toLowerCase();
+
+  if (item.type === 'multiple_choice' || item.type === 'true_false') {
+    return cleanUser === cleanAns;
+  }
+  return cleanUser === cleanAns || cleanUser.includes(cleanAns) || cleanAns.includes(cleanUser);
+}
+
+export const QuizRunner: React.FC<Props> = ({ items, onFinish, onRestart }) => {
+  const router = useRouter();
   const insets = useSafeAreaInsets();
   const isAndroid = Platform.OS === 'android';
   const bottomPadding = Math.max(insets.bottom, isAndroid ? 28 : 16) + 16;
@@ -72,47 +104,38 @@ export const QuizRunner: React.FC<Props> = ({ items, isExamMode = false, onFinis
   const [currentIndex, setCurrentIndex] = useState(0);
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
   const [typedAnswer, setTypedAnswer] = useState<string>('');
-  const [isSubmitted, setIsSubmitted] = useState(false);
-  const [isAnswerRevealed, setIsAnswerRevealed] = useState(false);
-  const [showExplanation, setShowExplanation] = useState(false);
   const [showHint, setShowHint] = useState(false);
-  const [score, setScore] = useState(0);
-
-  // Timed Exam State
-  const initialTime = items ? items.length * 60 : 300; // 60s per question
-  const [timeLeft, setTimeLeft] = useState(initialTime);
-  const [isExamFinished, setIsExamFinished] = useState(false);
-  const [showEndExamModal, setShowEndExamModal] = useState(false);
-  const [examAnswers, setExamAnswers] = useState<
+  const [isCurrentQuestionRevealed, setIsCurrentQuestionRevealed] = useState(false);
+  const [currentXP, setCurrentXP] = useState(0);
+  const [isQuizFinished, setIsQuizFinished] = useState(false);
+  const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false);
+  const [lastAnswerResult, setLastAnswerResult] = useState<{
+    isCorrect: boolean;
+    earnedXP: number;
+  } | null>(null);
+  const [userAnswers, setUserAnswers] = useState<
     Record<
       number,
       {
         userAnswer: string;
         isCorrect: boolean;
         selectedOption: string | null;
+        xpAwarded: number;
+        wasRevealed?: boolean;
       }
     >
   >({});
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
 
-  useEffect(() => {
-    if (!isExamMode || isExamFinished) return;
+  // Animated values
+  const xpBarAnim = useRef(new Animated.Value(0)).current;
+  const floatAnim = useRef(new Animated.Value(0)).current;
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const scaleAnim = useRef(new Animated.Value(0.7)).current;
 
-    timerRef.current = setInterval(() => {
-      setTimeLeft((prev) => {
-        if (prev <= 1) {
-          if (timerRef.current) clearInterval(timerRef.current);
-          handleFinishExam();
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-
-    return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
-    };
-  }, [isExamMode, isExamFinished]);
+  const maxSessionXP = useMemo(() => {
+    if (!items || items.length === 0) return 0;
+    return items.reduce((acc, item) => acc + getQuestionXP(item.type), 0);
+  }, [items]);
 
   if (!items || items.length === 0) {
     return (
@@ -125,269 +148,374 @@ export const QuizRunner: React.FC<Props> = ({ items, isExamMode = false, onFinis
   const currentItem = items[currentIndex];
   const isLast = currentIndex === items.length - 1;
   const options = currentItem.options || (currentItem.type === 'true_false' ? ['True', 'False'] : []);
-  const progressPercent = Math.round(((currentIndex + 1) / items.length) * 100);
 
-  const checkIsCorrect = (userAns: string, item: StudyItem): boolean => {
-    if (!userAns.trim()) return false;
-    if (item.type === 'multiple_choice' || item.type === 'true_false') {
-      return userAns.toLowerCase() === item.answer.toLowerCase();
-    }
-    return userAns.toLowerCase().includes(item.answer.toLowerCase());
-  };
+  const handleRevealAnswer = () => {
+    if (isCurrentQuestionRevealed || isSubmittingFeedback) return;
+    setIsCurrentQuestionRevealed(true);
 
-  // Practice Quiz Submit
-  const handleSubmit = (revealOnly = false) => {
-    const userAnswer = selectedOption || typedAnswer.trim();
-    const isCorrect = !revealOnly && checkIsCorrect(userAnswer, currentItem);
-
-    if (isCorrect) {
-      setScore((s) => s + 1);
-    }
-
-    syncEngine.recordStudyAnswer(
-      currentItem.id,
-      isCorrect ? 'correct' : 'incorrect',
-      userAnswer || '(Answer Revealed)'
-    );
-
-    setIsAnswerRevealed(revealOnly);
-    setShowExplanation(revealOnly);
-    setIsSubmitted(true);
-  };
-
-  const handleNext = () => {
-    if (isLast) {
-      if (onFinish) {
-        onFinish({ correct: score, total: items.length });
-      }
+    if (options.length > 0) {
+      const matchedOption = options.find(
+        (opt) => opt.trim().toLowerCase() === currentItem.answer.trim().toLowerCase()
+      );
+      setSelectedOption(matchedOption || currentItem.answer);
     } else {
-      setCurrentIndex((prev) => prev + 1);
-      setSelectedOption(null);
-      setTypedAnswer('');
-      setIsSubmitted(false);
-      setIsAnswerRevealed(false);
-      setShowExplanation(false);
-      setShowHint(false);
+      setTypedAnswer(currentItem.answer);
     }
   };
 
-  // Timed Exam: Next question & record answer
-  const handleExamNext = () => {
+  const handleNextQuestion = () => {
+    if (isSubmittingFeedback) return;
+
     const userAnswer = selectedOption || typedAnswer.trim();
-    const isCorrect = checkIsCorrect(userAnswer, currentItem);
+    const wasRevealed = isCurrentQuestionRevealed;
+    const isCorrect = !wasRevealed && checkIsCorrect(userAnswer, currentItem);
+    const earnedXP = isCorrect ? getQuestionXP(currentItem.type) : 0;
+    const nextXP = currentXP + earnedXP;
 
     const updatedAnswers = {
-      ...examAnswers,
+      ...userAnswers,
       [currentIndex]: {
-        userAnswer: userAnswer || 'Unanswered',
+        userAnswer: wasRevealed ? `${userAnswer} (Revealed)` : (userAnswer || '(Unanswered)'),
         isCorrect,
         selectedOption,
+        xpAwarded: earnedXP,
+        wasRevealed,
       },
     };
-    setExamAnswers(updatedAnswers);
-
-    if (isCorrect) {
-      setScore((s) => s + 1);
-    }
+    setUserAnswers(updatedAnswers);
 
     syncEngine.recordStudyAnswer(
       currentItem.id,
       isCorrect ? 'correct' : 'incorrect',
-      userAnswer || 'Unanswered'
+      wasRevealed ? `(Answer Revealed: ${currentItem.answer})` : (userAnswer || '(Unanswered)')
     );
 
-    if (isLast) {
-      handleFinishExam();
-    } else {
-      setCurrentIndex((prev) => prev + 1);
-      const nextAns = updatedAnswers[currentIndex + 1];
-      if (nextAns) {
-        setSelectedOption(nextAns.selectedOption);
-        setTypedAnswer(nextAns.userAnswer === 'Unanswered' ? '' : nextAns.userAnswer);
+    // Show visual feedback on the item selected or inputed
+    setIsSubmittingFeedback(true);
+    setLastAnswerResult({ isCorrect, earnedXP });
+
+    if (isCorrect) {
+      setCurrentXP(nextXP);
+      const targetPercent = maxSessionXP > 0 ? (nextXP / maxSessionXP) * 100 : 0;
+      Animated.timing(xpBarAnim, {
+        toValue: targetPercent,
+        duration: 450,
+        useNativeDriver: false,
+      }).start();
+    }
+
+    // Trigger floating animation rising directly from the item
+    floatAnim.setValue(0);
+    fadeAnim.setValue(0);
+    scaleAnim.setValue(0.7);
+
+    Animated.sequence([
+      Animated.parallel([
+        Animated.timing(fadeAnim, { toValue: 1, duration: 160, useNativeDriver: true }),
+        Animated.spring(scaleAnim, { toValue: 1.15, friction: 6, tension: 140, useNativeDriver: true }),
+        Animated.timing(floatAnim, { toValue: -32, duration: 380, useNativeDriver: true }),
+      ]),
+      Animated.delay(260),
+      Animated.timing(fadeAnim, { toValue: 0, duration: 180, useNativeDriver: true }),
+    ]).start();
+
+    // After animation plays, transition smoothly to next question
+    setTimeout(() => {
+      setIsSubmittingFeedback(false);
+      setLastAnswerResult(null);
+
+      if (isLast) {
+        const totalCorrect = Object.values(updatedAnswers).filter((a) => a.isCorrect).length;
+        onFinish?.({ correct: totalCorrect, total: items.length, xp: nextXP });
+        setIsQuizFinished(true);
       } else {
+        setCurrentIndex((prev) => prev + 1);
         setSelectedOption(null);
         setTypedAnswer('');
+        setShowHint(false);
+        setIsCurrentQuestionRevealed(false);
       }
-      setShowHint(false);
+    }, 700);
+  };
+
+  const handleRestartQuiz = () => {
+    setCurrentIndex(0);
+    setSelectedOption(null);
+    setTypedAnswer('');
+    setShowHint(false);
+    setIsCurrentQuestionRevealed(false);
+    setIsSubmittingFeedback(false);
+    setLastAnswerResult(null);
+    setUserAnswers({});
+    setCurrentXP(0);
+    setIsQuizFinished(false);
+    xpBarAnim.setValue(0);
+    if (onRestart) {
+      onRestart();
     }
   };
 
-  const handleFinishExam = () => {
-    if (timerRef.current) clearInterval(timerRef.current);
-    setIsExamFinished(true);
-  };
-
-  const handleConfirmEndExam = () => {
-    setShowEndExamModal(false);
-    const userAnswer = selectedOption || typedAnswer.trim();
-    if (userAnswer && !examAnswers[currentIndex]) {
-      const isCorrect = checkIsCorrect(userAnswer, currentItem);
-      if (isCorrect) setScore((s) => s + 1);
-      setExamAnswers((prev) => ({
-        ...prev,
-        [currentIndex]: {
-          userAnswer,
-          isCorrect,
-          selectedOption,
-        },
-      }));
-    }
-    handleFinishExam();
-  };
-
-  const answeredCount =
-    Object.keys(examAnswers).length + (selectedOption || typedAnswer.trim() ? 1 : 0);
-  const remainingCount = Math.max(0, items.length - answeredCount);
-
-  const formatTimer = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-  };
-
   // ----------------------------------------------------
-  // Timed Exam: Post-Exam Review Screen ("Show Answers")
+  // COMPREHENSIVE POST-QUIZ REVIEW SCREEN
+  // "show all the answers of the user after the question green for right and red for wrong with explanation"
   // ----------------------------------------------------
-  if (isExamMode && isExamFinished) {
+  if (isQuizFinished) {
     const totalQuestions = items.length;
-    const finalScore = score;
-    const percent = Math.round((finalScore / totalQuestions) * 100);
+    const answeredRecords = Object.values(userAnswers);
+    const totalCorrect = answeredRecords.filter((r) => r.isCorrect).length;
+    const percent = Math.round((totalCorrect / totalQuestions) * 100);
     const isMastered = percent >= 70;
 
     return (
       <SmoothScrollView
-        contentContainerStyle={[styles.examReviewContainer, { paddingBottom: bottomPadding + 20 }]}
+        contentContainerStyle={[styles.reviewContainer, { paddingBottom: bottomPadding + 24 }]}
       >
-        {/* Score & Mastery Header */}
-        <View style={styles.examScoreCard}>
-          <View style={[styles.examBadgeCircle, isMastered ? styles.trophyBg : styles.bookBg]}>
+        {/* Score & XP Hero Summary Card */}
+        <View style={styles.reviewHeroCard}>
+          <View style={[styles.heroBadgeCircle, isMastered ? styles.trophyBg : styles.bookBg]}>
             <HugeiconsIcon
               icon={isMastered ? TrophyIcon : BookOpen01Icon}
-              size={36}
+              size={38}
               color={isMastered ? '#D97706' : '#4F46E5'}
               strokeWidth={2}
             />
           </View>
-          <Text style={styles.examResultTitle}>Exam Completed</Text>
-          <Text style={styles.examScoreValue}>
-            {finalScore} / {totalQuestions} Correct
+          <Text style={styles.heroTitle}>
+            {isMastered ? 'Outstanding Job!' : 'Quiz Completed!'}
           </Text>
-          <Text style={styles.examPercentValue}>{percent}% Score</Text>
 
-          <View style={styles.examMetricsRow}>
-            <View style={styles.examMetricPill}>
-              <HugeiconsIcon icon={Clock01Icon} size={14} color="#64748B" strokeWidth={2} />
-              <Text style={styles.examMetricText}>
-                Time Remaining: {formatTimer(timeLeft)}
+          {/* Prominent XP Earned Banner */}
+          <View style={styles.xpEarnedCard}>
+            <View style={styles.xpEarnedIconBox}>
+              <HugeiconsIcon icon={SparklesIcon} size={20} color="#D97706" strokeWidth={2.4} />
+            </View>
+            <View style={styles.xpEarnedTextBox}>
+              <Text style={styles.xpEarnedValue}>+{currentXP} XP Earned</Text>
+              <Text style={styles.xpEarnedSub}>
+                {currentXP} of {maxSessionXP} max possible XP
               </Text>
+            </View>
+          </View>
+
+          {/* Accuracy & Mastery Metrics */}
+          <View style={styles.metricsRow}>
+            <View style={styles.metricPill}>
+              <Text style={styles.metricValue}>
+                {totalCorrect} / {totalQuestions}
+              </Text>
+              <Text style={styles.metricLabel}>Correct</Text>
+            </View>
+            <View style={styles.metricDivider} />
+            <View style={styles.metricPill}>
+              <Text style={styles.metricValue}>{percent}%</Text>
+              <Text style={styles.metricLabel}>Accuracy</Text>
+            </View>
+            <View style={styles.metricDivider} />
+            <View style={styles.metricPill}>
+              <Text
+                style={[
+                  styles.metricValue,
+                  isMastered ? styles.masteredColor : styles.practiceColor,
+                ]}
+              >
+                {isMastered ? 'Mastered' : 'Learning'}
+              </Text>
+              <Text style={styles.metricLabel}>Status</Text>
             </View>
           </View>
         </View>
 
-        {/* Detailed Show Answers Section Header */}
+        {/* Section Header */}
         <View style={styles.reviewSectionHeader}>
-          <View style={styles.reviewHeaderTitleRow}>
-            <HugeiconsIcon icon={EyeIcon} size={20} color="#4F46E5" strokeWidth={2.2} />
-            <Text style={styles.reviewSectionTitle}>Exam Answers & Explanations</Text>
+          <View style={styles.reviewSectionTitleRow}>
+            <HugeiconsIcon icon={BookOpen01Icon} size={20} color="#4F46E5" strokeWidth={2.2} />
+            <Text style={styles.reviewSectionTitle}>Detailed Answer Key & Explanations</Text>
           </View>
           <Text style={styles.reviewSectionSubtitle}>
-            Review the questions, your responses, prominent correct answers, and concept connections.
+            Green highlights your correct answers; red highlights incorrect responses. Review explanations and verified document excerpts below.
           </Text>
         </View>
 
-        {/* All Questions with Prominent Show Answers */}
+        {/* Question Cards: User Answer (Green/Red), Correct Answer, and Grounded Explanation */}
         {items.map((item, idx) => {
-          const userRecord = examAnswers[idx];
-          const answered = Boolean(userRecord && userRecord.userAnswer !== 'Unanswered');
+          const userRecord = userAnswers[idx];
           const isCorrect = userRecord?.isCorrect ?? false;
+          const userAnsText = userRecord?.userAnswer || '(Unanswered)';
+          const xpGained = userRecord?.xpAwarded ?? 0;
 
           return (
-            <View key={idx} style={styles.reviewQuestionCard}>
-              <View style={styles.reviewCardTopRow}>
-                <Text style={styles.reviewQuestionNumber}>Question {idx + 1}</Text>
+            <View
+              key={idx}
+              style={[
+                styles.reviewQuestionCard,
+                userRecord?.wasRevealed
+                  ? styles.reviewCardRevealedBorder
+                  : isCorrect
+                  ? styles.reviewCardCorrectBorder
+                  : styles.reviewCardWrongBorder,
+              ]}
+            >
+              {/* Question Header: Number, Type, and Status Badge */}
+              <View style={styles.reviewQuestionHeaderRow}>
+                <View style={styles.reviewQuestionNumberCol}>
+                  <Text style={styles.reviewQuestionNumber}>Question {idx + 1}</Text>
+                  <View style={styles.questionTypeTag}>
+                    <Text style={styles.questionTypeTagText}>
+                      {item.type === 'true_false'
+                        ? 'TRUE / FALSE'
+                        : item.type === 'multiple_choice'
+                        ? 'MULTIPLE CHOICE'
+                        : 'IDENTIFICATION'}
+                    </Text>
+                  </View>
+                </View>
+
+                {/* Status Badge: Green for Right, Amber for Revealed, Red for Wrong */}
                 <View
                   style={[
-                    styles.reviewStatusBadge,
-                    !answered
-                      ? styles.badgeUnanswered
+                    styles.statusBadge,
+                    userRecord?.wasRevealed
+                      ? styles.badgeRevealed
                       : isCorrect
                       ? styles.badgeCorrect
                       : styles.badgeWrong,
                   ]}
                 >
+                  <HugeiconsIcon
+                    icon={
+                      userRecord?.wasRevealed
+                        ? EyeIcon
+                        : isCorrect
+                        ? CheckmarkCircle02Icon
+                        : Cancel01Icon
+                    }
+                    size={14}
+                    color={
+                      userRecord?.wasRevealed ? '#D97706' : isCorrect ? '#047857' : '#DC2626'
+                    }
+                    strokeWidth={2.4}
+                  />
                   <Text
                     style={[
-                      styles.reviewStatusText,
-                      !answered
-                        ? styles.textUnanswered
+                      styles.statusBadgeText,
+                      userRecord?.wasRevealed
+                        ? styles.statusTextRevealed
                         : isCorrect
-                        ? styles.textCorrect
-                        : styles.textWrong,
+                        ? styles.statusTextCorrect
+                        : styles.statusTextWrong,
                     ]}
                   >
-                    {!answered ? 'UNANSWERED' : isCorrect ? 'CORRECT' : 'INCORRECT'}
+                    {userRecord?.wasRevealed
+                      ? 'REVEALED (+0 XP)'
+                      : isCorrect
+                      ? `CORRECT (+${xpGained} XP)`
+                      : 'INCORRECT (+0 XP)'}
                   </Text>
                 </View>
               </View>
 
               {/* Question Text */}
-              <Text style={styles.reviewQuestionText}>{item.question}</Text>
+              <Text style={styles.reviewQuestionPrompt}>{sanitizeQuestionText(item.question)}</Text>
 
-              {/* User Answer vs Grounded Correct Answer */}
-              <View style={styles.answerComparisonBox}>
-                <View style={styles.userChoiceRow}>
-                  <Text style={styles.userChoiceLabel}>Your Answer:</Text>
+              {/* User Answer Card */}
+              <View
+                style={[
+                  styles.userAnswerBox,
+                  userRecord?.wasRevealed
+                    ? styles.userAnswerBoxRevealed
+                    : isCorrect
+                    ? styles.userAnswerBoxCorrect
+                    : styles.userAnswerBoxWrong,
+                ]}
+              >
+                <View style={styles.userAnswerHeaderRow}>
+                  <HugeiconsIcon
+                    icon={
+                      userRecord?.wasRevealed
+                        ? EyeIcon
+                        : isCorrect
+                        ? CheckmarkCircle02Icon
+                        : Cancel01Icon
+                    }
+                    size={15}
+                    color={
+                      userRecord?.wasRevealed ? '#D97706' : isCorrect ? '#059669' : '#DC2626'
+                    }
+                    strokeWidth={2.4}
+                  />
                   <Text
                     style={[
-                      styles.userChoiceText,
-                      isCorrect ? styles.userChoiceCorrect : styles.userChoiceIncorrect,
+                      styles.userAnswerLabel,
+                      userRecord?.wasRevealed
+                        ? styles.userAnswerLabelRevealed
+                        : isCorrect
+                        ? styles.userAnswerLabelCorrect
+                        : styles.userAnswerLabelWrong,
                     ]}
                   >
-                    {userRecord?.userAnswer || '(No answer provided)'}
+                    {userRecord?.wasRevealed ? 'Answer Auto-Revealed:' : 'Your Answer:'}
                   </Text>
                 </View>
-
-                {/* Prominent Correct Answer Box */}
-                <View style={styles.prominentCorrectCard}>
-                  <View style={styles.correctBadgeRow}>
-                    <HugeiconsIcon
-                      icon={CheckmarkCircle02Icon}
-                      size={14}
-                      color="#047857"
-                      strokeWidth={2.4}
-                    />
-                    <Text style={styles.correctBadgeLabel}>CORRECT ANSWER</Text>
-                  </View>
-                  <Text style={styles.prominentCorrectText}>{item.answer}</Text>
-                </View>
+                <Text
+                  style={[
+                    styles.userAnswerValue,
+                    userRecord?.wasRevealed
+                      ? styles.userAnswerValueRevealed
+                      : isCorrect
+                      ? styles.userAnswerValueCorrect
+                      : styles.userAnswerValueWrong,
+                  ]}
+                >
+                  {userAnsText}
+                </Text>
               </View>
 
-              {/* Explicit Concept Connection & Explanation */}
+              {/* Prominent Correct Answer Card */}
+              <View style={styles.correctAnswerBox}>
+                <View style={styles.correctAnswerHeader}>
+                  <HugeiconsIcon
+                    icon={CheckmarkCircle02Icon}
+                    size={14}
+                    color="#047857"
+                    strokeWidth={2.4}
+                  />
+                  <Text style={styles.correctAnswerHeaderLabel}>CORRECT ANSWER</Text>
+                </View>
+                <Text style={styles.correctAnswerValue}>{item.answer}</Text>
+              </View>
+
+              {/* Concept Connection & Explanation */}
               {item.explanation ? (
-                <View style={styles.reviewConnectionCard}>
-                  <View style={styles.reviewConnectionHeader}>
-                    <HugeiconsIcon icon={BookOpen01Icon} size={14} color="#4F46E5" strokeWidth={2} />
-                    <Text style={styles.reviewConnectionLabel}>KEY EXPLANATION & RELEVANCE</Text>
+                <View style={styles.explanationCard}>
+                  <View style={styles.explanationHeaderRow}>
+                    <HugeiconsIcon icon={BookOpen01Icon} size={14} color="#4F46E5" strokeWidth={2.2} />
+                    <Text style={styles.explanationLabel}>EXPLANATION & CONTEXT</Text>
                   </View>
-                  <Text style={styles.reviewExplanationText}>{item.explanation}</Text>
+                  <Text style={styles.explanationText}>{item.explanation}</Text>
                 </View>
               ) : null}
 
-              {/* Source Grounding */}
-              <SourceAttribution source={item.source_metadata} />
+              {/* Grounded Source Provenance Citation */}
+              <SourceAttribution source={item.source_metadata} defaultExpanded={false} />
             </View>
           );
         })}
 
-        {/* Complete Review Button */}
-        <View style={styles.finishExamBtnWrapper}>
+        {/* Post-Quiz Actions */}
+        <View style={styles.reviewActionFooter}>
+          <PlatformPressable style={styles.restartBtn} onPress={handleRestartQuiz}>
+            <View style={styles.btnRow}>
+              <HugeiconsIcon icon={RefreshIcon} size={18} color="#4F46E5" strokeWidth={2.2} />
+              <Text style={styles.restartBtnText}>Practice Again</Text>
+            </View>
+          </PlatformPressable>
+
           <PlatformPressable
-            style={styles.primaryBtn}
-            onPress={() => onFinish?.({ correct: score, total: items.length })}
+            style={styles.doneBtn}
+            onPress={() => router.replace('/(tabs)/library')}
           >
-            <View style={styles.btnContent}>
-              <Text style={styles.primaryBtnText}>Finish Review</Text>
-              <HugeiconsIcon icon={ArrowRight01Icon} size={18} color="#FFFFFF" strokeWidth={2.4} />
+            <View style={styles.btnRow}>
+              <Text style={styles.doneBtnText}>Back to Library</Text>
             </View>
           </PlatformPressable>
         </View>
@@ -396,59 +524,91 @@ export const QuizRunner: React.FC<Props> = ({ items, isExamMode = false, onFinis
   }
 
   // ----------------------------------------------------
-  // Active Question View (Practice Quiz & Timed Exam)
+  // ACTIVE QUIZ RUNNER VIEW (WITH XP ANIMATION & PROGRESS BAR)
+  // "Dont show answers every question finish show all the answers after the question finish"
+  // "the xp bar must increment each and the incrementation must based on the type of exam and if answer is wrong no increment"
   // ----------------------------------------------------
-  return (
-    <>
-      <SmoothScrollView
-        contentContainerStyle={[styles.container, { paddingBottom: bottomPadding }]}
-      >
-      {/* Header: Timer (Exam) or Score (Quiz) */}
-      <View style={styles.header}>
-        <View style={styles.progressCol}>
-          <Text style={styles.progressText}>
-            Question {currentIndex + 1} of {items.length}
-          </Text>
-          <View style={styles.miniProgressBar}>
-            <View style={[styles.miniProgressFill, { width: `${progressPercent}%` }]} />
-          </View>
-        </View>
+  const hasAnswered = Boolean(selectedOption || typedAnswer.trim());
 
-        {isExamMode ? (
-          <View style={[styles.timerBadge, timeLeft <= 60 && styles.timerBadgeWarning]}>
-            <HugeiconsIcon
-              icon={Clock01Icon}
-              size={15}
-              color={timeLeft <= 60 ? '#DC2626' : '#4F46E5'}
-              strokeWidth={2.2}
-            />
-            <Text style={[styles.timerText, timeLeft <= 60 && styles.timerTextWarning]}>
-              {formatTimer(timeLeft)}
+  return (
+    <SmoothScrollView
+      contentContainerStyle={[styles.container, { paddingBottom: bottomPadding }]}
+    >
+      {/* Top Bar: XP Progress & Question Counter */}
+      <View style={styles.topHeader}>
+        <View style={styles.topInfoRow}>
+          <View style={styles.questionCounterBox}>
+            <Text style={styles.questionCounterText}>
+              QUESTION {currentIndex + 1} OF {items.length}
             </Text>
           </View>
-        ) : (
-          <View style={styles.scoreBadge}>
-            <Text style={styles.scoreLabel}>Score</Text>
-            <Text style={styles.scoreText}>{score}</Text>
-          </View>
-        )}
-      </View>
 
-      {/* Question Card */}
-      <View style={styles.card}>
-        <View style={styles.questionTypeTag}>
-          <Text style={styles.questionTypeTagText}>
-            {currentItem.type === 'true_false'
-              ? 'TRUE / FALSE'
-              : currentItem.type === 'multiple_choice'
-              ? 'MULTIPLE CHOICE'
-              : 'IDENTIFICATION'}
-          </Text>
+          {/* Live XP Badge */}
+          <View style={styles.xpBadge}>
+            <HugeiconsIcon icon={SparklesIcon} size={15} color="#D97706" strokeWidth={2.4} />
+            <Text style={styles.xpBadgeText}>{currentXP} XP</Text>
+          </View>
         </View>
 
-        <Text style={styles.questionText}>{currentItem.question}</Text>
+        {/* XP Progress Bar Track */}
+        <View style={styles.xpTrackContainer}>
+          <View style={styles.xpTrack}>
+            <Animated.View
+              style={[
+                styles.xpFill,
+                {
+                  width: xpBarAnim.interpolate({
+                    inputRange: [0, 100],
+                    outputRange: ['0%', '100%'],
+                    extrapolate: 'clamp',
+                  }),
+                },
+              ]}
+            />
+          </View>
+          <View style={styles.xpLabelRow}>
+            <Text style={styles.xpTrackLabel}>XP Level Progress</Text>
+            <Text style={styles.xpTrackLabelBold}>
+              {currentXP} / {maxSessionXP} XP
+            </Text>
+          </View>
+        </View>
+      </View>
 
-        {/* Options for MCQ / True False */}
+      {/* Main Question Card */}
+      <View style={styles.card}>
+        <View style={styles.questionHeaderRow}>
+          <View style={styles.questionTypeTag}>
+            <Text style={styles.questionTypeTagText}>
+              {currentItem.type === 'true_false'
+                ? 'TRUE / FALSE • +10 XP'
+                : currentItem.type === 'multiple_choice'
+                ? 'MULTIPLE CHOICE • +15 XP'
+                : 'IDENTIFICATION • +25 XP'}
+            </Text>
+          </View>
+          {isMeaningfulSection(currentItem.source_metadata?.section) ? (
+            <View style={styles.questionSectionTag}>
+              <Text style={styles.questionSectionText} numberOfLines={1}>
+                {currentItem.source_metadata?.section?.toUpperCase()}
+              </Text>
+            </View>
+          ) : null}
+        </View>
+
+        <Text style={styles.questionText}>{sanitizeQuestionText(currentItem.question)}</Text>
+
+        {/* Revealed Notice Banner */}
+        {isCurrentQuestionRevealed && (
+          <View style={styles.revealedNoticeBanner}>
+            <HugeiconsIcon icon={EyeIcon} size={15} color="#D97706" strokeWidth={2.4} />
+            <Text style={styles.revealedNoticeText}>
+              Answer auto-revealed. Tap Next Question to proceed (+0 XP).
+            </Text>
+          </View>
+        )}
+
+        {/* Multiple Choice & True/False Options */}
         {options.length > 0 ? (
           <View style={styles.optionsList}>
             {options.map((opt, idx) => {
@@ -460,59 +620,153 @@ export const QuizRunner: React.FC<Props> = ({ items, isExamMode = false, onFinis
               let letterTextStyle: StyleProp<TextStyle> = styles.optionLetterText;
               let textStyle: StyleProp<TextStyle> = styles.optionText;
 
-              if (!isExamMode && isSubmitted) {
-                if (opt.toLowerCase() === currentItem.answer.toLowerCase()) {
-                  cardStyle = styles.correctOptionBtn;
-                  letterStyle = styles.correctOptionLetter;
-                  letterTextStyle = styles.correctOptionLetterText;
-                  textStyle = styles.correctOptionText;
-                } else if (isSelected) {
-                  cardStyle = styles.wrongOptionBtn;
-                  letterStyle = styles.wrongOptionLetter;
-                  letterTextStyle = styles.wrongOptionLetterText;
-                  textStyle = styles.wrongOptionText;
+              if (isSubmittingFeedback && isSelected) {
+                if (lastAnswerResult?.isCorrect) {
+                  cardStyle = [styles.optionBtn, styles.optionBtnCorrect];
+                  letterStyle = [styles.optionLetter, styles.optionLetterCorrect];
+                  letterTextStyle = [styles.optionLetterText, styles.optionLetterTextCorrect];
+                  textStyle = [styles.optionText, styles.optionTextCorrect];
+                } else {
+                  cardStyle = [styles.optionBtn, styles.optionBtnWrong];
+                  letterStyle = [styles.optionLetter, styles.optionLetterWrong];
+                  letterTextStyle = [styles.optionLetterText, styles.optionLetterTextWrong];
+                  textStyle = [styles.optionText, styles.optionTextWrong];
                 }
               } else if (isSelected) {
-                cardStyle = styles.selectedOptionBtn;
-                letterStyle = styles.selectedOptionLetter;
-                letterTextStyle = styles.selectedOptionLetterText;
-                textStyle = styles.selectedOptionText;
+                cardStyle = [styles.optionBtn, styles.selectedOptionBtn];
+                letterStyle = [styles.optionLetter, styles.selectedOptionLetter];
+                letterTextStyle = [styles.optionLetterText, styles.selectedOptionLetterText];
+                textStyle = [styles.optionText, styles.selectedOptionText];
               }
 
               return (
                 <TouchableOpacity
                   key={idx}
                   style={cardStyle}
-                  disabled={!isExamMode && isSubmitted}
-                  onPress={() => setSelectedOption(opt)}
+                  onPress={() => !isSubmittingFeedback && setSelectedOption(opt)}
+                  disabled={isSubmittingFeedback}
                   activeOpacity={0.7}
                 >
                   <View style={letterStyle}>
                     <Text style={letterTextStyle}>{letter}</Text>
                   </View>
                   <Text style={textStyle}>{opt}</Text>
+
+                  {/* Floating XP Animation popping directly out of the selected item */}
+                  {isSubmittingFeedback && isSelected && (
+                    <Animated.View
+                      style={[
+                        styles.itemFloatingXP,
+                        {
+                          opacity: fadeAnim,
+                          transform: [{ translateY: floatAnim }, { scale: scaleAnim }],
+                        },
+                      ]}
+                      pointerEvents="none"
+                    >
+                      <View
+                        style={[
+                          styles.floatingXPPill,
+                          lastAnswerResult?.isCorrect
+                            ? styles.floatingXPPillCorrect
+                            : styles.floatingXPPillWrong,
+                        ]}
+                      >
+                        <HugeiconsIcon
+                          icon={lastAnswerResult?.isCorrect ? SparklesIcon : Cancel01Icon}
+                          size={14}
+                          color={lastAnswerResult?.isCorrect ? '#D97706' : '#DC2626'}
+                          strokeWidth={2.4}
+                        />
+                        <Text
+                          style={[
+                            styles.floatingXPText,
+                            lastAnswerResult?.isCorrect
+                              ? styles.floatingXPTextCorrect
+                              : styles.floatingXPTextWrong,
+                          ]}
+                        >
+                          {lastAnswerResult?.isCorrect
+                            ? `+${lastAnswerResult.earnedXP} XP`
+                            : '+0 XP'}
+                        </Text>
+                      </View>
+                    </Animated.View>
+                  )}
                 </TouchableOpacity>
               );
             })}
           </View>
         ) : (
-          /* Text input for Identification / Fill in the blank */
+          /* Identification text input */
           <View style={styles.inputContainer}>
-            <TextInput
-              style={styles.textInput}
-              placeholder="Type your answer here..."
-              placeholderTextColor="#94A3B8"
-              value={typedAnswer}
-              onChangeText={setTypedAnswer}
-              editable={isExamMode || !isSubmitted}
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
+            <View style={styles.inputRelativeWrapper}>
+              <TextInput
+                style={[
+                  styles.textInput,
+                  isSubmittingFeedback && (
+                    lastAnswerResult?.isCorrect
+                      ? styles.textInputCorrect
+                      : styles.textInputWrong
+                  ),
+                ]}
+                placeholder="Type your answer here..."
+                placeholderTextColor="#94A3B8"
+                value={typedAnswer}
+                onChangeText={setTypedAnswer}
+                editable={!isSubmittingFeedback}
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
 
-            {/* Identification Active Recall Hint */}
+              {/* Floating XP Animation popping directly out of the text input */}
+              {isSubmittingFeedback && (
+                <Animated.View
+                  style={[
+                    styles.itemFloatingXP,
+                    {
+                      opacity: fadeAnim,
+                      transform: [{ translateY: floatAnim }, { scale: scaleAnim }],
+                    },
+                  ]}
+                  pointerEvents="none"
+                >
+                  <View
+                    style={[
+                      styles.floatingXPPill,
+                      lastAnswerResult?.isCorrect
+                        ? styles.floatingXPPillCorrect
+                        : styles.floatingXPPillWrong,
+                    ]}
+                  >
+                    <HugeiconsIcon
+                      icon={lastAnswerResult?.isCorrect ? SparklesIcon : Cancel01Icon}
+                      size={14}
+                      color={lastAnswerResult?.isCorrect ? '#D97706' : '#DC2626'}
+                      strokeWidth={2.4}
+                    />
+                    <Text
+                      style={[
+                        styles.floatingXPText,
+                        lastAnswerResult?.isCorrect
+                          ? styles.floatingXPTextCorrect
+                          : styles.floatingXPTextWrong,
+                      ]}
+                    >
+                      {lastAnswerResult?.isCorrect
+                        ? `+${lastAnswerResult.earnedXP} XP`
+                        : '+0 XP'}
+                    </Text>
+                  </View>
+                </Animated.View>
+              )}
+            </View>
+
+            {/* Identification Active Recall Hint Toggle */}
             <TouchableOpacity
               style={[styles.hintTriggerBtn, showHint && styles.hintTriggerBtnActive]}
               onPress={() => setShowHint((prev) => !prev)}
+              disabled={isSubmittingFeedback}
               activeOpacity={0.75}
               accessibilityRole="button"
               accessibilityLabel={showHint ? 'Hide hint' : 'Show hint'}
@@ -540,7 +794,11 @@ export const QuizRunner: React.FC<Props> = ({ items, isExamMode = false, onFinis
 
             {showHint && (() => {
               const clue = generateIdentificationClue(currentItem.answer);
-              const detail = currentItem.hint || (currentItem.source_metadata?.section ? `Topic section: ${currentItem.source_metadata.section}` : `First letter starts with "${currentItem.answer.trim()[0]?.toUpperCase()}"`);
+              const detail =
+                currentItem.hint ||
+                (isMeaningfulSection(currentItem.source_metadata?.section)
+                  ? `Topic section: ${currentItem.source_metadata?.section}`
+                  : `First letter starts with "${currentItem.answer.trim()[0]?.toUpperCase()}"`);
               return (
                 <View style={styles.hintCard}>
                   <View style={styles.hintCardHeader}>
@@ -551,12 +809,10 @@ export const QuizRunner: React.FC<Props> = ({ items, isExamMode = false, onFinis
                     <Text style={styles.hintStructureSummary}>{clue.summary}</Text>
                   </View>
 
-                  {/* Masked Letter Skeleton */}
                   <View style={styles.maskedSkeletonBox}>
                     <Text style={styles.maskedSkeletonText}>{clue.masked}</Text>
                   </View>
 
-                  {/* Conceptual or Section Clue */}
                   {detail ? (
                     <View style={styles.hintDetailRow}>
                       <Text style={styles.hintDetailText}>{detail}</Text>
@@ -567,247 +823,67 @@ export const QuizRunner: React.FC<Props> = ({ items, isExamMode = false, onFinis
             })()}
           </View>
         )}
-
-        {/* Practice Quiz: Prominent Visible Feedback after Submit or "Show Answer" */}
-        {!isExamMode && isSubmitted && (() => {
-          const userAnswer = selectedOption || typedAnswer.trim();
-          const isCorrect = !isAnswerRevealed && checkIsCorrect(userAnswer, currentItem);
-
-          return (
-            <View style={styles.feedbackContainer}>
-              {/* Feedback Banner */}
-              <View
-                style={[
-                  styles.feedbackBanner,
-                  isCorrect ? styles.bannerCorrect : styles.bannerRevealed,
-                ]}
-              >
-                <HugeiconsIcon
-                  icon={isCorrect ? CheckmarkCircle02Icon : isAnswerRevealed ? EyeIcon : Cancel01Icon}
-                  size={20}
-                  color={isCorrect ? '#059669' : isAnswerRevealed ? '#D97706' : '#DC2626'}
-                  strokeWidth={2.4}
-                />
-                <Text
-                  style={[
-                    styles.bannerTitle,
-                    isCorrect
-                      ? styles.bannerTitleCorrect
-                      : isAnswerRevealed
-                      ? styles.bannerTitleRevealed
-                      : styles.bannerTitleWrong,
-                  ]}
-                >
-                  {isCorrect
-                    ? 'Correct! Great Work'
-                    : isAnswerRevealed
-                    ? 'Answer Revealed'
-                    : 'Incorrect'}
-                </Text>
-              </View>
-
-              {/* Trigger Button: Show / Hide Explanation & Grounded Answer */}
-              <TouchableOpacity
-                style={[
-                  styles.explanationTriggerBtn,
-                  showExplanation && styles.explanationTriggerBtnActive,
-                ]}
-                onPress={() => setShowExplanation((prev) => !prev)}
-                activeOpacity={0.75}
-              >
-                <View style={styles.explanationTriggerLeft}>
-                  <View style={styles.explanationTriggerIconBox}>
-                    <HugeiconsIcon
-                      icon={BookOpen01Icon}
-                      size={15}
-                      color="#4F46E5"
-                      strokeWidth={2.2}
-                    />
-                  </View>
-                  <Text style={styles.explanationTriggerText}>
-                    {showExplanation
-                      ? 'Hide Explanation & Grounded Answer'
-                      : 'Show Explanation & Grounded Answer'}
-                  </Text>
-                </View>
-                <HugeiconsIcon
-                  icon={showExplanation ? ArrowUp01Icon : ArrowDown01Icon}
-                  size={15}
-                  color="#4F46E5"
-                  strokeWidth={2.4}
-                />
-              </TouchableOpacity>
-
-              {/* Only revealed when triggered by user */}
-              {showExplanation && (
-                <View style={styles.revealedSection}>
-                  {/* Prominent Correct Answer Card */}
-                  <View style={styles.prominentAnswerCard}>
-                    <View style={styles.prominentHeader}>
-                      <View style={styles.prominentBadge}>
-                        <HugeiconsIcon
-                          icon={CheckmarkCircle02Icon}
-                          size={14}
-                          color="#047857"
-                          strokeWidth={2.4}
-                        />
-                        <Text style={styles.prominentBadgeText}>GROUNDED ANSWER</Text>
-                      </View>
-                    </View>
-                    <Text style={styles.prominentAnswerText}>{currentItem.answer}</Text>
-
-                    {!isCorrect && userAnswer ? (
-                      <View style={styles.userMistakeRow}>
-                        <Text style={styles.userMistakeLabel}>Your selection: </Text>
-                        <Text style={styles.userMistakeText}>{userAnswer}</Text>
-                      </View>
-                    ) : null}
-                  </View>
-
-                  {/* Explicit Concept Relevance & Connection */}
-                  {currentItem.explanation ? (
-                    <View style={styles.connectionCard}>
-                      <View style={styles.connectionHeader}>
-                        <HugeiconsIcon icon={BookOpen01Icon} size={15} color="#4F46E5" strokeWidth={2} />
-                        <Text style={styles.connectionLabel}>KEY EXPLANATION & RELEVANCE</Text>
-                      </View>
-                      <Text style={styles.connectionExplanationText}>{currentItem.explanation}</Text>
-                    </View>
-                  ) : null}
-
-                  {/* Source Grounding */}
-                  <SourceAttribution source={currentItem.source_metadata} defaultExpanded={true} />
-                </View>
-              )}
-            </View>
-          );
-        })()}
       </View>
 
-      {/* Action Footer */}
+      {/* Footer: Reveal Answer & Next Question Button */}
       <View style={styles.footer}>
-        {isExamMode ? (() => {
-          const hasAnswered = Boolean(selectedOption || typedAnswer.trim());
-          return (
-            /* Timed Exam mode: Next Question + Compact End Exam button side-by-side */
-            <View style={styles.examActionRow}>
-              <TouchableOpacity
-                style={styles.endExamCompactBtn}
-                onPress={() => setShowEndExamModal(true)}
-                activeOpacity={0.75}
-                accessibilityRole="button"
-                accessibilityLabel="End exam early"
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              >
-                <View style={styles.endExamIconCircle}>
-                  <HugeiconsIcon icon={Cancel01Icon} size={12} color="#DC2626" strokeWidth={2.8} />
-                </View>
-                <Text style={styles.endExamCompactText}>End Exam</Text>
-              </TouchableOpacity>
-
-              <PlatformPressable
-                style={[
-                  styles.primaryBtn,
-                  styles.examNextBtnFlex,
-                  !hasAnswered && styles.disabledBtn,
-                ]}
-                disabled={!hasAnswered}
-                onPress={handleExamNext}
-              >
-                <View style={styles.btnContent}>
-                  <Text style={[styles.primaryBtnText, !hasAnswered && styles.disabledBtnText]}>
-                    {isLast ? 'Complete Exam' : 'Next Question'}
-                  </Text>
-                  <HugeiconsIcon
-                    icon={ArrowRight01Icon}
-                    size={18}
-                    color={hasAnswered ? '#FFFFFF' : '#94A3B8'}
-                    strokeWidth={2.4}
-                  />
-                </View>
-              </PlatformPressable>
-            </View>
-          );
-        })() : !isSubmitted ? (
-          /* Practice Quiz: Submit or Show Answer */
-          <View style={styles.quizActionRow}>
-            <TouchableOpacity
-              style={styles.showAnswerBtn}
-              onPress={() => handleSubmit(true)}
-              activeOpacity={0.8}
-            >
-              <HugeiconsIcon icon={EyeIcon} size={18} color="#4F46E5" strokeWidth={2.2} />
-              <Text style={styles.showAnswerBtnText}>Show Answer</Text>
-            </TouchableOpacity>
-
-            <PlatformPressable
+        <View style={styles.actionRow}>
+          <TouchableOpacity
+            style={[
+              styles.revealBtn,
+              (isCurrentQuestionRevealed || isSubmittingFeedback) && styles.revealBtnActive,
+            ]}
+            disabled={isCurrentQuestionRevealed || isSubmittingFeedback}
+            onPress={handleRevealAnswer}
+            activeOpacity={0.75}
+            accessibilityRole="button"
+            accessibilityLabel="Reveal answer automatically"
+          >
+            <HugeiconsIcon
+              icon={EyeIcon}
+              size={16}
+              color={isCurrentQuestionRevealed || isSubmittingFeedback ? '#D97706' : '#4F46E5'}
+              strokeWidth={2.2}
+            />
+            <Text
               style={[
-                styles.primaryBtn,
-                styles.submitBtnFlex,
-                !selectedOption && !typedAnswer.trim() && styles.disabledBtn,
+                styles.revealBtnText,
+                (isCurrentQuestionRevealed || isSubmittingFeedback) && styles.revealBtnTextActive,
               ]}
-              disabled={!selectedOption && !typedAnswer.trim()}
-              onPress={() => handleSubmit(false)}
             >
-              <View style={styles.btnContent}>
-                <Text style={styles.primaryBtnText}>Submit</Text>
-              </View>
-            </PlatformPressable>
-          </View>
-        ) : (
-          /* Practice Quiz: Next Question */
-          <PlatformPressable style={styles.primaryBtn} onPress={handleNext}>
-            <View style={styles.btnContent}>
-              <Text style={styles.primaryBtnText}>
-                {isLast ? 'View Final Results' : 'Next Question'}
-              </Text>
-              <HugeiconsIcon icon={ArrowRight01Icon} size={18} color="#FFFFFF" strokeWidth={2.4} />
-            </View>
-          </PlatformPressable>
-        )}
-      </View>
-    </SmoothScrollView>
+              {isCurrentQuestionRevealed ? 'Revealed' : 'Reveal Answer'}
+            </Text>
+          </TouchableOpacity>
 
-    {/* End Exam Modal featuring Momo Thinking/Guessing */}
-    {isExamMode && (
-      <ConfirmationModal
-        visible={showEndExamModal}
-        icon="thinking"
-        title="End Exam Early?"
-        message="Momo is wondering if you're ready to submit! Any unanswered questions will be graded as unanswered."
-        confirmText="End & Review"
-        cancelText="Keep Going"
-        isDestructive={true}
-        onConfirm={handleConfirmEndExam}
-        onCancel={() => setShowEndExamModal(false)}
-        extraContent={
-          <View style={styles.examModalStatsCard}>
-            <View style={styles.examModalStatItem}>
-              <Text style={styles.examModalStatVal}>{answeredCount}</Text>
-              <Text style={styles.examModalStatLbl}>Answered</Text>
-            </View>
-            <View style={styles.examModalDivider} />
-            <View style={styles.examModalStatItem}>
+          <PlatformPressable
+            style={[
+              styles.primaryBtn,
+              styles.nextBtnFlex,
+              (!hasAnswered || isSubmittingFeedback) && styles.disabledBtn,
+            ]}
+            disabled={!hasAnswered || isSubmittingFeedback}
+            onPress={handleNextQuestion}
+          >
+            <View style={styles.btnContent}>
               <Text
                 style={[
-                  styles.examModalStatVal,
-                  remainingCount > 0 && styles.examModalStatValWarn,
+                  styles.primaryBtnText,
+                  (!hasAnswered || isSubmittingFeedback) && styles.disabledBtnText,
                 ]}
               >
-                {remainingCount}
+                {isLast ? 'Complete Quiz' : 'Next Question'}
               </Text>
-              <Text style={styles.examModalStatLbl}>Remaining</Text>
+              <HugeiconsIcon
+                icon={ArrowRight01Icon}
+                size={18}
+                color={hasAnswered && !isSubmittingFeedback ? '#FFFFFF' : '#94A3B8'}
+                strokeWidth={2.4}
+              />
             </View>
-            <View style={styles.examModalDivider} />
-            <View style={styles.examModalStatItem}>
-              <Text style={styles.examModalStatVal}>{formatTimer(timeLeft)}</Text>
-              <Text style={styles.examModalStatLbl}>Time Left</Text>
-            </View>
-          </View>
-        }
-      />
-    )}
-  </>
+          </PlatformPressable>
+        </View>
+      </View>
+    </SmoothScrollView>
   );
 };
 
@@ -817,163 +893,139 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     justifyContent: 'space-between',
   },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  progressCol: {
+  center: {
     flex: 1,
-    marginRight: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 32,
   },
-  progressHeaderRow: {
+  textMuted: {
+    color: '#64748B',
+    fontSize: 15,
+  },
+
+  // -------------------------
+  // Header & XP Progress Bar
+  // -------------------------
+  topHeader: {
+    marginBottom: 16,
+    position: 'relative',
+  },
+  topInfoRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: 8,
+  },
+  questionCounterBox: {
+    backgroundColor: '#F1F5F9',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  questionCounterText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#64748B',
+    letterSpacing: 0.5,
+  },
+  xpBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+  },
+  xpBadgeText: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#B45309',
+    fontVariant: ['tabular-nums'],
+  },
+  xpTrackContainer: {
+    marginTop: 2,
+  },
+  xpTrack: {
+    height: 8,
+    backgroundColor: '#E2E8F0',
+    borderRadius: 4,
+    overflow: 'hidden',
     marginBottom: 4,
   },
-  progressText: {
-    fontSize: 13,
-    fontWeight: '700',
+  xpFill: {
+    height: '100%',
+    backgroundColor: '#F59E0B',
+    borderRadius: 4,
+  },
+  xpLabelRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  xpTrackLabel: {
+    fontSize: 11,
+    fontWeight: '600',
     color: '#64748B',
   },
-  examActionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    width: '100%',
+  xpTrackLabelBold: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#D97706',
+    fontVariant: ['tabular-nums'],
   },
-  endExamCompactBtn: {
+  floatingXPPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    paddingVertical: 14,
-    paddingHorizontal: 14,
-    borderRadius: 14,
-    backgroundColor: '#FEF2F2',
+    gap: 4,
+    paddingHorizontal: 11,
+    paddingVertical: 5,
+    borderRadius: 16,
     borderWidth: 1.5,
-    borderColor: '#FECACA',
     ...Platform.select({
       ios: {
-        shadowColor: '#DC2626',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.08,
-        shadowRadius: 4,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.25,
+        shadowRadius: 6,
       },
       android: {
-        elevation: 1.5,
+        elevation: 4,
       },
     }),
   },
-  endExamIconCircle: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    backgroundColor: '#FEE2E2',
-    alignItems: 'center',
-    justifyContent: 'center',
+  floatingXPPillCorrect: {
+    backgroundColor: '#FEF3C7',
+    borderColor: '#F59E0B',
+    shadowColor: '#D97706',
   },
-  endExamCompactText: {
-    fontSize: 13.5,
-    fontWeight: '700',
-    color: '#DC2626',
-    letterSpacing: -0.1,
-    includeFontPadding: false,
+  floatingXPPillWrong: {
+    backgroundColor: '#FEF2F2',
+    borderColor: '#F87171',
+    shadowColor: '#DC2626',
   },
-  examNextBtnFlex: {
-    flex: 1,
+  floatingXPText: {
+    fontSize: 13,
+    fontWeight: '900',
   },
-  examModalStatsCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-around',
-    backgroundColor: '#F8FAFC',
-    borderRadius: 16,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    width: '100%',
+  floatingXPTextCorrect: {
+    color: '#B45309',
   },
-  examModalStatItem: {
-    alignItems: 'center',
-    flex: 1,
-  },
-  examModalStatVal: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#0F172A',
-    fontVariant: ['tabular-nums'],
-  },
-  examModalStatValWarn: {
-    color: '#D97706',
-  },
-  examModalStatLbl: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#64748B',
-    marginTop: 2,
-  },
-  examModalDivider: {
-    width: 1,
-    height: 24,
-    backgroundColor: '#E2E8F0',
-  },
-  miniProgressBar: {
-    height: 6,
-    backgroundColor: '#E2E8F0',
-    borderRadius: 3,
-    overflow: 'hidden',
-  },
-  miniProgressFill: {
-    height: '100%',
-    backgroundColor: '#4F46E5',
-    borderRadius: 3,
-  },
-  timerBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: '#EEF2FF',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#E0E7FF',
-  },
-  timerBadgeWarning: {
-    backgroundColor: '#FEE2E2',
-    borderColor: '#FECACA',
-  },
-  timerText: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#4F46E5',
-    fontVariant: ['tabular-nums'],
-  },
-  timerTextWarning: {
+  floatingXPTextWrong: {
     color: '#DC2626',
   },
-  scoreBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: '#EEF2FF',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 8,
+  itemFloatingXP: {
+    position: 'absolute',
+    top: -16,
+    right: 14,
+    zIndex: 100,
   },
-  scoreLabel: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#4F46E5',
-  },
-  scoreText: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#4F46E5',
-  },
+
+  // -------------------------
+  // Question Card
+  // -------------------------
   card: {
     backgroundColor: '#FFFFFF',
     borderRadius: 20,
@@ -993,19 +1045,36 @@ const styles = StyleSheet.create({
       },
     }),
   },
+  questionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
   questionTypeTag: {
-    alignSelf: 'flex-start',
     backgroundColor: '#F1F5F9',
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 6,
-    marginBottom: 12,
   },
   questionTypeTagText: {
     fontSize: 10,
     fontWeight: '800',
     color: '#475569',
     letterSpacing: 0.5,
+  },
+  questionSectionTag: {
+    backgroundColor: '#EEF2FF',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    maxWidth: 160,
+  },
+  questionSectionText: {
+    fontSize: 9.5,
+    fontWeight: '700',
+    color: '#4F46E5',
+    letterSpacing: 0.4,
   },
   questionText: {
     fontSize: 18,
@@ -1027,6 +1096,10 @@ const styles = StyleSheet.create({
     borderColor: '#E2E8F0',
     backgroundColor: '#FFFFFF',
   },
+  selectedOptionBtn: {
+    borderColor: '#4F46E5',
+    backgroundColor: '#EEF2FF',
+  },
   optionLetter: {
     width: 28,
     height: 28,
@@ -1036,10 +1109,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginRight: 10,
   },
+  selectedOptionLetter: {
+    backgroundColor: '#4F46E5',
+  },
   optionLetterText: {
     fontSize: 12,
     fontWeight: '700',
     color: '#64748B',
+  },
+  selectedOptionLetterText: {
+    color: '#FFFFFF',
   },
   optionText: {
     fontSize: 15,
@@ -1047,95 +1126,43 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     flex: 1,
   },
-  selectedOptionBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 12,
-    borderRadius: 12,
-    borderWidth: 1.5,
-    borderColor: '#4F46E5',
-    backgroundColor: '#EEF2FF',
-  },
-  selectedOptionLetter: {
-    width: 28,
-    height: 28,
-    borderRadius: 8,
-    backgroundColor: '#4F46E5',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 10,
-  },
-  selectedOptionLetterText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
   selectedOptionText: {
-    fontSize: 15,
     color: '#4F46E5',
     fontWeight: '700',
-    flex: 1,
   },
-  correctOptionBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 12,
-    borderRadius: 12,
-    borderWidth: 1.5,
-    borderColor: '#059669',
+  optionBtnCorrect: {
     backgroundColor: '#ECFDF5',
+    borderColor: '#059669',
   },
-  correctOptionLetter: {
-    width: 28,
-    height: 28,
-    borderRadius: 8,
+  optionLetterCorrect: {
     backgroundColor: '#059669',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 10,
   },
-  correctOptionLetterText: {
-    fontSize: 12,
-    fontWeight: '700',
+  optionLetterTextCorrect: {
     color: '#FFFFFF',
   },
-  correctOptionText: {
-    fontSize: 15,
+  optionTextCorrect: {
     color: '#065F46',
     fontWeight: '700',
-    flex: 1,
   },
-  wrongOptionBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 12,
-    borderRadius: 12,
-    borderWidth: 1.5,
-    borderColor: '#DC2626',
+  optionBtnWrong: {
     backgroundColor: '#FEF2F2',
+    borderColor: '#DC2626',
   },
-  wrongOptionLetter: {
-    width: 28,
-    height: 28,
-    borderRadius: 8,
+  optionLetterWrong: {
     backgroundColor: '#DC2626',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 10,
   },
-  wrongOptionLetterText: {
-    fontSize: 12,
-    fontWeight: '700',
+  optionLetterTextWrong: {
     color: '#FFFFFF',
   },
-  wrongOptionText: {
-    fontSize: 15,
+  optionTextWrong: {
     color: '#991B1B',
     fontWeight: '700',
-    flex: 1,
   },
   inputContainer: {
     marginBottom: 12,
+  },
+  inputRelativeWrapper: {
+    position: 'relative',
   },
   textInput: {
     borderWidth: 1.5,
@@ -1145,6 +1172,16 @@ const styles = StyleSheet.create({
     fontSize: 15,
     backgroundColor: '#FFFFFF',
     color: '#0F172A',
+  },
+  textInputCorrect: {
+    backgroundColor: '#ECFDF5',
+    borderColor: '#059669',
+    color: '#065F46',
+  },
+  textInputWrong: {
+    backgroundColor: '#FEF2F2',
+    borderColor: '#DC2626',
+    color: '#991B1B',
   },
   hintTriggerBtn: {
     marginTop: 10,
@@ -1249,182 +1286,62 @@ const styles = StyleSheet.create({
     color: '#475569',
     lineHeight: 17,
   },
-  feedbackContainer: {
-    marginTop: 20,
-  },
-  feedbackBanner: {
+
+  revealedNoticeBanner: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    padding: 12,
-    borderRadius: 10,
-    marginBottom: 12,
-    borderWidth: 1,
-  },
-  bannerCorrect: {
-    backgroundColor: '#ECFDF5',
-    borderColor: '#A7F3D0',
-  },
-  bannerRevealed: {
     backgroundColor: '#FFFBEB',
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    borderRadius: 10,
+    borderWidth: 1,
     borderColor: '#FDE68A',
+    marginBottom: 14,
   },
-  bannerTitle: {
-    fontSize: 14,
-    fontWeight: '800',
-  },
-  bannerTitleCorrect: {
-    color: '#065F46',
-  },
-  bannerTitleRevealed: {
+  revealedNoticeText: {
+    fontSize: 12.5,
+    fontWeight: '700',
     color: '#B45309',
+    flex: 1,
   },
-  bannerTitleWrong: {
-    color: '#991B1B',
-  },
-  explanationTriggerBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#EEF2FF',
-    borderWidth: 1.5,
-    borderColor: '#C7D2FE',
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    marginBottom: 10,
-  },
-  explanationTriggerBtnActive: {
-    backgroundColor: '#E0E7FF',
-    borderColor: '#818CF8',
-  },
-  explanationTriggerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  explanationTriggerIconBox: {
-    width: 26,
-    height: 26,
-    borderRadius: 6,
-    backgroundColor: '#FFFFFF',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: '#E0E7FF',
-  },
-  explanationTriggerText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#4338CA',
-  },
-  revealedSection: {
-    marginTop: 4,
-  },
-  prominentAnswerCard: {
-    backgroundColor: '#F0FDF4',
-    borderRadius: 14,
-    padding: 16,
-    borderWidth: 1.5,
-    borderColor: '#86EFAC',
-    marginBottom: 12,
-  },
-  prominentHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  prominentBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    backgroundColor: '#DCFCE7',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-  },
-  prominentBadgeText: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: '#047857',
-    letterSpacing: 0.5,
-  },
-  prominentAnswerText: {
-    fontSize: 17,
-    fontWeight: '800',
-    color: '#064E3B',
-    lineHeight: 24,
-  },
-  userMistakeRow: {
-    marginTop: 8,
-    paddingTop: 8,
-    borderTopWidth: 1,
-    borderTopColor: '#A7F3D0',
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-  },
-  userMistakeLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#6B7280',
-  },
-  userMistakeText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#DC2626',
-  },
-  connectionCard: {
-    backgroundColor: '#F8FAFC',
-    borderRadius: 12,
-    padding: 14,
-    borderLeftWidth: 3.5,
-    borderLeftColor: '#4F46E5',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    marginBottom: 12,
-  },
-  connectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginBottom: 6,
-  },
-  connectionLabel: {
-    fontSize: 10.5,
-    fontWeight: '800',
-    color: '#4F46E5',
-    letterSpacing: 0.5,
-  },
-  connectionExplanationText: {
-    fontSize: 13.5,
-    color: '#334155',
-    lineHeight: 20,
-  },
+
+  // -------------------------
+  // Footer & Action Buttons
+  // -------------------------
   footer: {
     marginBottom: 12,
   },
-  quizActionRow: {
+  actionRow: {
     flexDirection: 'row',
-    gap: 10,
     alignItems: 'center',
+    gap: 10,
+    width: '100%',
   },
-  showAnswerBtn: {
+  revealBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    paddingHorizontal: 16,
+    paddingHorizontal: 14,
     paddingVertical: 15,
     borderRadius: 14,
     borderWidth: 1.5,
     borderColor: '#C7D2FE',
     backgroundColor: '#EEF2FF',
   },
-  showAnswerBtnText: {
+  revealBtnActive: {
+    backgroundColor: '#FEF3C7',
+    borderColor: '#FDE68A',
+  },
+  revealBtnText: {
     color: '#4F46E5',
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '700',
   },
-  submitBtnFlex: {
+  revealBtnTextActive: {
+    color: '#B45309',
+  },
+  nextBtnFlex: {
     flex: 1,
   },
   primaryBtn: {
@@ -1445,7 +1362,7 @@ const styles = StyleSheet.create({
     }),
   },
   btnContent: {
-    paddingVertical: 14,
+    paddingVertical: 15,
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
@@ -1466,32 +1383,22 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     letterSpacing: -0.2,
   },
-  center: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 32,
-  },
-  textMuted: {
-    color: '#64748B',
-    fontSize: 15,
-  },
 
   // -------------------------
-  // Timed Exam Review Styles
+  // Review Screen Styles
   // -------------------------
-  examReviewContainer: {
+  reviewContainer: {
     padding: 16,
     paddingBottom: 40,
   },
-  examScoreCard: {
+  reviewHeroCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 20,
-    padding: 24,
+    padding: 22,
     alignItems: 'center',
     borderWidth: 1,
     borderColor: '#E2E8F0',
-    marginBottom: 24,
+    marginBottom: 20,
     ...Platform.select({
       ios: {
         shadowColor: '#0F172A',
@@ -1504,82 +1411,127 @@ const styles = StyleSheet.create({
       },
     }),
   },
-  examBadgeCircle: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
+  heroBadgeCircle: {
+    width: 68,
+    height: 68,
+    borderRadius: 34,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 12,
+    marginBottom: 10,
   },
   trophyBg: {
     backgroundColor: '#FEF3C7',
+    borderWidth: 1.5,
+    borderColor: '#FDE68A',
   },
   bookBg: {
     backgroundColor: '#EEF2FF',
+    borderWidth: 1.5,
+    borderColor: '#E0E7FF',
   },
-  examResultTitle: {
-    fontSize: 20,
+  heroTitle: {
+    fontSize: 21,
     fontWeight: '800',
     color: '#0F172A',
-    marginBottom: 4,
-  },
-  examScoreValue: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#64748B',
-    marginBottom: 4,
-  },
-  examPercentValue: {
-    fontSize: 28,
-    fontWeight: '900',
-    color: '#4F46E5',
     marginBottom: 12,
   },
-  examMetricsRow: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  examMetricPill: {
+  xpEarnedCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    backgroundColor: '#F1F5F9',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 20,
-  },
-  examMetricText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#475569',
-  },
-  reviewSectionHeader: {
+    gap: 12,
+    backgroundColor: '#FFFBEB',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: '#FDE68A',
+    width: '100%',
     marginBottom: 16,
   },
-  reviewHeaderTitleRow: {
+  xpEarnedIconBox: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#FEF3C7',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  xpEarnedTextBox: {
+    flex: 1,
+  },
+  xpEarnedValue: {
+    fontSize: 17,
+    fontWeight: '900',
+    color: '#92400E',
+  },
+  xpEarnedSub: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#B45309',
+    marginTop: 1,
+  },
+  metricsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-around',
+    width: '100%',
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+  },
+  metricPill: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  metricValue: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#0F172A',
+    fontVariant: ['tabular-nums'],
+  },
+  metricLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#64748B',
+    marginTop: 2,
+  },
+  masteredColor: {
+    color: '#059669',
+  },
+  practiceColor: {
+    color: '#4F46E5',
+  },
+  metricDivider: {
+    width: 1,
+    height: 24,
+    backgroundColor: '#E2E8F0',
+  },
+  reviewSectionHeader: {
+    marginBottom: 14,
+  },
+  reviewSectionTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
     marginBottom: 4,
   },
   reviewSectionTitle: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: '800',
     color: '#0F172A',
   },
   reviewSectionSubtitle: {
-    fontSize: 13,
+    fontSize: 12.5,
     color: '#64748B',
     lineHeight: 18,
   },
   reviewQuestionCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 18,
-    padding: 18,
-    borderWidth: 1,
+    padding: 16,
+    borderWidth: 1.5,
     borderColor: '#E2E8F0',
-    marginBottom: 16,
+    marginBottom: 14,
     ...Platform.select({
       ios: {
         shadowColor: '#0F172A',
@@ -1592,106 +1544,152 @@ const styles = StyleSheet.create({
       },
     }),
   },
-  reviewCardTopRow: {
+  reviewCardCorrectBorder: {
+    borderColor: '#A7F3D0',
+  },
+  reviewCardWrongBorder: {
+    borderColor: '#FECACA',
+  },
+  reviewCardRevealedBorder: {
+    borderColor: '#FDE68A',
+  },
+  reviewQuestionHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 10,
   },
+  reviewQuestionNumberCol: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   reviewQuestionNumber: {
     fontSize: 13,
     fontWeight: '800',
-    color: '#475569',
+    color: '#334155',
   },
-  reviewStatusBadge: {
+  statusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
     paddingHorizontal: 8,
-    paddingVertical: 3,
+    paddingVertical: 4,
     borderRadius: 6,
+    borderWidth: 1,
   },
   badgeCorrect: {
-    backgroundColor: '#D1FAE5',
+    backgroundColor: '#ECFDF5',
+    borderColor: '#A7F3D0',
   },
   badgeWrong: {
-    backgroundColor: '#FEE2E2',
+    backgroundColor: '#FEF2F2',
+    borderColor: '#FECACA',
   },
-  badgeUnanswered: {
-    backgroundColor: '#F1F5F9',
+  badgeRevealed: {
+    backgroundColor: '#FFFBEB',
+    borderColor: '#FDE68A',
   },
-  reviewStatusText: {
+  statusBadgeText: {
     fontSize: 10,
     fontWeight: '800',
-    letterSpacing: 0.5,
+    letterSpacing: 0.4,
   },
-  textCorrect: {
+  statusTextCorrect: {
     color: '#047857',
   },
-  textWrong: {
+  statusTextWrong: {
     color: '#B91C1C',
   },
-  textUnanswered: {
-    color: '#64748B',
+  statusTextRevealed: {
+    color: '#B45309',
   },
-  reviewQuestionText: {
-    fontSize: 16,
+  reviewQuestionPrompt: {
+    fontSize: 15.5,
     fontWeight: '700',
     color: '#0F172A',
-    lineHeight: 23,
-    marginBottom: 14,
-  },
-  answerComparisonBox: {
+    lineHeight: 22,
     marginBottom: 12,
-    gap: 8,
   },
-  userChoiceRow: {
+  userAnswerBox: {
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1.5,
+    marginBottom: 10,
+  },
+  userAnswerBoxCorrect: {
+    backgroundColor: '#ECFDF5',
+    borderColor: '#A7F3D0',
+  },
+  userAnswerBoxWrong: {
+    backgroundColor: '#FEF2F2',
+    borderColor: '#FECACA',
+  },
+  userAnswerBoxRevealed: {
+    backgroundColor: '#FFFBEB',
+    borderColor: '#FDE68A',
+  },
+  userAnswerHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: '#F8FAFC',
-    padding: 10,
-    borderRadius: 10,
+    marginBottom: 4,
   },
-  userChoiceLabel: {
-    fontSize: 12,
+  userAnswerLabel: {
+    fontSize: 11,
     fontWeight: '700',
-    color: '#64748B',
+    letterSpacing: 0.3,
   },
-  userChoiceText: {
-    fontSize: 13,
-    fontWeight: '600',
-    flex: 1,
-  },
-  userChoiceCorrect: {
+  userAnswerLabelCorrect: {
     color: '#047857',
   },
-  userChoiceIncorrect: {
+  userAnswerLabelWrong: {
     color: '#DC2626',
   },
-  prominentCorrectCard: {
+  userAnswerLabelRevealed: {
+    color: '#B45309',
+  },
+  userAnswerValue: {
+    fontSize: 14.5,
+    fontWeight: '700',
+    paddingLeft: 21,
+  },
+  userAnswerValueCorrect: {
+    color: '#065F46',
+  },
+  userAnswerValueWrong: {
+    color: '#991B1B',
+  },
+  userAnswerValueRevealed: {
+    color: '#92400E',
+  },
+  correctAnswerBox: {
     backgroundColor: '#F0FDF4',
     borderRadius: 12,
-    padding: 14,
+    padding: 12,
     borderWidth: 1.5,
     borderColor: '#86EFAC',
+    marginBottom: 10,
   },
-  correctBadgeRow: {
+  correctAnswerHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    marginBottom: 6,
+    marginBottom: 4,
   },
-  correctBadgeLabel: {
+  correctAnswerHeaderLabel: {
     fontSize: 10.5,
     fontWeight: '800',
     color: '#047857',
     letterSpacing: 0.5,
   },
-  prominentCorrectText: {
-    fontSize: 16,
+  correctAnswerValue: {
+    fontSize: 15,
     fontWeight: '800',
     color: '#064E3B',
-    lineHeight: 22,
+    lineHeight: 21,
   },
-  reviewConnectionCard: {
+  explanationCard: {
     backgroundColor: '#F8FAFC',
     borderRadius: 10,
     padding: 12,
@@ -1699,27 +1697,67 @@ const styles = StyleSheet.create({
     borderLeftColor: '#4F46E5',
     borderWidth: 1,
     borderColor: '#E2E8F0',
-    marginBottom: 10,
+    marginBottom: 8,
   },
-  reviewConnectionHeader: {
+  explanationHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
     marginBottom: 4,
   },
-  reviewConnectionLabel: {
+  explanationLabel: {
     fontSize: 10,
     fontWeight: '800',
     color: '#4F46E5',
     letterSpacing: 0.5,
   },
-  reviewExplanationText: {
+  explanationText: {
     fontSize: 13,
     color: '#334155',
     lineHeight: 19,
   },
-  finishExamBtnWrapper: {
+  reviewActionFooter: {
+    width: '100%',
+    gap: 10,
     marginTop: 8,
-    marginBottom: 24,
+    marginBottom: 20,
+  },
+  restartBtn: {
+    backgroundColor: '#EEF2FF',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#C7D2FE',
+  },
+  restartBtnText: {
+    color: '#4F46E5',
+    fontWeight: '700',
+    fontSize: 15,
+  },
+  doneBtn: {
+    backgroundColor: '#4F46E5',
+    borderRadius: 14,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#4F46E5',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.25,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 3,
+      },
+    }),
+  },
+  doneBtnText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+    fontSize: 15,
+  },
+  btnRow: {
+    paddingVertical: 14,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 8,
   },
 });

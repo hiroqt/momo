@@ -196,7 +196,7 @@ export default function UploadScreen() {
           <View style={styles.infoBanner}>
             <HugeiconsIcon icon={CheckmarkCircle02Icon} size={16} color="#059669" strokeWidth={2} />
             <Text style={styles.infoBannerText}>
-              Files are stored temporarily for 3 days and grounded directly with AI.
+              Files are stored temporarily for 3 days and used to build your custom study material.
             </Text>
           </View>
 

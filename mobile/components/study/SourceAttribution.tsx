@@ -10,6 +10,7 @@ import {
   Layers01Icon,
 } from '@hugeicons/core-free-icons';
 import { SourceMetadata } from '../../types';
+import { isMeaningfulSection } from '../../utils/formatters';
 
 interface Props {
   source?: SourceMetadata;
@@ -35,7 +36,7 @@ export const SourceAttribution: React.FC<Props> = ({ source, defaultExpanded = f
             <HugeiconsIcon icon={Shield01Icon} size={14} color="#4F46E5" strokeWidth={2.4} />
           </View>
           <View>
-            <Text style={styles.label}>GROUNDED SOURCE CITATION</Text>
+            <Text style={styles.label}>DOCUMENT REFERENCE</Text>
             <Text style={styles.sublabel}>Verified directly against your material</Text>
           </View>
         </View>
@@ -50,7 +51,7 @@ export const SourceAttribution: React.FC<Props> = ({ source, defaultExpanded = f
         </View>
       </TouchableOpacity>
 
-      {/* Grounding Chips */}
+      {/* Source Reference Chips */}
       <View style={styles.chipsRow}>
         {source.document_name ? (
           <View style={styles.chipDocument}>
@@ -68,7 +69,7 @@ export const SourceAttribution: React.FC<Props> = ({ source, defaultExpanded = f
           </View>
         ) : null}
 
-        {source.section ? (
+        {isMeaningfulSection(source.section) ? (
           <View style={styles.chipSection}>
             <HugeiconsIcon icon={Layers01Icon} size={12} color="#475569" strokeWidth={2} />
             <Text style={styles.chipSectionText} numberOfLines={1}>

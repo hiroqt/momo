@@ -31,7 +31,21 @@ class RetrievalService:
             section_filter=section_filter
         )
 
-        # 3. Informational diversity filter (suppress redundant adjacent chunk overlaps)
+        # 3. Informational diversity filter & topic keyword relevance prioritization
+        query_keywords = [
+            w.lower()
+            for w in query.split()
+            if len(w) > 3 and w.lower() not in {"focus", "aspects", "general", "overview", "core", "study", "concepts", "material"}
+        ]
+
+        if query_keywords:
+            def keyword_score(chunk: Dict[str, Any]) -> int:
+                text = (chunk.get("content", "") + " " + chunk.get("section", "")).lower()
+                return sum(1 for kw in query_keywords if kw in text)
+
+            # Stable sort prioritizing chunks with topic keyword matches
+            raw_chunks.sort(key=keyword_score, reverse=True)
+
         selected_chunks: List[Dict[str, Any]] = []
         seen_snippets: set = set()
 

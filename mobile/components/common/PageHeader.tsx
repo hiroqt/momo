@@ -115,7 +115,8 @@ const styles = StyleSheet.create({
     minHeight: 40,
   },
   leftCol: {
-    width: 40,
+    minWidth: 40,
+    flexShrink: 0,
     alignItems: 'flex-start',
     justifyContent: 'center',
   },
@@ -132,6 +133,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 8,
+    overflow: 'hidden',
   },
   title: {
     fontSize: 17,
@@ -147,7 +149,8 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   rightCol: {
-    width: 40,
+    minWidth: 40,
+    flexShrink: 0,
     alignItems: 'flex-end',
     justifyContent: 'center',
   },

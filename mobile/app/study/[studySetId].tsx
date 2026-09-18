@@ -180,7 +180,7 @@ export default function StudySessionScreen() {
     return (
       <View style={[styles.center, { backgroundColor: '#FFFFFF' }]}>
         <Image 
-          source={require('@/assets/momo_logo.png')} 
+          source={require('@/assets/animations/thinking_momo.png')} 
           style={{ width: '100%', height: '100%', position: 'absolute' }} 
           resizeMode="cover" 
         />

@@ -164,29 +164,39 @@ export default function HomeScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Dismissible Momo Tip Banner (Interactive) */}
-        {momoVisible && (
-          <View style={styles.momoBanner}>
-            <TouchableOpacity
-              style={styles.momoContent}
-              activeOpacity={0.7}
-              onPress={() => setMomoQuote(getRandomStudyQuote(momoQuote.id))}
-            >
-              <View style={styles.momoIconContainer}>
-                <View style={{ transform: [{ scale: 0.6 }], width: 92, height: 92, alignItems: 'center', justifyContent: 'center' }}>
-                  <DynamicMomoHead quote={momoQuote} />
-                </View>
-              </View>
-              <View style={styles.momoTextCol}>
+        {/* Interactive Momo with Chat Bubble */}
+        <View style={styles.momoBannerContainer}>
+          <TouchableOpacity
+            style={styles.momoAvatarBtn}
+            activeOpacity={0.7}
+            onPress={() => {
+              setMomoQuote(getRandomStudyQuote(momoQuote.id));
+              setMomoVisible(true);
+            }}
+          >
+            <View style={{ width: 92, height: 92, alignItems: 'center', justifyContent: 'center' }}>
+              <DynamicMomoHead quote={momoQuote} />
+            </View>
+          </TouchableOpacity>
+
+          {momoVisible && (
+            <View style={styles.chatBubble}>
+              <View style={styles.chatBubbleTailOuter} />
+              <View style={styles.chatBubbleTail} />
+              <TouchableOpacity
+                style={styles.chatBubbleContent}
+                activeOpacity={0.7}
+                onPress={() => setMomoQuote(getRandomStudyQuote(momoQuote.id))}
+              >
                 <Text style={styles.momoTipTitle}>{momoQuote.emoji} {momoQuote.categoryLabel}</Text>
                 <Text style={styles.momoTipDesc}>{momoQuote.quote}</Text>
-              </View>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.momoCloseBtn} onPress={() => setMomoVisible(false)}>
-              <Text style={styles.momoCloseText}>✕</Text>
-            </TouchableOpacity>
-          </View>
-        )}
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.momoCloseBtn} onPress={() => setMomoVisible(false)}>
+                <Text style={styles.momoCloseText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
 
         {/* Horizontal Streak Timeline */}
         <View style={styles.streakTimelineContainer}>
@@ -430,45 +440,76 @@ const styles = StyleSheet.create({
     fontWeight: typography.fontWeight.bold,
     color: colors.primary,
   },
-  momoBanner: {
+  momoBannerContainer: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'flex-end',
+    marginBottom: 20,
+    paddingHorizontal: 4,
+  },
+  momoAvatarBtn: {
+    marginRight: 12,
+    marginBottom: 0,
+  },
+  chatBubble: {
+    flex: 1,
     backgroundColor: '#FEF3C7',
-    padding: spacing[12],
-    borderRadius: 14,
-    marginBottom: spacing[20],
+    padding: 14,
+    borderRadius: 18,
     borderWidth: 1,
     borderColor: '#FDE68A',
-  },
-  momoContent: {
-    flex: 1,
+    position: 'relative',
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing[10],
+    alignItems: 'flex-start',
   },
-  momoIconContainer: {
-    width: 48,
-    height: 48,
-    alignItems: 'center',
-    justifyContent: 'center',
+  chatBubbleTailOuter: {
+    position: 'absolute',
+    left: -9,
+    bottom: 35,
+    width: 0,
+    height: 0,
+    backgroundColor: 'transparent',
+    borderStyle: 'solid',
+    borderTopWidth: 8,
+    borderBottomWidth: 8,
+    borderRightWidth: 10,
+    borderTopColor: 'transparent',
+    borderBottomColor: 'transparent',
+    borderRightColor: '#FDE68A',
+    zIndex: 1,
   },
-  momoTextCol: {
+  chatBubbleTail: {
+    position: 'absolute',
+    left: -8,
+    bottom: 35,
+    width: 0,
+    height: 0,
+    backgroundColor: 'transparent',
+    borderStyle: 'solid',
+    borderTopWidth: 8,
+    borderBottomWidth: 8,
+    borderRightWidth: 10,
+    borderTopColor: 'transparent',
+    borderBottomColor: 'transparent',
+    borderRightColor: '#FEF3C7',
+    zIndex: 2,
+  },
+  chatBubbleContent: {
     flex: 1,
-    paddingRight: spacing[8],
+    paddingRight: 8,
   },
   momoTipTitle: {
-    fontSize: typography.fontSize[13],
-    fontWeight: typography.fontWeight.bold,
+    fontSize: 14,
+    fontWeight: '800',
     color: '#92400E',
-    marginBottom: 2,
+    marginBottom: 4,
   },
   momoTipDesc: {
-    fontSize: typography.fontSize[12],
+    fontSize: 13,
     color: '#B45309',
-    lineHeight: typography.lineHeight[17],
+    lineHeight: 18,
   },
   momoCloseBtn: {
-    padding: spacing[4],
+    padding: 4,
   },
   momoCloseText: {
     fontSize: 16,

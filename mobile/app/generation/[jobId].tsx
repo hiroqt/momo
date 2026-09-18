@@ -24,7 +24,6 @@ import {
 import { getGenerationStatus, retryGeneration } from '../../lib/api/generations';
 import { PlatformPressable } from '../../components/common/PlatformPressable';
 import { SmoothScrollView } from '../../components/common/SmoothScrollView';
-import { MomoMaker } from '../../components/mascot/MomoMaker';
 import { GenerationJob } from '../../types';
 
 export default function GenerationProgressScreen() {
@@ -124,9 +123,8 @@ export default function GenerationProgressScreen() {
         <View style={styles.card}>
           {/* Animated Momo Crafting Mascot */}
           <View style={styles.mascotBox}>
-            <MomoMaker size={145} />
             <Image 
-              source={require('@/assets/momo_logo.png')} 
+              source={require('@/assets/animations/creating_momo.png')} 
               style={styles.logoImage}
               resizeMode="contain"
             />

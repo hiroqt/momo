@@ -36,8 +36,8 @@ export default function RootLayout() {
       <Stack
         screenOptions={{
           headerShown: false,
-          animation: isIOS ? "default" : "slide_from_right",
-          animationDuration: 260,
+          animation: "fade",
+          animationDuration: 350,
           gestureEnabled: true,
           fullScreenGestureEnabled: isIOS,
           contentStyle: {
@@ -56,7 +56,7 @@ export default function RootLayout() {
           options={{
             presentation: "modal",
             animation: "slide_from_bottom",
-            animationDuration: 280,
+            animationDuration: 350,
             headerShown: false,
           }}
         />
@@ -64,24 +64,24 @@ export default function RootLayout() {
           name="create/[documentId]"
           options={{
             headerShown: false,
-            animation: isIOS ? "default" : "slide_from_right",
-            animationDuration: 260,
+            animation: "fade",
+            animationDuration: 350,
           }}
         />
         <Stack.Screen
           name="generation/[jobId]"
           options={{
             headerShown: false,
-            animation: "fade_from_bottom",
-            animationDuration: 240,
+            animation: "fade",
+            animationDuration: 350,
           }}
         />
         <Stack.Screen
           name="study/[studySetId]"
           options={{
             headerShown: false,
-            animation: isIOS ? "default" : "slide_from_right",
-            animationDuration: 260,
+            animation: "fade",
+            animationDuration: 350,
           }}
         />
       </Stack>

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert, Platform } from 'react-native';
+import { View, Text, Modal, Image, StyleSheet, TouchableOpacity, Alert, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { HugeiconsIcon } from '@hugeicons/react-native';
@@ -12,29 +12,35 @@ import { PlatformPressable } from '../../components/common/PlatformPressable';
 export default function ShopScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [successAmount, setSuccessAmount] = useState(0);
+  const [showNotEnoughXpModal, setShowNotEnoughXpModal] = useState(false);
+  const [requiredXp, setRequiredXp] = useState(0);
+  const [showPurchaseModal, setShowPurchaseModal] = useState(false);
+  const [purchaseAmount, setPurchaseAmount] = useState(0);
+  const [purchasePrice, setPurchasePrice] = useState('');
   const { credits, xp, addCredits, convertXPToCredits } = useCredits();
   const [activeTab, setActiveTab] = useState<'buy' | 'exchange'>('buy');
 
   const handlePurchase = (amount: number, price: string) => {
-    Alert.alert(
-      'Confirm Purchase',
-      `Buy ${amount} credits for ${price}?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Purchase',
-          onPress: () => {
-            addCredits(amount);
-            Alert.alert('Success', `You have successfully purchased ${amount} credits!`);
-          },
-        },
-      ]
-    );
+    setPurchaseAmount(amount);
+    setPurchasePrice(price);
+    setShowPurchaseModal(true);
+  };
+
+  const confirmPurchase = () => {
+    setShowPurchaseModal(false);
+    addCredits(purchaseAmount);
+    setSuccessAmount(purchaseAmount);
+    setTimeout(() => {
+      setShowSuccessModal(true);
+    }, 500); // slight delay to allow purchase modal to close first
   };
 
   const handleExchange = (xpCost: number, creditReward: number) => {
     if (xp < xpCost) {
-      Alert.alert('Not enough XP', `You need ${xpCost} XP but you only have ${xp}. Keep taking quizzes!`);
+      setRequiredXp(xpCost);
+      setShowNotEnoughXpModal(true);
       return;
     }
     
@@ -47,7 +53,8 @@ export default function ShopScreen() {
           text: 'Exchange',
           onPress: () => {
             if (convertXPToCredits(xpCost, creditReward)) {
-              Alert.alert('Success', `You exchanged ${xpCost} XP for ${creditReward} credits!`);
+              setSuccessAmount(creditReward);
+              setShowSuccessModal(true);
             } else {
               Alert.alert('Error', 'Something went wrong.');
             }
@@ -148,8 +155,95 @@ export default function ShopScreen() {
           </>
         )}
       </SmoothScrollView>
+
+      <Modal
+        visible={showSuccessModal}
+        transparent={true}
+        animationType="fade"
+      >
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' }}>
+          <View style={{ backgroundColor: 'white', padding: 24, borderRadius: 24, alignItems: 'center', width: '80%' }}>
+            <Image 
+              source={require('../../assets/animations/cheer_momo.png')} 
+              style={{ width: 140, height: 140, marginBottom: 16 }} 
+              resizeMode="contain" 
+            />
+            <Text style={{ fontSize: 20, fontWeight: '800', color: '#1E293B', marginBottom: 8 }}>Success!</Text>
+            <Text style={{ fontSize: 16, color: '#64748B', textAlign: 'center', marginBottom: 24 }}>
+              You got {successAmount} credits! Time to crush those quizzes!
+            </Text>
+            <TouchableOpacity 
+              style={{ backgroundColor: '#4F46E5', paddingHorizontal: 24, paddingVertical: 12, borderRadius: 12, width: '100%' }}
+              onPress={() => setShowSuccessModal(false)}
+            >
+              <Text style={{ color: 'white', fontWeight: 'bold', textAlign: 'center', fontSize: 16 }}>Awesome</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={showNotEnoughXpModal}
+        transparent={true}
+        animationType="fade"
+      >
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' }}>
+          <View style={{ backgroundColor: 'white', padding: 24, borderRadius: 24, alignItems: 'center', width: '80%' }}>
+            <Image 
+              source={require('../../assets/animations/no_credits_momo.png')} 
+              style={{ width: 140, height: 140, marginBottom: 16 }} 
+              resizeMode="contain" 
+            />
+            <Text style={{ fontSize: 20, fontWeight: '800', color: '#1E293B', marginBottom: 8, textAlign: 'center' }}>Not enough XP!</Text>
+            <Text style={{ fontSize: 16, color: '#64748B', textAlign: 'center', marginBottom: 24 }}>
+              You need {requiredXp} XP to make this exchange, but you only have {xp}. Keep taking quizzes to earn more!
+            </Text>
+            <TouchableOpacity 
+              style={{ backgroundColor: '#D97706', paddingHorizontal: 24, paddingVertical: 12, borderRadius: 12, width: '100%' }}
+              onPress={() => setShowNotEnoughXpModal(false)}
+            >
+              <Text style={{ color: 'white', fontWeight: 'bold', textAlign: 'center', fontSize: 16 }}>Got it</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={showPurchaseModal}
+        transparent={true}
+        animationType="fade"
+      >
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' }}>
+          <View style={{ backgroundColor: 'white', padding: 24, borderRadius: 24, alignItems: 'center', width: '80%' }}>
+            <Image 
+              source={require('../../assets/animations/wealth_momo.png')} 
+              style={{ width: 140, height: 140, marginBottom: 16 }} 
+              resizeMode="contain" 
+            />
+            <Text style={{ fontSize: 20, fontWeight: '800', color: '#1E293B', marginBottom: 8, textAlign: 'center' }}>Confirm Purchase</Text>
+            <Text style={{ fontSize: 16, color: '#64748B', textAlign: 'center', marginBottom: 24 }}>
+              Are you sure you want to buy {purchaseAmount} credits for {purchasePrice}?
+            </Text>
+            <View style={{ flexDirection: 'row', gap: 12, width: '100%' }}>
+              <TouchableOpacity 
+                style={{ flex: 1, backgroundColor: '#F1F5F9', paddingVertical: 12, borderRadius: 12 }}
+                onPress={() => setShowPurchaseModal(false)}
+              >
+                <Text style={{ color: '#475569', fontWeight: 'bold', textAlign: 'center', fontSize: 16 }}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={{ flex: 1, backgroundColor: '#4F46E5', paddingVertical: 12, borderRadius: 12 }}
+                onPress={confirmPurchase}
+              >
+                <Text style={{ color: 'white', fontWeight: 'bold', textAlign: 'center', fontSize: 16 }}>Purchase</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
+
 }
 
 function PackageCard({ title, credits, price, recommended = false, onPress }: any) {

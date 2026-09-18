@@ -34,7 +34,7 @@ import { SmoothScrollView } from '../common/SmoothScrollView';
 import { syncEngine } from '../../lib/sync/syncEngine';
 import { isMeaningfulSection, sanitizeQuestionText } from '../../utils/formatters';
 import { useCredits } from '../../context/CreditsContext';
-import { MomoMoney } from '../mascot/MomoMoney';
+import { Image } from 'react-native';
 import { Modal } from 'react-native';
 
 interface Props {
@@ -958,7 +958,7 @@ export const QuizRunner: React.FC<Props> = ({ items, onFinish, onRestart }) => {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <MomoMoney size={120} />
+            <Image source={require('../../assets/animations/no_credits_momo.png')} style={{ width: 120, height: 120 }} resizeMode="contain" />
             <Text style={styles.modalTitle}>Out of Credits!</Text>
             <Text style={styles.modalDesc}>
               You need 50 credits to reveal an answer. You currently have {credits}.

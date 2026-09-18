@@ -358,3 +358,4 @@ The generation workflow adheres to the following sequence:
 - **Server-Side Quota Enforcement**: Upload limits (10 documents per month, 15 MB file size, 50 pages) are verified at the API level before generating S3 credentials.
 - **Identity Authorization**: User identity is derived strictly from the validated Supabase JWT token. Path parameters and request bodies cannot spoof ownership of documents or study sets.
 - **Credential Segregation**: Cloud storage and AI gateway credentials remain isolated to the backend environment and are never transmitted to the client application.
+- **Credential Security**: API keys and secret tokens are stored in environment variables on the server and are never committed to the codebase.

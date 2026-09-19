@@ -68,7 +68,7 @@ async def generic_exception_handler(request: Request, exc: Exception):
         }
     )
 
-from app.api.routes import auth, documents, generations, study_sets, sync, math
+from app.api.routes import auth, documents, generations, study_sets, sync, math, folders
 
 # Include API routes
 app.include_router(auth.router)
@@ -77,6 +77,7 @@ app.include_router(generations.router)
 app.include_router(study_sets.router)
 app.include_router(sync.router)
 app.include_router(math.router)
+app.include_router(folders.router)
 
 @app.get("/health")
 async def health_check():

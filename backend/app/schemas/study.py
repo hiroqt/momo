@@ -36,7 +36,7 @@ class StudySetResponse(BaseModel):
     folder_id: Optional[str] = None
     title: str
     description: Optional[str] = None
-    item_count: int
+    item_count: int = 0
     generation_config: Optional[Dict[str, Any]] = None
     created_at: datetime
     updated_at: datetime

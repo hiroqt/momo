@@ -18,6 +18,7 @@ class StudyRepository:
         now = datetime.now(timezone.utc).isoformat()
         data["created_at"] = data.get("created_at") or now
         data["updated_at"] = data.get("updated_at") or now
+        data["item_count"] = data.get("item_count", 0)
 
         if supabase_session.is_configured and supabase_session.client:
             try:

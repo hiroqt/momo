@@ -48,3 +48,58 @@ async def test_folder_crud_and_study_set_detach():
     updated_s = await study_repo.get_study_set(s["id"], user_id)
     assert updated_s is not None
     assert updated_s.get("folder_id") is None
+
+@pytest.mark.asyncio
+async def test_folders_api_endpoints():
+    from httpx import AsyncClient, ASGITransport
+    from app.main import app
+
+    headers = {"Authorization": "Bearer test-token-folder-api-user"}
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        # 1. Create a study set
+        ss_resp = await study_repo.create_study_set({
+            "user_id": "folder-api-user",
+            "title": "Anatomy Quiz"
+        })
+        study_set_id = ss_resp["id"]
+
+        # 2. List folders initially
+        res = await ac.get("/api/folders", headers=headers)
+        assert res.status_code == 200
+        initial_folders = res.json()
+
+        # 3. Create folder
+        create_res = await ac.post("/api/folders", json={"name": "Medical School", "color": "#10B981"}, headers=headers)
+        assert create_res.status_code == 201
+        folder = create_res.json()
+        assert folder["name"] == "Medical School"
+        folder_id = folder["id"]
+
+        # 4. Duplicate name fails with 400
+        dup_res = await ac.post("/api/folders", json={"name": "medical school"}, headers=headers)
+        assert dup_res.status_code == 400
+
+        # 5. Assign study set to folder via PATCH /api/study-sets/{id}
+        patch_ss = await ac.patch(f"/api/study-sets/{study_set_id}", json={"folder_id": folder_id}, headers=headers)
+        assert patch_ss.status_code == 200
+        assert patch_ss.json()["folder_id"] == folder_id
+
+        # 6. Verify reviewer_count is 1
+        get_res = await ac.get(f"/api/folders/{folder_id}", headers=headers)
+        assert get_res.status_code == 200
+        assert get_res.json()["reviewer_count"] == 1
+
+        # 7. Rename folder
+        rename_res = await ac.patch(f"/api/folders/{folder_id}", json={"name": "Medicine"}, headers=headers)
+        assert rename_res.status_code == 200
+        assert rename_res.json()["name"] == "Medicine"
+
+        # 8. Unassign study set from folder
+        unassign_ss = await ac.patch(f"/api/study-sets/{study_set_id}", json={"folder_id": ""}, headers=headers)
+        assert unassign_ss.status_code == 200
+        assert unassign_ss.json()["folder_id"] is None
+
+        # 9. Delete folder
+        del_res = await ac.delete(f"/api/folders/{folder_id}", headers=headers)
+        assert del_res.status_code == 200
+        assert del_res.json()["deleted"] is True

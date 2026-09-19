@@ -30,3 +30,7 @@ class OCRService:
         return await self.provider.extract(file_bytes)
 
 ocr_service = OCRService()
+
+def extract_text_from_base64_image(base64_image: str) -> str:
+    """Extract text from base64 image (OCR placeholder/fallback)."""
+    return ""

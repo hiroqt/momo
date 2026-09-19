@@ -190,60 +190,72 @@ export default function WelcomeScreen() {
     if (isTransitioning.current) return;
     isTransitioning.current = true;
 
-    const exitOffset = direction === 'forward' ? -36 : 36;
-    const enterOffset = direction === 'forward' ? 36 : -36;
+    const exitOffset = direction === 'forward' ? -30 : 30;
+    const enterOffset = direction === 'forward' ? 30 : -30;
 
     // Phase 1: Fluid decelerate exit
     Animated.parallel([
       Animated.timing(fadeAnim, {
         toValue: 0,
-        duration: 160,
-        easing: Easing.bezier(0.4, 0, 0.6, 1),
+        duration: 140,
+        easing: Easing.out(Easing.ease),
         useNativeDriver: true,
       }),
       Animated.timing(slideAnim, {
         toValue: exitOffset,
-        duration: 160,
-        easing: Easing.bezier(0.4, 0, 0.6, 1),
+        duration: 140,
+        easing: Easing.out(Easing.ease),
         useNativeDriver: true,
       }),
       Animated.timing(scaleAnim, {
-        toValue: 0.96,
-        duration: 160,
-        easing: Easing.bezier(0.4, 0, 0.6, 1),
+        toValue: 0.97,
+        duration: 140,
+        easing: Easing.out(Easing.ease),
         useNativeDriver: true,
       }),
     ]).start(() => {
-      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
       setStep(nextStep);
       scrollViewRef.current?.scrollTo({ y: 0, animated: false });
       slideAnim.setValue(enterOffset);
-      scaleAnim.setValue(0.96);
+      scaleAnim.setValue(0.97);
 
       // Phase 2: Natural spring-like ease-out entrance
       Animated.parallel([
         Animated.timing(fadeAnim, {
           toValue: 1,
-          duration: 260,
-          easing: Easing.bezier(0.16, 1, 0.3, 1),
+          duration: 220,
+          easing: Easing.out(Easing.cubic),
           useNativeDriver: true,
         }),
         Animated.timing(slideAnim, {
           toValue: 0,
-          duration: 260,
-          easing: Easing.bezier(0.16, 1, 0.3, 1),
+          duration: 220,
+          easing: Easing.out(Easing.cubic),
           useNativeDriver: true,
         }),
         Animated.timing(scaleAnim, {
           toValue: 1,
-          duration: 260,
-          easing: Easing.bezier(0.16, 1, 0.3, 1),
+          duration: 220,
+          easing: Easing.out(Easing.cubic),
           useNativeDriver: true,
         }),
       ]).start(() => {
+        fadeAnim.setValue(1);
+        slideAnim.setValue(0);
+        scaleAnim.setValue(1);
         isTransitioning.current = false;
       });
     });
+
+    // iOS Safety watchdog: guarantee that the UI never remains at opacity 0
+    setTimeout(() => {
+      if (isTransitioning.current) {
+        fadeAnim.setValue(1);
+        slideAnim.setValue(0);
+        scaleAnim.setValue(1);
+        isTransitioning.current = false;
+      }
+    }, 450);
   };
 
   const handleToggleFormat = (id: PreferredFormat | 'all') => {
@@ -311,18 +323,29 @@ export default function WelcomeScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      {/* 8-Step Progress Bar Indicator */}
-      <View style={styles.progressContainer}>
-        {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
-          <View
-            key={i}
-            style={[
-              styles.progressDot,
-              step === i && styles.progressDotActive,
-              step > i && styles.progressDotCompleted,
-            ]}
-          />
-        ))}
+      {/* Top Header: Progress Bar Indicator + Direct Skip */}
+      <View style={styles.topHeader}>
+        <View style={styles.progressContainer}>
+          {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
+            <View
+              key={i}
+              style={[
+                styles.progressDot,
+                step === i && styles.progressDotActive,
+                step > i && styles.progressDotCompleted,
+              ]}
+            />
+          ))}
+        </View>
+        <TouchableOpacity
+          onPress={handleFinishGuest}
+          style={styles.headerSkipBtn}
+          accessibilityRole="button"
+          accessibilityLabel="Skip setup and jump to dashboard"
+          activeOpacity={0.7}
+        >
+          <Text style={styles.headerSkipText}>Skip</Text>
+        </TouchableOpacity>
       </View>
 
       <ScrollView
@@ -405,6 +428,16 @@ export default function WelcomeScreen() {
               >
                 <Text style={styles.primaryButtonText}>Let's Cook My Plan!</Text>
                 <HugeiconsIcon icon={ArrowRight01Icon} size={18} color={colors.onPrimary} strokeWidth={2.5} />
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.skipSecondaryButton}
+                onPress={handleFinishGuest}
+                accessibilityRole="button"
+                accessibilityLabel="Skip setup, jump directly to Dashboard"
+                activeOpacity={0.7}
+              >
+                <Text style={styles.skipSecondaryButtonText}>Skip setup, jump to Dashboard</Text>
               </TouchableOpacity>
             </View>
           )}
@@ -1195,11 +1228,26 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
+  topHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing[20],
+    paddingTop: spacing[6],
+    paddingBottom: spacing[4],
+  },
+  headerSkipBtn: {
+    paddingVertical: spacing[6],
+    paddingHorizontal: spacing[10],
+  },
+  headerSkipText: {
+    fontSize: typography.fontSize[13],
+    fontWeight: typography.fontWeight.semiBold,
+    color: colors.textMuted,
+  },
   progressContainer: {
     flexDirection: 'row',
-    justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: spacing[12],
     gap: 6,
   },
   progressDot: {
@@ -1319,13 +1367,29 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     borderCurve: 'continuous',
     gap: 8,
-    boxShadow: '0 4px 10px rgba(99, 102, 241, 0.25)',
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
+    elevation: 4,
   },
   primaryButtonDisabled: {
     backgroundColor: colors.surfaceMuted,
     borderWidth: 1,
     borderColor: colors.border,
-    boxShadow: 'none',
+    shadowOpacity: 0,
+    elevation: 0,
+  },
+  skipSecondaryButton: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing[12],
+    marginTop: spacing[8],
+  },
+  skipSecondaryButtonText: {
+    fontSize: typography.fontSize[13],
+    fontWeight: typography.fontWeight.medium,
+    color: colors.textSecondary,
   },
   primaryButtonText: {
     fontSize: typography.fontSize[14],
@@ -1505,7 +1569,11 @@ const styles = StyleSheet.create({
   trackCardSelected: {
     borderColor: colors.primary,
     backgroundColor: colors.primarySoft,
-    boxShadow: '0 2px 8px rgba(99, 102, 241, 0.12)',
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+    elevation: 2,
   },
   trackIconCircle: {
     width: 38,
@@ -1633,7 +1701,11 @@ const styles = StyleSheet.create({
   formatCardSelected: {
     borderColor: colors.primary,
     backgroundColor: colors.primarySoft,
-    boxShadow: '0 2px 8px rgba(99, 102, 241, 0.12)',
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+    elevation: 2,
   },
   formatCardAll: {
     borderWidth: 1.5,
@@ -1736,7 +1808,11 @@ const styles = StyleSheet.create({
   goalFullCardSelected: {
     borderColor: colors.primary,
     backgroundColor: colors.primarySoft,
-    boxShadow: '0 2px 8px rgba(99, 102, 241, 0.12)',
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+    elevation: 2,
   },
   goalTitleRow: {
     flexDirection: 'row',

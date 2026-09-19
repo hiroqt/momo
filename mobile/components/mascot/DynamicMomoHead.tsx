@@ -4,10 +4,11 @@ import { StudyQuote } from '../../lib/data/studyQuotes';
 
 export interface DynamicMomoHeadProps {
   quote: StudyQuote;
+  size?: number;
 }
 
-export function DynamicMomoHead({ quote }: DynamicMomoHeadProps) {
-let source;
+export function DynamicMomoHead({ quote, size = 120 }: DynamicMomoHeadProps) {
+  let source;
   switch (quote.category) {
     case 'lock_in': source = require('../../assets/animations/focus_momo.png'); break;
     case 'real_talk': source = quote.vibe === 'funny' ? require('../../assets/animations/cool_momo.png') : require('../../assets/animations/thinking_momo.png'); break;
@@ -19,8 +20,8 @@ let source;
     default: source = require('../../assets/animations/thinking_momo.png'); break;
   }
   return (
-    <View style={{ width: 130, height: 130, justifyContent: 'center', alignItems: 'center' }}>
-      <Image source={source} style={{ width: 130, height: 130 }} resizeMode="contain" />
+    <View style={{ width: size, height: size, justifyContent: 'center', alignItems: 'center' }}>
+      <Image source={source} style={{ width: size, height: size }} resizeMode="contain" />
     </View>
   );
 }

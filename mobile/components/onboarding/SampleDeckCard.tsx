@@ -11,7 +11,6 @@ import { useRouter } from 'expo-router';
 import { HugeiconsIcon } from '@hugeicons/react-native';
 import {
   SparklesIcon,
-  ArrowRight01Icon,
   Upload01Icon,
   BookOpen01Icon,
 } from '@hugeicons/core-free-icons';
@@ -92,7 +91,6 @@ export const SampleDeckCard: React.FC<SampleDeckCardProps> = ({ onDeckSeeded }) 
             <>
               <HugeiconsIcon icon={BookOpen01Icon} size={15} color={colors.onPrimary} strokeWidth={2.5} />
               <Text style={styles.primaryBtnText}>Study Sample Deck</Text>
-              <HugeiconsIcon icon={ArrowRight01Icon} size={14} color={colors.onPrimary} strokeWidth={2.5} />
             </>
           )}
         </TouchableOpacity>

@@ -24,6 +24,7 @@ import {
   BookOpen01Icon,
   FlashIcon,
   TrophyIcon,
+  Tick01Icon,
 } from '@hugeicons/core-free-icons';
 import { colors, spacing, typography } from '@/constants/theme';
 import {
@@ -975,7 +976,11 @@ export default function WelcomeScreen() {
                           styles.checkboxSquare,
                           isSelected && styles.checkboxSquareSelected,
                         ]}
-                      />
+                      >
+                        {isSelected && (
+                          <HugeiconsIcon icon={Tick01Icon} size={13} color={colors.onPrimary} strokeWidth={3} />
+                        )}
+                      </View>
                     </TouchableOpacity>
                   );
                 })}
@@ -1086,7 +1091,11 @@ export default function WelcomeScreen() {
                     styles.checkboxSquare,
                     studyRemindersEnabled && styles.checkboxSquareSelected,
                   ]}
-                />
+                >
+                  {studyRemindersEnabled && (
+                    <HugeiconsIcon icon={Tick01Icon} size={13} color={colors.onPrimary} strokeWidth={3} />
+                  )}
+                </View>
                 <View style={{ flex: 1 }}>
                   <View style={styles.reminderHeaderRow}>
                     <Text style={styles.reminderTitle}>Daily Study Reminders</Text>
@@ -1189,7 +1198,6 @@ export default function WelcomeScreen() {
                   <Text style={styles.sampleActionText}>
                     {isSeeding ? 'Whipping up deck...' : 'Start Sample Deck'}
                   </Text>
-                  <HugeiconsIcon icon={ArrowRight01Icon} size={16} color={colors.onPrimary} strokeWidth={2.5} />
                 </TouchableOpacity>
               </View>
 
@@ -1752,15 +1760,16 @@ const styles = StyleSheet.create({
   checkboxSquare: {
     width: 22,
     height: 22,
-    borderRadius: 7,
-    borderCurve: 'continuous',
-    borderWidth: 1.5,
+    borderRadius: 6,
+    borderWidth: 2,
     borderColor: colors.borderStrong,
+    alignItems: 'center',
+    justifyContent: 'center',
     backgroundColor: colors.surface,
   },
   checkboxSquareSelected: {
-    borderColor: colors.primary,
     backgroundColor: colors.primary,
+    borderColor: colors.primary,
   },
   selectionCountWrap: {
     alignItems: 'center',

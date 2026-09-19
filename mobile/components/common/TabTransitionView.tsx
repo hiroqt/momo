@@ -1,69 +1,33 @@
-import React, { useRef, useCallback } from 'react';
-import { Animated, StyleSheet, StyleProp, ViewStyle } from 'react-native';
-import { useFocusEffect } from 'expo-router';
+import React from 'react';
+import { StyleSheet, StyleProp, ViewStyle, View } from 'react-native';
+import { colors } from '@/constants/theme';
 
-interface TabTransitionViewProps {
+export interface TabTransitionViewProps {
   children: React.ReactNode;
   style?: StyleProp<ViewStyle>;
+  tabName?: 'index' | 'library' | 'profile' | string;
+  enableSwipe?: boolean;
 }
 
 /**
- * Wraps tab screens with a lightweight, native-driven cross-fade and subtle lift
- * animation whenever the tab is brought into focus.
+ * TabTransitionView provides a clean, unified container styling for individual tab contents.
+ * Multi-page horizontal swipe gestures, revealing next page & disappearing previous page transitions,
+ * dynamic frosted blur, and bottom tab bar synchronization are orchestrated at the layout level.
  */
 export const TabTransitionView: React.FC<TabTransitionViewProps> = ({
   children,
   style,
 }) => {
-  const fadeAnim = useRef(new Animated.Value(0.4)).current;
-  const translateY = useRef(new Animated.Value(6)).current;
-
-  useFocusEffect(
-    useCallback(() => {
-      fadeAnim.setValue(0.4);
-      translateY.setValue(6);
-
-      const anim = Animated.parallel([
-        Animated.timing(fadeAnim, {
-          toValue: 1,
-          duration: 200,
-          useNativeDriver: true,
-        }),
-        Animated.timing(translateY, {
-          toValue: 0,
-          duration: 200,
-          useNativeDriver: true,
-        }),
-      ]);
-
-      anim.start();
-
-      return () => {
-        anim.stop();
-      };
-    }, [fadeAnim, translateY])
-  );
-
   return (
-    <Animated.View
-      renderToHardwareTextureAndroid={true}
-      needsOffscreenAlphaCompositing={true}
-      style={[
-        styles.container,
-        style,
-        {
-          opacity: fadeAnim,
-          transform: [{ translateY }],
-        },
-      ]}
-    >
+    <View style={[styles.container, style]}>
       {children}
-    </Animated.View>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: colors.background,
   },
 });

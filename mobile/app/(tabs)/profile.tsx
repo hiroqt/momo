@@ -85,7 +85,7 @@ export default function ProfileScreen() {
   };
 
   return (
-    <TabTransitionView style={styles.screen}>
+    <TabTransitionView style={styles.screen} tabName="profile">
       <SmoothScrollView
         style={styles.container}
         contentContainerStyle={[

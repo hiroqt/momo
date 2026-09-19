@@ -29,6 +29,7 @@ import {
   FolderAddIcon,
   MoreVerticalIcon,
   Upload01Icon,
+  FlashIcon,
 } from '@hugeicons/core-free-icons';
 import { listStudySets, deleteStudySet, updateStudySet } from '../../lib/api/studySets';
 import { listDocuments, deleteDocument } from '../../lib/api/documents';
@@ -281,6 +282,7 @@ export default function LibraryScreen() {
 
   return (
     <TabTransitionView
+      tabName="library"
       style={[
         styles.container,
         {
@@ -507,52 +509,79 @@ export default function LibraryScreen() {
               const assignedFolder = folders.find((f) => f.id === item.folder_id);
               return (
                 <View style={styles.card}>
-                  <TouchableOpacity
-                    style={styles.cardMain}
-                    onPress={() => router.push(`/study/${item.id}`)}
-                    activeOpacity={0.7}
-                  >
-                    <View style={styles.cardHeader}>
-                      <View style={styles.cardHeaderLeft}>
-                        <Text style={styles.cardTitle} numberOfLines={1}>
-                          {item.title}
-                        </Text>
-                        {assignedFolder ? (
-                          <View style={styles.cardFolderBadge}>
-                            <HugeiconsIcon icon={Folder01Icon} size={11} color={colors.primary} />
-                            <Text style={styles.cardFolderBadgeText} numberOfLines={1}>
-                              {assignedFolder.name}
-                            </Text>
-                          </View>
-                        ) : null}
-                      </View>
+                  {/* Card Header: Title & Badges on left, Items Count & 3-dots Menu on right */}
+                  <View style={styles.cardHeader}>
+                    <TouchableOpacity
+                      style={styles.cardHeaderLeft}
+                      onPress={() => router.push(`/study/${item.id}`)}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={styles.cardTitle} numberOfLines={1}>
+                        {item.title}
+                      </Text>
+                      {assignedFolder ? (
+                        <View style={styles.cardFolderBadge}>
+                          <HugeiconsIcon icon={Folder01Icon} size={11} color={colors.primary} />
+                          <Text style={styles.cardFolderBadgeText} numberOfLines={1}>
+                            {assignedFolder.name}
+                          </Text>
+                        </View>
+                      ) : null}
+                    </TouchableOpacity>
+
+                    <View style={styles.cardHeaderRight}>
                       <View style={styles.badge}>
                         <Text style={styles.badgeText}>{item.item_count} items</Text>
                       </View>
+                      <TouchableOpacity
+                        style={styles.moreOptionsBtn}
+                        onPress={() => setStudySetActionTarget(item)}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        accessibilityRole="button"
+                        accessibilityLabel="Study set options"
+                      >
+                        <HugeiconsIcon icon={MoreVerticalIcon} size={18} color={colors.textSecondary} strokeWidth={2} />
+                      </TouchableOpacity>
                     </View>
-                    {item.description ? (
+                  </View>
+
+                  {/* Card Description (tap to open) */}
+                  {item.description ? (
+                    <TouchableOpacity
+                      onPress={() => router.push(`/study/${item.id}`)}
+                      activeOpacity={0.7}
+                    >
                       <Text style={styles.cardDesc} numberOfLines={2}>
                         {item.description}
                       </Text>
-                    ) : null}
-                    <View style={styles.cardFooter}>
-                      <Text style={styles.cardDate}>
-                        Created {new Date(item.created_at).toLocaleDateString()}
+                    </TouchableOpacity>
+                  ) : null}
+
+                  {/* Card Footer: Metadata on left, Large Prominent Study Now CTA on right */}
+                  <View style={styles.cardFooter}>
+                    <View style={styles.cardDateBox}>
+                      <Text style={styles.cardDateLabel}>Created</Text>
+                      <Text style={styles.cardDateValue}>
+                        {new Date(item.created_at).toLocaleDateString(undefined, {
+                          month: 'short',
+                          day: 'numeric',
+                          year: 'numeric',
+                        })}
                       </Text>
-                      <View style={styles.openHint}>
-                        <Text style={styles.openHintText}>Study Now</Text>
-                        <HugeiconsIcon icon={ArrowRight01Icon} size={14} color={colors.primary} strokeWidth={2.5} />
-                      </View>
                     </View>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.moreOptionsBtn}
-                    onPress={() => setStudySetActionTarget(item)}
-                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                    accessibilityLabel="Study set options"
-                  >
-                    <HugeiconsIcon icon={MoreVerticalIcon} size={18} color={colors.textSecondary} strokeWidth={2} />
-                  </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={styles.studyNowBtn}
+                      onPress={() => router.push(`/study/${item.id}`)}
+                      activeOpacity={0.85}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Study ${item.title}`}
+                    >
+                      <HugeiconsIcon icon={FlashIcon} size={16} color="#FFFFFF" strokeWidth={2.4} />
+                      <Text style={styles.studyNowBtnText}>Study Now</Text>
+                      <HugeiconsIcon icon={ArrowRight01Icon} size={15} color="#FFFFFF" strokeWidth={2.4} />
+                    </TouchableOpacity>
+                  </View>
                 </View>
               );
             }}
@@ -746,10 +775,19 @@ export default function LibraryScreen() {
                   </View>
                   <View style={styles.docActions}>
                     {isReady && (
-                      <View style={styles.studyActionBadge}>
-                        <HugeiconsIcon icon={SparklesIcon} size={13} color={colors.primary} strokeWidth={2} />
+                      <TouchableOpacity
+                        style={styles.studyActionBadge}
+                        onPress={(e) => {
+                          e.stopPropagation();
+                          router.push(`/create/${item.id}`);
+                        }}
+                        activeOpacity={0.8}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Study ${item.original_filename}`}
+                      >
+                        <HugeiconsIcon icon={FlashIcon} size={13} color={colors.onPrimary} strokeWidth={2.4} />
                         <Text style={styles.studyActionBadgeText}>Study</Text>
-                      </View>
+                      </TouchableOpacity>
                     )}
                     <TouchableOpacity
                       style={styles.docDeleteBtn}
@@ -787,9 +825,11 @@ export default function LibraryScreen() {
                   </View>
                 ) : (
                   <View style={styles.emptyBox}>
-                    <View style={[styles.emptyIconCircle, styles.docEmptyIconCircle]}>
-                      <HugeiconsIcon icon={File01Icon} size={28} color={colors.primary} strokeWidth={1.8} />
-                    </View>
+                    <Image
+                      source={require('@/assets/animations/document_momo.png')}
+                      style={styles.emptyMomoImage}
+                      resizeMode="contain"
+                    />
                     <Text style={styles.emptyHeroTitle}>No documents uploaded yet</Text>
                     <Text style={styles.emptyHeroText}>
                       Upload your PDF, DOCX, or TXT documents to generate AI reviewers. Original files are retained for 3 days, while generated study sets persist forever.
@@ -843,38 +883,47 @@ export default function LibraryScreen() {
           onPress={() => setFolderActionTarget(null)}
         >
           <View style={styles.folderActionSheet}>
+            <View style={styles.actionSheetHandleBar} />
             <Text style={styles.folderActionTitle} numberOfLines={1}>
               📁 {folderActionTarget?.name}
             </Text>
-            <TouchableOpacity
-              style={styles.actionSheetItem}
-              onPress={() => {
-                const target = folderActionTarget;
-                setFolderActionTarget(null);
-                setFolderToEdit(target);
-              }}
-            >
-              <HugeiconsIcon icon={Edit02Icon} size={18} color={colors.primary} />
-              <Text style={styles.actionSheetItemText}>Rename Folder</Text>
-            </TouchableOpacity>
 
-            <TouchableOpacity
-              style={[styles.actionSheetItem, styles.actionSheetItemDestructive]}
-              onPress={() => {
-                const target = folderActionTarget;
-                setFolderActionTarget(null);
-                setFolderToDelete(target);
-              }}
-            >
-              <HugeiconsIcon icon={Delete02Icon} size={18} color={colors.dangerAccent} />
-              <Text style={[styles.actionSheetItemText, styles.actionSheetItemTextDestructive]}>
-                Delete Folder
-              </Text>
-            </TouchableOpacity>
+            <View style={styles.actionSheetGroup}>
+              <TouchableOpacity
+                style={styles.actionSheetItem}
+                onPress={() => {
+                  const target = folderActionTarget;
+                  setFolderActionTarget(null);
+                  setFolderToEdit(target);
+                }}
+                activeOpacity={0.7}
+              >
+                <HugeiconsIcon icon={Edit02Icon} size={18} color={colors.primary} />
+                <Text style={styles.actionSheetItemText}>Rename Folder</Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.actionSheetDangerSection}>
+              <TouchableOpacity
+                style={[styles.actionSheetItem, styles.actionSheetItemDestructive]}
+                onPress={() => {
+                  const target = folderActionTarget;
+                  setFolderActionTarget(null);
+                  setFolderToDelete(target);
+                }}
+                activeOpacity={0.7}
+              >
+                <HugeiconsIcon icon={Delete02Icon} size={18} color={colors.dangerAccent} />
+                <Text style={[styles.actionSheetItemText, styles.actionSheetItemTextDestructive]}>
+                  Delete Folder
+                </Text>
+              </TouchableOpacity>
+            </View>
 
             <TouchableOpacity
               style={styles.actionSheetCancelBtn}
               onPress={() => setFolderActionTarget(null)}
+              activeOpacity={0.7}
             >
               <Text style={styles.actionSheetCancelText}>Cancel</Text>
             </TouchableOpacity>
@@ -895,55 +944,64 @@ export default function LibraryScreen() {
           onPress={() => setStudySetActionTarget(null)}
         >
           <View style={styles.folderActionSheet}>
+            <View style={styles.actionSheetHandleBar} />
             <Text style={styles.folderActionTitle} numberOfLines={1}>
               {studySetActionTarget?.title}
             </Text>
 
-            <TouchableOpacity
-              style={styles.actionSheetItem}
-              onPress={() => {
-                const target = studySetActionTarget;
-                setStudySetActionTarget(null);
-                setMoveToFolderTarget(target);
-              }}
-            >
-              <HugeiconsIcon icon={Folder01Icon} size={18} color={colors.primary} />
-              <Text style={styles.actionSheetItemText}>
-                {studySetActionTarget?.folder_id ? 'Change / Remove Folder' : 'Move to Folder'}
-              </Text>
-            </TouchableOpacity>
+            <View style={styles.actionSheetGroup}>
+              <TouchableOpacity
+                style={styles.actionSheetItem}
+                onPress={() => {
+                  const target = studySetActionTarget;
+                  setStudySetActionTarget(null);
+                  setMoveToFolderTarget(target);
+                }}
+                activeOpacity={0.7}
+              >
+                <HugeiconsIcon icon={Folder01Icon} size={18} color={colors.primary} />
+                <Text style={styles.actionSheetItemText}>
+                  {studySetActionTarget?.folder_id ? 'Change / Remove Folder' : 'Move to Folder'}
+                </Text>
+              </TouchableOpacity>
 
-            <TouchableOpacity
-              style={styles.actionSheetItem}
-              onPress={() => {
-                const target = studySetActionTarget;
-                setStudySetActionTarget(null);
-                setRenameTarget(target);
-              }}
-            >
-              <HugeiconsIcon icon={Edit02Icon} size={18} color={colors.primary} />
-              <Text style={styles.actionSheetItemText}>Rename Reviewer</Text>
-            </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.actionSheetItem}
+                onPress={() => {
+                  const target = studySetActionTarget;
+                  setStudySetActionTarget(null);
+                  setRenameTarget(target);
+                }}
+                activeOpacity={0.7}
+              >
+                <HugeiconsIcon icon={Edit02Icon} size={18} color={colors.primary} />
+                <Text style={styles.actionSheetItemText}>Rename Reviewer</Text>
+              </TouchableOpacity>
+            </View>
 
-            <TouchableOpacity
-              style={[styles.actionSheetItem, styles.actionSheetItemDestructive]}
-              onPress={() => {
-                const target = studySetActionTarget;
-                setStudySetActionTarget(null);
-                if (target) {
-                  setDeleteTarget({ type: 'set', set: target });
-                }
-              }}
-            >
-              <HugeiconsIcon icon={Delete02Icon} size={18} color={colors.dangerAccent} />
-              <Text style={[styles.actionSheetItemText, styles.actionSheetItemTextDestructive]}>
-                Delete Reviewer
-              </Text>
-            </TouchableOpacity>
+            <View style={styles.actionSheetDangerSection}>
+              <TouchableOpacity
+                style={[styles.actionSheetItem, styles.actionSheetItemDestructive]}
+                onPress={() => {
+                  const target = studySetActionTarget;
+                  setStudySetActionTarget(null);
+                  if (target) {
+                    setDeleteTarget({ type: 'set', set: target });
+                  }
+                }}
+                activeOpacity={0.7}
+              >
+                <HugeiconsIcon icon={Delete02Icon} size={18} color={colors.dangerAccent} />
+                <Text style={[styles.actionSheetItemText, styles.actionSheetItemTextDestructive]}>
+                  Delete Reviewer
+                </Text>
+              </TouchableOpacity>
+            </View>
 
             <TouchableOpacity
               style={styles.actionSheetCancelBtn}
               onPress={() => setStudySetActionTarget(null)}
+              activeOpacity={0.7}
             >
               <Text style={styles.actionSheetCancelText}>Cancel</Text>
             </TouchableOpacity>
@@ -1215,37 +1273,47 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: colors.surface,
     padding: spacing[16],
-    borderRadius: 14,
-    marginBottom: spacing[10],
+    borderRadius: 18,
+    marginBottom: spacing[12],
     borderWidth: 1,
     borderColor: colors.border,
-    flexDirection: 'row',
-    alignItems: 'center',
     ...Platform.select({
       ios: {
         shadowColor: colors.shadow,
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.03,
-        shadowRadius: 4,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.04,
+        shadowRadius: 8,
       },
       android: {
-        elevation: 1,
+        elevation: 2,
       },
     }),
   },
   cardMain: {
     flex: 1,
-    marginRight: spacing[10],
   },
   cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: spacing[6],
+    alignItems: 'flex-start',
+    marginBottom: spacing[8],
   },
   cardHeaderLeft: {
     flex: 1,
-    marginRight: spacing[8],
+    marginRight: spacing[10],
+  },
+  cardHeaderRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing[8],
+  },
+  moreOptionsBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: colors.surfaceMuted,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   cardFolderBadge: {
     flexDirection: 'row',
@@ -1291,28 +1359,54 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginTop: spacing[10],
+    paddingTop: spacing[10],
+    borderTopWidth: 1,
+    borderTopColor: '#F8FAFC',
   },
-  cardDate: {
-    fontSize: typography.fontSize[11],
+  cardDateBox: {
+    flexDirection: 'column',
+  },
+  cardDateLabel: {
+    fontSize: 10,
+    fontWeight: typography.fontWeight.semiBold,
     color: colors.textDisabled,
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
   },
-  openHint: {
+  cardDateValue: {
+    fontSize: typography.fontSize[11.5],
+    color: colors.textSecondary,
+    fontWeight: typography.fontWeight.medium,
+    marginTop: 1,
+  },
+  studyNowBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing[3],
-  },
-  openHintText: {
-    fontSize: typography.fontSize[12],
-    fontWeight: typography.fontWeight.bold,
-    color: colors.primary,
-  },
-  moreOptionsBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: colors.surfaceMuted,
-    alignItems: 'center',
     justifyContent: 'center',
+    gap: 6,
+    backgroundColor: colors.primary,
+    paddingVertical: 9,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    minHeight: 40,
+    ...Platform.select({
+      ios: {
+        shadowColor: colors.primary,
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.22,
+        shadowRadius: 6,
+      },
+      android: {
+        elevation: 3,
+      },
+    }),
+  },
+  studyNowBtnText: {
+    fontSize: typography.fontSize[13],
+    fontWeight: typography.fontWeight.bold,
+    color: colors.onPrimary,
+    letterSpacing: -0.1,
   },
   docCard: {
     backgroundColor: colors.surface,
@@ -1408,15 +1502,27 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing[4],
-    backgroundColor: colors.primarySoft,
-    paddingHorizontal: spacing[8],
-    paddingVertical: spacing[5],
-    borderRadius: 6,
+    backgroundColor: colors.primary,
+    paddingHorizontal: spacing[10],
+    paddingVertical: spacing[6],
+    borderRadius: 8,
+    ...Platform.select({
+      ios: {
+        shadowColor: colors.primary,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.2,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
   },
   studyActionBadgeText: {
-    fontSize: typography.fontSize[11],
+    fontSize: typography.fontSize[12],
     fontWeight: typography.fontWeight.bold,
-    color: colors.primary,
+    color: colors.onPrimary,
+    letterSpacing: -0.1,
   },
   docDeleteBtn: {
     width: 34,
@@ -1472,9 +1578,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: spacing[12],
-  },
-  docEmptyIconCircle: {
-    backgroundColor: colors.primarySoft,
   },
   emptyHeroTitle: {
     fontSize: typography.fontSize[18],
@@ -1638,12 +1741,29 @@ const styles = StyleSheet.create({
       },
     }),
   },
+  actionSheetHandleBar: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#CBD5E1',
+    alignSelf: 'center',
+    marginBottom: spacing[10],
+  },
   folderActionTitle: {
     fontSize: typography.fontSize[16],
     fontWeight: typography.fontWeight.bold,
     color: colors.text,
     textAlign: 'center',
     marginBottom: spacing[12],
+  },
+  actionSheetGroup: {
+    gap: spacing[8],
+  },
+  actionSheetDangerSection: {
+    marginTop: spacing[6],
+    paddingTop: spacing[10],
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
   },
   actionSheetItem: {
     flexDirection: 'row',
@@ -1671,7 +1791,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: colors.surfaceMuted,
-    marginTop: spacing[6],
+    marginTop: spacing[8],
   },
   actionSheetCancelText: {
     fontSize: typography.fontSize[14],

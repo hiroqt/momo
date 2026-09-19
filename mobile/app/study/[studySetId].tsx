@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { colors, spacing, typography } from '@/constants/theme';
 import {
   Platform,
@@ -28,7 +28,7 @@ import {
 import { getStudySet, getStudyItems, deleteStudySet, updateStudySet } from '../../lib/api/studySets';
 import { localDb } from '../../lib/storage/localDb';
 import { FlashcardDeck } from '../../components/study/FlashcardDeck';
-import { QuizRunner } from '../../components/study/QuizRunner';
+import { QuizRunner, QuizRunnerRef } from '../../components/study/QuizRunner';
 import { PageHeader } from '../../components/common/PageHeader';
 import { PlatformPressable } from '../../components/common/PlatformPressable';
 import { ConfirmationModal } from '../../components/common/ConfirmationModal';
@@ -37,6 +37,7 @@ import { SmoothScrollView } from '../../components/common/SmoothScrollView';
 import { StudySet, StudyItem } from '../../types';
 import { useOnboarding } from '../../context/OnboardingContext';
 import { CelebrationModal } from '../../components/onboarding/CelebrationModal';
+import { MomoLoadingScreen } from '../../components/common/MomoLoadingScreen';
 
 function shuffleArray<T>(array: T[]): T[] {
   const shuffled = [...array];
@@ -79,6 +80,7 @@ export default function StudySessionScreen() {
   const [showRenameModal, setShowRenameModal] = useState(false);
   const [isRenaming, setIsRenaming] = useState(false);
   const [showActionMenu, setShowActionMenu] = useState(false);
+  const quizRef = useRef<QuizRunnerRef>(null);
   const [finishedScore, setFinishedScore] = useState<{ correct: number; total: number } | null>(null);
   const [isQuizCompleted, setIsQuizCompleted] = useState(false);
   const [quizScore, setQuizScore] = useState<{ correct: number; total: number; xp: number } | null>(null);
@@ -194,25 +196,11 @@ export default function StudySessionScreen() {
 
   if (isLoading) {
     return (
-      <View style={[styles.center, { backgroundColor: '#FFFFFF' }]}>
-        <Image 
-          source={require('@/assets/animations/thinking_momo.png')} 
-          style={{ width: '100%', height: '100%', position: 'absolute' }} 
-          resizeMode="cover" 
-        />
-        <ActivityIndicator size="large" color="#4F46E5" style={{ marginTop: 200 }} />
-        <Text style={[styles.loadingText, { 
-          color: '#000', 
-          backgroundColor: 'rgba(255,255,255,0.85)', 
-          paddingHorizontal: 16, 
-          paddingVertical: 8, 
-          borderRadius: 12,
-          fontWeight: 'bold',
-          marginTop: 12
-        }]}>
-          Loading study reviewer...
-        </Text>
-      </View>
+      <MomoLoadingScreen
+        title="Loading Study Reviewer..."
+        subtitle="Momo is getting your flashcards and questions ready!"
+        mascotSize={220}
+      />
     );
   }
 
@@ -394,7 +382,7 @@ export default function StudySessionScreen() {
             onFinish={() => setFinishedScore({ correct: actualFlashcardItems.length, total: actualFlashcardItems.length })}
           />
         ) : (
-          <QuizRunner
+          <QuizRunner ref={quizRef}
             key={`quiz-${sessionKey}-${actualQuizItems.map((i) => i.id).join('-')}`}
             items={actualQuizItems}
             timeLimitPerQuestion={studySet?.generation_config?.time_limit_per_question}
@@ -425,6 +413,26 @@ export default function StudySessionScreen() {
             <Text style={styles.actionSheetTitle} numberOfLines={1}>
               {studySet?.title || 'Reviewer Options'}
             </Text>
+            {/* Quiz Overview Option */}
+            {!isQuizCompleted && mode === "quiz" && (
+              <TouchableOpacity
+                style={styles.actionSheetItem}
+                onPress={() => {
+                  setShowActionMenu(false);
+                  setTimeout(() => quizRef.current?.showOverview(), 150);
+                }}
+                activeOpacity={0.7}
+              >
+                <View style={[styles.actionIconBadge, { backgroundColor: colors.primarySoft }]}>
+                  <HugeiconsIcon icon={BookOpen01Icon} size={18} color={colors.primary} strokeWidth={2.2} />
+                </View>
+                <View style={styles.actionItemTextCol}>
+                  <Text style={styles.actionItemTitle}>Quiz Overview</Text>
+                  <Text style={styles.actionItemSubtitle}>View all questions and jump around</Text>
+                </View>
+              </TouchableOpacity>
+            )}
+
 
             {/* Reset Option */}
             <TouchableOpacity

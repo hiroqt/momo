@@ -185,7 +185,7 @@ export function StudyMascotCard({ onPressAction }: StudyMascotCardProps) {
           {/* Title and Category Tag Column */}
           <View style={styles.headerTextCol}>
             <View style={styles.nameRow}>
-              <Text style={styles.mascotName}>Momo 🐵</Text>
+              <Text style={styles.mascotName}>Momo</Text>
               <View style={styles.buddyBadge}>
                 <HugeiconsIcon
                   icon={SparklesIcon}
@@ -202,7 +202,7 @@ export function StudyMascotCard({ onPressAction }: StudyMascotCardProps) {
               <Text style={styles.statusText}>AI Companion • Ready</Text>
             </View>
 
-            {/* Gen Z Category Tags Row */}
+            {/* Category Tags Row */}
             <View style={styles.tagRow}>
               <View
                 style={[
@@ -210,7 +210,6 @@ export function StudyMascotCard({ onPressAction }: StudyMascotCardProps) {
                   isFunny ? styles.funnyChip : styles.seriousChip,
                 ]}
               >
-                <Text style={styles.categoryEmoji}>{currentQuote.emoji}</Text>
                 <Text
                   style={[
                     styles.categoryText,

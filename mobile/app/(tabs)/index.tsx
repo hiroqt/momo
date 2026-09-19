@@ -139,7 +139,7 @@ export default function HomeScreen() {
   const totalCards = sets.reduce((sum, s) => sum + (s.item_count || 0), 0);
 
   return (
-    <TabTransitionView style={styles.screen}>
+    <TabTransitionView style={styles.screen} tabName="index">
       <SmoothScrollView
         style={styles.container}
         contentContainerStyle={[
@@ -198,9 +198,7 @@ export default function HomeScreen() {
               setMomoVisible(true);
             }}
           >
-            <View style={{ width: 130, height: 130, alignItems: 'center', justifyContent: 'center' }}>
-              <DynamicMomoHead quote={momoQuote} />
-            </View>
+            <DynamicMomoHead quote={momoQuote} size={120} />
           </TouchableOpacity>
 
           {momoVisible && (
@@ -212,8 +210,8 @@ export default function HomeScreen() {
                 activeOpacity={0.7}
                 onPress={() => setMomoQuote(getRandomStudyQuote(momoQuote.id))}
               >
-                <Text style={styles.momoTipTitle}>{momoQuote.emoji} {momoQuote.categoryLabel}</Text>
-                <Text style={styles.momoTipDesc}>{momoQuote.quote}</Text>
+                <Text style={styles.momoTipTitle} numberOfLines={1}>{momoQuote.categoryLabel}</Text>
+                <Text style={styles.momoTipDesc} numberOfLines={2}>{momoQuote.quote}</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.momoCloseBtn} onPress={() => setMomoVisible(false)}>
                 <Text style={styles.momoCloseText}>✕</Text>
@@ -482,42 +480,59 @@ const styles = StyleSheet.create({
   momoBannerContainer: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    marginBottom:  10,
-    paddingHorizontal: 4,
+    height: 120,
+    marginBottom: 0,
+    paddingHorizontal: 2,
     zIndex: 1,
     elevation: 1,
   },
   momoAvatarBtn: {
-    marginRight: 12,
-    marginBottom:  -8,
+    marginRight: 8,
+    marginBottom: 0,
     position: 'relative',
     zIndex: 2,
     elevation: 2,
   },
   chatBubble: {
     flex: 1,
+    height: 80,
+    marginBottom: 12,
     backgroundColor: '#FEF3C7',
-    padding: 14,
-    borderRadius: 18,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: '#FDE68A',
     position: 'relative',
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    zIndex:  1,
-    elevation:  1,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    zIndex: 1,
+    elevation: 1,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#B45309',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.06,
+        shadowRadius: 6,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
   },
   chatBubbleTailOuter: {
     position: 'absolute',
-    left: -9,
-    bottom: 35,
+    left: -8,
+    top: '50%',
+    marginTop: -7,
     width: 0,
     height: 0,
     backgroundColor: 'transparent',
     borderStyle: 'solid',
-    borderTopWidth: 8,
-    borderBottomWidth: 8,
-    borderRightWidth: 10,
+    borderTopWidth: 7,
+    borderBottomWidth: 7,
+    borderRightWidth: 8,
     borderTopColor: 'transparent',
     borderBottomColor: 'transparent',
     borderRightColor: '#FDE68A',
@@ -525,15 +540,16 @@ const styles = StyleSheet.create({
   },
   chatBubbleTail: {
     position: 'absolute',
-    left: -8,
-    bottom: 35,
+    left: -7,
+    top: '50%',
+    marginTop: -7,
     width: 0,
     height: 0,
     backgroundColor: 'transparent',
     borderStyle: 'solid',
-    borderTopWidth: 8,
-    borderBottomWidth: 8,
-    borderRightWidth: 10,
+    borderTopWidth: 7,
+    borderBottomWidth: 7,
+    borderRightWidth: 8,
     borderTopColor: 'transparent',
     borderBottomColor: 'transparent',
     borderRightColor: '#FEF3C7',
@@ -542,23 +558,28 @@ const styles = StyleSheet.create({
   chatBubbleContent: {
     flex: 1,
     paddingRight: 8,
+    justifyContent: 'center',
   },
   momoTipTitle: {
-    fontSize: 14,
+    fontSize: 11.5,
     fontWeight: '800',
     color: '#92400E',
-    marginBottom: 4,
+    marginBottom: 2,
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
   },
   momoTipDesc: {
-    fontSize: 13,
-    color: '#B45309',
-    lineHeight: 18,
+    fontSize: 12.5,
+    fontWeight: '600',
+    color: '#78350F',
+    lineHeight: 17,
   },
   momoCloseBtn: {
-    padding: 4,
+    padding: 6,
+    marginLeft: 2,
   },
   momoCloseText: {
-    fontSize: 16,
+    fontSize: 13,
     color: '#B45309',
     fontWeight: 'bold',
   },

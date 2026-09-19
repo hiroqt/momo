@@ -18,7 +18,6 @@ import {
 } from '@hugeicons/core-free-icons';
 import { Image } from 'react-native';
 
-
 export interface ConfirmationModalProps {
   visible: boolean;
   title: string;
@@ -76,14 +75,22 @@ export const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
     if (icon === 'delete') {
       return (
         <View style={styles.momoContainer}>
-          <Image source={require('../../assets/animations/worried_momo.png')} style={{ width: 96, height: 96 }} resizeMode="contain" />
+          <Image
+            source={require('../../assets/animations/worried_momo.png')}
+            style={styles.momoImage}
+            resizeMode="contain"
+          />
         </View>
       );
     }
     if (icon === 'thinking') {
       return (
         <View style={styles.momoContainer}>
-          <Image source={require('../../assets/animations/thinking_momo.png')} style={{ width: 104, height: 104 }} resizeMode="contain" />
+          <Image
+            source={require('../../assets/animations/thinking_momo.png')}
+            style={styles.momoImageLarge}
+            resizeMode="contain"
+          />
         </View>
       );
     }
@@ -130,7 +137,7 @@ export const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
                 <View style={styles.extraContentWrapper}>{extraContent}</View>
               ) : null}
 
-              {/* Centered Actions Row */}
+              {/* Centered Actions Row with Balanced Spacing */}
               <View style={styles.actionsRow}>
                 <TouchableOpacity
                   style={styles.cancelBtn}
@@ -176,22 +183,24 @@ const styles = StyleSheet.create({
     backgroundColor: colors.overlay,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: spacing[24],
+    padding: spacing[20],
   },
   dialogCard: {
     width: '100%',
-    maxWidth: 380,
+    maxWidth: 360,
     backgroundColor: colors.surface,
     borderRadius: 24,
-    padding: spacing[24],
+    paddingTop: spacing[28],
+    paddingHorizontal: spacing[24],
+    paddingBottom: spacing[24],
     alignItems: 'center',
     borderWidth: 1,
     borderColor: colors.border,
     ...Platform.select({
       ios: {
         shadowColor: colors.shadow,
-        shadowOffset: { width: 0, height: 10 },
-        shadowOpacity: 0.18,
+        shadowOffset: { width: 0, height: 12 },
+        shadowOpacity: 0.2,
         shadowRadius: 24,
       },
       android: {
@@ -200,23 +209,37 @@ const styles = StyleSheet.create({
     }),
   },
   momoContainer: {
-    marginBottom: spacing[12],
+    marginTop: spacing[4],
+    marginBottom: spacing[16],
     alignItems: 'center',
     justifyContent: 'center',
   },
+  momoImage: {
+    width: 96,
+    height: 96,
+  },
+  momoImageLarge: {
+    width: 104,
+    height: 104,
+  },
   iconCircle: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
+    width: 64,
+    height: 64,
+    borderRadius: 32,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: spacing[16],
+    marginTop: spacing[4],
+    marginBottom: spacing[18],
   },
   destructiveIconBg: {
     backgroundColor: colors.dangerSoft,
+    borderWidth: 1,
+    borderColor: colors.dangerBorder,
   },
   warningIconBg: {
     backgroundColor: colors.warningSoft,
+    borderWidth: 1,
+    borderColor: colors.warningBorder,
   },
   title: {
     fontSize: typography.fontSize[20],
@@ -225,14 +248,15 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: spacing[8],
     letterSpacing: typography.letterSpacing[-0.3],
+    paddingHorizontal: spacing[8],
   },
   message: {
     fontSize: typography.fontSize[14],
-    color: colors.textMuted,
+    color: colors.textSecondary,
     textAlign: 'center',
-    lineHeight: typography.lineHeight[20],
-    marginBottom: spacing[20],
-    paddingHorizontal: spacing[8],
+    lineHeight: typography.lineHeight[21.5],
+    marginBottom: spacing[24],
+    paddingHorizontal: spacing[6],
   },
   extraContentWrapper: {
     width: '100%',
@@ -245,16 +269,18 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: spacing[12],
     width: '100%',
+    marginTop: spacing[4],
   },
   cancelBtn: {
     flex: 1,
-    height: 48,
+    height: 50,
     backgroundColor: colors.surfaceMuted,
     borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: colors.border,
+    paddingHorizontal: spacing[12],
   },
   cancelBtnText: {
     fontSize: typography.fontSize[15],
@@ -265,22 +291,23 @@ const styles = StyleSheet.create({
   },
   confirmBtn: {
     flex: 1,
-    height: 48,
+    height: 50,
     borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
+    paddingHorizontal: spacing[12],
   },
   destructiveBtn: {
     backgroundColor: colors.danger,
     ...Platform.select({
       ios: {
-        shadowColor: colors.shadow,
+        shadowColor: colors.danger,
         shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.25,
+        shadowOpacity: 0.3,
         shadowRadius: 8,
       },
       android: {
-        elevation: 3,
+        elevation: 4,
       },
     }),
   },
@@ -288,13 +315,13 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
     ...Platform.select({
       ios: {
-        shadowColor: colors.shadow,
+        shadowColor: colors.primary,
         shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.25,
+        shadowOpacity: 0.3,
         shadowRadius: 8,
       },
       android: {
-        elevation: 3,
+        elevation: 4,
       },
     }),
   },

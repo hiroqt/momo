@@ -4,10 +4,16 @@ import {
   View,
   StyleSheet,
   Pressable,
-  Animated,
+  Animated as RNAnimated,
   Platform,
   Keyboard,
 } from "react-native";
+import Reanimated, {
+  useAnimatedStyle,
+  interpolate,
+  Extrapolation,
+  SharedValue,
+} from 'react-native-reanimated';
 import { AppText as Text } from "@/components/common/app-text";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { HugeiconsIcon } from "@hugeicons/react-native";
@@ -15,38 +21,44 @@ import {
   Home01Icon,
   BookOpen01Icon,
   UserCircleIcon,
-  BitcoinShoppingIcon,
 } from "@hugeicons/core-free-icons";
 
-interface TabConfig {
+export interface TabConfig {
   name: string;
   label: string;
   icon: any;
 }
 
-const TABS: TabConfig[] = [
+export const TABS: TabConfig[] = [
   { name: "index", label: "Home", icon: Home01Icon },
   { name: "library", label: "Library", icon: BookOpen01Icon },
-  
   { name: "profile", label: "Profile", icon: UserCircleIcon },
 ];
 
-interface FloatingNavBarProps {
-  state: any;
+export interface FloatingNavBarProps {
+  state?: any;
   descriptors?: any;
-  navigation: any;
+  navigation?: any;
+  activeIndex?: number;
+  progressAnim?: SharedValue<number>;
+  onTabPress?: (index: number) => void;
 }
 
 export const FloatingNavBar: React.FC<FloatingNavBarProps> = ({
   state,
   navigation,
+  activeIndex: customActiveIndex,
+  progressAnim,
+  onTabPress,
 }) => {
   const insets = useSafeAreaInsets();
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
   const [dockWidth, setDockWidth] = useState(340);
 
-  // Smooth sliding indicator animation value (interpolates 0 -> 1 -> 2)
-  const indicatorAnim = useRef(new Animated.Value(state.index)).current;
+  const activeIndex = customActiveIndex !== undefined ? customActiveIndex : (state?.index ?? 0);
+
+  // Native-driven sliding indicator for standard React Navigation fallback
+  const indicatorAnim = useRef(new RNAnimated.Value(activeIndex)).current;
 
   // Keyboard show/hide listener to prevent covering input fields
   useEffect(() => {
@@ -65,15 +77,17 @@ export const FloatingNavBar: React.FC<FloatingNavBarProps> = ({
     };
   }, []);
 
-  // Animate indicator smoothly when the active tab index changes
+  // Animate fallback indicator smoothly on native driver when active tab changes
   useEffect(() => {
-    Animated.spring(indicatorAnim, {
-      toValue: state.index,
-      useNativeDriver: true,
-      speed: 22,
-      bounciness: 4,
-    }).start();
-  }, [state.index]);
+    if (!progressAnim) {
+      RNAnimated.spring(indicatorAnim, {
+        toValue: activeIndex,
+        useNativeDriver: true,
+        speed: 24,
+        bounciness: 4,
+      }).start();
+    }
+  }, [activeIndex, progressAnim]);
 
   if (isKeyboardVisible) {
     return null;
@@ -84,14 +98,14 @@ export const FloatingNavBar: React.FC<FloatingNavBarProps> = ({
   const innerWidth = Math.max(dockWidth - horizontalPadding * 2, 60);
   const tabWidth = innerWidth / TABS.length;
 
-  const translateX = indicatorAnim.interpolate({
-    inputRange: [0, 1, 2, 3],
+  const fallbackTranslateX = indicatorAnim.interpolate({
+    inputRange: [0, 1, 2],
     outputRange: [
       horizontalPadding,
       horizontalPadding + tabWidth,
       horizontalPadding + tabWidth * 2,
-      horizontalPadding + tabWidth * 3,
     ],
+    extrapolate: 'clamp',
   });
 
   return (
@@ -114,35 +128,47 @@ export const FloatingNavBar: React.FC<FloatingNavBarProps> = ({
         }}
       >
         {/* Hardware-Accelerated Sliding Indicator Pill */}
-        <Animated.View
-          style={[
-            styles.slidingIndicator,
-            {
-              width: tabWidth,
-              transform: [{ translateX }],
-            },
-          ]}
-        />
+        {progressAnim ? (
+          <ReanimatedIndicator
+            progressAnim={progressAnim}
+            tabWidth={tabWidth}
+            horizontalPadding={horizontalPadding}
+          />
+        ) : (
+          <RNAnimated.View
+            style={[
+              styles.slidingIndicator,
+              {
+                width: tabWidth,
+                transform: [{ translateX: fallbackTranslateX }],
+              },
+            ]}
+          />
+        )}
 
         {/* Tab Items Row */}
         <View style={styles.tabsRow}>
-          {TABS.map((tab) => {
-            const routeIndex = state.routes.findIndex((r: any) => r.name === tab.name);
-            const isFocused = state.index === routeIndex;
+          {TABS.map((tab, idx) => {
+            const routeIndex = state?.routes?.findIndex((r: any) => r.name === tab.name) ?? idx;
+            const isFocused = activeIndex === (state ? routeIndex : idx);
             return (
               <TabItem
                 key={tab.name}
                 tab={tab}
                 isFocused={isFocused}
                 onPress={() => {
-                  const event = navigation.emit({
-                    type: "tabPress",
-                    target: state.routes[routeIndex]?.key,
-                    canPreventDefault: true,
-                  });
+                  if (onTabPress) {
+                    onTabPress(idx);
+                  } else if (navigation && state) {
+                    const event = navigation.emit({
+                      type: "tabPress",
+                      target: state.routes[routeIndex]?.key,
+                      canPreventDefault: true,
+                    });
 
-                  if (!isFocused && !event.defaultPrevented) {
-                    navigation.navigate(tab.name);
+                    if (!isFocused && !event.defaultPrevented) {
+                      navigation.navigate(tab.name);
+                    }
                   }
                 }}
               />
@@ -154,6 +180,41 @@ export const FloatingNavBar: React.FC<FloatingNavBarProps> = ({
   );
 };
 
+const ReanimatedIndicator: React.FC<{
+  progressAnim: SharedValue<number>;
+  tabWidth: number;
+  horizontalPadding: number;
+}> = ({ progressAnim, tabWidth, horizontalPadding }) => {
+  const animatedStyle = useAnimatedStyle(() => {
+    'worklet';
+    const tx = interpolate(
+      progressAnim.value,
+      [0, 1, 2],
+      [
+        horizontalPadding,
+        horizontalPadding + tabWidth,
+        horizontalPadding + tabWidth * 2,
+      ],
+      Extrapolation.CLAMP
+    );
+    return {
+      transform: [{ translateX: tx }],
+    };
+  });
+
+  return (
+    <Reanimated.View
+      style={[
+        styles.slidingIndicator,
+        {
+          width: tabWidth,
+        },
+        animatedStyle,
+      ]}
+    />
+  );
+};
+
 interface TabItemProps {
   tab: TabConfig;
   isFocused: boolean;
@@ -161,10 +222,10 @@ interface TabItemProps {
 }
 
 const TabItem: React.FC<TabItemProps> = ({ tab, isFocused, onPress }) => {
-  const scaleAnim = useRef(new Animated.Value(1)).current;
+  const scaleAnim = useRef(new RNAnimated.Value(1)).current;
 
   const handlePressIn = () => {
-    Animated.spring(scaleAnim, {
+    RNAnimated.spring(scaleAnim, {
       toValue: 0.94,
       useNativeDriver: true,
       speed: 40,
@@ -173,7 +234,7 @@ const TabItem: React.FC<TabItemProps> = ({ tab, isFocused, onPress }) => {
   };
 
   const handlePressOut = () => {
-    Animated.spring(scaleAnim, {
+    RNAnimated.spring(scaleAnim, {
       toValue: 1,
       useNativeDriver: true,
       speed: 30,
@@ -182,14 +243,13 @@ const TabItem: React.FC<TabItemProps> = ({ tab, isFocused, onPress }) => {
   };
 
   return (
-    <Animated.View
+    <RNAnimated.View
       style={[styles.tabButtonWrapper, { transform: [{ scale: scaleAnim }] }]}
     >
       <Pressable
         onPress={onPress}
         onPressIn={handlePressIn}
         onPressOut={handlePressOut}
-        // Removed unconstrained android_ripple to eliminate the large grey flash
         android_ripple={null}
         style={styles.tabButton}
         accessibilityRole="button"
@@ -212,7 +272,7 @@ const TabItem: React.FC<TabItemProps> = ({ tab, isFocused, onPress }) => {
           {tab.label}
         </Text>
       </Pressable>
-    </Animated.View>
+    </RNAnimated.View>
   );
 };
 

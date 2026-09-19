@@ -8,7 +8,7 @@ import { Platform,
  } from 'react-native';
 import { AppText as Text } from '@/components/common/app-text';
 import { HugeiconsIcon } from '@hugeicons/react-native';
-import { SparklesIcon, Cancel01Icon, ArrowRight01Icon } from '@hugeicons/core-free-icons';
+import { SparklesIcon, Cancel01Icon } from '@hugeicons/core-free-icons';
 import { colors, spacing, typography } from '@/constants/theme';
 
 interface CoachmarkTooltipProps {
@@ -113,7 +113,6 @@ export const CoachmarkTooltip: React.FC<CoachmarkTooltipProps> = ({
             accessibilityLabel={actionLabel}
           >
             <Text style={styles.actionBtnText}>{actionLabel}</Text>
-            <HugeiconsIcon icon={ArrowRight01Icon} size={12} color={colors.onPrimary} strokeWidth={2.5} />
           </TouchableOpacity>
         </View>
       </View>

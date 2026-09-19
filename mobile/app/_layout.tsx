@@ -1,5 +1,6 @@
 import React, { useEffect } from "react";
 import { Platform } from "react-native";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { SafeAreaProvider } from "react-native-safe-area-context";
@@ -7,9 +8,13 @@ import * as SplashScreen from "expo-splash-screen";
 import { useFonts } from "expo-font";
 import { colors, typography } from "@/constants/theme";
 
+// Keep splash screen visible while loading fonts and initializing
+SplashScreen.preventAutoHideAsync().catch(() => {});
+
 import { CreditsProvider } from '../context/CreditsContext';
 import { OnboardingProvider, useOnboarding } from '../context/OnboardingContext';
 import { useRouter, useSegments } from 'expo-router';
+import { MomoLoadingScreen } from '@/components/common/MomoLoadingScreen';
 
 function AuthGate({ children }: { children: React.ReactNode }) {
   const { isLoaded, hasCompletedWelcome } = useOnboarding();
@@ -23,6 +28,16 @@ function AuthGate({ children }: { children: React.ReactNode }) {
       router.replace('/(auth)/welcome');
     }
   }, [isLoaded, hasCompletedWelcome, segments]);
+
+  if (!isLoaded) {
+    return (
+      <MomoLoadingScreen
+        title="momo"
+        subtitle="Your AI Study Buddy"
+        mascotSize={250}
+      />
+    );
+  }
 
   return <>{children}</>;
 }
@@ -44,78 +59,86 @@ export default function RootLayout() {
   }, [loaded, error]);
 
   if (!loaded && !error) {
-    return null;
+    return (
+      <MomoLoadingScreen
+        title="momo"
+        subtitle="Your AI Study Buddy"
+        mascotSize={250}
+      />
+    );
   }
 
   return (
-    <CreditsProvider>
-      <OnboardingProvider>
-        <AuthGate>
-          <SafeAreaProvider>
-            <StatusBar style="dark" />
-            <Stack
-              screenOptions={{
-                headerShown: false,
-                animation: isIOS ? "fade" : "default",
-                animationDuration: 350,
-                gestureEnabled: true,
-                fullScreenGestureEnabled: isIOS,
-                contentStyle: {
-                  backgroundColor: colors.background,
-                },
-              }}
-            >
-              <Stack.Screen
-                name="(auth)/welcome"
-                options={{
-                  headerShown: false,
-                  animation: isIOS ? "fade" : "default",
-                }}
-              />
-              <Stack.Screen
-                name="(tabs)"
-                options={{
-                  headerShown: false,
-                  animation: isIOS ? "fade" : "default",
-                }}
-              />
-              <Stack.Screen
-                name="documents/upload"
-                options={{
-                  presentation: "modal",
-                  animation: "slide_from_bottom",
-                  animationDuration: 350,
-                  headerShown: false,
-                }}
-              />
-              <Stack.Screen
-                name="create/[documentId]"
-                options={{
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <CreditsProvider>
+        <OnboardingProvider>
+          <AuthGate>
+            <SafeAreaProvider>
+              <StatusBar style="dark" />
+              <Stack
+                screenOptions={{
                   headerShown: false,
                   animation: isIOS ? "fade" : "default",
                   animationDuration: 350,
+                  gestureEnabled: true,
+                  fullScreenGestureEnabled: isIOS,
+                  contentStyle: {
+                    backgroundColor: colors.background,
+                  },
                 }}
-              />
-              <Stack.Screen
-                name="generation/[jobId]"
-                options={{
-                  headerShown: false,
-                  animation: isIOS ? "fade" : "default",
-                  animationDuration: 350,
-                }}
-              />
-              <Stack.Screen
-                name="study/[studySetId]"
-                options={{
-                  headerShown: false,
-                  animation: isIOS ? "fade" : "default",
-                  animationDuration: 350,
-                }}
-              />
-            </Stack>
-          </SafeAreaProvider>
-        </AuthGate>
-      </OnboardingProvider>
-    </CreditsProvider>
+              >
+                <Stack.Screen
+                  name="(auth)/welcome"
+                  options={{
+                    headerShown: false,
+                    animation: isIOS ? "fade" : "default",
+                  }}
+                />
+                <Stack.Screen
+                  name="(tabs)"
+                  options={{
+                    headerShown: false,
+                    animation: isIOS ? "fade" : "default",
+                  }}
+                />
+                <Stack.Screen
+                  name="documents/upload"
+                  options={{
+                    presentation: "modal",
+                    animation: "slide_from_bottom",
+                    animationDuration: 350,
+                    headerShown: false,
+                  }}
+                />
+                <Stack.Screen
+                  name="create/[documentId]"
+                  options={{
+                    headerShown: false,
+                    animation: isIOS ? "fade" : "default",
+                    animationDuration: 350,
+                  }}
+                />
+                <Stack.Screen
+                  name="generation/[jobId]"
+                  options={{
+                    headerShown: false,
+                    animation: isIOS ? "fade" : "default",
+                    animationDuration: 350,
+                  }}
+                />
+                <Stack.Screen
+                  name="study/[studySetId]"
+                  options={{
+                    headerShown: false,
+                    animation: isIOS ? "fade" : "default",
+                    animationDuration: 350,
+                  }}
+                />
+              </Stack>
+            </SafeAreaProvider>
+          </AuthGate>
+        </OnboardingProvider>
+      </CreditsProvider>
+    </GestureHandlerRootView>
   );
 }

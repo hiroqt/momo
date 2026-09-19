@@ -12,7 +12,6 @@ import {
   TrophyIcon,
   SparklesIcon,
   CheckmarkCircle02Icon,
-  ArrowRight01Icon,
   FlashIcon,
 } from '@hugeicons/core-free-icons';
 import { colors, spacing, typography } from '@/constants/theme';
@@ -105,7 +104,6 @@ export const CelebrationModal: React.FC<CelebrationModalProps> = ({
             accessibilityLabel="Awesome, Let's Keep Going!"
           >
             <Text style={styles.continueBtnText}>Awesome, Let's Keep Going!</Text>
-            <HugeiconsIcon icon={ArrowRight01Icon} size={16} color={colors.onPrimary} strokeWidth={2.5} />
           </TouchableOpacity>
         </View>
       </View>
@@ -129,12 +127,14 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 380,
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
     ...Platform.select({
       ios: {
         shadowColor: colors.shadow || '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.2,
-        shadowRadius: 8,
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.12,
+        shadowRadius: 20,
       },
       android: {
         elevation: 8,
@@ -186,12 +186,14 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surfaceMuted,
     borderRadius: 16,
     borderCurve: 'continuous',
-    paddingVertical: spacing[12],
+    paddingVertical: spacing[14],
     paddingHorizontal: spacing[8],
     width: '100%',
     justifyContent: 'space-around',
     alignItems: 'center',
     marginBottom: spacing[14],
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
   },
   statCol: {
     alignItems: 'center',
@@ -241,12 +243,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: colors.primary,
-    paddingVertical: spacing[12],
+    paddingVertical: spacing[14],
     paddingHorizontal: spacing[20],
     borderRadius: 14,
     borderCurve: 'continuous',
     width: '100%',
     gap: 8,
+    borderWidth: 1,
+    borderColor: '#4338CA',
   },
   continueBtnText: {
     fontSize: typography.fontSize[14],

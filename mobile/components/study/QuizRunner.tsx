@@ -1,4 +1,4 @@
-import React, { useState, useRef, useMemo } from 'react';
+import React, { useState, useRef, useMemo, forwardRef, useImperativeHandle } from 'react';
 import {
   View,
   TouchableOpacity,
@@ -106,12 +106,16 @@ function checkIsCorrect(userAns: string, item: StudyItem): boolean {
   return cleanUser === cleanAns || cleanUser.includes(cleanAns) || cleanAns.includes(cleanUser);
 }
 
-export const QuizRunner: React.FC<Props> = ({
+export interface QuizRunnerRef {
+  showOverview: () => void;
+}
+
+export const QuizRunner = forwardRef<QuizRunnerRef, Props>(({
   items,
   timeLimitPerQuestion,
   onFinish,
   onRestart,
-}) => {
+}, ref) => {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const isAndroid = Platform.OS === 'android';
@@ -125,12 +129,14 @@ export const QuizRunner: React.FC<Props> = ({
   const [showHint, setShowHint] = useState(false);
   const [showExplanation, setShowExplanation] = useState(false);
   const [showOverviewModal, setShowOverviewModal] = useState(false);
+  const [overviewFilter, setOverviewFilter] = useState<'all' | 'correct' | 'wrong' | 'pending'>('all');
   const [timerSeconds, setTimerSeconds] = useState<number>(timeLimitPerQuestion || 0);
   const [isCurrentQuestionRevealed, setIsCurrentQuestionRevealed] = useState(false);
   const [currentXP, setCurrentXP] = useState(0);
   const [isQuizFinished, setIsQuizFinished] = useState(false);
   const [selectedReviewIndex, setSelectedReviewIndex] = useState<number | null>(null);
   const [isOverviewExpanded, setIsOverviewExpanded] = useState(false);
+  const [reviewFilter, setReviewFilter] = useState<'all' | 'correct' | 'wrong' | 'skipped'>('all');
   const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false);
   const [correctStreak, setCorrectStreak] = useState(0);
   const [lastAnswerResult, setLastAnswerResult] = useState<{
@@ -174,6 +180,10 @@ export const QuizRunner: React.FC<Props> = ({
   const [skippedQueue, setSkippedQueue] = useState<number[]>([]);
   const [isRevisitingSkipped, setIsRevisitingSkipped] = useState(false);
   const [revisitQueueIndex, setRevisitQueueIndex] = useState(0);
+
+  useImperativeHandle(ref, () => ({
+    showOverview: () => setShowOverviewModal(true),
+  }));
 
   // Animated values & timer reference
   const xpBarAnim = useRef(new Animated.Value(0)).current;
@@ -395,9 +405,13 @@ export const QuizRunner: React.FC<Props> = ({
     if (isQuizFinished) {
       setSelectedReviewIndex(targetIdx);
       setShowOverviewModal(false);
+    setOverviewFilter('all');
       return;
     }
-    if (targetIdx === currentIndex) return;
+    if (targetIdx === currentIndex) {
+      setShowOverviewModal(false);
+      return;
+    }
 
     if (
       isTimerSet &&
@@ -651,6 +665,7 @@ export const QuizRunner: React.FC<Props> = ({
     setIsQuizFinished(false);
     setSelectedReviewIndex(0);
     setIsOverviewExpanded(false);
+    setReviewFilter('all');
     setHasSkippedInSession(false);
     setSkippedQueue([]);
     setIsRevisitingSkipped(false);
@@ -676,8 +691,26 @@ export const QuizRunner: React.FC<Props> = ({
     const totalTimeout = Object.values(userAnswers).filter(
       (a) => a.userAnswer === '(Time Expired)'
     ).length;
-    const totalSkipped =
-      items.length - (totalCorrect + totalWrong + totalTimeout);
+    const totalSkipped = items.length - (totalCorrect + totalWrong + totalTimeout);
+    const totalPending = totalSkipped + totalTimeout;
+
+    // Filter items based on active filter
+    const filteredQuestionIndices = items
+      .map((_, idx) => idx)
+      .filter((idx) => {
+        if (overviewFilter === 'all') return true;
+        const rec = userAnswers[idx];
+        if (overviewFilter === 'correct') {
+          return rec?.isCorrect === true;
+        }
+        if (overviewFilter === 'wrong') {
+          return rec && !rec.isCorrect && !rec.isSkipped && rec.userAnswer !== '(Time Expired)';
+        }
+        if (overviewFilter === 'pending') {
+          return !rec || rec.isSkipped || rec.userAnswer === '(Time Expired)';
+        }
+        return true;
+      });
 
     return (
       <Modal
@@ -688,10 +721,23 @@ export const QuizRunner: React.FC<Props> = ({
       >
         <View style={styles.modalOverlay}>
           <View style={styles.overviewModalCard}>
+            {/* Top Sheet Handle */}
+            <View style={styles.overviewHandleBar} />
+
+            {/* Header: Icon, Title, Progress & Close Button */}
             <View style={styles.overviewModalHeader}>
               <View style={styles.overviewModalTitleRow}>
-                <HugeiconsIcon icon={Task01Icon} size={20} color="#4F46E5" strokeWidth={2.2} />
-                <Text style={styles.overviewModalTitle}>Quiz Overview</Text>
+                <View style={styles.overviewIconBadge}>
+                  <HugeiconsIcon icon={Task01Icon} size={18} color="#4F46E5" strokeWidth={2.2} />
+                </View>
+                <View style={{ flex: 1, paddingRight: 8 }}>
+                  <Text style={styles.overviewModalTitle} numberOfLines={1}>Quiz Overview</Text>
+                  <Text style={styles.overviewModalSubtitle} numberOfLines={1}>
+                    {isQuizFinished
+                      ? `Final score: ${totalCorrect}/${items.length} correct`
+                      : `Question ${currentIndex + 1} of ${items.length} in progress`}
+                  </Text>
+                </View>
               </View>
               <TouchableOpacity
                 style={styles.overviewCloseBtn}
@@ -700,56 +746,156 @@ export const QuizRunner: React.FC<Props> = ({
                 accessibilityRole="button"
                 accessibilityLabel="Close Overview"
               >
-                <HugeiconsIcon icon={Cancel01Icon} size={20} color="#64748B" strokeWidth={2.2} />
+                <HugeiconsIcon icon={Cancel01Icon} size={18} color="#64748B" strokeWidth={2.2} />
               </TouchableOpacity>
             </View>
 
-            {/* Quick Stats Summary */}
+            {/* Quick Stats Summary with Minimalist Badges */}
             <View style={styles.overviewStatsRow}>
-              <View style={[styles.overviewStatBadge, styles.overviewStatCorrect]}>
-                <Text style={styles.overviewStatNum}>{totalCorrect}</Text>
-                <Text style={styles.overviewStatLabel}>Correct</Text>
-              </View>
-              <View style={[styles.overviewStatBadge, styles.overviewStatWrong]}>
-                <Text style={styles.overviewStatNum}>{totalWrong}</Text>
-                <Text style={styles.overviewStatLabel}>Wrong</Text>
-              </View>
-              <View style={[styles.overviewStatBadge, styles.overviewStatTimeout]}>
-                <Text style={[styles.overviewStatNum, { color: '#334155' }]}>{totalTimeout}</Text>
-                <Text style={styles.overviewStatLabel}>Unanswered</Text>
-              </View>
-              <View style={[styles.overviewStatBadge, styles.overviewStatSkipped]}>
-                <Text style={styles.overviewStatNum}>{totalSkipped}</Text>
-                <Text style={styles.overviewStatLabel}>{isQuizFinished ? 'Skipped' : 'Pending'}</Text>
-              </View>
+              <TouchableOpacity
+                style={[
+                  styles.overviewStatBadge,
+                  styles.overviewStatCorrect,
+                  overviewFilter === 'correct' && styles.overviewStatBadgeActiveCorrect,
+                ]}
+                onPress={() => setOverviewFilter(overviewFilter === 'correct' ? 'all' : 'correct')}
+                activeOpacity={0.75}
+              >
+                <View style={styles.statBadgeHeader}>
+                  <HugeiconsIcon icon={CheckmarkCircle02Icon} size={13} color="#059669" strokeWidth={2.2} />
+                  <Text style={[styles.overviewStatNum, { color: '#047857' }]}>{totalCorrect}</Text>
+                </View>
+                <Text style={[styles.overviewStatLabel, { color: '#065F46' }]}>Correct</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.overviewStatBadge,
+                  styles.overviewStatWrong,
+                  overviewFilter === 'wrong' && styles.overviewStatBadgeActiveWrong,
+                ]}
+                onPress={() => setOverviewFilter(overviewFilter === 'wrong' ? 'all' : 'wrong')}
+                activeOpacity={0.75}
+              >
+                <View style={styles.statBadgeHeader}>
+                  <HugeiconsIcon icon={Cancel01Icon} size={13} color="#DC2626" strokeWidth={2.2} />
+                  <Text style={[styles.overviewStatNum, { color: '#B91C1C' }]}>{totalWrong}</Text>
+                </View>
+                <Text style={[styles.overviewStatLabel, { color: '#991B1B' }]}>Wrong</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.overviewStatBadge,
+                  styles.overviewStatPending,
+                  overviewFilter === 'pending' && styles.overviewStatBadgeActivePending,
+                ]}
+                onPress={() => setOverviewFilter(overviewFilter === 'pending' ? 'all' : 'pending')}
+                activeOpacity={0.75}
+              >
+                <View style={styles.statBadgeHeader}>
+                  <HugeiconsIcon icon={Clock01Icon} size={13} color="#4F46E5" strokeWidth={2.2} />
+                  <Text style={[styles.overviewStatNum, { color: '#4338CA' }]}>{totalPending}</Text>
+                </View>
+                <Text style={[styles.overviewStatLabel, { color: '#4F46E5' }]}>
+                  {isQuizFinished ? 'Skipped' : 'Pending'}
+                </Text>
+              </TouchableOpacity>
             </View>
 
-            {/* Legend */}
-            <View style={styles.overviewLegendRow}>
-              <View style={styles.legendItem}>
-                <View style={[styles.legendDot, { backgroundColor: '#10B981' }]} />
-                <Text style={styles.legendText}>Correct</Text>
-              </View>
-              <View style={styles.legendItem}>
-                <View style={[styles.legendDot, { backgroundColor: '#EF4444' }]} />
-                <Text style={styles.legendText}>Wrong</Text>
-              </View>
-              <View style={styles.legendItem}>
-                <View style={[styles.legendDot, { backgroundColor: '#334155' }]} />
-                <Text style={styles.legendText}>Unanswered</Text>
-              </View>
-              <View style={styles.legendItem}>
-                <View style={[styles.legendDot, { backgroundColor: '#CBD5E1' }]} />
-                <Text style={styles.legendText}>{isQuizFinished ? 'Skipped' : 'Pending'}</Text>
-              </View>
+            {/* Interactive Filter Pills (No Overlapping Scroll) */}
+            <View style={{ marginBottom: 12 }}>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.overviewFilterRow}
+              >
+                <TouchableOpacity
+                  style={[
+                    styles.overviewFilterPill,
+                    overviewFilter === 'all' && styles.overviewFilterPillActive,
+                  ]}
+                  onPress={() => setOverviewFilter('all')}
+                  activeOpacity={0.7}
+                >
+                  <Text
+                    style={[
+                      styles.overviewFilterPillText,
+                      overviewFilter === 'all' && styles.overviewFilterPillTextActive,
+                    ]}
+                  >
+                    All ({items.length})
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[
+                    styles.overviewFilterPill,
+                    overviewFilter === 'correct' && styles.overviewFilterPillActive,
+                  ]}
+                  onPress={() => setOverviewFilter('correct')}
+                  activeOpacity={0.7}
+                >
+                  <Text
+                    style={[
+                      styles.overviewFilterPillText,
+                      overviewFilter === 'correct' && styles.overviewFilterPillTextActive,
+                    ]}
+                  >
+                    Correct ({totalCorrect})
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[
+                    styles.overviewFilterPill,
+                    overviewFilter === 'wrong' && styles.overviewFilterPillActive,
+                  ]}
+                  onPress={() => setOverviewFilter('wrong')}
+                  activeOpacity={0.7}
+                >
+                  <Text
+                    style={[
+                      styles.overviewFilterPillText,
+                      overviewFilter === 'wrong' && styles.overviewFilterPillTextActive,
+                    ]}
+                  >
+                    Wrong ({totalWrong})
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[
+                    styles.overviewFilterPill,
+                    overviewFilter === 'pending' && styles.overviewFilterPillActive,
+                  ]}
+                  onPress={() => setOverviewFilter('pending')}
+                  activeOpacity={0.7}
+                >
+                  <Text
+                    style={[
+                      styles.overviewFilterPillText,
+                      overviewFilter === 'pending' && styles.overviewFilterPillTextActive,
+                    ]}
+                  >
+                    Pending ({totalPending})
+                  </Text>
+                </TouchableOpacity>
+              </ScrollView>
             </View>
 
-            {/* Number Pagination Grid & Breakdown */}
+            {/* Scrollable Content: Question Grid & Breakdown */}
             <ScrollView
               style={styles.overviewGridContainer}
               contentContainerStyle={styles.overviewGridScroll}
               showsVerticalScrollIndicator={false}
             >
+              {/* Question Grid Section */}
+              <View style={styles.overviewSectionHeaderRow}>
+                <Text style={styles.overviewSectionTitle}>Jump to Question</Text>
+                <Text style={styles.overviewSectionSubtitle}>Tap to navigate</Text>
+              </View>
+
               <View style={styles.overviewGridWrap}>
                 {items.map((_, idx) => {
                   const record = userAnswers[idx];
@@ -786,6 +932,9 @@ export const QuizRunner: React.FC<Props> = ({
                     !isRevisitingSkipped &&
                     (idx < currentIndex || Boolean(record?.isSkipped));
 
+                  const isDimmed =
+                    overviewFilter !== 'all' && !filteredQuestionIndices.includes(idx);
+
                   return (
                     <TouchableOpacity
                       key={idx}
@@ -794,6 +943,7 @@ export const QuizRunner: React.FC<Props> = ({
                         cellStyle,
                         isCurrent && styles.overviewGridCellCurrent,
                         isCellLocked && styles.overviewGridCellLocked,
+                        isDimmed && { opacity: 0.3 },
                       ]}
                       disabled={isCellLocked}
                       onPress={() => handlePillPress(idx)}
@@ -811,144 +961,225 @@ export const QuizRunner: React.FC<Props> = ({
                       >
                         {idx + 1}
                       </Text>
+                      {isCurrent && <View style={styles.overviewCurrentDot} />}
                     </TouchableOpacity>
                   );
                 })}
               </View>
 
-              {/* Question Breakdown List */}
+              {/* Detailed Question Breakdown List */}
               <View style={styles.overviewListSection}>
-                <Text style={styles.overviewListSectionTitle}>Question Breakdown</Text>
-                {items.map((it, idx) => {
-                  const rec = userAnswers[idx];
-                  const isTimeout = rec?.userAnswer === '(Time Expired)';
-                  const isCorrect = rec?.isCorrect ?? false;
-                  const isSkipped = rec?.isSkipped ?? false;
-                  const isAnswered = Boolean(rec && !isSkipped && !isTimeout);
-                  const isRowLocked =
-                    !isQuizFinished &&
-                    isTimerSet &&
-                    !isRevisitingSkipped &&
-                    (idx < currentIndex || Boolean(rec?.isSkipped));
+                <View style={styles.overviewSectionHeaderRow}>
+                  <Text style={styles.overviewSectionTitle}>
+                    {overviewFilter === 'all'
+                      ? 'Question Breakdown'
+                      : `Question Breakdown (${filteredQuestionIndices.length})`}
+                  </Text>
+                  {overviewFilter !== 'all' && (
+                    <TouchableOpacity onPress={() => setOverviewFilter('all')}>
+                      <Text style={styles.overviewClearFilterText}>Show All</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
 
-                  return (
-                    <TouchableOpacity
-                      key={idx}
-                      style={[
-                        styles.overviewListItem,
-                        !isQuizFinished && idx === currentIndex && styles.overviewListItemActive,
-                        isRowLocked && { opacity: 0.4 },
-                      ]}
-                      disabled={isRowLocked}
-                      onPress={() => handlePillPress(idx)}
-                      activeOpacity={isRowLocked ? 1 : 0.7}
-                    >
-                      <View style={styles.overviewListHeader}>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                {filteredQuestionIndices.length === 0 ? (
+                  <View style={styles.overviewEmptyState}>
+                    <HugeiconsIcon icon={CheckmarkCircle02Icon} size={32} color="#10B981" strokeWidth={2} />
+                    <Text style={styles.overviewEmptyStateText}>
+                      No questions match this filter
+                    </Text>
+                  </View>
+                ) : (
+                  filteredQuestionIndices.map((idx) => {
+                    const it = items[idx];
+                    const rec = userAnswers[idx];
+                    const isTimeout = rec?.userAnswer === '(Time Expired)';
+                    const isCorrect = rec?.isCorrect ?? false;
+                    const isRevealed = rec?.wasRevealed ?? false;
+                    const isSkipped = rec?.isSkipped ?? false;
+                    const isAnswered = Boolean(rec && !isSkipped && !isTimeout);
+                    const isCurrent = !isQuizFinished && idx === currentIndex;
+                    const isRowLocked =
+                      !isQuizFinished &&
+                      isTimerSet &&
+                      !isRevisitingSkipped &&
+                      (idx < currentIndex || Boolean(rec?.isSkipped));
+
+                    return (
+                      <TouchableOpacity
+                        key={idx}
+                        style={[
+                          styles.overviewListItem,
+                          isCurrent && styles.overviewListItemActive,
+                          isRowLocked && { opacity: 0.5 },
+                        ]}
+                        disabled={isRowLocked}
+                        onPress={() => handlePillPress(idx)}
+                        activeOpacity={isRowLocked ? 1 : 0.75}
+                      >
+                        <View style={styles.overviewListHeader}>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                            <View
+                              style={[
+                                styles.overviewListNumBadge,
+                                isTimeout
+                                  ? styles.pageBtnTimeout
+                                  : isRevealed
+                                  ? styles.pageBtnRevealed
+                                  : isCorrect
+                                  ? styles.pageBtnCorrect
+                                  : isAnswered
+                                  ? styles.pageBtnWrong
+                                  : styles.pageBtnDefault,
+                              ]}
+                            >
+                              <Text
+                                style={[
+                                  styles.overviewListNumBadgeText,
+                                  isTimeout
+                                    ? styles.pageBtnTextTimeout
+                                    : isRevealed
+                                    ? styles.pageBtnTextRevealed
+                                    : isCorrect
+                                    ? styles.pageBtnTextCorrect
+                                    : isAnswered
+                                    ? styles.pageBtnTextWrong
+                                    : styles.pageBtnTextDefault,
+                                ]}
+                              >
+                                {idx + 1}
+                              </Text>
+                            </View>
+                            <Text style={styles.overviewListItemTitle}>Question {idx + 1}</Text>
+                            {isCurrent && (
+                              <View style={styles.currentBadgePill}>
+                                <Text style={styles.currentBadgePillText}>Current</Text>
+                              </View>
+                            )}
+                          </View>
+
                           <View
                             style={[
-                              styles.overviewListNumBadge,
+                              styles.overviewStatusPill,
                               isTimeout
-                                ? styles.pageBtnTimeout
-                                : rec?.wasRevealed
-                                ? styles.pageBtnRevealed
+                                ? styles.statusPillTimeout
                                 : isCorrect
-                                ? styles.pageBtnCorrect
+                                ? styles.statusPillCorrect
                                 : isAnswered
-                                ? styles.pageBtnWrong
-                                : styles.pageBtnDefault,
+                                ? styles.statusPillWrong
+                                : styles.statusPillSkipped,
                             ]}
                           >
                             <Text
                               style={[
-                                styles.overviewListNumBadgeText,
+                                styles.overviewStatusPillText,
                                 isTimeout
-                                  ? styles.pageBtnTextTimeout
-                                  : rec?.wasRevealed
-                                  ? styles.pageBtnTextRevealed
+                                  ? styles.statusTextTimeout
                                   : isCorrect
-                                  ? styles.pageBtnTextCorrect
+                                  ? styles.statusTextCorrect
                                   : isAnswered
-                                  ? styles.pageBtnTextWrong
-                                  : styles.pageBtnTextDefault,
+                                  ? styles.statusTextWrong
+                                  : styles.statusTextSkipped,
                               ]}
                             >
-                              {idx + 1}
-                            </Text>
-                          </View>
-                          <Text style={styles.overviewListItemTitle}>Question {idx + 1}</Text>
-                        </View>
-
-                        <View
-                          style={[
-                            styles.overviewStatusPill,
-                            isTimeout
-                              ? styles.statusPillTimeout
-                              : isCorrect
-                              ? styles.statusPillCorrect
-                              : isAnswered
-                              ? styles.statusPillWrong
-                              : styles.statusPillSkipped,
-                          ]}
-                        >
-                          <Text
-                            style={[
-                              styles.overviewStatusPillText,
-                              isTimeout
-                                ? styles.statusTextTimeout
+                              {isTimeout
+                                ? 'Timed Out'
                                 : isCorrect
-                                ? styles.statusTextCorrect
+                                ? 'Correct'
+                                : isRevealed
+                                ? 'Revealed'
                                 : isAnswered
-                                ? styles.statusTextWrong
-                                : styles.statusTextSkipped,
-                            ]}
-                          >
-                            {isTimeout
-                              ? 'Timed Out'
-                              : isCorrect
-                              ? 'Correct'
-                              : rec?.wasRevealed
-                              ? 'Revealed'
-                              : isAnswered
-                              ? 'Wrong'
-                              : isSkipped
-                              ? 'Skipped'
-                              : 'Pending'}
-                          </Text>
-                        </View>
-                      </View>
-
-                      <Text style={styles.overviewListPrompt} numberOfLines={2}>
-                        {sanitizeQuestionText(it.question)}
-                      </Text>
-
-                      {Boolean(rec) && (
-                        <View style={styles.overviewListAnswersRow}>
-                          <Text style={styles.overviewListUserAns}>
-                            Your: <Text style={{ fontWeight: '700' }}>{rec?.userAnswer || '(Unanswered)'}</Text>
-                          </Text>
-                          {!isCorrect && (
-                            <Text style={styles.overviewListCorrectAns}>
-                              Correct: <Text style={{ fontWeight: '700' }}>{it.answer}</Text>
+                                ? 'Wrong'
+                                : isSkipped
+                                ? 'Skipped'
+                                : 'Pending'}
                             </Text>
-                          )}
-                        </View>
-                      )}
-
-                      {(isQuizFinished || !isTimerSet) && Boolean(it.explanation) && (
-                        <View style={styles.overviewListExplanationBox}>
-                          <View style={styles.overviewListExplanationHeader}>
-                            <HugeiconsIcon icon={BookOpen01Icon} size={13} color="#4F46E5" strokeWidth={2} />
-                            <Text style={styles.overviewListExplanationTitle}>Explanation</Text>
                           </View>
-                          <Text style={styles.overviewListExplanationText}>{it.explanation}</Text>
                         </View>
-                      )}
-                    </TouchableOpacity>
-                  );
-                })}
+
+                        <Text style={styles.overviewListPrompt} numberOfLines={2}>
+                          {sanitizeQuestionText(it.question)}
+                        </Text>
+
+                        {Boolean(rec) && (
+                          <View style={styles.overviewListAnswersRow}>
+                            <View
+                              style={[
+                                styles.overviewAnswerBox,
+                                isCorrect ? styles.overviewAnswerBoxCorrect : styles.overviewAnswerBoxWrong,
+                              ]}
+                            >
+                              <Text
+                                style={[
+                                  styles.overviewAnswerBoxText,
+                                  isCorrect ? { color: '#065F46' } : { color: '#991B1B' },
+                                ]}
+                                numberOfLines={1}
+                              >
+                                {isCorrect ? '✓ Your answer: ' : '✗ Your answer: '}
+                                <Text style={{ fontWeight: '800' }}>
+                                  {rec?.userAnswer || '(Unanswered)'}
+                                </Text>
+                              </Text>
+                            </View>
+
+                            {!isCorrect && Boolean(it.answer) && (
+                              <View style={[styles.overviewAnswerBox, styles.overviewAnswerBoxCorrect]}>
+                                <Text
+                                  style={[styles.overviewAnswerBoxText, { color: '#065F46' }]}
+                                  numberOfLines={1}
+                                >
+                                  ✓ Correct: <Text style={{ fontWeight: '800' }}>{it.answer}</Text>
+                                </Text>
+                              </View>
+                            )}
+                          </View>
+                        )}
+
+                        {!rec && (
+                          <View style={styles.overviewUnansweredBox}>
+                            <Text style={styles.overviewUnansweredText}>Not answered yet</Text>
+                          </View>
+                        )}
+
+                        {(isQuizFinished || !isTimerSet) && Boolean(it.explanation) && (
+                          <View style={styles.overviewListExplanationBox}>
+                            <View style={styles.overviewListExplanationHeader}>
+                              <HugeiconsIcon icon={BookOpen01Icon} size={13} color="#4F46E5" strokeWidth={2.2} />
+                              <Text style={styles.overviewListExplanationTitle}>Explanation</Text>
+                            </View>
+                            <Text style={styles.overviewListExplanationText}>{it.explanation}</Text>
+                          </View>
+                        )}
+
+                        {!isRowLocked && (
+                          <View style={styles.overviewJumpRow}>
+                            <Text style={styles.overviewJumpText}>
+                              {isCurrent ? 'Continue this question' : 'Jump to this question'}
+                            </Text>
+                            <HugeiconsIcon icon={ArrowRight01Icon} size={13} color="#4F46E5" strokeWidth={2.2} />
+                          </View>
+                        )}
+                      </TouchableOpacity>
+                    );
+                  })
+                )}
               </View>
             </ScrollView>
+
+            {/* Sticky Bottom Action: Resume Quiz */}
+            <TouchableOpacity
+              style={styles.overviewResumeBtn}
+              onPress={() => setShowOverviewModal(false)}
+              activeOpacity={0.8}
+              accessibilityRole="button"
+              accessibilityLabel="Resume Quiz"
+            >
+              <HugeiconsIcon icon={Task01Icon} size={18} color="#FFFFFF" strokeWidth={2.4} />
+              <Text style={styles.overviewResumeBtnText}>
+                {isQuizFinished ? 'Done Reviewing' : 'Resume Quiz'}
+              </Text>
+            </TouchableOpacity>
           </View>
         </View>
       </Modal>
@@ -1084,57 +1315,157 @@ export const QuizRunner: React.FC<Props> = ({
         {/* Dropped-down Quiz Overview & Answer Key Content */}
         {isOverviewExpanded && (
           <View style={styles.overviewDropdownContainer}>
-            <Text style={styles.overviewContainerSubtitle}>
-              Green indicates correct answers, red for incorrect, and dark grey for unanswered. Tap any question number or use Next/Previous below to inspect verified explanations.
-            </Text>
+            <View style={styles.reviewDropdownHeaderRow}>
+              <Text style={styles.overviewContainerSubtitle}>
+                Tap any question number to inspect verified answers & explanations.
+              </Text>
+              <TouchableOpacity
+                style={styles.openModalViewBtn}
+                onPress={() => setShowOverviewModal(true)}
+                activeOpacity={0.75}
+              >
+                <HugeiconsIcon icon={Task01Icon} size={14} color="#4F46E5" strokeWidth={2.2} />
+                <Text style={styles.openModalViewBtnText}>Full View</Text>
+              </TouchableOpacity>
+            </View>
 
-            {/* Quick Stats Summary Row in Review Screen */}
+            {/* Quick Interactive 3D Stats Row in Review Screen */}
             <View style={[styles.overviewStatsRow, { marginTop: 4, marginBottom: 12 }]}>
-              <View style={[styles.overviewStatBadge, styles.overviewStatCorrect]}>
-                <Text style={styles.overviewStatNum}>{totalCorrect}</Text>
-                <Text style={styles.overviewStatLabel}>Correct</Text>
-              </View>
-              <View style={[styles.overviewStatBadge, styles.overviewStatWrong]}>
-                <Text style={styles.overviewStatNum}>
-                  {Object.values(userAnswers).filter((a) => !a.isCorrect && !a.isSkipped && a.userAnswer !== '(Time Expired)').length}
-                </Text>
-                <Text style={styles.overviewStatLabel}>Wrong</Text>
-              </View>
-              <View style={[styles.overviewStatBadge, styles.overviewStatTimeout]}>
-                <Text style={[styles.overviewStatNum, { color: '#334155' }]}>
-                  {Object.values(userAnswers).filter((a) => a.userAnswer === '(Time Expired)').length}
-                </Text>
-                <Text style={styles.overviewStatLabel}>Unanswered</Text>
-              </View>
-              <View style={[styles.overviewStatBadge, styles.overviewStatSkipped]}>
-                <Text style={styles.overviewStatNum}>
-                  {items.length - (totalCorrect + Object.values(userAnswers).filter((a) => !a.isCorrect && !a.isSkipped && a.userAnswer !== '(Time Expired)').length + Object.values(userAnswers).filter((a) => a.userAnswer === '(Time Expired)').length)}
-                </Text>
-                <Text style={styles.overviewStatLabel}>Skipped</Text>
-              </View>
+              <TouchableOpacity
+                style={[
+                  styles.overviewStatBadge,
+                  styles.overviewStatCorrect,
+                  reviewFilter === 'correct' && styles.overviewStatBadgeActiveCorrect,
+                ]}
+                onPress={() => setReviewFilter(reviewFilter === 'correct' ? 'all' : 'correct')}
+                activeOpacity={0.75}
+              >
+                <View style={styles.statBadgeHeader}>
+                  <HugeiconsIcon icon={CheckmarkCircle02Icon} size={14} color="#047857" strokeWidth={2.4} />
+                  <Text style={[styles.overviewStatNum, { color: '#047857' }]}>{totalCorrect}</Text>
+                </View>
+                <Text style={[styles.overviewStatLabel, { color: '#065F46' }]}>Correct</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.overviewStatBadge,
+                  styles.overviewStatWrong,
+                  reviewFilter === 'wrong' && styles.overviewStatBadgeActiveWrong,
+                ]}
+                onPress={() => setReviewFilter(reviewFilter === 'wrong' ? 'all' : 'wrong')}
+                activeOpacity={0.75}
+              >
+                <View style={styles.statBadgeHeader}>
+                  <HugeiconsIcon icon={Cancel01Icon} size={14} color="#B91C1C" strokeWidth={2.4} />
+                  <Text style={[styles.overviewStatNum, { color: '#B91C1C' }]}>
+                    {Object.values(userAnswers).filter((a) => !a.isCorrect && !a.isSkipped && a.userAnswer !== '(Time Expired)').length}
+                  </Text>
+                </View>
+                <Text style={[styles.overviewStatLabel, { color: '#991B1B' }]}>Wrong</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.overviewStatBadge,
+                  styles.overviewStatPending,
+                  reviewFilter === 'skipped' && styles.overviewStatBadgeActivePending,
+                ]}
+                onPress={() => setReviewFilter(reviewFilter === 'skipped' ? 'all' : 'skipped')}
+                activeOpacity={0.75}
+              >
+                <View style={styles.statBadgeHeader}>
+                  <HugeiconsIcon icon={Clock01Icon} size={14} color="#4338CA" strokeWidth={2.4} />
+                  <Text style={[styles.overviewStatNum, { color: '#4338CA' }]}>
+                    {items.length - (totalCorrect + Object.values(userAnswers).filter((a) => !a.isCorrect && !a.isSkipped && a.userAnswer !== '(Time Expired)').length)}
+                  </Text>
+                </View>
+                <Text style={[styles.overviewStatLabel, { color: '#4F46E5' }]}>Skipped</Text>
+              </TouchableOpacity>
             </View>
 
-            {/* Legend */}
-            <View style={[styles.overviewLegendRow, { marginBottom: 14 }]}>
-              <View style={styles.legendItem}>
-                <View style={[styles.legendDot, { backgroundColor: '#10B981' }]} />
-                <Text style={styles.legendText}>Correct</Text>
-              </View>
-              <View style={styles.legendItem}>
-                <View style={[styles.legendDot, { backgroundColor: '#EF4444' }]} />
-                <Text style={styles.legendText}>Wrong</Text>
-              </View>
-              <View style={styles.legendItem}>
-                <View style={[styles.legendDot, { backgroundColor: '#334155' }]} />
-                <Text style={styles.legendText}>Unanswered</Text>
-              </View>
-              <View style={styles.legendItem}>
-                <View style={[styles.legendDot, { backgroundColor: '#CBD5E1' }]} />
-                <Text style={styles.legendText}>Skipped</Text>
-              </View>
+            {/* Interactive Filter Pills (No Overlapping Scroll) */}
+            <View style={{ marginBottom: 12 }}>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.overviewFilterRow}
+              >
+                <TouchableOpacity
+                  style={[
+                    styles.overviewFilterPill,
+                    reviewFilter === 'all' && styles.overviewFilterPillActive,
+                  ]}
+                  onPress={() => setReviewFilter('all')}
+                  activeOpacity={0.7}
+                >
+                  <Text
+                    style={[
+                      styles.overviewFilterPillText,
+                      reviewFilter === 'all' && styles.overviewFilterPillTextActive,
+                    ]}
+                  >
+                    All ({items.length})
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[
+                    styles.overviewFilterPill,
+                    reviewFilter === 'correct' && styles.overviewFilterPillActive,
+                  ]}
+                  onPress={() => setReviewFilter('correct')}
+                  activeOpacity={0.7}
+                >
+                  <Text
+                    style={[
+                      styles.overviewFilterPillText,
+                      reviewFilter === 'correct' && styles.overviewFilterPillTextActive,
+                    ]}
+                  >
+                    Correct ({totalCorrect})
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[
+                    styles.overviewFilterPill,
+                    reviewFilter === 'wrong' && styles.overviewFilterPillActive,
+                  ]}
+                  onPress={() => setReviewFilter('wrong')}
+                  activeOpacity={0.7}
+                >
+                  <Text
+                    style={[
+                      styles.overviewFilterPillText,
+                      reviewFilter === 'wrong' && styles.overviewFilterPillTextActive,
+                    ]}
+                  >
+                    Wrong ({Object.values(userAnswers).filter((a) => !a.isCorrect && !a.isSkipped && a.userAnswer !== '(Time Expired)').length})
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[
+                    styles.overviewFilterPill,
+                    reviewFilter === 'skipped' && styles.overviewFilterPillActive,
+                  ]}
+                  onPress={() => setReviewFilter('skipped')}
+                  activeOpacity={0.7}
+                >
+                  <Text
+                    style={[
+                      styles.overviewFilterPillText,
+                      reviewFilter === 'skipped' && styles.overviewFilterPillTextActive,
+                    ]}
+                  >
+                    Skipped ({items.length - (totalCorrect + Object.values(userAnswers).filter((a) => !a.isCorrect && !a.isSkipped && a.userAnswer !== '(Time Expired)').length)})
+                  </Text>
+                </TouchableOpacity>
+              </ScrollView>
             </View>
 
-            {/* Question Selector Header */}
+            {/* Question Selector Header & Wrapped 3D Grid */}
             <View style={styles.paginationHeaderRow}>
               <Text style={styles.paginationHeaderLabel}>Browse Questions:</Text>
               <Text style={styles.paginationHeaderCurrent}>
@@ -1142,53 +1473,69 @@ export const QuizRunner: React.FC<Props> = ({
               </Text>
             </View>
 
-            {/* Number Pagination */}
-            <View style={styles.paginationContainer}>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.paginationScroll}>
-                {items.map((_, idx) => {
-                  const uRecord = userAnswers[idx];
-                  const isTimeout = uRecord?.userAnswer === '(Time Expired)';
-                  const isCorrect = uRecord?.isCorrect ?? false;
-                  const isRevealed = uRecord?.wasRevealed ?? false;
-                  const isSkipped = uRecord?.isSkipped ?? false;
-                  const isSelected = selectedReviewIndex === idx;
+            <View style={styles.overviewGridWrap}>
+              {items.map((_, idx) => {
+                const uRecord = userAnswers[idx];
+                const isTimeout = uRecord?.userAnswer === '(Time Expired)';
+                const isCorrect = uRecord?.isCorrect ?? false;
+                const isRevealed = uRecord?.wasRevealed ?? false;
+                const isSkipped = uRecord?.isSkipped ?? false;
+                const isSelected = selectedReviewIndex === idx;
+                const isAnswered = Boolean(uRecord && !isSkipped && !isTimeout);
 
-                  let btnStyle: StyleProp<ViewStyle> = styles.pageBtnDefault;
-                  let txtStyle: StyleProp<TextStyle> = styles.pageBtnTextDefault;
+                let btnStyle: StyleProp<ViewStyle> = styles.pageBtnDefault;
+                let txtStyle: StyleProp<TextStyle> = styles.pageBtnTextDefault;
 
-                  if (isTimeout) {
-                    btnStyle = styles.pageBtnTimeout;
-                    txtStyle = styles.pageBtnTextTimeout;
-                  } else if (isRevealed) {
-                    btnStyle = styles.pageBtnRevealed;
-                    txtStyle = styles.pageBtnTextRevealed;
-                  } else if (isCorrect) {
-                    btnStyle = styles.pageBtnCorrect;
-                    txtStyle = styles.pageBtnTextCorrect;
-                  } else if (isSkipped) {
-                    btnStyle = styles.pageBtnSkipped;
-                    txtStyle = styles.pageBtnTextSkipped;
-                  } else {
-                    btnStyle = styles.pageBtnWrong;
-                    txtStyle = styles.pageBtnTextWrong;
-                  }
+                if (isTimeout) {
+                  btnStyle = styles.pageBtnTimeout;
+                  txtStyle = styles.pageBtnTextTimeout;
+                } else if (isRevealed) {
+                  btnStyle = styles.pageBtnRevealed;
+                  txtStyle = styles.pageBtnTextRevealed;
+                } else if (isCorrect) {
+                  btnStyle = styles.pageBtnCorrect;
+                  txtStyle = styles.pageBtnTextCorrect;
+                } else if (isSkipped) {
+                  btnStyle = styles.pageBtnSkipped;
+                  txtStyle = styles.pageBtnTextSkipped;
+                } else if (isAnswered) {
+                  btnStyle = styles.pageBtnWrong;
+                  txtStyle = styles.pageBtnTextWrong;
+                }
 
-                  return (
-                    <TouchableOpacity
-                      key={idx}
-                      style={[styles.pageBtn, btnStyle, isSelected && styles.pageBtnSelected]}
-                      onPress={() => setSelectedReviewIndex(idx)}
-                      activeOpacity={0.7}
-                      accessibilityRole="button"
-                      accessibilityLabel={`Select question ${idx + 1}`}
+                const matchesFilter =
+                  reviewFilter === 'all' ||
+                  (reviewFilter === 'correct' && isCorrect) ||
+                  (reviewFilter === 'wrong' && !isCorrect && !isSkipped && !isTimeout && isAnswered) ||
+                  (reviewFilter === 'skipped' && (!uRecord || isSkipped || isTimeout));
+
+                return (
+                  <TouchableOpacity
+                    key={idx}
+                    style={[
+                      styles.overviewGridCell,
+                      btnStyle,
+                      isSelected && styles.overviewGridCellCurrent,
+                      !matchesFilter && { opacity: 0.25 },
+                    ]}
+                    onPress={() => setSelectedReviewIndex(idx)}
+                    activeOpacity={0.7}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Select question ${idx + 1}`}
+                  >
+                    <Text
+                      style={[
+                        styles.overviewGridCellText,
+                        txtStyle,
+                        isSelected && styles.overviewGridCellTextCurrent,
+                      ]}
                     >
-                      <Text style={[styles.pageBtnText, txtStyle, isSelected && styles.pageBtnTextSelected]}>
-                        {idx + 1}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </ScrollView>
+                      {idx + 1}
+                    </Text>
+                    {isSelected && <View style={styles.overviewCurrentDot} />}
+                  </TouchableOpacity>
+                );
+              })}
             </View>
 
             {/* Selected Question Card */}
@@ -1228,15 +1575,20 @@ export const QuizRunner: React.FC<Props> = ({
                   {/* Question Header: Number, Type, and Status Badge */}
                   <View style={styles.reviewQuestionHeaderRow}>
                     <View style={styles.reviewQuestionNumberCol}>
-                      <Text style={styles.reviewQuestionNumber}>Question {idx + 1}</Text>
-                      <View style={styles.questionTypeTag}>
-                        <Text style={styles.questionTypeTagText}>
-                          {item.type === 'true_false'
-                            ? 'TRUE / FALSE'
-                            : item.type === 'multiple_choice'
-                            ? 'MULTIPLE CHOICE'
-                            : 'IDENTIFICATION'}
-                        </Text>
+                      <View style={styles.overviewListNumBadge}>
+                        <Text style={styles.overviewListNumBadgeText}>{idx + 1}</Text>
+                      </View>
+                      <View>
+                        <Text style={styles.reviewQuestionNumber}>Question {idx + 1}</Text>
+                        <View style={styles.questionTypeTag}>
+                          <Text style={styles.questionTypeTagText}>
+                            {item.type === 'true_false'
+                              ? 'TRUE / FALSE'
+                              : item.type === 'multiple_choice'
+                              ? 'MULTIPLE CHOICE'
+                              : 'IDENTIFICATION'}
+                          </Text>
+                        </View>
                       </View>
                     </View>
 
@@ -1266,9 +1618,9 @@ export const QuizRunner: React.FC<Props> = ({
                         size={14}
                         color={
                           isTimeout
-                            ? '#F8FAFC'
+                            ? '#334155'
                             : userRecord?.wasRevealed
-                            ? '#D97706'
+                            ? '#B45309'
                             : isCorrect
                             ? '#047857'
                             : '#DC2626'
@@ -1292,7 +1644,7 @@ export const QuizRunner: React.FC<Props> = ({
                           : userRecord?.wasRevealed
                           ? 'REVEALED (+0 XP)'
                           : isCorrect
-                          ? `CORRECT (+${xpGained} XP)`
+                          ? `CORRECT (+$` + xpGained + ` XP)`
                           : 'INCORRECT (+0 XP)'}
                       </Text>
                     </View>
@@ -1433,7 +1785,7 @@ export const QuizRunner: React.FC<Props> = ({
                       </Text>
                     </TouchableOpacity>
 
-                    <Text style={styles.reviewCardNavCounter}>
+                    <Text style={styles.reviewCardNavCounter} numberOfLines={1}>
                       Question {idx + 1} of {items.length}
                     </Text>
 
@@ -1509,11 +1861,9 @@ export const QuizRunner: React.FC<Props> = ({
       {/* Top Bar: XP Progress & Question Counter */}
       <View style={styles.topHeader}>
         <View style={styles.topInfoRow}>
-          <View style={styles.questionCounterBox}>
-            <Text style={styles.questionCounterText}>
-              {isRevisitingSkipped
-                ? `REVISIT ${revisitQueueIndex + 1} OF ${skippedQueue.length}`
-                : `QUESTION ${currentIndex + 1} OF ${items.length}`}
+          <View style={styles.simpleQuestionCountBadge}>
+            <Text style={styles.simpleQuestionCountText}>
+              {isRevisitingSkipped ? `${revisitQueueIndex + 1}/${skippedQueue.length}` : `${currentIndex + 1}/${items.length}`}
             </Text>
           </View>
 
@@ -1521,12 +1871,7 @@ export const QuizRunner: React.FC<Props> = ({
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
             {Boolean(timeLimitPerQuestion && timeLimitPerQuestion > 0) && (
               <View style={[styles.timerBadge, timerSeconds <= 5 && styles.timerBadgeUrgent]}>
-                <HugeiconsIcon
-                  icon={Clock01Icon}
-                  size={14}
-                  color={timerSeconds <= 5 ? '#DC2626' : '#4F46E5'}
-                  strokeWidth={2.4}
-                />
+                <HugeiconsIcon icon={Clock01Icon} size={14} color={timerSeconds <= 5 ? "#DC2626" : "#4F46E5"} strokeWidth={2.4} />
                 <Text style={[styles.timerBadgeText, timerSeconds <= 5 && styles.timerBadgeTextUrgent]}>
                   {timerSeconds}s
                 </Text>
@@ -1534,22 +1879,12 @@ export const QuizRunner: React.FC<Props> = ({
             )}
             <View style={styles.xpBadge}>
               <HugeiconsIcon icon={FavouriteIcon} size={15} color="#EF4444" strokeWidth={2.4} fill="#EF4444" />
-              <Text style={[styles.xpBadgeText, { color: '#EF4444' }]}>{hearts}</Text>
+              <Text style={[styles.xpBadgeText, { color: "#EF4444" }]}>{hearts}</Text>
             </View>
             <View style={styles.xpBadge}>
               <HugeiconsIcon icon={SparklesIcon} size={15} color="#D97706" strokeWidth={2.4} />
               <Text style={styles.xpBadgeText}>{currentXP} XP</Text>
             </View>
-            <TouchableOpacity
-              style={styles.overviewHeaderBtn}
-              onPress={() => setShowOverviewModal(true)}
-              activeOpacity={0.7}
-              accessibilityRole="button"
-              accessibilityLabel="Open Quiz Overview"
-            >
-              <HugeiconsIcon icon={Task01Icon} size={14} color="#4F46E5" strokeWidth={2.2} />
-              <Text style={styles.overviewHeaderBtnText}>Overview</Text>
-            </TouchableOpacity>
           </View>
         </View>
 
@@ -1585,78 +1920,6 @@ export const QuizRunner: React.FC<Props> = ({
             </Text>
           </View>
         </View>
-
-        {/* Question Number Pagination Bar with Shade Indicators */}
-        <View style={styles.quizOverviewBar}>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.quizPaginationScroll}
-          >
-            {items.map((_, idx) => {
-              const record = userAnswers[idx];
-              const isCurrent = idx === currentIndex;
-              const isCorrect = record?.isCorrect ?? false;
-              const isRevealed = record?.wasRevealed ?? false;
-              const isTimeout = record?.userAnswer === '(Time Expired)';
-              const isSkipped = record?.isSkipped ?? false;
-              const isAnswered = Boolean(record && !isSkipped && !isTimeout);
-
-              let pillStyle: StyleProp<ViewStyle> = styles.pageBtnDefault;
-              let textStyle: StyleProp<TextStyle> = styles.pageBtnTextDefault;
-
-              if (isTimeout) {
-                pillStyle = styles.pageBtnTimeout;
-                textStyle = styles.pageBtnTextTimeout;
-              } else if (isRevealed) {
-                pillStyle = styles.pageBtnRevealed;
-                textStyle = styles.pageBtnTextRevealed;
-              } else if (isCorrect) {
-                pillStyle = styles.pageBtnCorrect;
-                textStyle = styles.pageBtnTextCorrect;
-              } else if (isAnswered) {
-                pillStyle = styles.pageBtnWrong;
-                textStyle = styles.pageBtnTextWrong;
-              } else if (isSkipped) {
-                pillStyle = styles.pageBtnSkipped;
-                textStyle = styles.pageBtnTextSkipped;
-              }
-
-              const isPillLocked =
-                isTimerSet &&
-                !isRevisitingSkipped &&
-                (idx < currentIndex || Boolean(record?.isSkipped));
-
-              return (
-                <TouchableOpacity
-                  key={idx}
-                  style={[
-                    styles.quizPill,
-                    pillStyle,
-                    isCurrent && styles.quizPillCurrent,
-                    isPillLocked && styles.quizPillLocked,
-                  ]}
-                  disabled={isPillLocked}
-                  onPress={() => handlePillPress(idx)}
-                  activeOpacity={isPillLocked ? 1 : 0.7}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Question ${idx + 1}${isPillLocked ? ' (Locked)' : ''}`}
-                >
-                  <Text
-                    style={[
-                      styles.quizPillText,
-                      textStyle,
-                      isCurrent && styles.quizPillTextCurrent,
-                      isPillLocked && styles.quizPillTextLocked,
-                    ]}
-                  >
-                    {idx + 1}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
-        </View>
       </View>
 
       {/* Progressive Contextual Coachmark */}
@@ -1683,7 +1946,7 @@ export const QuizRunner: React.FC<Props> = ({
           </View>
           {isMeaningfulSection(currentItem.source_metadata?.section) ? (
             <View style={styles.questionSectionTag}>
-              <Text style={styles.questionSectionText} numberOfLines={1}>
+              <Text style={styles.questionSectionText} numberOfLines={1} adjustsFontSizeToFit={true}>
                 {currentItem.source_metadata?.section?.toUpperCase()}
               </Text>
             </View>
@@ -2049,7 +2312,7 @@ export const QuizRunner: React.FC<Props> = ({
               accessibilityRole="button"
               accessibilityLabel="Skip Question"
             >
-              <HugeiconsIcon icon={ArrowRight01Icon} size={16} color="#4F46E5" strokeWidth={2.2} />
+              
               <Text style={styles.skipBtnText}>Skip</Text>
             </TouchableOpacity>
 
@@ -2076,9 +2339,9 @@ export const QuizRunner: React.FC<Props> = ({
                   styles.revealBtnText,
                   (isCurrentQuestionRevealed || isSubmittingFeedback) && styles.revealBtnTextActive,
                 ]}
-                numberOfLines={1}
+                numberOfLines={1} adjustsFontSizeToFit={true}
               >
-                {isCurrentQuestionRevealed ? 'Revealed' : `Reveal (50) • ${credits}`}
+                {isCurrentQuestionRevealed ? 'Revealed' : `Reveal • 50`}
               </Text>
             </TouchableOpacity>
           </View>
@@ -2138,7 +2401,7 @@ export const QuizRunner: React.FC<Props> = ({
                     <Text style={styles.primaryBtnText}>
                       {isLastQuestionOfPass ? 'Complete Quiz' : 'Next Question'}
                     </Text>
-                    <HugeiconsIcon icon={ArrowRight01Icon} size={18} color="#FFFFFF" strokeWidth={2.4} />
+                    
                   </View>
                 </PlatformPressable>
               );
@@ -2184,7 +2447,7 @@ export const QuizRunner: React.FC<Props> = ({
                     <Text style={styles.primaryBtnText}>
                       {isLastQuestionOfPass ? 'Complete Quiz' : 'Next Question'}
                     </Text>
-                    <HugeiconsIcon icon={ArrowRight01Icon} size={18} color="#FFFFFF" strokeWidth={2.4} />
+                    
                   </View>
                 </PlatformPressable>
               );
@@ -2264,7 +2527,7 @@ export const QuizRunner: React.FC<Props> = ({
 
     </SmoothScrollView>
   );
-};
+});
 
 const styles = StyleSheet.create({
   modalOverlay: {
@@ -2354,6 +2617,20 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 8,
+  },
+  simpleQuestionCountBadge: {
+    backgroundColor: '#F8FAFC',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  simpleQuestionCountText: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#64748B',
+    fontVariant: ['tabular-nums'],
   },
   questionCounterBox: {
     backgroundColor: '#F1F5F9',
@@ -2834,18 +3111,18 @@ const styles = StyleSheet.create({
   },
   reviewHeroCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    padding: 22,
+    borderRadius: 24,
+    padding: 24,
     alignItems: 'center',
     borderWidth: 1,
     borderColor: '#E2E8F0',
-    marginBottom: 20,
+    marginBottom: 18,
     ...Platform.select({
       ios: {
         shadowColor: '#0F172A',
         shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.08,
-        shadowRadius: 12,
+        shadowOpacity: 0.06,
+        shadowRadius: 16,
       },
       android: {
         elevation: 3,
@@ -2853,28 +3130,27 @@ const styles = StyleSheet.create({
     }),
   },
   heroBadgeCircle: {
-    width: 68,
-    height: 68,
-    borderRadius: 34,
+    width: 76,
+    height: 76,
+    borderRadius: 38,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 10,
+    marginBottom: 12,
+    borderWidth: 1.5,
   },
   trophyBg: {
     backgroundColor: '#FEF3C7',
-    borderWidth: 1.5,
     borderColor: '#FDE68A',
   },
   bookBg: {
     backgroundColor: '#EEF2FF',
-    borderWidth: 1.5,
-    borderColor: '#E0E7FF',
+    borderColor: '#C7D2FE',
   },
   heroTitle: {
-    fontSize: 21,
-    fontWeight: '800',
+    fontSize: 22,
+    fontWeight: '900',
     color: '#0F172A',
-    marginBottom: 12,
+    marginBottom: 14,
   },
   xpEarnedCard: {
     flexDirection: 'row',
@@ -2882,18 +3158,20 @@ const styles = StyleSheet.create({
     gap: 12,
     backgroundColor: '#FFFBEB',
     paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 14,
-    borderWidth: 1.5,
+    paddingVertical: 14,
+    borderRadius: 16,
+    borderWidth: 1,
     borderColor: '#FDE68A',
     width: '100%',
     marginBottom: 16,
   },
   xpEarnedIconBox: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 40,
+    height: 40,
+    borderRadius: 12,
     backgroundColor: '#FEF3C7',
+    borderWidth: 1,
+    borderColor: '#FDE68A',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -2901,7 +3179,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   xpEarnedValue: {
-    fontSize: 17,
+    fontSize: 18,
     fontWeight: '900',
     color: '#92400E',
   },
@@ -2914,27 +3192,34 @@ const styles = StyleSheet.create({
   metricsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-around',
+    justifyContent: 'space-between',
     width: '100%',
-    paddingTop: 8,
-    borderTopWidth: 1,
-    borderTopColor: '#F1F5F9',
+    gap: 8,
+    paddingTop: 4,
   },
   metricPill: {
     alignItems: 'center',
     flex: 1,
+    backgroundColor: '#F8FAFC',
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
   },
   metricValue: {
     fontSize: 16,
-    fontWeight: '800',
+    fontWeight: '900',
     color: '#0F172A',
     fontVariant: ['tabular-nums'],
   },
   metricLabel: {
     fontSize: 11,
-    fontWeight: '600',
+    fontWeight: '700',
     color: '#64748B',
     marginTop: 2,
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
   },
   masteredColor: {
     color: '#059669',
@@ -2943,9 +3228,7 @@ const styles = StyleSheet.create({
     color: '#4F46E5',
   },
   metricDivider: {
-    width: 1,
-    height: 24,
-    backgroundColor: '#E2E8F0',
+    display: 'none',
   },
   reviewSectionHeader: {
     marginBottom: 14,
@@ -3002,20 +3285,24 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
   },
   pageBtnDefault: {
-    backgroundColor: '#F1F5F9',
-    borderColor: '#CBD5E1',
+    backgroundColor: '#F8FAFC',
+    borderColor: '#E2E8F0',
+    borderBottomColor: '#CBD5E1',
   },
   pageBtnRevealed: {
     backgroundColor: '#FFFBEB',
     borderColor: '#FDE68A',
+    borderBottomColor: '#D97706',
   },
   pageBtnCorrect: {
     backgroundColor: '#ECFDF5',
-    borderColor: '#A7F3D0',
+    borderColor: '#6EE7B7',
+    borderBottomColor: '#10B981',
   },
   pageBtnWrong: {
     backgroundColor: '#FEF2F2',
-    borderColor: '#FECACA',
+    borderColor: '#FCA5A5',
+    borderBottomColor: '#EF4444',
   },
   pageBtnSelected: {
     borderWidth: 2.5,
@@ -3044,9 +3331,9 @@ const styles = StyleSheet.create({
   },
   reviewQuestionCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 18,
-    padding: 16,
-    borderWidth: 1.5,
+    borderRadius: 20,
+    padding: 18,
+    borderWidth: 1,
     borderColor: '#E2E8F0',
     marginBottom: 14,
     ...Platform.select({
@@ -3089,10 +3376,10 @@ const styles = StyleSheet.create({
   statusBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 4.5,
+    borderRadius: 10,
     borderWidth: 1,
   },
   badgeCorrect: {
@@ -3108,13 +3395,13 @@ const styles = StyleSheet.create({
     borderColor: '#FDE68A',
   },
   badgeTimeout: {
-    backgroundColor: '#334155',
-    borderColor: '#1E293B',
+    backgroundColor: '#F8FAFC',
+    borderColor: '#E2E8F0',
   },
   statusBadgeText: {
-    fontSize: 10,
+    fontSize: 10.5,
     fontWeight: '800',
-    letterSpacing: 0.4,
+    letterSpacing: 0.3,
   },
   statusTextCorrect: {
     color: '#047857',
@@ -3139,12 +3426,12 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   reviewCardTimeoutBorder: {
-    borderColor: '#475569',
+    borderColor: '#E2E8F0',
   },
   userAnswerBox: {
-    borderRadius: 12,
-    padding: 12,
-    borderWidth: 1.5,
+    borderRadius: 14,
+    padding: 14,
+    borderWidth: 1,
     marginBottom: 10,
   },
   userAnswerBoxCorrect: {
@@ -3161,7 +3448,7 @@ const styles = StyleSheet.create({
   },
   userAnswerBoxTimeout: {
     backgroundColor: '#F8FAFC',
-    borderColor: '#64748B',
+    borderColor: '#CBD5E1',
   },
   userAnswerHeaderRow: {
     flexDirection: 'row',
@@ -3205,9 +3492,9 @@ const styles = StyleSheet.create({
   },
   correctAnswerBox: {
     backgroundColor: '#F0FDF4',
-    borderRadius: 12,
-    padding: 12,
-    borderWidth: 1.5,
+    borderRadius: 14,
+    padding: 14,
+    borderWidth: 1,
     borderColor: '#86EFAC',
     marginBottom: 10,
   },
@@ -3231,8 +3518,8 @@ const styles = StyleSheet.create({
   },
   explanationCard: {
     backgroundColor: '#F8FAFC',
-    borderRadius: 10,
-    padding: 12,
+    borderRadius: 14,
+    padding: 14,
     borderLeftWidth: 3.5,
     borderLeftColor: '#4F46E5',
     borderWidth: 1,
@@ -3276,11 +3563,13 @@ const styles = StyleSheet.create({
   doneBtn: {
     backgroundColor: '#4F46E5',
     borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#4338CA',
     ...Platform.select({
       ios: {
         shadowColor: '#4F46E5',
         shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.25,
+        shadowOpacity: 0.2,
         shadowRadius: 8,
       },
       android: {
@@ -3301,15 +3590,17 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   pageBtnSkipped: {
-    backgroundColor: '#F1F5F9',
-    borderColor: '#94A3B8',
+    backgroundColor: '#F8FAFC',
+    borderColor: '#E2E8F0',
+    borderBottomColor: '#CBD5E1',
   },
   pageBtnTextSkipped: {
     color: '#64748B',
   },
   pageBtnTimeout: {
-    backgroundColor: '#334155',
-    borderColor: '#1E293B',
+    backgroundColor: '#F1F5F9',
+    borderColor: '#94A3B8',
+    borderBottomColor: '#64748B',
   },
   pageBtnTextTimeout: {
     color: '#F8FAFC',
@@ -3638,20 +3929,41 @@ const styles = StyleSheet.create({
     backgroundColor: '#4F46E5',
   },
   overviewDropdownContainer: {
-    backgroundColor: '#F8FAFC',
-    borderWidth: 1.5,
-    borderTopWidth: 0,
-    borderColor: '#C7D2FE',
-    borderBottomLeftRadius: 18,
-    borderBottomRightRadius: 18,
-    padding: 16,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 20,
+    padding: 18,
     marginBottom: 16,
   },
+  reviewDropdownHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 10,
+  },
+  openModalViewBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 10,
+    backgroundColor: '#EEF2FF',
+    borderWidth: 1,
+    borderColor: '#C7D2FE',
+  },
+  openModalViewBtnText: {
+    fontSize: 11.5,
+    fontWeight: '800',
+    color: '#4F46E5',
+  },
   overviewContainerSubtitle: {
-    fontSize: 12.5,
+    fontSize: 12,
     color: '#64748B',
-    lineHeight: 18,
-    marginBottom: 12,
+    lineHeight: 17,
+    flex: 1,
   },
   paginationHeaderRow: {
     flexDirection: 'row',
@@ -3674,18 +3986,20 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: 14,
-    paddingTop: 12,
+    gap: 12,
+    marginTop: 18,
+    paddingTop: 14,
     borderTopWidth: 1,
     borderTopColor: '#F1F5F9',
   },
   reviewCardNavBtn: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: 6,
-    paddingVertical: 8,
+    paddingVertical: 9,
     paddingHorizontal: 14,
-    borderRadius: 10,
+    borderRadius: 12,
     backgroundColor: '#EEF2FF',
     borderWidth: 1,
     borderColor: '#C7D2FE',
@@ -3704,21 +4018,36 @@ const styles = StyleSheet.create({
     color: '#94A3B8',
   },
   reviewCardNavCounter: {
-    fontSize: 12.5,
+    fontSize: 12,
     fontWeight: '700',
     color: '#64748B',
+    textAlign: 'center',
+    flex: 1,
+    paddingHorizontal: 4,
+  },
+  overviewHandleBar: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#CBD5E1',
+    alignSelf: 'center',
+    marginBottom: 12,
   },
   overviewModalCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 24,
-    padding: 20,
+    paddingHorizontal: 20,
+    paddingTop: 14,
+    paddingBottom: 20,
     width: '100%',
-    maxHeight: '85%',
+    maxHeight: '88%',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
     ...Platform.select({
       ios: {
         shadowColor: '#0F172A',
         shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.18,
+        shadowOpacity: 0.12,
         shadowRadius: 20,
       },
       android: {
@@ -3737,61 +4066,74 @@ const styles = StyleSheet.create({
   overviewModalTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 10,
+    flex: 1,
+  },
+  overviewIconBadge: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    backgroundColor: '#EEF2FF',
+    borderWidth: 1,
+    borderColor: '#C7D2FE',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   overviewModalTitle: {
     fontSize: 18,
     fontWeight: '800',
     color: '#0F172A',
   },
+  overviewModalSubtitle: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#64748B',
+    marginTop: 1,
+  },
   overviewCloseBtn: {
-    padding: 6,
-    borderRadius: 8,
-    backgroundColor: '#F1F5F9',
+    width: 36,
+    height: 36,
+    borderRadius: 12,
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   overviewStatsRow: {
     flexDirection: 'row',
     gap: 8,
-    marginTop: 12,
-    marginBottom: 12,
+    marginTop: 14,
+    marginBottom: 10,
   },
   overviewStatBadge: {
     flex: 1,
-    paddingVertical: 8,
-    paddingHorizontal: 10,
-    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+    borderRadius: 14,
     alignItems: 'center',
+    borderWidth: 1,
   },
   overviewStatCorrect: {
     backgroundColor: '#ECFDF5',
-    borderWidth: 1,
     borderColor: '#A7F3D0',
   },
   overviewStatWrong: {
     backgroundColor: '#FEF2F2',
-    borderWidth: 1,
     borderColor: '#FECACA',
   },
+  overviewStatPending: {
+    backgroundColor: '#EEF2FF',
+    borderColor: '#C7D2FE',
+  },
+
   overviewStatTimeout: {
     backgroundColor: '#F8FAFC',
-    borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: '#E2E8F0',
   },
   overviewStatSkipped: {
     backgroundColor: '#F1F5F9',
-    borderWidth: 1,
     borderColor: '#E2E8F0',
-  },
-  overviewStatNum: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#0F172A',
-  },
-  overviewStatLabel: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#64748B',
-    marginTop: 1,
   },
   overviewLegendRow: {
     flexDirection: 'row',
@@ -3814,74 +4156,182 @@ const styles = StyleSheet.create({
     color: '#64748B',
     fontWeight: '600',
   },
+  statusPillCorrect: {
+    backgroundColor: '#ECFDF5',
+  },
+  statusPillWrong: {
+    backgroundColor: '#FEF2F2',
+  },
+  statusPillTimeout: {
+    backgroundColor: '#F8FAFC',
+  },
+  statusPillSkipped: {
+    backgroundColor: '#F1F5F9',
+  },
+
+  overviewStatBadgeActiveCorrect: {
+    borderColor: '#059669',
+    backgroundColor: '#D1FAE5',
+  },
+  overviewStatBadgeActiveWrong: {
+    borderColor: '#DC2626',
+    backgroundColor: '#FEE2E2',
+  },
+  overviewStatBadgeActivePending: {
+    borderColor: '#4F46E5',
+    backgroundColor: '#E0E7FF',
+  },
+  statBadgeHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    marginBottom: 2,
+  },
+  overviewStatNum: {
+    fontSize: 16,
+    fontWeight: '900',
+    fontVariant: ['tabular-nums'],
+  },
+  overviewStatLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
+  },
+  overviewFilterRow: {
+    flexDirection: 'row',
+    gap: 6,
+    marginBottom: 12,
+  },
+  overviewFilterPill: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  overviewFilterPillActive: {
+    backgroundColor: '#EEF2FF',
+    borderColor: '#4F46E5',
+  },
+  overviewFilterPillText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#64748B',
+  },
+  overviewFilterPillTextActive: {
+    color: '#4F46E5',
+    fontWeight: '800',
+  },
   overviewGridContainer: {
     flexShrink: 1,
   },
   overviewGridScroll: {
     paddingBottom: 16,
   },
+  overviewSectionHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 4,
+    marginBottom: 8,
+  },
+  overviewSectionTitle: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#334155',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  overviewSectionSubtitle: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#94A3B8',
+  },
+  overviewClearFilterText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#4F46E5',
+  },
   overviewGridWrap: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
-    marginBottom: 16,
+    marginBottom: 14,
   },
   overviewGridCell: {
-    width: 38,
-    height: 38,
-    borderRadius: 10,
+    width: 44,
+    height: 44,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1.5,
+    borderWidth: 1,
   },
   overviewGridCellCurrent: {
-    borderWidth: 2.5,
-    borderColor: '#4F46E5',
-    transform: [{ scale: 1.08 }],
+    backgroundColor: '#4F46E5',
+    borderColor: '#4338CA',
+    borderWidth: 1,
   },
   overviewGridCellText: {
     fontSize: 14,
-    fontWeight: '700',
+    fontWeight: '800',
   },
   overviewGridCellTextCurrent: {
+    color: '#FFFFFF',
     fontWeight: '900',
   },
+  overviewCurrentDot: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#FFFFFF',
+    marginTop: 1,
+  },
   overviewGridCellLocked: {
-    opacity: 0.85,
+    opacity: 0.6,
   },
   overviewListSection: {
-    marginTop: 8,
+    marginTop: 6,
   },
-  overviewListSectionTitle: {
+  overviewEmptyState: {
+    padding: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderStyle: 'dashed',
+  },
+  overviewEmptyStateText: {
     fontSize: 13,
-    fontWeight: '800',
-    color: '#475569',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: 10,
+    color: '#64748B',
+    fontWeight: '600',
   },
   overviewListItem: {
-    backgroundColor: '#F8FAFC',
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 8,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 14,
+    marginBottom: 10,
     borderWidth: 1,
     borderColor: '#E2E8F0',
   },
   overviewListItemActive: {
-    borderColor: '#4F46E5',
-    backgroundColor: '#EEF2FF',
+    borderColor: '#6366F1',
+    backgroundColor: '#FAF5FF',
   },
   overviewListHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 6,
+    marginBottom: 8,
   },
   overviewListNumBadge: {
-    width: 24,
-    height: 24,
-    borderRadius: 6,
+    width: 26,
+    height: 26,
+    borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
@@ -3895,49 +4345,103 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#0F172A',
   },
+  currentBadgePill: {
+    backgroundColor: '#4F46E5',
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 8,
+  },
+  currentBadgePillText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+  },
   overviewStatusPill: {
     paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 6,
+    paddingVertical: 2.5,
+    borderRadius: 8,
   },
   overviewStatusPillText: {
     fontSize: 11,
     fontWeight: '700',
   },
-  statusPillCorrect: {
-    backgroundColor: '#ECFDF5',
-  },
-  statusPillWrong: {
-    backgroundColor: '#FEF2F2',
-  },
-  statusPillTimeout: {
-    backgroundColor: '#334155',
-  },
-  statusPillSkipped: {
-    backgroundColor: '#F1F5F9',
-  },
   overviewListPrompt: {
     fontSize: 13,
     color: '#334155',
     lineHeight: 18,
-    marginBottom: 4,
+    marginBottom: 6,
   },
   overviewListAnswersRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
+    gap: 6,
     marginTop: 4,
     paddingTop: 6,
     borderTopWidth: 1,
-    borderTopColor: '#E2E8F0',
+    borderTopColor: '#F1F5F9',
   },
-  overviewListUserAns: {
-    fontSize: 11.5,
-    color: '#475569',
+  overviewAnswerBox: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 10,
+    borderWidth: 1,
+    width: '100%',
   },
-  overviewListCorrectAns: {
+  overviewAnswerBoxCorrect: {
+    backgroundColor: '#ECFDF5',
+    borderColor: '#A7F3D0',
+  },
+  overviewAnswerBoxWrong: {
+    backgroundColor: '#FEF2F2',
+    borderColor: '#FECACA',
+  },
+  overviewAnswerBoxText: {
+    fontSize: 12,
+  },
+  overviewUnansweredBox: {
+    backgroundColor: '#F8FAFC',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    marginTop: 4,
+  },
+  overviewUnansweredText: {
     fontSize: 11.5,
-    color: '#059669',
+    color: '#94A3B8',
+    fontWeight: '600',
+  },
+  overviewJumpRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    gap: 4,
+    marginTop: 8,
+    paddingTop: 6,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+  },
+  overviewJumpText: {
+    fontSize: 11.5,
+    fontWeight: '700',
+    color: '#4F46E5',
+  },
+  overviewResumeBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#4F46E5',
+    borderRadius: 14,
+    paddingVertical: 14,
+    marginTop: 12,
+    borderWidth: 1,
+    borderColor: '#4338CA',
+  },
+  overviewResumeBtnText: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#FFFFFF',
   },
   overviewListExplanationBox: {
     marginTop: 8,

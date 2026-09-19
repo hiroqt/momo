@@ -28,6 +28,7 @@ import {
   Folder01Icon,
   FolderAddIcon,
   MoreVerticalIcon,
+  Upload01Icon,
 } from '@hugeicons/core-free-icons';
 import { listStudySets, deleteStudySet, updateStudySet } from '../../lib/api/studySets';
 import { listDocuments, deleteDocument } from '../../lib/api/documents';
@@ -39,7 +40,6 @@ import {
   setStudySetFolder,
 } from '../../lib/api/folders';
 import { localDb } from '../../lib/storage/localDb';
-import { PlatformPressable } from '../../components/common/PlatformPressable';
 import { ConfirmationModal } from '../../components/common/ConfirmationModal';
 import { RenameModal } from '../../components/common/RenameModal';
 import { TabTransitionView } from '../../components/common/TabTransitionView';
@@ -77,7 +77,7 @@ export default function LibraryScreen() {
   const [isDeletingFolder, setIsDeletingFolder] = useState(false);
   const [folderActionTarget, setFolderActionTarget] = useState<Folder | null>(null);
 
-  const [filter, setFilter] = useState<'All' | 'Flashcards' | 'Quiz' | 'Exam'>('All');
+  const [studySetActionTarget, setStudySetActionTarget] = useState<StudySet | null>(null);
   const [search, setSearch] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
@@ -341,176 +341,144 @@ export default function LibraryScreen() {
       {/* Reviewers Tab Content */}
       {activeTab === 'reviewers' ? (
         <>
-          {/* Folders Section / Carousel */}
-          <View style={styles.foldersSection}>
-            <View style={styles.folderSectionHeader}>
-              <View style={styles.folderHeaderTitleRow}>
-                <HugeiconsIcon icon={Folder01Icon} size={16} color={colors.primary} strokeWidth={2.2} />
-                <Text style={styles.folderSectionTitle}>Folders</Text>
-                <View style={styles.folderCountBadge}>
-                  <Text style={styles.folderCountBadgeText}>
-                    {folders.length < 3 ? `${folders.length}/3 Free` : `${folders.length} Folders`}
-                  </Text>
-                </View>
-              </View>
-              <TouchableOpacity
-                style={styles.addFolderHeaderBtn}
-                onPress={() => setShowCreateFolder(true)}
-                activeOpacity={0.7}
-              >
-                <HugeiconsIcon icon={FolderAddIcon} size={14} color={colors.primary} strokeWidth={2.2} />
-                <Text style={styles.addFolderHeaderText}>New Folder</Text>
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.folderCarouselContent}
-              decelerationRate={Platform.OS === 'ios' ? 'normal' : 0.988}
-              scrollEventThrottle={16}
-              overScrollMode="never"
-              bounces={true}
-            >
-              {/* "All" Card */}
-              <TouchableOpacity
-                style={[
-                  styles.folderCard,
-                  selectedFolderId === null && styles.folderCardActive,
-                ]}
-                onPress={() => setSelectedFolderId(null)}
-                activeOpacity={0.7}
-              >
-                <View
-                  style={[
-                    styles.folderCardIconBox,
-                    selectedFolderId === null && styles.folderCardIconBoxActive,
-                  ]}
-                >
-                  <HugeiconsIcon
-                    icon={Folder01Icon}
-                    size={16}
-                    color={selectedFolderId === null ? colors.primary : colors.textMuted}
-                    strokeWidth={2}
-                  />
-                </View>
-                <Text
-                  style={[
-                    styles.folderCardName,
-                    selectedFolderId === null && styles.folderCardNameActive,
-                  ]}
-                  numberOfLines={1}
-                >
-                  All
-                </Text>
-                <View style={[styles.folderCardBadge, selectedFolderId === null && styles.folderCardBadgeActive]}>
-                  <Text
-                    style={[
-                      styles.folderCardBadgeText,
-                      selectedFolderId === null && styles.folderCardBadgeTextActive,
-                    ]}
-                  >
-                    {sets.length}
-                  </Text>
-                </View>
-              </TouchableOpacity>
-
-              {/* User Folders */}
-              {folders.map((folder) => {
-                const isSelected = selectedFolderId === folder.id;
-                return (
-                  <TouchableOpacity
-                    key={folder.id}
-                    style={[styles.folderCard, isSelected && styles.folderCardActive]}
-                    onPress={() => setSelectedFolderId(isSelected ? null : folder.id)}
-                    onLongPress={() => setFolderActionTarget(folder)}
-                    activeOpacity={0.7}
-                  >
-                    <View
-                      style={[
-                        styles.folderCardIconBox,
-                        isSelected && styles.folderCardIconBoxActive,
-                      ]}
-                    >
-                      <HugeiconsIcon
-                        icon={Folder01Icon}
-                        size={16}
-                        color={isSelected ? colors.primary : colors.textSecondary}
-                        strokeWidth={2}
-                      />
-                    </View>
-                    <Text
-                      style={[styles.folderCardName, isSelected && styles.folderCardNameActive]}
-                      numberOfLines={1}
-                    >
-                      {folder.name}
+          {/* Folders Section / Carousel (shown when user has folders or study sets) */}
+          {(folders.length > 0 || sets.length > 0) && (
+            <View style={styles.foldersSection}>
+              <View style={styles.folderSectionHeader}>
+                <View style={styles.folderHeaderTitleRow}>
+                  <HugeiconsIcon icon={Folder01Icon} size={16} color={colors.primary} strokeWidth={2.2} />
+                  <Text style={styles.folderSectionTitle}>Folders</Text>
+                  <View style={styles.folderCountBadge}>
+                    <Text style={styles.folderCountBadgeText}>
+                      {folders.length < 3 ? `${folders.length}/3 Free` : `${folders.length} Folders`}
                     </Text>
-                    <View style={[styles.folderCardBadge, isSelected && styles.folderCardBadgeActive]}>
-                      <Text
-                        style={[
-                          styles.folderCardBadgeText,
-                          isSelected && styles.folderCardBadgeTextActive,
-                        ]}
-                      >
-                        {folder.reviewer_count}
-                      </Text>
-                    </View>
-                    <TouchableOpacity
-                      style={styles.folderMoreBtn}
-                      onPress={(e) => {
-                        e.stopPropagation();
-                        setFolderActionTarget(folder);
-                      }}
-                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                      accessibilityLabel="Folder options"
-                    >
-                      <HugeiconsIcon
-                        icon={MoreVerticalIcon}
-                        size={14}
-                        color={isSelected ? colors.primary : colors.textDisabled}
-                      />
-                    </TouchableOpacity>
-                  </TouchableOpacity>
-                );
-              })}
-
-              {/* "+ Add Folder" Card */}
-              <TouchableOpacity
-                style={styles.addFolderCard}
-                onPress={() => setShowCreateFolder(true)}
-                activeOpacity={0.7}
-              >
-                <HugeiconsIcon icon={FolderAddIcon} size={16} color={colors.primary} strokeWidth={2} />
-                <Text style={styles.addFolderCardText}>+ Folder</Text>
-              </TouchableOpacity>
-            </ScrollView>
-          </View>
-
-          {/* Filter Chips */}
-          <View style={styles.chipsWrapper}>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.chipRow}
-              decelerationRate={Platform.OS === 'ios' ? 'normal' : 0.988}
-              scrollEventThrottle={16}
-              overScrollMode="never"
-              bounces={true}
-            >
-              {(['All', 'Flashcards', 'Quiz', 'Exam'] as const).map((chip) => (
+                  </View>
+                </View>
                 <TouchableOpacity
-                  key={chip}
-                  style={[styles.chip, filter === chip && styles.activeChip]}
-                  onPress={() => setFilter(chip)}
+                  style={styles.addFolderHeaderBtn}
+                  onPress={() => setShowCreateFolder(true)}
                   activeOpacity={0.7}
                 >
-                  <Text style={[styles.chipText, filter === chip && styles.activeChipText]}>
-                    {chip}
-                  </Text>
+                  <HugeiconsIcon icon={FolderAddIcon} size={14} color={colors.primary} strokeWidth={2.2} />
+                  <Text style={styles.addFolderHeaderText}>New Folder</Text>
                 </TouchableOpacity>
-              ))}
-            </ScrollView>
-          </View>
+              </View>
+
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.folderCarouselContent}
+                decelerationRate={Platform.OS === 'ios' ? 'normal' : 0.988}
+                scrollEventThrottle={16}
+                overScrollMode="never"
+                bounces={true}
+              >
+                {/* "All" Card */}
+                <TouchableOpacity
+                  style={[
+                    styles.folderCard,
+                    selectedFolderId === null && styles.folderCardActive,
+                  ]}
+                  onPress={() => setSelectedFolderId(null)}
+                  activeOpacity={0.7}
+                >
+                  <View
+                    style={[
+                      styles.folderCardIconBox,
+                      selectedFolderId === null && styles.folderCardIconBoxActive,
+                    ]}
+                  >
+                    <HugeiconsIcon
+                      icon={Folder01Icon}
+                      size={16}
+                      color={selectedFolderId === null ? colors.primary : colors.textMuted}
+                      strokeWidth={2}
+                    />
+                  </View>
+                  <Text
+                    style={[
+                      styles.folderCardName,
+                      selectedFolderId === null && styles.folderCardNameActive,
+                    ]}
+                    numberOfLines={1}
+                  >
+                    All
+                  </Text>
+                  <View style={[styles.folderCardBadge, selectedFolderId === null && styles.folderCardBadgeActive]}>
+                    <Text
+                      style={[
+                        styles.folderCardBadgeText,
+                        selectedFolderId === null && styles.folderCardBadgeTextActive,
+                      ]}
+                    >
+                      {sets.length}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+
+                {/* User Folders */}
+                {folders.map((folder) => {
+                  const isSelected = selectedFolderId === folder.id;
+                  return (
+                    <TouchableOpacity
+                      key={folder.id}
+                      style={[styles.folderCard, isSelected && styles.folderCardActive]}
+                      onPress={() => setSelectedFolderId(isSelected ? null : folder.id)}
+                      onLongPress={() => setFolderActionTarget(folder)}
+                      activeOpacity={0.7}
+                    >
+                      <View
+                        style={[
+                          styles.folderCardIconBox,
+                          isSelected && styles.folderCardIconBoxActive,
+                        ]}
+                      >
+                        <HugeiconsIcon
+                          icon={Folder01Icon}
+                          size={16}
+                          color={isSelected ? colors.primary : colors.textSecondary}
+                          strokeWidth={2}
+                        />
+                      </View>
+                      <Text
+                        style={[styles.folderCardName, isSelected && styles.folderCardNameActive]}
+                        numberOfLines={1}
+                      >
+                        {folder.name}
+                      </Text>
+                      <View style={[styles.folderCardBadge, isSelected && styles.folderCardBadgeActive]}>
+                        <Text
+                          style={[
+                            styles.folderCardBadgeText,
+                            isSelected && styles.folderCardBadgeTextActive,
+                          ]}
+                        >
+                          {folder.reviewer_count}
+                        </Text>
+                      </View>
+                      {isSelected && (
+                        <TouchableOpacity
+                          style={styles.folderMoreBtn}
+                          onPress={(e) => {
+                            e.stopPropagation();
+                            setFolderActionTarget(folder);
+                          }}
+                          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                          accessibilityLabel="Folder options"
+                        >
+                          <HugeiconsIcon
+                            icon={MoreVerticalIcon}
+                            size={14}
+                            color={colors.primary}
+                          />
+                        </TouchableOpacity>
+                      )}
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            </View>
+          )}
 
           {/* Study Sets FlatList */}
           <FlatList
@@ -550,16 +518,12 @@ export default function LibraryScreen() {
                           {item.title}
                         </Text>
                         {assignedFolder ? (
-                          <TouchableOpacity
-                            style={styles.cardFolderBadge}
-                            onPress={() => setMoveToFolderTarget(item)}
-                            activeOpacity={0.7}
-                          >
+                          <View style={styles.cardFolderBadge}>
                             <HugeiconsIcon icon={Folder01Icon} size={11} color={colors.primary} />
                             <Text style={styles.cardFolderBadgeText} numberOfLines={1}>
                               {assignedFolder.name}
                             </Text>
-                          </TouchableOpacity>
+                          </View>
                         ) : null}
                       </View>
                       <View style={styles.badge}>
@@ -581,189 +545,269 @@ export default function LibraryScreen() {
                       </View>
                     </View>
                   </TouchableOpacity>
-                  <View style={styles.cardSideActions}>
-                    <TouchableOpacity
-                      style={styles.folderBtn}
-                      onPress={() => setMoveToFolderTarget(item)}
-                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                      accessibilityLabel="Move to folder"
-                    >
-                      <HugeiconsIcon
-                        icon={Folder01Icon}
-                        size={16}
-                        color={item.folder_id ? colors.primary : colors.textMuted}
-                        strokeWidth={1.8}
-                      />
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={styles.editBtn}
-                      onPress={() => setRenameTarget(item)}
-                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                      accessibilityLabel="Rename quiz"
-                    >
-                      <HugeiconsIcon icon={Edit02Icon} size={16} color={colors.primary} strokeWidth={1.8} />
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={styles.deleteBtn}
-                      onPress={() => setDeleteTarget({ type: 'set', set: item })}
-                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                      accessibilityLabel="Delete reviewer"
-                    >
-                      <HugeiconsIcon icon={Delete02Icon} size={18} color={colors.dangerAccent} strokeWidth={1.75} />
-                    </TouchableOpacity>
-                  </View>
+                  <TouchableOpacity
+                    style={styles.moreOptionsBtn}
+                    onPress={() => setStudySetActionTarget(item)}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    accessibilityLabel="Study set options"
+                  >
+                    <HugeiconsIcon icon={MoreVerticalIcon} size={18} color={colors.textSecondary} strokeWidth={2} />
+                  </TouchableOpacity>
                 </View>
               );
             }}
             ListEmptyComponent={
-              <View style={styles.empty}>
-                <Image
-                  source={require('@/assets/animations/folder_momo.png')}
-                  style={styles.emptyMomoImage}
-                  resizeMode="contain"
-                />
-                <Text style={styles.emptyTitle}>
-                  {selectedFolderId
-                    ? 'This folder is empty!'
-                    : search
-                    ? "Momo couldn't find that!"
-                    : "No study sets yet!"}
-                </Text>
-                <Text style={styles.emptyText}>
-                  {selectedFolderId
-                    ? 'Organize reviewers into this folder by tapping the folder icon on any reviewer card.'
-                    : search
-                    ? 'No study sets matched your search. Try another keyword!'
-                    : 'Upload your notes or slides, and Momo will turn them into flashcards, quizzes, and practice exams!'}
-                </Text>
+              <View style={styles.emptyContainer}>
                 {selectedFolderId ? (
-                  <PlatformPressable
-                    style={styles.emptyActionBtn}
-                    onPress={() => setSelectedFolderId(null)}
-                  >
-                    <Text style={styles.emptyActionText}>View All Reviewers</Text>
-                  </PlatformPressable>
-                ) : !search ? (
-                  <PlatformPressable
-                    style={styles.emptyActionBtn}
-                    onPress={() => router.push('/documents/upload')}
-                  >
-                    <Text style={styles.emptyActionText}>Upload with Momo</Text>
-                  </PlatformPressable>
-                ) : null}
+                  // Empty Folder
+                  <View style={styles.emptyBox}>
+                    <View style={styles.emptyFolderIconCircle}>
+                      <HugeiconsIcon icon={Folder01Icon} size={30} color={colors.primary} strokeWidth={1.8} />
+                    </View>
+                    <Text style={styles.emptyHeroTitle}>This Folder is Empty</Text>
+                    <Text style={styles.emptyHeroText}>
+                      {`There are no reviewers saved in "${folders.find((f) => f.id === selectedFolderId)?.name || 'this folder'}". You can organize existing reviewers here via the (⋮) menu, or upload new files.`}
+                    </Text>
+                    <View style={styles.emptyButtonRow}>
+                      <TouchableOpacity
+                        style={styles.emptySecondaryBtn}
+                        onPress={() => setSelectedFolderId(null)}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={styles.emptySecondaryBtnText}>View All Reviewers</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.emptyHeroActionBtn}
+                        onPress={() => router.push('/documents/upload')}
+                        activeOpacity={0.8}
+                      >
+                        <HugeiconsIcon icon={Upload01Icon} size={16} color={colors.onPrimary} strokeWidth={2.2} />
+                        <Text style={styles.emptyHeroActionText}>Upload Notes</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                ) : search ? (
+                  // Search No Results
+                  <View style={styles.emptyBox}>
+                    <View style={styles.emptyIconCircle}>
+                      <HugeiconsIcon icon={Search01Icon} size={28} color={colors.textDisabled} strokeWidth={2} />
+                    </View>
+                    <Text style={styles.emptyHeroTitle}>No matching reviewers</Text>
+                    <Text style={styles.emptyHeroText}>
+                      We couldn't find any study sets matching &quot;{search}&quot;. Try a different keyword or check your spelling.
+                    </Text>
+                    <TouchableOpacity
+                      style={styles.emptySecondaryBtn}
+                      onPress={() => setSearch('')}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={styles.emptySecondaryBtnText}>Clear Search</Text>
+                    </TouchableOpacity>
+                  </View>
+                ) : (
+                  // Completely Empty Study Library
+                  <View style={styles.emptyBox}>
+                    <Image
+                      source={require('@/assets/animations/folder_momo.png')}
+                      style={styles.emptyMomoImage}
+                      resizeMode="contain"
+                    />
+                    <Text style={styles.emptyHeroTitle}>Your Study Library is Empty</Text>
+                    <Text style={styles.emptyHeroText}>
+                      Upload your lecture notes, slides, or study documents. Momo will turn them into flashcards, quizzes, and practice exams!
+                    </Text>
+                    <TouchableOpacity
+                      style={styles.emptyHeroActionBtn}
+                      onPress={() => router.push('/documents/upload')}
+                      activeOpacity={0.8}
+                    >
+                      <HugeiconsIcon icon={Upload01Icon} size={18} color={colors.onPrimary} strokeWidth={2.2} />
+                      <Text style={styles.emptyHeroActionText}>Upload Notes to Begin</Text>
+                    </TouchableOpacity>
+
+                    {/* Feature highlights */}
+                    <View style={styles.emptyFeatureList}>
+                      <View style={styles.emptyFeatureItem}>
+                        <View style={styles.emptyFeatureIconDot} />
+                        <Text style={styles.emptyFeatureText}>Instant Flashcards, Quizzes & Practice Exams</Text>
+                      </View>
+                      <View style={styles.emptyFeatureItem}>
+                        <View style={styles.emptyFeatureIconDot} />
+                        <Text style={styles.emptyFeatureText}>100% grounded in your uploaded documents</Text>
+                      </View>
+                      <View style={styles.emptyFeatureItem}>
+                        <View style={styles.emptyFeatureIconDot} />
+                        <Text style={styles.emptyFeatureText}>Organize with folders & study offline anytime</Text>
+                      </View>
+                    </View>
+                  </View>
+                )}
               </View>
             }
           />
         </>
       ) : (
         /* Documents Tab Content */
-        <FlatList
-          data={filteredDocs}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={[
-            styles.listContent,
-            { paddingBottom: bottomListPadding },
-          ]}
-          showsVerticalScrollIndicator={false}
-          decelerationRate={Platform.OS === 'ios' ? 'normal' : 0.988}
-          scrollEventThrottle={16}
-          overScrollMode="never"
-          bounces={true}
-          keyboardDismissMode="on-drag"
-          keyboardShouldPersistTaps="handled"
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={onRefresh}
-              tintColor={colors.primary}
-              colors={[colors.primary]}
-            />
-          }
-          renderItem={({ item }) => {
-            const isReady = item.processing_status === 'READY';
-            return (
-              <View style={styles.docCard}>
-                <View style={styles.docIconBox}>
-                  <HugeiconsIcon icon={File01Icon} size={20} color={colors.primary} strokeWidth={1.8} />
-                </View>
-                <View style={styles.docContent}>
-                  <Text style={styles.docTitle} numberOfLines={1}>
-                    {item.original_filename}
-                  </Text>
-                  <View style={styles.docMetaRow}>
-                    <Text style={styles.docMeta}>{formatFileSize(item.file_size)}</Text>
-                    <Text style={styles.docMetaDot}>•</Text>
-                    <View
-                      style={[
-                        styles.statusBadge,
-                        isReady
-                          ? styles.readyBadge
-                          : item.processing_status === 'FAILED'
-                          ? styles.failedBadge
-                          : styles.pendingBadge,
-                      ]}
-                    >
-                      <Text
+        <>
+          <View style={styles.docSectionHeader}>
+            <View style={styles.docHeaderTitleRow}>
+              <HugeiconsIcon icon={File01Icon} size={16} color={colors.primary} strokeWidth={2.2} />
+              <Text style={styles.docSectionTitle} numberOfLines={1}>
+                Documents
+              </Text>
+              <View style={styles.docCountBadge}>
+                <Text style={styles.docCountBadgeText}>
+                  {docs.length} {docs.length === 1 ? 'File' : 'Files'}
+                </Text>
+              </View>
+            </View>
+            <TouchableOpacity
+              style={styles.addDocHeaderBtn}
+              onPress={() => router.push('/documents/upload')}
+              activeOpacity={0.7}
+              accessibilityLabel="Upload document"
+            >
+              <HugeiconsIcon icon={Upload01Icon} size={14} color={colors.primary} strokeWidth={2.2} />
+              <Text style={styles.addDocHeaderText}>Upload</Text>
+            </TouchableOpacity>
+          </View>
+
+          <FlatList
+            data={filteredDocs}
+            keyExtractor={(item) => item.id}
+            contentContainerStyle={[
+              styles.listContent,
+              { paddingBottom: bottomListPadding },
+            ]}
+            showsVerticalScrollIndicator={false}
+            decelerationRate={Platform.OS === 'ios' ? 'normal' : 0.988}
+            scrollEventThrottle={16}
+            overScrollMode="never"
+            bounces={true}
+            keyboardDismissMode="on-drag"
+            keyboardShouldPersistTaps="handled"
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+                tintColor={colors.primary}
+                colors={[colors.primary]}
+              />
+            }
+            renderItem={({ item }) => {
+              const isReady = item.processing_status === 'READY';
+              return (
+                <TouchableOpacity
+                  style={styles.docCard}
+                  onPress={() => {
+                    if (isReady) {
+                      router.push(`/create/${item.id}`);
+                    }
+                  }}
+                  activeOpacity={isReady ? 0.7 : 1}
+                >
+                  <View style={styles.docIconBox}>
+                    <HugeiconsIcon icon={File01Icon} size={20} color={colors.primary} strokeWidth={1.8} />
+                  </View>
+                  <View style={styles.docContent}>
+                    <Text style={styles.docTitle} numberOfLines={1}>
+                      {item.original_filename}
+                    </Text>
+                    <View style={styles.docMetaRow}>
+                      <Text style={styles.docMeta}>{formatFileSize(item.file_size)}</Text>
+                      <Text style={styles.docMetaDot}>•</Text>
+                      <View
                         style={[
-                          styles.statusText,
+                          styles.statusBadge,
                           isReady
-                            ? styles.readyText
+                            ? styles.readyBadge
                             : item.processing_status === 'FAILED'
-                            ? styles.failedText
-                            : styles.pendingText,
+                            ? styles.failedBadge
+                            : styles.pendingBadge,
                         ]}
                       >
-                        {isReady ? 'Ready' : item.processing_status === 'FAILED' ? 'Failed' : 'Processing'}
-                      </Text>
+                        <Text
+                          style={[
+                            styles.statusText,
+                            isReady
+                              ? styles.readyText
+                              : item.processing_status === 'FAILED'
+                              ? styles.failedText
+                              : styles.pendingText,
+                          ]}
+                        >
+                          {isReady ? 'Ready' : item.processing_status === 'FAILED' ? 'Failed' : 'Processing'}
+                        </Text>
+                      </View>
                     </View>
+                    <Text style={styles.docDate}>
+                      Uploaded {new Date(item.uploaded_at).toLocaleDateString()} • Retained 3 days
+                    </Text>
                   </View>
-                  <Text style={styles.docDate}>
-                    Uploaded {new Date(item.uploaded_at).toLocaleDateString()} • Retained 3 days
-                  </Text>
-                </View>
-                <View style={styles.docActions}>
-                  {isReady && (
+                  <View style={styles.docActions}>
+                    {isReady && (
+                      <View style={styles.studyActionBadge}>
+                        <HugeiconsIcon icon={SparklesIcon} size={13} color={colors.primary} strokeWidth={2} />
+                        <Text style={styles.studyActionBadgeText}>Study</Text>
+                      </View>
+                    )}
                     <TouchableOpacity
-                      style={styles.studyActionBtn}
-                      onPress={() => router.push(`/create/${item.id}`)}
-                      hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                      style={styles.docDeleteBtn}
+                      onPress={(e) => {
+                        e.stopPropagation();
+                        setDeleteTarget({ type: 'doc', doc: item });
+                      }}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      accessibilityLabel="Delete document"
                     >
-                      <HugeiconsIcon icon={SparklesIcon} size={14} color={colors.primary} strokeWidth={2} />
-                      <Text style={styles.studyActionText}>Study</Text>
+                      <HugeiconsIcon icon={Delete02Icon} size={17} color={colors.dangerAccent} strokeWidth={1.75} />
                     </TouchableOpacity>
-                  )}
-                  <TouchableOpacity
-                    style={styles.deleteBtn}
-                    onPress={() => setDeleteTarget({ type: 'doc', doc: item })}
-                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                    accessibilityLabel="Delete document"
-                  >
-                    <HugeiconsIcon icon={Delete02Icon} size={18} color={colors.dangerAccent} strokeWidth={1.75} />
-                  </TouchableOpacity>
-                </View>
+                  </View>
+                </TouchableOpacity>
+              );
+            }}
+            ListEmptyComponent={
+              <View style={styles.emptyContainer}>
+                {search ? (
+                  <View style={styles.emptyBox}>
+                    <View style={styles.emptyIconCircle}>
+                      <HugeiconsIcon icon={Search01Icon} size={28} color={colors.textDisabled} strokeWidth={2} />
+                    </View>
+                    <Text style={styles.emptyHeroTitle}>No matching documents</Text>
+                    <Text style={styles.emptyHeroText}>
+                      No documents match &quot;{search}&quot;. Try another keyword.
+                    </Text>
+                    <TouchableOpacity
+                      style={styles.emptySecondaryBtn}
+                      onPress={() => setSearch('')}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={styles.emptySecondaryBtnText}>Clear Search</Text>
+                    </TouchableOpacity>
+                  </View>
+                ) : (
+                  <View style={styles.emptyBox}>
+                    <View style={[styles.emptyIconCircle, styles.docEmptyIconCircle]}>
+                      <HugeiconsIcon icon={File01Icon} size={28} color={colors.primary} strokeWidth={1.8} />
+                    </View>
+                    <Text style={styles.emptyHeroTitle}>No documents uploaded yet</Text>
+                    <Text style={styles.emptyHeroText}>
+                      Upload your PDF, DOCX, or TXT documents to generate AI reviewers. Original files are retained for 3 days, while generated study sets persist forever.
+                    </Text>
+                    <TouchableOpacity
+                      style={styles.emptyHeroActionBtn}
+                      onPress={() => router.push('/documents/upload')}
+                      activeOpacity={0.8}
+                    >
+                      <HugeiconsIcon icon={Upload01Icon} size={18} color={colors.onPrimary} strokeWidth={2.2} />
+                      <Text style={styles.emptyHeroActionText}>Upload Document</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
               </View>
-            );
-          }}
-          ListEmptyComponent={
-            <View style={styles.empty}>
-              <View style={[styles.emptyIconCircle, styles.docEmptyIconCircle]}>
-                <HugeiconsIcon icon={File01Icon} size={28} color={colors.success} strokeWidth={1.6} />
-              </View>
-              <Text style={styles.emptyTitle}>No uploaded documents</Text>
-              <Text style={styles.emptyText}>
-                {search ? 'No documents match your query' : 'Upload PDF or Word files to start studying'}
-              </Text>
-              {!search && (
-                <PlatformPressable
-                  style={styles.emptyActionBtn}
-                  onPress={() => router.push('/documents/upload')}
-                >
-                  <Text style={styles.emptyActionText}>Upload Document</Text>
-                </PlatformPressable>
-              )}
-            </View>
-          }
-        />
+            }
+          />
+        </>
       )}
 
       {/* Create Folder Modal */}
@@ -831,6 +875,75 @@ export default function LibraryScreen() {
             <TouchableOpacity
               style={styles.actionSheetCancelBtn}
               onPress={() => setFolderActionTarget(null)}
+            >
+              <Text style={styles.actionSheetCancelText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* Study Set Action Options Sheet */}
+      <Modal
+        visible={studySetActionTarget !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setStudySetActionTarget(null)}
+      >
+        <TouchableOpacity
+          style={styles.actionSheetBackdrop}
+          activeOpacity={1}
+          onPress={() => setStudySetActionTarget(null)}
+        >
+          <View style={styles.folderActionSheet}>
+            <Text style={styles.folderActionTitle} numberOfLines={1}>
+              {studySetActionTarget?.title}
+            </Text>
+
+            <TouchableOpacity
+              style={styles.actionSheetItem}
+              onPress={() => {
+                const target = studySetActionTarget;
+                setStudySetActionTarget(null);
+                setMoveToFolderTarget(target);
+              }}
+            >
+              <HugeiconsIcon icon={Folder01Icon} size={18} color={colors.primary} />
+              <Text style={styles.actionSheetItemText}>
+                {studySetActionTarget?.folder_id ? 'Change / Remove Folder' : 'Move to Folder'}
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.actionSheetItem}
+              onPress={() => {
+                const target = studySetActionTarget;
+                setStudySetActionTarget(null);
+                setRenameTarget(target);
+              }}
+            >
+              <HugeiconsIcon icon={Edit02Icon} size={18} color={colors.primary} />
+              <Text style={styles.actionSheetItemText}>Rename Reviewer</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.actionSheetItem, styles.actionSheetItemDestructive]}
+              onPress={() => {
+                const target = studySetActionTarget;
+                setStudySetActionTarget(null);
+                if (target) {
+                  setDeleteTarget({ type: 'set', set: target });
+                }
+              }}
+            >
+              <HugeiconsIcon icon={Delete02Icon} size={18} color={colors.dangerAccent} />
+              <Text style={[styles.actionSheetItemText, styles.actionSheetItemTextDestructive]}>
+                Delete Reviewer
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.actionSheetCancelBtn}
+              onPress={() => setStudySetActionTarget(null)}
             >
               <Text style={styles.actionSheetCancelText}>Cancel</Text>
             </TouchableOpacity>
@@ -1096,51 +1209,6 @@ const styles = StyleSheet.create({
     padding: spacing[2],
     marginLeft: spacing[2],
   },
-  addFolderCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.surface,
-    paddingVertical: spacing[8],
-    paddingHorizontal: spacing[12],
-    borderRadius: 12,
-    borderWidth: 1.5,
-    borderStyle: 'dashed',
-    borderColor: colors.primaryBorder,
-    gap: spacing[4],
-  },
-  addFolderCardText: {
-    fontSize: typography.fontSize[13],
-    fontWeight: typography.fontWeight.bold,
-    color: colors.primary,
-  },
-  chipsWrapper: {
-    marginBottom: spacing[12],
-  },
-  chipRow: {
-    flexDirection: 'row',
-    gap: spacing[8],
-    paddingRight: spacing[16],
-  },
-  chip: {
-    paddingHorizontal: spacing[14],
-    paddingVertical: spacing[6],
-    borderRadius: 20,
-    backgroundColor: colors.surfaceMuted,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  activeChip: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
-  chipText: {
-    fontSize: typography.fontSize[13],
-    fontWeight: typography.fontWeight.semiBold,
-    color: colors.textSecondary,
-  },
-  activeChipText: {
-    color: colors.onPrimary,
-  },
   listContent: {
     paddingBottom: spacing[24],
   },
@@ -1238,32 +1306,11 @@ const styles = StyleSheet.create({
     fontWeight: typography.fontWeight.bold,
     color: colors.primary,
   },
-  cardSideActions: {
-    flexDirection: 'column',
-    alignItems: 'center',
-    gap: spacing[8],
-  },
-  folderBtn: {
+  moreOptionsBtn: {
     width: 36,
     height: 36,
     borderRadius: 18,
     backgroundColor: colors.surfaceMuted,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  editBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: colors.primarySoft,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  deleteBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: colors.dangerSoft,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1357,69 +1404,213 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing[8],
   },
-  studyActionBtn: {
+  studyActionBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.primarySoft,
-    paddingHorizontal: spacing[10],
-    paddingVertical: spacing[7],
-    borderRadius: 8,
     gap: spacing[4],
+    backgroundColor: colors.primarySoft,
+    paddingHorizontal: spacing[8],
+    paddingVertical: spacing[5],
+    borderRadius: 6,
   },
-  studyActionText: {
-    fontSize: typography.fontSize[12],
+  studyActionBadgeText: {
+    fontSize: typography.fontSize[11],
     fontWeight: typography.fontWeight.bold,
     color: colors.primary,
   },
-  empty: {
-    padding: spacing[36],
+  docDeleteBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: colors.dangerSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyContainer: {
+    paddingTop: spacing[8],
+  },
+  emptyBox: {
+    padding: spacing[24],
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: colors.surface,
-    borderRadius: 16,
+    borderRadius: 18,
     borderWidth: 1,
     borderColor: colors.border,
-    marginTop: spacing[12],
+    marginTop: spacing[8],
+    ...Platform.select({
+      ios: {
+        shadowColor: colors.shadow,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.04,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
   },
   emptyMomoImage: {
-    width: 120,
-    height: 120,
-    marginBottom: spacing[12],
+    width: 130,
+    height: 130,
+    marginBottom: spacing[14],
+  },
+  emptyFolderIconCircle: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: colors.primarySoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing[14],
   },
   emptyIconCircle: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     backgroundColor: colors.surfaceMuted,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: spacing[12],
   },
   docEmptyIconCircle: {
-    backgroundColor: colors.successSoft,
+    backgroundColor: colors.primarySoft,
   },
-  emptyTitle: {
-    fontSize: typography.fontSize[16],
-    fontWeight: typography.fontWeight.bold,
+  emptyHeroTitle: {
+    fontSize: typography.fontSize[18],
+    fontWeight: typography.fontWeight.extraBold,
     color: colors.text,
-    marginBottom: spacing[4],
+    textAlign: 'center',
+    marginBottom: spacing[8],
+    letterSpacing: typography.letterSpacing[-0.3],
   },
-  emptyText: {
+  emptyHeroText: {
     color: colors.textMuted,
     fontSize: typography.fontSize[13],
     textAlign: 'center',
-    marginBottom: spacing[16],
+    lineHeight: typography.lineHeight[20],
+    marginBottom: spacing[20],
+    maxWidth: 320,
   },
-  emptyActionBtn: {
+  docSectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing[12],
+    paddingHorizontal: spacing[2],
+    gap: spacing[8],
+  },
+  docHeaderTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing[6],
+    flex: 1,
+    marginRight: spacing[8],
+  },
+  docSectionTitle: {
+    fontSize: typography.fontSize[14],
+    fontWeight: typography.fontWeight.bold,
+    color: colors.text,
+  },
+  docCountBadge: {
+    backgroundColor: colors.surfaceMuted,
+    paddingHorizontal: spacing[6],
+    paddingVertical: spacing[2],
+    borderRadius: 6,
+  },
+  docCountBadgeText: {
+    fontSize: typography.fontSize[11],
+    fontWeight: typography.fontWeight.semiBold,
+    color: colors.textSecondary,
+  },
+  addDocHeaderBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing[4],
+    paddingVertical: spacing[5],
+    paddingHorizontal: spacing[10],
+    borderRadius: 8,
+    backgroundColor: colors.primarySoft,
+    flexShrink: 0,
+  },
+  addDocHeaderText: {
+    fontSize: typography.fontSize[12],
+    fontWeight: typography.fontWeight.bold,
+    color: colors.primary,
+  },
+  emptyHeroActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing[8],
     backgroundColor: colors.primary,
-    paddingHorizontal: spacing[18],
-    paddingVertical: spacing[10],
-    borderRadius: 10,
+    paddingHorizontal: spacing[22],
+    paddingVertical: spacing[13],
+    borderRadius: 12,
+    ...Platform.select({
+      ios: {
+        shadowColor: colors.primary,
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.25,
+        shadowRadius: 6,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
   },
-  emptyActionText: {
+  emptyHeroActionText: {
     color: colors.onPrimary,
     fontWeight: typography.fontWeight.bold,
+    fontSize: typography.fontSize[14],
+  },
+  emptyFeatureList: {
+    width: '100%',
+    marginTop: spacing[24],
+    paddingTop: spacing[18],
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    gap: spacing[10],
+  },
+  emptyFeatureItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing[10],
+  },
+  emptyFeatureIconDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: colors.primary,
+  },
+  emptyFeatureText: {
+    fontSize: typography.fontSize[12],
+    color: colors.textSecondary,
+    fontWeight: typography.fontWeight.medium,
+  },
+  emptyButtonRow: {
+    flexDirection: 'row',
+    gap: spacing[10],
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexWrap: 'wrap',
+    marginTop: spacing[4],
+  },
+  emptySecondaryBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: spacing[16],
+    paddingVertical: spacing[12],
+    borderRadius: 12,
+    backgroundColor: colors.surfaceMuted,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  emptySecondaryBtnText: {
     fontSize: typography.fontSize[13],
+    fontWeight: typography.fontWeight.semiBold,
+    color: colors.textSecondary,
   },
   actionSheetBackdrop: {
     flex: 1,

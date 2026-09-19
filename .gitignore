@@ -114,6 +114,11 @@ local.properties
 *~
 *.sublime-project
 *.sublime-workspace
+.agents/
+.aider*
+.claude/
+.claude*
+skills-lock.json
 
 # ==============================================================================
 # OS Files

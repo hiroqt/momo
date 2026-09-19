@@ -23,6 +23,8 @@ import { SourceAttribution } from './SourceAttribution';
 import { PlatformPressable } from '../common/PlatformPressable';
 import { syncEngine } from '../../lib/sync/syncEngine';
 import { isMeaningfulSection, sanitizeQuestionText } from '../../utils/formatters';
+import { useOnboarding } from '../../context/OnboardingContext';
+import { CoachmarkTooltip } from '../onboarding/CoachmarkTooltip';
 
 interface Props {
   items: StudyItem[];
@@ -33,6 +35,8 @@ export const FlashcardDeck: React.FC<Props> = ({ items, onFinish }) => {
   const insets = useSafeAreaInsets();
   const isAndroid = Platform.OS === 'android';
   const bottomPadding = Math.max(insets.bottom, isAndroid ? spacing[28] : spacing[16]) + spacing[16];
+
+  const { hasSeenFlashcardGestureTip, hasSeenSourceProvenanceTip, markTipSeen } = useOnboarding();
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
@@ -169,6 +173,25 @@ export const FlashcardDeck: React.FC<Props> = ({ items, onFinish }) => {
           </View>
         </View>
       </View>
+
+      {/* Progressive Contextual Coachmarks */}
+      {!hasSeenFlashcardGestureTip && (
+        <CoachmarkTooltip
+          title="Tap to Flip & Check Yourself"
+          description="Give it your best guess first, then tap anywhere on the card to see the answer and explanation."
+          onDismiss={() => markTipSeen('flashcardGesture')}
+          arrowPosition="bottom"
+        />
+      )}
+
+      {isFlipped && !hasSeenSourceProvenanceTip && (
+        <CoachmarkTooltip
+          title="100% Backed by Your Notes"
+          description="Notice that little citation tag? Momo links every single card back to the exact page and section from your document!"
+          onDismiss={() => markTipSeen('sourceProvenance')}
+          arrowPosition="top"
+        />
+      )}
 
       {/* 3D Flip Card Container */}
       <View style={styles.cardWrapper}>

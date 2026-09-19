@@ -4,7 +4,6 @@ import {
   View,
   StyleSheet,
   TouchableOpacity,
-  Platform,
   StyleProp,
   ViewStyle,
   StatusBar as RNStatusBar,
@@ -21,6 +20,7 @@ interface PageHeaderProps {
   showBack?: boolean;
   isModal?: boolean;
   onBack?: () => void;
+  titleLeftAction?: React.ReactNode;
   rightAction?: React.ReactNode;
   style?: StyleProp<ViewStyle>;
 }
@@ -31,12 +31,13 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
   showBack = true,
   isModal = false,
   onBack,
+  titleLeftAction,
   rightAction,
   style,
 }) => {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const isAndroid = Platform.OS === 'android';
+  const isAndroid = process.env.EXPO_OS === 'android';
 
   const handleBack = () => {
     if (onBack) {
@@ -69,6 +70,7 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
               onPress={handleBack}
               activeOpacity={0.7}
               hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              accessibilityRole="button"
               accessibilityLabel={isModal ? 'Close' : 'Go back'}
             >
               <HugeiconsIcon
@@ -81,15 +83,33 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
           )}
         </View>
 
-        <View style={styles.titleCol}>
-          <Text style={styles.title} numberOfLines={1}>
-            {title}
-          </Text>
-          {subtitle ? (
-            <Text style={styles.subtitle} numberOfLines={1}>
-              {subtitle}
-            </Text>
-          ) : null}
+        <View style={[styles.titleCol, titleLeftAction ? styles.titleColWithLeftAction : undefined]}>
+          {titleLeftAction ? (
+            <View style={styles.titleRow}>
+              {titleLeftAction}
+              <View style={styles.titleTextWrapper}>
+                <Text style={[styles.title, styles.titleAlignLeft]} numberOfLines={1}>
+                  {title}
+                </Text>
+                {subtitle ? (
+                  <Text style={[styles.subtitle, styles.subtitleAlignLeft]} numberOfLines={1}>
+                    {subtitle}
+                  </Text>
+                ) : null}
+              </View>
+            </View>
+          ) : (
+            <>
+              <Text style={styles.title} numberOfLines={1}>
+                {title}
+              </Text>
+              {subtitle ? (
+                <Text style={styles.subtitle} numberOfLines={1}>
+                  {subtitle}
+                </Text>
+              ) : null}
+            </>
+          )}
         </View>
 
         <View style={styles.rightCol}>
@@ -125,6 +145,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
+    borderCurve: 'continuous',
     backgroundColor: colors.surfaceMuted,
     alignItems: 'center',
     justifyContent: 'center',
@@ -136,6 +157,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing[8],
     overflow: 'hidden',
   },
+  titleColWithLeftAction: {
+    alignItems: 'flex-start',
+  },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing[8],
+    maxWidth: '100%',
+  },
+  titleTextWrapper: {
+    flexShrink: 1,
+  },
   title: {
     fontSize: typography.fontSize[17],
     fontWeight: typography.fontWeight.bold,
@@ -143,11 +176,17 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     letterSpacing: typography.letterSpacing[-0.3],
   },
+  titleAlignLeft: {
+    textAlign: 'left',
+  },
   subtitle: {
     fontSize: typography.fontSize[12],
     color: colors.textMuted,
     marginTop: spacing[1],
     textAlign: 'center',
+  },
+  subtitleAlignLeft: {
+    textAlign: 'left',
   },
   rightCol: {
     minWidth: 40,

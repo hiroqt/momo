@@ -34,6 +34,7 @@ import { TabTransitionView } from '../../components/common/TabTransitionView';
 import { StudySet } from '../../types';
 import { DynamicMomoHead } from '../../components/mascot/DynamicMomoHead';
 import { getRandomStudyQuote, StudyQuote } from '../../lib/data/studyQuotes';
+import { SampleDeckCard } from '../../components/onboarding/SampleDeckCard';
 
 function getGreeting(): string {
   const hour = new Date().getHours();
@@ -304,15 +305,7 @@ export default function HomeScreen() {
           </View>
 
           {sets.length === 0 ? (
-            <View style={styles.emptyState}>
-              <View style={styles.emptyIconCircle}>
-                <HugeiconsIcon icon={BookOpen01Icon} size={28} color={colors.primary} strokeWidth={1.8} />
-              </View>
-              <Text style={styles.emptyTitle}>No study sets yet</Text>
-              <Text style={styles.emptySubtitle}>
-                Tap the + button to upload material and create a reviewer.
-              </Text>
-            </View>
+            <SampleDeckCard onDeckSeeded={loadData} />
           ) : (
             <ScrollView
               horizontal

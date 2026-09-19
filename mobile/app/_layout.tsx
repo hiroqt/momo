@@ -8,6 +8,24 @@ import { useFonts } from "expo-font";
 import { colors, typography } from "@/constants/theme";
 
 import { CreditsProvider } from '../context/CreditsContext';
+import { OnboardingProvider, useOnboarding } from '../context/OnboardingContext';
+import { useRouter, useSegments } from 'expo-router';
+
+function AuthGate({ children }: { children: React.ReactNode }) {
+  const { isLoaded, hasCompletedWelcome } = useOnboarding();
+  const segments = useSegments();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!isLoaded) return;
+    const inAuth = segments[0] === '(auth)';
+    if (!hasCompletedWelcome && !inAuth) {
+      router.replace('/(auth)/welcome');
+    }
+  }, [isLoaded, hasCompletedWelcome, segments]);
+
+  return <>{children}</>;
+}
 
 export default function RootLayout() {
   const isIOS = Platform.OS === "ios";
@@ -31,61 +49,72 @@ export default function RootLayout() {
 
   return (
     <CreditsProvider>
-      <SafeAreaProvider>
-      <StatusBar style="dark" />
-      <Stack
-        screenOptions={{
-          headerShown: false,
-          animation: "fade",
-          animationDuration: 350,
-          gestureEnabled: true,
-          fullScreenGestureEnabled: isIOS,
-          contentStyle: {
-            backgroundColor: colors.background,
-          },
-        }}
-      >
-        <Stack.Screen
-          name="(tabs)"
-          options={{
-            headerShown: false,
-          }}
-        />
-        <Stack.Screen
-          name="documents/upload"
-          options={{
-            presentation: "modal",
-            animation: "slide_from_bottom",
-            animationDuration: 350,
-            headerShown: false,
-          }}
-        />
-        <Stack.Screen
-          name="create/[documentId]"
-          options={{
-            headerShown: false,
-            animation: "fade",
-            animationDuration: 350,
-          }}
-        />
-        <Stack.Screen
-          name="generation/[jobId]"
-          options={{
-            headerShown: false,
-            animation: "fade",
-            animationDuration: 350,
-          }}
-        />
-        <Stack.Screen
-          name="study/[studySetId]"
-          options={{
-            headerShown: false,
-            animation: "fade",
-            animationDuration: 350,
-          }}
-        />
-      </Stack>
-    </SafeAreaProvider>
+      <OnboardingProvider>
+        <AuthGate>
+          <SafeAreaProvider>
+            <StatusBar style="dark" />
+            <Stack
+              screenOptions={{
+                headerShown: false,
+                animation: "fade",
+                animationDuration: 350,
+                gestureEnabled: true,
+                fullScreenGestureEnabled: isIOS,
+                contentStyle: {
+                  backgroundColor: colors.background,
+                },
+              }}
+            >
+              <Stack.Screen
+                name="(auth)/welcome"
+                options={{
+                  headerShown: false,
+                  animation: "fade",
+                }}
+              />
+              <Stack.Screen
+                name="(tabs)"
+                options={{
+                  headerShown: false,
+                }}
+              />
+              <Stack.Screen
+                name="documents/upload"
+                options={{
+                  presentation: "modal",
+                  animation: "slide_from_bottom",
+                  animationDuration: 350,
+                  headerShown: false,
+                }}
+              />
+              <Stack.Screen
+                name="create/[documentId]"
+                options={{
+                  headerShown: false,
+                  animation: "fade",
+                  animationDuration: 350,
+                }}
+              />
+              <Stack.Screen
+                name="generation/[jobId]"
+                options={{
+                  headerShown: false,
+                  animation: "fade",
+                  animationDuration: 350,
+                }}
+              />
+              <Stack.Screen
+                name="study/[studySetId]"
+                options={{
+                  headerShown: false,
+                  animation: "fade",
+                  animationDuration: 350,
+                }}
+              />
+            </Stack>
+          </SafeAreaProvider>
+        </AuthGate>
+      </OnboardingProvider>
     </CreditsProvider>
   );
 }

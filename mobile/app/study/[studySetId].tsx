@@ -7,8 +7,8 @@ import {
   ActivityIndicator,
   ScrollView,
   Alert,
-  Platform,
   Image,
+  Modal,
 } from 'react-native';
 import { AppText as Text } from '@/components/common/app-text';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -22,6 +22,7 @@ import {
   RefreshIcon,
   Clock01Icon,
   CheckmarkCircle02Icon,
+  MoreVerticalIcon,
 } from '@hugeicons/core-free-icons';
 import { getStudySet, getStudyItems, deleteStudySet, updateStudySet } from '../../lib/api/studySets';
 import { localDb } from '../../lib/storage/localDb';
@@ -34,6 +35,8 @@ import { RenameModal } from '../../components/common/RenameModal';
 import { SmoothScrollView } from '../../components/common/SmoothScrollView';
 import { MomoMaker } from '../../components/mascot/MomoMaker';
 import { StudySet, StudyItem } from '../../types';
+import { useOnboarding } from '../../context/OnboardingContext';
+import { CelebrationModal } from '../../components/onboarding/CelebrationModal';
 
 function shuffleArray<T>(array: T[]): T[] {
   const shuffled = [...array];
@@ -75,8 +78,17 @@ export default function StudySessionScreen() {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showRenameModal, setShowRenameModal] = useState(false);
   const [isRenaming, setIsRenaming] = useState(false);
+  const [showActionMenu, setShowActionMenu] = useState(false);
   const [finishedScore, setFinishedScore] = useState<{ correct: number; total: number } | null>(null);
   const [sessionKey, setSessionKey] = useState(0);
+
+  const { hasSeenCelebrationModal, dismissCelebration, markSessionCompleted } = useOnboarding();
+
+  useEffect(() => {
+    if (finishedScore) {
+      markSessionCompleted();
+    }
+  }, [finishedScore]);
 
   const handleShuffleReset = () => {
     setItems((prev) => randomizeStudyItems(prev));
@@ -205,6 +217,12 @@ export default function StudySessionScreen() {
     const isMastered = percent >= 70;
     return (
       <View style={styles.screen}>
+        <CelebrationModal
+          visible={!hasSeenCelebrationModal}
+          onDismiss={dismissCelebration}
+          xpEarned={finishedScore.correct * 15}
+          itemsCount={finishedScore.total}
+        />
         <PageHeader
           title="Session Complete"
           showBack={true}
@@ -218,7 +236,7 @@ export default function StudySessionScreen() {
               paddingBottom:
                 Math.max(
                   insets.bottom,
-                  Platform.OS === 'android' ? spacing[28] : spacing[24],
+                  process.env.EXPO_OS === 'android' ? spacing[28] : spacing[24],
                 ) + spacing[20],
             },
           ]}
@@ -307,11 +325,25 @@ export default function StudySessionScreen() {
     ? `${actualFlashcardItems.length} flashcards`
     : `${actualQuizItems.length} questions`;
 
+  const threeDotsButton = (
+    <TouchableOpacity
+      style={styles.threeDotsBtn}
+      onPress={() => setShowActionMenu(true)}
+      activeOpacity={0.7}
+      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+      accessibilityRole="button"
+      accessibilityLabel="Reviewer options: reset, edit, or delete"
+    >
+      <HugeiconsIcon icon={MoreVerticalIcon} size={18} color={colors.text} strokeWidth={2.2} />
+    </TouchableOpacity>
+  );
+
   return (
     <View style={styles.screen}>
       <PageHeader
         title={studySet?.title || 'Reviewer'}
         subtitle={screenSubtitle}
+        rightAction={threeDotsButton}
       />
 
       {/* Mode Switcher - Only shown if multiple modes exist */}
@@ -341,42 +373,6 @@ export default function StudySessionScreen() {
         </View>
       )}
 
-      {/* Reviewer Action Bar (Reset, Edit, Delete) - cleanly separated in its own container so nothing overlaps */}
-      <View style={styles.actionToolbar}>
-        <TouchableOpacity
-          style={styles.toolbarBtn}
-          onPress={handleShuffleReset}
-          disabled={isRenaming || isDeleting}
-          activeOpacity={0.7}
-          accessibilityLabel="Reset and reshuffle question set"
-        >
-          <HugeiconsIcon icon={RefreshIcon} size={15} color="#4F46E5" strokeWidth={2.2} />
-          <Text style={styles.toolbarBtnText}>Reset</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.toolbarBtn}
-          onPress={() => setShowRenameModal(true)}
-          disabled={isRenaming || isDeleting}
-          activeOpacity={0.7}
-          accessibilityLabel="Rename reviewer"
-        >
-          <HugeiconsIcon icon={Edit02Icon} size={15} color="#4F46E5" strokeWidth={2} />
-          <Text style={styles.toolbarBtnText}>Edit</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.toolbarBtn, styles.toolbarDeleteBtn]}
-          onPress={() => setShowDeleteModal(true)}
-          disabled={isDeleting || isRenaming}
-          activeOpacity={0.7}
-          accessibilityLabel="Delete reviewer"
-        >
-          <HugeiconsIcon icon={Delete02Icon} size={15} color="#DC2626" strokeWidth={2} />
-          <Text style={[styles.toolbarBtnText, styles.toolbarDeleteText]}>Delete</Text>
-        </TouchableOpacity>
-      </View>
-
       {/* Content Runner */}
       <View style={styles.contentArea}>
         {mode === 'flashcard' ? (
@@ -389,10 +385,103 @@ export default function StudySessionScreen() {
           <QuizRunner
             key={`quiz-${sessionKey}-${actualQuizItems.map((i) => i.id).join('-')}`}
             items={actualQuizItems}
+            onFinish={(score) => setFinishedScore({ correct: score.correct, total: score.total })}
             onRestart={handleRestart}
           />
         )}
       </View>
+
+      {/* 3-Dots Reviewer Actions Sheet (Reset, Edit, Delete) */}
+      <Modal
+        visible={showActionMenu}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowActionMenu(false)}
+      >
+        <TouchableOpacity
+          style={styles.actionSheetBackdrop}
+          activeOpacity={1}
+          onPress={() => setShowActionMenu(false)}
+        >
+          <View style={styles.reviewerActionSheet}>
+            <View style={styles.actionSheetHandle} />
+            <Text style={styles.actionSheetTitle} numberOfLines={1}>
+              {studySet?.title || 'Reviewer Options'}
+            </Text>
+
+            {/* Reset Option */}
+            <TouchableOpacity
+              style={styles.actionSheetItem}
+              onPress={() => {
+                setShowActionMenu(false);
+                handleShuffleReset();
+              }}
+              activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel="Reset and reshuffle question set"
+            >
+              <View style={[styles.actionIconBadge, { backgroundColor: colors.primarySoft }]}>
+                <HugeiconsIcon icon={RefreshIcon} size={18} color={colors.primary} strokeWidth={2.2} />
+              </View>
+              <View style={styles.actionItemTextCol}>
+                <Text style={styles.actionItemTitle}>Reset & Reshuffle</Text>
+                <Text style={styles.actionItemSubtitle}>Randomize question order and start over</Text>
+              </View>
+            </TouchableOpacity>
+
+            {/* Edit Option */}
+            <TouchableOpacity
+              style={styles.actionSheetItem}
+              onPress={() => {
+                setShowActionMenu(false);
+                setShowRenameModal(true);
+              }}
+              activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel="Rename reviewer"
+            >
+              <View style={[styles.actionIconBadge, { backgroundColor: colors.primarySoft }]}>
+                <HugeiconsIcon icon={Edit02Icon} size={18} color={colors.primary} strokeWidth={2} />
+              </View>
+              <View style={styles.actionItemTextCol}>
+                <Text style={styles.actionItemTitle}>Edit Reviewer Title</Text>
+                <Text style={styles.actionItemSubtitle}>Rename this study set</Text>
+              </View>
+            </TouchableOpacity>
+
+            {/* Delete Option */}
+            <TouchableOpacity
+              style={[styles.actionSheetItem, styles.actionSheetItemDestructive]}
+              onPress={() => {
+                setShowActionMenu(false);
+                setShowDeleteModal(true);
+              }}
+              activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel="Delete reviewer"
+            >
+              <View style={[styles.actionIconBadge, { backgroundColor: colors.dangerSoft }]}>
+                <HugeiconsIcon icon={Delete02Icon} size={18} color={colors.dangerAccent} strokeWidth={2} />
+              </View>
+              <View style={styles.actionItemTextCol}>
+                <Text style={[styles.actionItemTitle, styles.actionItemTitleDestructive]}>Delete Reviewer</Text>
+                <Text style={styles.actionItemSubtitle}>Permanently remove this study set</Text>
+              </View>
+            </TouchableOpacity>
+
+            {/* Cancel Button */}
+            <TouchableOpacity
+              style={styles.actionSheetCancelBtn}
+              onPress={() => setShowActionMenu(false)}
+              activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel="Cancel"
+            >
+              <Text style={styles.actionSheetCancelText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
 
       {/* Confirmation Modal */}
       <ConfirmationModal
@@ -423,57 +512,97 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
-  actionToolbar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: colors.surface,
-    marginHorizontal: spacing[16],
-    marginTop: spacing[4],
-    marginBottom: spacing[8],
-    paddingVertical: spacing[6],
-    paddingHorizontal: spacing[8],
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: colors.border,
-    gap: spacing[8],
-    ...Platform.select({
-      ios: {
-        shadowColor: colors.shadow,
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.05,
-        shadowRadius: 3,
-      },
-      android: {
-        elevation: 1.5,
-      },
-    }),
-  },
-  toolbarBtn: {
-    flex: 1,
-    flexDirection: 'row',
+  threeDotsBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderCurve: 'continuous',
+    backgroundColor: colors.surfaceMuted,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: spacing[6],
-    paddingVertical: spacing[8],
-    paddingHorizontal: spacing[6],
-    borderRadius: 8,
-    backgroundColor: colors.background,
-    borderWidth: 1,
-    borderColor: colors.border,
   },
-  toolbarBtnText: {
-    fontSize: typography.fontSize[12],
+  actionSheetBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.55)',
+    justifyContent: 'flex-end',
+  },
+  reviewerActionSheet: {
+    backgroundColor: colors.surface,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    borderCurve: 'continuous',
+    paddingHorizontal: spacing[20],
+    paddingTop: spacing[12],
+    paddingBottom: spacing[36],
+    gap: spacing[8],
+    boxShadow: '0 -4px 16px rgba(0, 0, 0, 0.1)',
+  },
+  actionSheetHandle: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    borderCurve: 'continuous',
+    backgroundColor: colors.borderStrong,
+    alignSelf: 'center',
+    marginBottom: spacing[12],
+  },
+  actionSheetTitle: {
+    fontSize: typography.fontSize[15],
     fontWeight: typography.fontWeight.bold,
-    color: colors.textSecondary,
+    color: colors.text,
+    textAlign: 'center',
+    marginBottom: spacing[8],
   },
-  toolbarDeleteBtn: {
+  actionSheetItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing[12],
+    backgroundColor: colors.surfaceMuted,
+    paddingVertical: spacing[12],
+    paddingHorizontal: spacing[14],
+    borderRadius: 14,
+    borderCurve: 'continuous',
+  },
+  actionSheetItemDestructive: {
     backgroundColor: colors.dangerSoft,
-    borderColor: colors.dangerBorder,
   },
-  toolbarDeleteText: {
-    color: colors.danger,
+  actionIconBadge: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    borderCurve: 'continuous',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  actionItemTextCol: {
+    flex: 1,
+  },
+  actionItemTitle: {
+    fontSize: typography.fontSize[13.5],
     fontWeight: typography.fontWeight.bold,
+    color: colors.text,
+  },
+  actionItemTitleDestructive: {
+    color: colors.dangerAccent,
+  },
+  actionItemSubtitle: {
+    fontSize: typography.fontSize[11],
+    color: colors.textMuted,
+    marginTop: 1,
+  },
+  actionSheetCancelBtn: {
+    paddingVertical: spacing[12],
+    borderRadius: 12,
+    borderCurve: 'continuous',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.surfaceMuted,
+    marginTop: spacing[4],
+  },
+  actionSheetCancelText: {
+    fontSize: typography.fontSize[13.5],
+    fontWeight: typography.fontWeight.bold,
+    color: colors.textMuted,
   },
   modeBar: {
     flexDirection: 'row',
@@ -497,17 +626,8 @@ const styles = StyleSheet.create({
   },
   activeModeTab: {
     backgroundColor: colors.surface,
-    ...Platform.select({
-      ios: {
-        shadowColor: colors.shadow,
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.08,
-        shadowRadius: 4,
-      },
-      android: {
-        elevation: 2,
-      },
-    }),
+    borderCurve: 'continuous',
+    boxShadow: '0 2px 4px rgba(0, 0, 0, 0.08)',
   },
   modeTabText: {
     fontSize: typography.fontSize[12.5],
@@ -545,23 +665,14 @@ const styles = StyleSheet.create({
   finishCard: {
     backgroundColor: colors.surface,
     borderRadius: 24,
+    borderCurve: 'continuous',
     padding: spacing[28],
     alignItems: 'center',
     width: '100%',
     maxWidth: 400,
     borderWidth: 1,
     borderColor: colors.border,
-    ...Platform.select({
-      ios: {
-        shadowColor: colors.shadow,
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.08,
-        shadowRadius: 16,
-      },
-      android: {
-        elevation: 4,
-      },
-    }),
+    boxShadow: '0 4px 16px rgba(0, 0, 0, 0.08)',
   },
   finishBadgeCircle: {
     width: 76,
@@ -634,17 +745,8 @@ const styles = StyleSheet.create({
   doneBtn: {
     backgroundColor: colors.primary,
     borderRadius: 14,
-    ...Platform.select({
-      ios: {
-        shadowColor: colors.shadow,
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.25,
-        shadowRadius: 8,
-      },
-      android: {
-        elevation: 3,
-      },
-    }),
+    borderCurve: 'continuous',
+    boxShadow: '0 4px 8px rgba(0, 0, 0, 0.25)',
   },
   doneBtnText: {
     color: colors.onPrimary,

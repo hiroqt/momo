@@ -34,6 +34,8 @@ import { SmoothScrollView } from '../common/SmoothScrollView';
 import { syncEngine } from '../../lib/sync/syncEngine';
 import { isMeaningfulSection, sanitizeQuestionText } from '../../utils/formatters';
 import { useCredits } from '../../context/CreditsContext';
+import { useOnboarding } from '../../context/OnboardingContext';
+import { CoachmarkTooltip } from '../onboarding/CoachmarkTooltip';
 import { Image } from 'react-native';
 import { Modal } from 'react-native';
 
@@ -103,6 +105,8 @@ export const QuizRunner: React.FC<Props> = ({ items, onFinish, onRestart }) => {
   const insets = useSafeAreaInsets();
   const isAndroid = Platform.OS === 'android';
   const bottomPadding = Math.max(insets.bottom, isAndroid ? 28 : 16) + 16;
+
+  const { hasSeenQuizXpTip, markTipSeen } = useOnboarding();
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
@@ -640,6 +644,16 @@ export const QuizRunner: React.FC<Props> = ({ items, onFinish, onRestart }) => {
           </View>
         </View>
       </View>
+
+      {/* Progressive Contextual Coachmark */}
+      {!hasSeenQuizXpTip && (
+        <CoachmarkTooltip
+          title="Earn XP & Level Up!"
+          description="Every right answer scores you XP! Harder questions give you an even bigger boost. Let's see how high you can score!"
+          onDismiss={() => markTipSeen('quizXp')}
+          arrowPosition="top"
+        />
+      )}
 
       {/* Main Question Card */}
       <View style={styles.card}>

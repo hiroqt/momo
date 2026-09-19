@@ -1,11 +1,11 @@
 import React, { useEffect, useRef } from 'react';
-import {
+import { Platform, 
   View,
   StyleSheet,
   TouchableOpacity,
   Animated,
   ViewStyle,
-} from 'react-native';
+ } from 'react-native';
 import { AppText as Text } from '@/components/common/app-text';
 import { HugeiconsIcon } from '@hugeicons/react-native';
 import { SparklesIcon, Cancel01Icon, ArrowRight01Icon } from '@hugeicons/core-free-icons';
@@ -73,6 +73,8 @@ export const CoachmarkTooltip: React.FC<CoachmarkTooltipProps> = ({
 
   return (
     <Animated.View
+      renderToHardwareTextureAndroid={true}
+      needsOffscreenAlphaCompositing={true}
       style={[
         styles.container,
         style,
@@ -133,7 +135,17 @@ const styles = StyleSheet.create({
     padding: spacing[12],
     borderWidth: 1.5,
     borderColor: '#6366F1',
-    boxShadow: '0 4px 10px rgba(79, 70, 229, 0.25)',
+    ...Platform.select({
+      ios: {
+        shadowColor: colors.shadow || '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.2,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 8,
+      },
+    }),
   },
   headerRow: {
     flexDirection: 'row',

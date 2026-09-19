@@ -130,7 +130,7 @@ export default function GenerationProgressScreen() {
             />
           </View>
 
-          <Text style={styles.title}>Cooking up your reviewer</Text>
+          <Text style={styles.title}>Creating your reviewer</Text>
           <Text style={styles.subtitle}>
             Momo is crafting custom high-yield questions from your notes. No cap, this is gonna be good!
           </Text>

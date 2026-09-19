@@ -27,7 +27,7 @@ interface TabConfig {
 const TABS: TabConfig[] = [
   { name: "index", label: "Home", icon: Home01Icon },
   { name: "library", label: "Library", icon: BookOpen01Icon },
-  { name: "shop", label: "Shop", icon: BitcoinShoppingIcon },
+  
   { name: "profile", label: "Profile", icon: UserCircleIcon },
 ];
 
@@ -126,8 +126,9 @@ export const FloatingNavBar: React.FC<FloatingNavBarProps> = ({
 
         {/* Tab Items Row */}
         <View style={styles.tabsRow}>
-          {TABS.map((tab, index) => {
-            const isFocused = state.index === index;
+          {TABS.map((tab) => {
+            const routeIndex = state.routes.findIndex((r: any) => r.name === tab.name);
+            const isFocused = state.index === routeIndex;
             return (
               <TabItem
                 key={tab.name}
@@ -136,7 +137,7 @@ export const FloatingNavBar: React.FC<FloatingNavBarProps> = ({
                 onPress={() => {
                   const event = navigation.emit({
                     type: "tabPress",
-                    target: state.routes[index]?.key,
+                    target: state.routes[routeIndex]?.key,
                     canPreventDefault: true,
                   });
 

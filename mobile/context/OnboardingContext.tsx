@@ -4,6 +4,16 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 export type StudyTrack = 'college' | 'med_nursing' | 'stem' | 'boards' | 'high_school' | 'general';
 export type PreferredFormat = 'flashcards' | 'quiz' | 'exam' | 'summary' | 'all';
 
+export interface UserOnboardingProfile {
+  firstName?: string;
+  lastName?: string;
+  age?: number;
+  highSchoolGrade?: string | null;
+  collegeYear?: string | null;
+  collegeCourse?: string | null;
+  studyRemindersEnabled?: boolean;
+}
+
 export interface OnboardingState {
   isLoaded: boolean;
   hasCompletedWelcome: boolean;
@@ -12,6 +22,15 @@ export interface OnboardingState {
   preferredFormat: PreferredFormat;
   preferredFormats: PreferredFormat[];
   dailyGoalMinutes: number;
+
+  // Profile and Academic Calibration
+  firstName: string;
+  lastName: string;
+  age: number;
+  highSchoolGrade: string | null;
+  collegeYear: string | null;
+  collegeCourse: string | null;
+  studyRemindersEnabled: boolean;
 
   // Contextual Coachmark Tips
   hasSeenFlashcardGestureTip: boolean;
@@ -28,7 +47,8 @@ interface OnboardingContextType extends OnboardingState {
     track: StudyTrack,
     format: PreferredFormat | PreferredFormat[],
     goalMinutes: number,
-    guest: boolean
+    guest: boolean,
+    profile?: UserOnboardingProfile
   ) => Promise<void>;
   markTipSeen: (tip: 'flashcardGesture' | 'sourceProvenance' | 'quizXp') => Promise<void>;
   markSessionCompleted: () => Promise<void>;
@@ -44,6 +64,13 @@ const STORAGE_KEYS = {
   PREFERRED_FORMAT: '@momo_preferred_format',
   PREFERRED_FORMATS: '@momo_preferred_formats',
   DAILY_GOAL: '@momo_daily_goal',
+  FIRST_NAME: '@momo_first_name',
+  LAST_NAME: '@momo_last_name',
+  USER_AGE: '@momo_user_age',
+  HIGHSCHOOL_GRADE: '@momo_highschool_grade',
+  COLLEGE_YEAR: '@momo_college_year',
+  COLLEGE_COURSE: '@momo_college_course',
+  STUDY_REMINDERS: '@momo_study_reminders',
   TIP_FLASHCARD: '@momo_tip_flashcard',
   TIP_PROVENANCE: '@momo_tip_provenance',
   TIP_QUIZ_XP: '@momo_tip_quiz_xp',
@@ -59,6 +86,13 @@ const defaultState: OnboardingState = {
   preferredFormat: 'all',
   preferredFormats: ['all', 'flashcards', 'quiz', 'exam', 'summary'],
   dailyGoalMinutes: 20,
+  firstName: '',
+  lastName: '',
+  age: 13,
+  highSchoolGrade: null,
+  collegeYear: null,
+  collegeCourse: null,
+  studyRemindersEnabled: false,
   hasSeenFlashcardGestureTip: false,
   hasSeenSourceProvenanceTip: false,
   hasSeenQuizXpTip: false,
@@ -81,6 +115,13 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           format,
           formatsRaw,
           goal,
+          firstName,
+          lastName,
+          userAge,
+          hsGrade,
+          colYear,
+          colCourse,
+          reminders,
           tipFlashcard,
           tipProvenance,
           tipQuiz,
@@ -93,6 +134,13 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           STORAGE_KEYS.PREFERRED_FORMAT,
           STORAGE_KEYS.PREFERRED_FORMATS,
           STORAGE_KEYS.DAILY_GOAL,
+          STORAGE_KEYS.FIRST_NAME,
+          STORAGE_KEYS.LAST_NAME,
+          STORAGE_KEYS.USER_AGE,
+          STORAGE_KEYS.HIGHSCHOOL_GRADE,
+          STORAGE_KEYS.COLLEGE_YEAR,
+          STORAGE_KEYS.COLLEGE_COURSE,
+          STORAGE_KEYS.STUDY_REMINDERS,
           STORAGE_KEYS.TIP_FLASHCARD,
           STORAGE_KEYS.TIP_PROVENANCE,
           STORAGE_KEYS.TIP_QUIZ_XP,
@@ -117,6 +165,13 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           preferredFormat: (format[1] as PreferredFormat) || 'all',
           preferredFormats: parsedFormats,
           dailyGoalMinutes: goal[1] ? parseInt(goal[1], 10) : 20,
+          firstName: firstName[1] || '',
+          lastName: lastName[1] || '',
+          age: userAge[1] ? parseInt(userAge[1], 10) : 13,
+          highSchoolGrade: hsGrade[1] || null,
+          collegeYear: colYear[1] || null,
+          collegeCourse: colCourse[1] || null,
+          studyRemindersEnabled: reminders[1] === 'true',
           hasSeenFlashcardGestureTip: tipFlashcard[1] === 'true',
           hasSeenSourceProvenanceTip: tipProvenance[1] === 'true',
           hasSeenQuizXpTip: tipQuiz[1] === 'true',
@@ -136,7 +191,8 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     track: StudyTrack,
     format: PreferredFormat | PreferredFormat[],
     goalMinutes: number,
-    guest: boolean
+    guest: boolean,
+    profile?: UserOnboardingProfile
   ) => {
     try {
       const formatArray: PreferredFormat[] = Array.isArray(format) ? format : [format];
@@ -144,14 +200,31 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         ? 'all'
         : (formatArray[0] || 'flashcards');
 
-      await AsyncStorage.multiSet([
+      const fName = profile?.firstName ?? state.firstName;
+      const lName = profile?.lastName ?? state.lastName;
+      const uAge = profile?.age ?? state.age;
+      const hsG = profile?.highSchoolGrade !== undefined ? profile.highSchoolGrade : state.highSchoolGrade;
+      const cY = profile?.collegeYear !== undefined ? profile.collegeYear : state.collegeYear;
+      const cC = profile?.collegeCourse !== undefined ? profile.collegeCourse : state.collegeCourse;
+      const sR = profile?.studyRemindersEnabled !== undefined ? profile.studyRemindersEnabled : state.studyRemindersEnabled;
+
+      const pairs: [string, string][] = [
         [STORAGE_KEYS.COMPLETED_WELCOME, 'true'],
         [STORAGE_KEYS.IS_GUEST_MODE, guest ? 'true' : 'false'],
         [STORAGE_KEYS.STUDY_TRACK, track],
         [STORAGE_KEYS.PREFERRED_FORMAT, primaryFormat],
         [STORAGE_KEYS.PREFERRED_FORMATS, JSON.stringify(formatArray)],
         [STORAGE_KEYS.DAILY_GOAL, goalMinutes.toString()],
-      ]);
+        [STORAGE_KEYS.FIRST_NAME, fName],
+        [STORAGE_KEYS.LAST_NAME, lName],
+        [STORAGE_KEYS.USER_AGE, uAge.toString()],
+        [STORAGE_KEYS.HIGHSCHOOL_GRADE, hsG || ''],
+        [STORAGE_KEYS.COLLEGE_YEAR, cY || ''],
+        [STORAGE_KEYS.COLLEGE_COURSE, cC || ''],
+        [STORAGE_KEYS.STUDY_REMINDERS, sR ? 'true' : 'false'],
+      ];
+
+      await AsyncStorage.multiSet(pairs);
 
       setState((prev) => ({
         ...prev,
@@ -161,6 +234,13 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         preferredFormat: primaryFormat,
         preferredFormats: formatArray,
         dailyGoalMinutes: goalMinutes,
+        firstName: fName,
+        lastName: lName,
+        age: uAge,
+        highSchoolGrade: hsG,
+        collegeYear: cY,
+        collegeCourse: cC,
+        studyRemindersEnabled: sR,
       }));
     } catch (err) {
       console.error('Failed to save welcome completion', err);
@@ -226,6 +306,13 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         STORAGE_KEYS.PREFERRED_FORMAT,
         STORAGE_KEYS.PREFERRED_FORMATS,
         STORAGE_KEYS.DAILY_GOAL,
+        STORAGE_KEYS.FIRST_NAME,
+        STORAGE_KEYS.LAST_NAME,
+        STORAGE_KEYS.USER_AGE,
+        STORAGE_KEYS.HIGHSCHOOL_GRADE,
+        STORAGE_KEYS.COLLEGE_YEAR,
+        STORAGE_KEYS.COLLEGE_COURSE,
+        STORAGE_KEYS.STUDY_REMINDERS,
         STORAGE_KEYS.TIP_FLASHCARD,
         STORAGE_KEYS.TIP_PROVENANCE,
         STORAGE_KEYS.TIP_QUIZ_XP,

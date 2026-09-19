@@ -26,6 +26,7 @@ import {
   RefreshIcon,
   SparklesIcon,
   EyeIcon,
+  FavouriteIcon,
 } from '@hugeicons/core-free-icons';
 import { StudyItem } from '../../types';
 import { SourceAttribution } from './SourceAttribution';
@@ -117,9 +118,11 @@ export const QuizRunner: React.FC<Props> = ({ items, onFinish, onRestart }) => {
   const [isQuizFinished, setIsQuizFinished] = useState(false);
   const [selectedReviewIndex, setSelectedReviewIndex] = useState<number | null>(null);
   const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false);
+  const [correctStreak, setCorrectStreak] = useState(0);
   const [lastAnswerResult, setLastAnswerResult] = useState<{
     isCorrect: boolean;
     earnedXP: number;
+    streakBonus?: boolean;
   } | null>(null);
   const [userAnswers, setUserAnswers] = useState<
     Record<
@@ -134,8 +137,15 @@ export const QuizRunner: React.FC<Props> = ({ items, onFinish, onRestart }) => {
     >
   >({});
 
-  const { credits, deductCredits, addXP } = useCredits();
+  const { credits, deductCredits, addXP, hearts, deductHeart, addHeart } = useCredits();
   const [showCreditsModal, setShowCreditsModal] = useState(false);
+  const [showNoHeartsModal, setShowNoHeartsModal] = useState(false);
+
+  React.useEffect(() => {
+    if (hearts <= 0) {
+      setShowNoHeartsModal(true);
+    }
+  }, [hearts]);
 
   // Animated values
   const xpBarAnim = useRef(new Animated.Value(0)).current;
@@ -182,11 +192,32 @@ export const QuizRunner: React.FC<Props> = ({ items, onFinish, onRestart }) => {
 
   const handleNextQuestion = () => {
     if (isSubmittingFeedback) return;
+    
+    if (hearts <= 0) {
+      setShowNoHeartsModal(true);
+      return;
+    }
 
     const userAnswer = selectedOption || typedAnswer.trim();
     const wasRevealed = isCurrentQuestionRevealed;
     const isCorrect = !wasRevealed && checkIsCorrect(userAnswer, currentItem);
-    const earnedXP = isCorrect ? getQuestionXP(currentItem.type) : 0;
+    let earnedXP = isCorrect ? getQuestionXP(currentItem.type) : 0;
+    
+    let nextStreak = isCorrect ? correctStreak + 1 : 0;
+    let streakBonus = false;
+
+    if (isCorrect && nextStreak > 0 && nextStreak % 5 === 0) {
+      earnedXP *= 2;
+      addHeart(1);
+      streakBonus = true;
+    }
+
+    if (!isCorrect && !wasRevealed) {
+      deductHeart();
+    }
+    
+    setCorrectStreak(nextStreak);
+
     const nextXP = currentXP + earnedXP;
 
     const updatedAnswers = {
@@ -209,7 +240,7 @@ export const QuizRunner: React.FC<Props> = ({ items, onFinish, onRestart }) => {
 
     // Show visual feedback on the item selected or inputed
     setIsSubmittingFeedback(true);
-    setLastAnswerResult({ isCorrect, earnedXP });
+    setLastAnswerResult({ isCorrect, earnedXP, streakBonus });
 
     if (isCorrect) {
       setCurrentXP(nextXP);
@@ -257,6 +288,10 @@ export const QuizRunner: React.FC<Props> = ({ items, onFinish, onRestart }) => {
   };
 
   const handleRestartQuiz = () => {
+    if (hearts <= 0) {
+      setShowNoHeartsModal(true);
+      return;
+    }
     setCurrentIndex(0);
     setSelectedOption(null);
     setTypedAnswer('');
@@ -266,6 +301,7 @@ export const QuizRunner: React.FC<Props> = ({ items, onFinish, onRestart }) => {
     setLastAnswerResult(null);
     setUserAnswers({});
     setCurrentXP(0);
+    setCorrectStreak(0);
     setIsQuizFinished(false);
     setSelectedReviewIndex(null);
     xpBarAnim.setValue(0);
@@ -613,10 +649,16 @@ export const QuizRunner: React.FC<Props> = ({ items, onFinish, onRestart }) => {
             </Text>
           </View>
 
-          {/* Live XP Badge */}
-          <View style={styles.xpBadge}>
-            <HugeiconsIcon icon={SparklesIcon} size={15} color="#D97706" strokeWidth={2.4} />
-            <Text style={styles.xpBadgeText}>{currentXP} XP</Text>
+          {/* Live Stats Row */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <View style={styles.xpBadge}>
+              <HugeiconsIcon icon={FavouriteIcon} size={15} color="#EF4444" strokeWidth={2.4} fill="#EF4444" />
+              <Text style={[styles.xpBadgeText, { color: '#EF4444' }]}>{hearts}</Text>
+            </View>
+            <View style={styles.xpBadge}>
+              <HugeiconsIcon icon={SparklesIcon} size={15} color="#D97706" strokeWidth={2.4} />
+              <Text style={styles.xpBadgeText}>{currentXP} XP</Text>
+            </View>
           </View>
         </View>
 
@@ -767,7 +809,7 @@ export const QuizRunner: React.FC<Props> = ({ items, onFinish, onRestart }) => {
                           ]}
                         >
                           {lastAnswerResult?.isCorrect
-                            ? `+${lastAnswerResult.earnedXP} XP`
+                            ? `+${lastAnswerResult.earnedXP} XP${lastAnswerResult.streakBonus ? ' 🔥 x2' : ''}`
                             : '+0 XP'}
                         </Text>
                       </View>
@@ -834,7 +876,7 @@ export const QuizRunner: React.FC<Props> = ({ items, onFinish, onRestart }) => {
                       ]}
                     >
                       {lastAnswerResult?.isCorrect
-                        ? `+${lastAnswerResult.earnedXP} XP`
+                        ? `+${lastAnswerResult.earnedXP} XP${lastAnswerResult.streakBonus ? ' 🔥 x2' : ''}`
                         : '+0 XP'}
                     </Text>
                   </View>
@@ -992,6 +1034,35 @@ export const QuizRunner: React.FC<Props> = ({ items, onFinish, onRestart }) => {
                 onPress={() => setShowCreditsModal(false)}
               >
                 <Text style={styles.modalCancelText}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Insufficient Hearts Modal */}
+      <Modal
+        visible={showNoHeartsModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => {}}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <HugeiconsIcon icon={FavouriteIcon} size={64} color="#EF4444" strokeWidth={2} fill="#EF4444" />
+            <Text style={styles.modalTitle}>Out of Lives!</Text>
+            <Text style={styles.modalDesc}>
+              You have run out of lives for today. Lives refresh automatically every 24 hours.
+            </Text>
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={styles.modalPurchaseBtn}
+                onPress={() => {
+                  setShowNoHeartsModal(false);
+                  router.replace('/(tabs)/library');
+                }}
+              >
+                <Text style={styles.modalPurchaseText}>Go to Library</Text>
               </TouchableOpacity>
             </View>
           </View>

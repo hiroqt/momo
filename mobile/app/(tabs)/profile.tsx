@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { colors, spacing, typography } from '@/constants/theme';
 import {
+  Platform,
   View,
   StyleSheet,
   ScrollView,
@@ -34,7 +35,21 @@ import { useOnboarding } from '../../context/OnboardingContext';
 export default function ProfileScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { studyTrack, preferredFormat, preferredFormats, dailyGoalMinutes, isGuestMode, resetOnboarding } = useOnboarding();
+  const {
+    studyTrack,
+    preferredFormat,
+    preferredFormats,
+    dailyGoalMinutes,
+    isGuestMode,
+    resetOnboarding,
+    firstName,
+    lastName,
+    age,
+    highSchoolGrade,
+    collegeYear,
+    collegeCourse,
+    studyRemindersEnabled,
+  } = useOnboarding();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [showSignOutModal, setShowSignOutModal] = useState(false);
   const [showResetModal, setShowResetModal] = useState(false);
@@ -94,7 +109,9 @@ export default function ProfileScreen() {
           <View style={styles.avatarCircle}>
             <HugeiconsIcon icon={UserCircleIcon} size={48} color={colors.primary} strokeWidth={1.5} />
           </View>
-          <Text style={styles.name}>{profile?.full_name || 'Student Account'}</Text>
+          <Text style={styles.name}>
+            {firstName ? `${firstName} ${lastName}`.trim() : (profile?.full_name || 'Student Account')}
+          </Text>
           <Text style={styles.email}>{profile?.email}</Text>
           <View style={styles.badgeRow}>
             <View style={styles.roleBadge}>
@@ -179,9 +196,29 @@ export default function ProfileScreen() {
             )}
           </View>
 
+          {firstName ? (
+            <View style={styles.prefRow}>
+              <Text style={styles.prefKey}>Student Name</Text>
+              <Text style={styles.prefVal}>{`${firstName} ${lastName}`.trim()}</Text>
+            </View>
+          ) : null}
+
+          <View style={styles.prefRow}>
+            <Text style={styles.prefKey}>Age</Text>
+            <Text style={styles.prefVal}>{age ? `${age} yrs old` : '13+ yrs old'}</Text>
+          </View>
+
           <View style={styles.prefRow}>
             <Text style={styles.prefKey}>Study Track</Text>
-            <Text style={styles.prefVal}>{studyTrack ? studyTrack.toUpperCase() : 'COLLEGE'}</Text>
+            <Text style={styles.prefVal}>
+              {studyTrack === 'high_school' && highSchoolGrade
+                ? `HIGH SCHOOL (${highSchoolGrade.toUpperCase()})`
+                : ['college', 'med_nursing', 'stem'].includes(studyTrack) && collegeYear
+                ? `${studyTrack.toUpperCase()} (${collegeYear.toUpperCase()}${collegeCourse ? ` • ${collegeCourse.toUpperCase()}` : ''})`
+                : collegeCourse
+                ? `${studyTrack ? studyTrack.toUpperCase() : 'COLLEGE'} (${collegeCourse.toUpperCase()})`
+                : studyTrack ? studyTrack.toUpperCase() : 'COLLEGE'}
+            </Text>
           </View>
 
           <View style={styles.prefRow}>
@@ -200,6 +237,18 @@ export default function ProfileScreen() {
           <View style={styles.prefRow}>
             <Text style={styles.prefKey}>Daily Commitment</Text>
             <Text style={styles.prefVal}>{dailyGoalMinutes} mins / day</Text>
+          </View>
+
+          <View style={styles.prefRow}>
+            <Text style={styles.prefKey}>Daily Reminders</Text>
+            <Text
+              style={[
+                styles.prefVal,
+                { color: studyRemindersEnabled ? colors.success : colors.textMuted },
+              ]}
+            >
+              {studyRemindersEnabled ? 'ENABLED' : 'DISABLED'}
+            </Text>
           </View>
 
           <TouchableOpacity
@@ -287,7 +336,17 @@ const styles = StyleSheet.create({
     marginBottom: spacing[16],
     borderWidth: 1,
     borderColor: colors.border,
-    boxShadow: '0 2px 6px rgba(0, 0, 0, 0.04)',
+    ...Platform.select({
+      ios: {
+        shadowColor: colors.shadow || '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.04,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
   },
   avatarCircle: {
     width: 68,
@@ -353,7 +412,17 @@ const styles = StyleSheet.create({
     marginBottom: spacing[16],
     borderWidth: 1,
     borderColor: colors.border,
-    boxShadow: '0 2px 6px rgba(0, 0, 0, 0.04)',
+    ...Platform.select({
+      ios: {
+        shadowColor: colors.shadow || '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.04,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
   },
   quotaHeaderRow: {
     flexDirection: 'row',

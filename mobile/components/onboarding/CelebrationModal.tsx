@@ -1,11 +1,11 @@
 import React from 'react';
-import {
+import { Platform, 
   View,
   Modal,
   StyleSheet,
   Image,
   TouchableOpacity,
-} from 'react-native';
+ } from 'react-native';
 import { AppText as Text } from '@/components/common/app-text';
 import { HugeiconsIcon } from '@hugeicons/react-native';
 import {
@@ -129,7 +129,17 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 380,
     alignItems: 'center',
-    boxShadow: '0 10px 25px rgba(0, 0, 0, 0.2)',
+    ...Platform.select({
+      ios: {
+        shadowColor: colors.shadow || '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.2,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 8,
+      },
+    }),
   },
   mascotWrapper: {
     alignItems: 'center',

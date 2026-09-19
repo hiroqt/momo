@@ -5,6 +5,7 @@ import {
   Image,
   TouchableOpacity,
   ScrollView,
+  TextInput,
   Animated,
   Easing,
   Platform,
@@ -39,11 +40,55 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
 
 const TRACK_OPTIONS: { id: StudyTrack; label: string; iconText: string; desc: string }[] = [
   { id: 'college', label: 'College & University', iconText: '🎓', desc: 'Lectures, syllabi & midterms' },
+  { id: 'high_school', label: 'High School', iconText: '📚', desc: 'AP, IB & general classes' },
   { id: 'med_nursing', label: 'Medicine & Nursing', iconText: '🩺', desc: 'Anatomy, pharma & board prep' },
   { id: 'stem', label: 'STEM & Engineering', iconText: '💻', desc: 'Formulas, problem sets & code' },
   { id: 'boards', label: 'Board & Licensure Exams', iconText: '⚖️', desc: 'High-stakes practice drills' },
-  { id: 'high_school', label: 'High School', iconText: '📚', desc: 'AP, IB & general classes' },
   { id: 'general', label: 'General Learning', iconText: '🧠', desc: 'Curiosity & personal growth' },
+];
+
+const HIGH_SCHOOL_GRADES = [
+  { id: 'Grade 7', label: 'Grade 7' },
+  { id: 'Grade 8', label: 'Grade 8' },
+  { id: 'Grade 9', label: 'Grade 9 (Freshman)' },
+  { id: 'Grade 10', label: 'Grade 10 (Sophomore)' },
+  { id: 'Grade 11', label: 'Grade 11 (Junior)' },
+  { id: 'Grade 12', label: 'Grade 12 (Senior)' },
+];
+
+const COLLEGE_YEARS = [
+  { id: '1st Year', label: '1st Year (Freshman)' },
+  { id: '2nd Year', label: '2nd Year (Sophomore)' },
+  { id: '3rd Year', label: '3rd Year (Junior)' },
+  { id: '4th Year', label: '4th Year (Senior)' },
+  { id: '5th+ Year / Grad', label: '5th+ Year / Grad' },
+];
+
+const POPULAR_MAJORS = [
+  'Nursing',
+  'Computer Science',
+  'Accountancy',
+  'Psychology',
+  'Engineering',
+  'Biology',
+  'Business',
+];
+
+const POPULAR_BOARD_EXAMS = [
+  'NCLEX-RN',
+  'CPA Board',
+  'Bar Exam',
+  'Civil Service',
+  'Medical Board (PLE)',
+  'LET (Teachers)',
+];
+
+const POPULAR_GENERAL_TOPICS = [
+  'Tech & Coding',
+  'Business & Finance',
+  'Language Learning',
+  'Science & Health',
+  'Self-Improvement',
 ];
 
 const ALL_INDIVIDUAL_FORMATS: PreferredFormat[] = ['flashcards', 'quiz', 'exam', 'summary'];
@@ -94,13 +139,30 @@ const GOAL_OPTIONS = [
   { minutes: 45, label: '45 min/day', tag: 'Lock In!', desc: 'Serious crunch mode for upcoming exams' },
 ];
 
+// Age wheel options starting from 13 to 80
+const AGE_ITEM_HEIGHT = 46;
+const AGE_OPTIONS = Array.from({ length: 68 }, (_, i) => 13 + i);
+
 export default function WelcomeScreen() {
   const router = useRouter();
   const { completeWelcome } = useOnboarding();
 
-  const [step, setStep] = useState<1 | 2 | 3 | 4 | 5>(1);
+  // 8 Distinct Sequential Steps:
+  // 1: Welcome Hook -> 2: Name Input -> 3: Age Input Wheel -> 4: Prepping For -> 5: Academic Stage & Program -> 6: Study Formats -> 7: Daily Goal & Reminders Gate -> 8: Launch Mode
+  const [step, setStep] = useState<1 | 2 | 3 | 4 | 5 | 6 | 7 | 8>(1);
+
+  // Profile fields (Step 2: Name, Step 3: Age)
+  const [firstName, setFirstName] = useState<string>('');
+  const [lastName, setLastName] = useState<string>('');
+  const [selectedAge, setSelectedAge] = useState<number>(13);
+
+  // Academic calibration (Step 4)
   const [selectedTrack, setSelectedTrack] = useState<StudyTrack>('college');
-  // Multiple formats selection, defaults to All Formats
+  const [highSchoolGrade, setHighSchoolGrade] = useState<string>('Grade 9');
+  const [collegeYear, setCollegeYear] = useState<string>('1st Year');
+  const [collegeCourse, setCollegeCourse] = useState<string>('');
+
+  // Formats (Step 5)
   const [selectedFormats, setSelectedFormats] = useState<PreferredFormat[]>([
     'all',
     'flashcards',
@@ -108,17 +170,23 @@ export default function WelcomeScreen() {
     'exam',
     'summary',
   ]);
+
+  // Goal & Reminders (Step 6)
   const [selectedGoal, setSelectedGoal] = useState<number>(20);
+  const [studyRemindersEnabled, setStudyRemindersEnabled] = useState<boolean>(false);
+
+  // Loading indicator for sample deck
   const [isSeeding, setIsSeeding] = useState<boolean>(false);
 
-  // Smooth ease-in ease-out transition values
+  // Animation values
   const isTransitioning = useRef(false);
   const fadeAnim = useRef(new Animated.Value(1)).current;
   const slideAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const scrollViewRef = useRef<ScrollView>(null);
+  const ageWheelRef = useRef<ScrollView>(null);
 
-  const goToStep = (nextStep: 1 | 2 | 3 | 4 | 5, direction: 'forward' | 'backward' = 'forward') => {
+  const goToStep = (nextStep: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8, direction: 'forward' | 'backward' = 'forward') => {
     if (isTransitioning.current) return;
     isTransitioning.current = true;
 
@@ -182,10 +250,8 @@ export default function WelcomeScreen() {
     if (id === 'all') {
       const isAllSelected = selectedFormats.includes('all');
       if (isAllSelected) {
-        // Uncheck all except a default single format
         setSelectedFormats(['flashcards']);
       } else {
-        // Select all formats
         setSelectedFormats(['all', 'flashcards', 'quiz', 'exam', 'summary']);
       }
       return;
@@ -194,7 +260,6 @@ export default function WelcomeScreen() {
     const isSelected = selectedFormats.includes(id);
     if (isSelected) {
       const remaining = selectedFormats.filter((f) => f !== id && f !== 'all');
-      // Ensure at least 1 format remains selected
       if (remaining.length === 0) return;
       setSelectedFormats(remaining);
     } else {
@@ -208,11 +273,23 @@ export default function WelcomeScreen() {
     }
   };
 
+  const buildProfilePayload = () => ({
+    firstName: firstName.trim(),
+    lastName: lastName.trim(),
+    age: selectedAge,
+    highSchoolGrade: selectedTrack === 'high_school' ? highSchoolGrade : null,
+    collegeYear: ['college', 'med_nursing', 'stem'].includes(selectedTrack) ? collegeYear : null,
+    collegeCourse: ['college', 'med_nursing', 'stem', 'boards', 'general'].includes(selectedTrack)
+      ? collegeCourse.trim() || null
+      : null,
+    studyRemindersEnabled,
+  });
+
   const handleFinishGuest = async () => {
     setIsSeeding(true);
     try {
       await seedSampleDeck();
-      await completeWelcome(selectedTrack, selectedFormats, selectedGoal, true);
+      await completeWelcome(selectedTrack, selectedFormats, selectedGoal, true, buildProfilePayload());
       router.replace('/(tabs)');
     } catch (err) {
       console.error('Failed to complete guest welcome:', err);
@@ -224,7 +301,7 @@ export default function WelcomeScreen() {
 
   const handleFinishGoogle = async () => {
     try {
-      await completeWelcome(selectedTrack, selectedFormats, selectedGoal, false);
+      await completeWelcome(selectedTrack, selectedFormats, selectedGoal, false, buildProfilePayload());
       router.replace('/(tabs)');
     } catch (err) {
       console.error('Failed to complete google welcome:', err);
@@ -234,9 +311,9 @@ export default function WelcomeScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      {/* 5-Step Progress Bar Indicator with Smooth Layout Animation */}
+      {/* 8-Step Progress Bar Indicator */}
       <View style={styles.progressContainer}>
-        {[1, 2, 3, 4, 5].map((i) => (
+        {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
           <View
             key={i}
             style={[
@@ -324,7 +401,7 @@ export default function WelcomeScreen() {
                 style={styles.primaryButton}
                 onPress={() => goToStep(2, 'forward')}
                 accessibilityRole="button"
-                accessibilityLabel="Let's Cook My Plan, continue to personalize study"
+                accessibilityLabel="Let's Cook My Plan, continue to enter your name"
               >
                 <Text style={styles.primaryButtonText}>Let's Cook My Plan!</Text>
                 <HugeiconsIcon icon={ArrowRight01Icon} size={18} color={colors.onPrimary} strokeWidth={2.5} />
@@ -332,7 +409,7 @@ export default function WelcomeScreen() {
             </View>
           )}
 
-          {/* STEP 2: WHAT ARE YOU PREPPING FOR? */}
+          {/* STEP 2: NAME INPUT ONLY (SEPARATE SCREEN) */}
           {step === 2 && (
             <View style={styles.stepContainer}>
               <View style={styles.stepHeaderRow}>
@@ -341,6 +418,188 @@ export default function WelcomeScreen() {
                   style={styles.backButton}
                   accessibilityRole="button"
                   accessibilityLabel="Go back to welcome screen"
+                >
+                  <HugeiconsIcon icon={ArrowLeft01Icon} size={20} color={colors.icon} strokeWidth={2} />
+                </TouchableOpacity>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.stepTitle}>What's your name?</Text>
+                  <Text style={styles.stepSub}>Momo wants to know who we're locking in with!</Text>
+                </View>
+              </View>
+
+              <View style={styles.formCard}>
+                <View style={styles.inputGroup}>
+                  <Text style={styles.inputLabel}>First Name *</Text>
+                  <TextInput
+                    style={styles.textInput}
+                    value={firstName}
+                    onChangeText={setFirstName}
+                    placeholder="e.g. Alex"
+                    placeholderTextColor={colors.textMuted}
+                    autoCapitalize="words"
+                    autoCorrect={false}
+                    returnKeyType="next"
+                  />
+                </View>
+
+                <View style={[styles.inputGroup, { marginTop: spacing[14] }]}>
+                  <Text style={styles.inputLabel}>Last Name (Optional)</Text>
+                  <TextInput
+                    style={styles.textInput}
+                    value={lastName}
+                    onChangeText={setLastName}
+                    placeholder="e.g. Rivera"
+                    placeholderTextColor={colors.textMuted}
+                    autoCapitalize="words"
+                    autoCorrect={false}
+                    returnKeyType="done"
+                  />
+                </View>
+
+                <Text style={styles.formHint}>
+                  We only use your name to cheer you on and celebrate your study streaks!
+                </Text>
+              </View>
+
+              <TouchableOpacity
+                style={[
+                  styles.primaryButton,
+                  firstName.trim().length === 0 && styles.primaryButtonDisabled,
+                  { marginTop: spacing[20] },
+                ]}
+                onPress={() => {
+                  if (firstName.trim().length > 0) {
+                    goToStep(3, 'forward');
+                  }
+                }}
+                disabled={firstName.trim().length === 0}
+                accessibilityRole="button"
+                accessibilityLabel="Continue to age selection"
+              >
+                <Text
+                  style={[
+                    styles.primaryButtonText,
+                    firstName.trim().length === 0 && styles.primaryButtonTextDisabled,
+                  ]}
+                >
+                  {firstName.trim().length === 0 ? 'Enter First Name to Continue' : 'Continue'}
+                </Text>
+                <HugeiconsIcon
+                  icon={ArrowRight01Icon}
+                  size={18}
+                  color={firstName.trim().length === 0 ? colors.textMuted : colors.onPrimary}
+                  strokeWidth={2.5}
+                />
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {/* STEP 3: AGE INPUT WHEEL ONLY (SEPARATE SCREEN) */}
+          {step === 3 && (
+            <View style={styles.stepContainer}>
+              <View style={styles.stepHeaderRow}>
+                <TouchableOpacity
+                  onPress={() => goToStep(2, 'backward')}
+                  style={styles.backButton}
+                  accessibilityRole="button"
+                  accessibilityLabel="Go back to name input"
+                >
+                  <HugeiconsIcon icon={ArrowLeft01Icon} size={20} color={colors.icon} strokeWidth={2} />
+                </TouchableOpacity>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.stepTitle}>How old are you?</Text>
+                  <Text style={styles.stepSub}>Momo calibrates study tone and pacing to your age</Text>
+                </View>
+              </View>
+
+              {/* Centered Age Scroll Wheel Card */}
+              <View style={styles.ageOnlyCard}>
+                <View style={styles.ageHeaderRow}>
+                  <Text style={styles.ageCardHeading}>Select Your Age</Text>
+                  <View style={styles.ageDefaultBadge}>
+                    <Text style={styles.ageDefaultBadgeText}>13 and above</Text>
+                  </View>
+                </View>
+                <Text style={styles.agePromptText}>Scroll the wheel to pick your age:</Text>
+
+                <View style={styles.wheelContainer}>
+                  {/* Highlighted Selection Band */}
+                  <View style={styles.wheelSelectionBand} pointerEvents="none">
+                    <Text style={styles.wheelSelectionSuffix}>years old</Text>
+                  </View>
+
+                  <ScrollView
+                    ref={ageWheelRef}
+                    showsVerticalScrollIndicator={false}
+                    snapToInterval={AGE_ITEM_HEIGHT}
+                    decelerationRate="fast"
+                    contentContainerStyle={{ paddingVertical: AGE_ITEM_HEIGHT }}
+                    onMomentumScrollEnd={(e) => {
+                      const offsetY = e.nativeEvent.contentOffset.y;
+                      const index = Math.round(offsetY / AGE_ITEM_HEIGHT);
+                      const clamped = Math.max(0, Math.min(AGE_OPTIONS.length - 1, index));
+                      setSelectedAge(AGE_OPTIONS[clamped] ?? 13);
+                    }}
+                    onScrollEndDrag={(e) => {
+                      const offsetY = e.nativeEvent.contentOffset.y;
+                      const index = Math.round(offsetY / AGE_ITEM_HEIGHT);
+                      const clamped = Math.max(0, Math.min(AGE_OPTIONS.length - 1, index));
+                      setSelectedAge(AGE_OPTIONS[clamped] ?? 13);
+                    }}
+                    scrollEventThrottle={16}
+                  >
+                    {AGE_OPTIONS.map((ageVal, idx) => {
+                      const isSelected = selectedAge === ageVal;
+                      return (
+                        <TouchableOpacity
+                          key={ageVal}
+                          style={styles.wheelItem}
+                          onPress={() => {
+                            setSelectedAge(ageVal);
+                            ageWheelRef.current?.scrollTo({ y: idx * AGE_ITEM_HEIGHT, animated: true });
+                          }}
+                          activeOpacity={0.7}
+                        >
+                          <Text
+                            style={[
+                              styles.wheelItemText,
+                              isSelected && styles.wheelItemTextSelected,
+                            ]}
+                          >
+                            {ageVal}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </ScrollView>
+                </View>
+
+                <Text style={styles.ageFootnote}>
+                  Default is 13+ • You can adjust your age anytime in your profile.
+                </Text>
+              </View>
+
+              <TouchableOpacity
+                style={[styles.primaryButton, { marginTop: spacing[20] }]}
+                onPress={() => goToStep(4, 'forward')}
+                accessibilityRole="button"
+                accessibilityLabel="Continue to study track"
+              >
+                <Text style={styles.primaryButtonText}>Continue</Text>
+                <HugeiconsIcon icon={ArrowRight01Icon} size={18} color={colors.onPrimary} strokeWidth={2.5} />
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {/* STEP 4: WHAT ARE YOU PREPPING FOR? (TRACK SELECTION ONLY) */}
+          {step === 4 && (
+            <View style={styles.stepContainer}>
+              <View style={styles.stepHeaderRow}>
+                <TouchableOpacity
+                  onPress={() => goToStep(3, 'backward')}
+                  style={styles.backButton}
+                  accessibilityRole="button"
+                  accessibilityLabel="Go back to age selection"
                 >
                   <HugeiconsIcon icon={ArrowLeft01Icon} size={20} color={colors.icon} strokeWidth={2} />
                 </TouchableOpacity>
@@ -382,7 +641,241 @@ export default function WelcomeScreen() {
 
               <TouchableOpacity
                 style={[styles.primaryButton, { marginTop: spacing[20] }]}
-                onPress={() => goToStep(3, 'forward')}
+                onPress={() => goToStep(5, 'forward')}
+                accessibilityRole="button"
+                accessibilityLabel="Continue to academic details"
+              >
+                <Text style={styles.primaryButtonText}>Continue</Text>
+                <HugeiconsIcon icon={ArrowRight01Icon} size={18} color={colors.onPrimary} strokeWidth={2.5} />
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {/* STEP 5: ACADEMIC STAGE & PROGRAM (DEDICATED SEPARATE SCREEN) */}
+          {step === 5 && (
+            <View style={styles.stepContainer}>
+              <View style={styles.stepHeaderRow}>
+                <TouchableOpacity
+                  onPress={() => goToStep(4, 'backward')}
+                  style={styles.backButton}
+                  accessibilityRole="button"
+                  accessibilityLabel="Go back to track selection"
+                >
+                  <HugeiconsIcon icon={ArrowLeft01Icon} size={20} color={colors.icon} strokeWidth={2} />
+                </TouchableOpacity>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.stepTitle}>
+                    {selectedTrack === 'high_school'
+                      ? 'What grade are you in?'
+                      : selectedTrack === 'boards'
+                      ? 'Target Licensure Exam'
+                      : selectedTrack === 'general'
+                      ? 'What are you exploring?'
+                      : 'College Year & Program'}
+                  </Text>
+                  <Text style={styles.stepSub}>
+                    {selectedTrack === 'high_school'
+                      ? 'Momo calibrates question difficulty for your grade level'
+                      : selectedTrack === 'boards'
+                      ? 'Tell Momo what board exam you are prepping to crush'
+                      : selectedTrack === 'general'
+                      ? 'Momo tailors content to fit your learning focus'
+                      : "Tell Momo what stage you're in and what you study"}
+                  </Text>
+                </View>
+              </View>
+
+              {/* High School Grades View */}
+              {selectedTrack === 'high_school' && (
+                <View style={styles.formCard}>
+                  <Text style={styles.subFieldLabel}>Select Your Current Grade</Text>
+                  <View style={styles.gradeGrid}>
+                    {HIGH_SCHOOL_GRADES.map((g) => {
+                      const isGradeSelected = highSchoolGrade === g.id;
+                      return (
+                        <TouchableOpacity
+                          key={g.id}
+                          style={[styles.subChip, isGradeSelected && styles.subChipSelected]}
+                          onPress={() => setHighSchoolGrade(g.id)}
+                          accessibilityRole="button"
+                          accessibilityLabel={g.label}
+                        >
+                          <Text style={[styles.subChipText, isGradeSelected && styles.subChipTextSelected]}>
+                            {g.label}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                  <Text style={[styles.formHint, { marginTop: spacing[16] }]}>
+                    We adapt vocabulary, depth, and pacing to match your high school syllabus!
+                  </Text>
+                </View>
+              )}
+
+              {/* College & University View (also Med/Nursing, STEM) */}
+              {selectedTrack !== 'high_school' && selectedTrack !== 'boards' && selectedTrack !== 'general' && (
+                <View style={styles.formCard}>
+                  <Text style={styles.subFieldLabel}>College Year</Text>
+                  <View style={styles.gradeGrid}>
+                    {COLLEGE_YEARS.map((y) => {
+                      const isYearSelected = collegeYear === y.id;
+                      return (
+                        <TouchableOpacity
+                          key={y.id}
+                          style={[styles.subChip, isYearSelected && styles.subChipSelected]}
+                          onPress={() => setCollegeYear(y.id)}
+                          accessibilityRole="button"
+                          accessibilityLabel={y.label}
+                        >
+                          <Text style={[styles.subChipText, isYearSelected && styles.subChipTextSelected]}>
+                            {y.label}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+
+                  <View style={{ marginTop: spacing[16] }}>
+                    <Text style={styles.subFieldLabel}>Course / Program of Study</Text>
+                    <TextInput
+                      style={styles.textInput}
+                      value={collegeCourse}
+                      onChangeText={setCollegeCourse}
+                      placeholder="e.g. BS Nursing, Computer Science, Biology..."
+                      placeholderTextColor={colors.textMuted}
+                      autoCapitalize="words"
+                      autoCorrect={false}
+                    />
+                  </View>
+
+                  <Text style={[styles.inputLabel, { marginTop: spacing[12], marginBottom: spacing[6] }]}>
+                    Popular Programs
+                  </Text>
+                  <View style={styles.majorSuggestionsRow}>
+                    {POPULAR_MAJORS.map((m) => {
+                      const isCourseMatch = collegeCourse === m;
+                      return (
+                        <TouchableOpacity
+                          key={m}
+                          style={[
+                            styles.majorSuggestionChip,
+                            isCourseMatch && styles.majorSuggestionChipActive,
+                          ]}
+                          onPress={() => setCollegeCourse(m)}
+                          accessibilityRole="button"
+                          accessibilityLabel={`Select major ${m}`}
+                        >
+                          <Text
+                            style={[
+                              styles.majorSuggestionText,
+                              isCourseMatch && styles.majorSuggestionTextActive,
+                            ]}
+                          >
+                            {m}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                </View>
+              )}
+
+              {/* Board & Licensure View */}
+              {selectedTrack === 'boards' && (
+                <View style={styles.formCard}>
+                  <Text style={styles.subFieldLabel}>Target Examination</Text>
+                  <TextInput
+                    style={styles.textInput}
+                    value={collegeCourse}
+                    onChangeText={setCollegeCourse}
+                    placeholder="e.g. NCLEX, CPA Board, Bar Exam..."
+                    placeholderTextColor={colors.textMuted}
+                    autoCapitalize="words"
+                    autoCorrect={false}
+                  />
+
+                  <Text style={[styles.inputLabel, { marginTop: spacing[12], marginBottom: spacing[6] }]}>
+                    Popular Board Exams
+                  </Text>
+                  <View style={styles.majorSuggestionsRow}>
+                    {POPULAR_BOARD_EXAMS.map((m) => {
+                      const isMatch = collegeCourse === m;
+                      return (
+                        <TouchableOpacity
+                          key={m}
+                          style={[
+                            styles.majorSuggestionChip,
+                            isMatch && styles.majorSuggestionChipActive,
+                          ]}
+                          onPress={() => setCollegeCourse(m)}
+                          accessibilityRole="button"
+                          accessibilityLabel={`Select exam ${m}`}
+                        >
+                          <Text
+                            style={[
+                              styles.majorSuggestionText,
+                              isMatch && styles.majorSuggestionTextActive,
+                            ]}
+                          >
+                            {m}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                </View>
+              )}
+
+              {/* General Learning View */}
+              {selectedTrack === 'general' && (
+                <View style={styles.formCard}>
+                  <Text style={styles.subFieldLabel}>Primary Topic or Subject</Text>
+                  <TextInput
+                    style={styles.textInput}
+                    value={collegeCourse}
+                    onChangeText={setCollegeCourse}
+                    placeholder="e.g. Tech & Coding, Spanish, Finance..."
+                    placeholderTextColor={colors.textMuted}
+                    autoCapitalize="words"
+                    autoCorrect={false}
+                  />
+
+                  <Text style={[styles.inputLabel, { marginTop: spacing[12], marginBottom: spacing[6] }]}>
+                    Popular Fields
+                  </Text>
+                  <View style={styles.majorSuggestionsRow}>
+                    {POPULAR_GENERAL_TOPICS.map((m) => {
+                      const isMatch = collegeCourse === m;
+                      return (
+                        <TouchableOpacity
+                          key={m}
+                          style={[
+                            styles.majorSuggestionChip,
+                            isMatch && styles.majorSuggestionChipActive,
+                          ]}
+                          onPress={() => setCollegeCourse(m)}
+                          accessibilityRole="button"
+                          accessibilityLabel={`Select topic ${m}`}
+                        >
+                          <Text
+                            style={[
+                              styles.majorSuggestionText,
+                              isMatch && styles.majorSuggestionTextActive,
+                            ]}
+                          >
+                            {m}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                </View>
+              )}
+
+              <TouchableOpacity
+                style={[styles.primaryButton, { marginTop: spacing[20] }]}
+                onPress={() => goToStep(6, 'forward')}
                 accessibilityRole="button"
                 accessibilityLabel="Continue to study formats"
               >
@@ -392,15 +885,15 @@ export default function WelcomeScreen() {
             </View>
           )}
 
-          {/* STEP 3: HOW DO YOU LIKE TO STUDY? (MULTIPLE SELECT + ALL OPTION) */}
-          {step === 3 && (
+          {/* STEP 6: HOW DO YOU LIKE TO STUDY? (MULTIPLE SELECT + ALL OPTION) */}
+          {step === 6 && (
             <View style={styles.stepContainer}>
               <View style={styles.stepHeaderRow}>
                 <TouchableOpacity
-                  onPress={() => goToStep(2, 'backward')}
+                  onPress={() => goToStep(5, 'backward')}
                   style={styles.backButton}
                   accessibilityRole="button"
-                  accessibilityLabel="Go back to track selection"
+                  accessibilityLabel="Go back to academic details"
                 >
                   <HugeiconsIcon icon={ArrowLeft01Icon} size={20} color={colors.icon} strokeWidth={2} />
                 </TouchableOpacity>
@@ -468,7 +961,7 @@ export default function WelcomeScreen() {
 
               <TouchableOpacity
                 style={[styles.primaryButton, { marginTop: spacing[16] }]}
-                onPress={() => goToStep(4, 'forward')}
+                onPress={() => goToStep(7, 'forward')}
                 accessibilityRole="button"
                 accessibilityLabel="Continue to daily study goal"
               >
@@ -478,12 +971,12 @@ export default function WelcomeScreen() {
             </View>
           )}
 
-          {/* STEP 4: HOW MUCH TIME CAN WE STUDY TOGETHER EACH DAY? */}
-          {step === 4 && (
+          {/* STEP 7: DAILY GOAL & STUDY REMINDERS GATE */}
+          {step === 7 && (
             <View style={styles.stepContainer}>
               <View style={styles.stepHeaderRow}>
                 <TouchableOpacity
-                  onPress={() => goToStep(3, 'backward')}
+                  onPress={() => goToStep(6, 'backward')}
                   style={styles.backButton}
                   accessibilityRole="button"
                   accessibilityLabel="Go back to study format"
@@ -492,7 +985,7 @@ export default function WelcomeScreen() {
                 </TouchableOpacity>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.stepTitle}>How much time each day?</Text>
-                  <Text style={styles.stepSub}>Set an easy goal. You can change this anytime!</Text>
+                  <Text style={styles.stepSub}>Set an easy goal & enable reminders to build a habit</Text>
                 </View>
               </View>
 
@@ -543,24 +1036,91 @@ export default function WelcomeScreen() {
                 </View>
               </View>
 
+              {/* Study Reminders Checkbox (Required to Continue) */}
               <TouchableOpacity
-                style={[styles.primaryButton, { marginTop: spacing[20] }]}
-                onPress={() => goToStep(5, 'forward')}
-                accessibilityRole="button"
-                accessibilityLabel="Next, choose launch mode"
+                style={[
+                  styles.reminderCard,
+                  studyRemindersEnabled && styles.reminderCardActive,
+                ]}
+                onPress={() => setStudyRemindersEnabled(!studyRemindersEnabled)}
+                activeOpacity={0.8}
+                accessibilityRole="checkbox"
+                accessibilityLabel="Enable daily study reminders"
+                accessibilityState={{ checked: studyRemindersEnabled }}
               >
-                <Text style={styles.primaryButtonText}>Next: Let's Jump In!</Text>
-                <HugeiconsIcon icon={ArrowRight01Icon} size={18} color={colors.onPrimary} strokeWidth={2.5} />
+                <View
+                  style={[
+                    styles.checkboxSquare,
+                    studyRemindersEnabled && styles.checkboxSquareSelected,
+                  ]}
+                />
+                <View style={{ flex: 1 }}>
+                  <View style={styles.reminderHeaderRow}>
+                    <Text style={styles.reminderTitle}>Daily Study Reminders</Text>
+                    <View
+                      style={[
+                        styles.reminderStatusBadge,
+                        studyRemindersEnabled && styles.reminderStatusBadgeActive,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.reminderStatusBadgeText,
+                          studyRemindersEnabled && styles.reminderStatusBadgeTextActive,
+                        ]}
+                      >
+                        {studyRemindersEnabled ? 'Enabled' : 'Required'}
+                      </Text>
+                    </View>
+                  </View>
+                  <Text style={styles.reminderDesc}>
+                    Send me daily study reminders from Momo so I keep my streak alive and stay locked in!
+                  </Text>
+                </View>
+              </TouchableOpacity>
+
+              {/* Continue Button: Disabled if Study Reminders is not checked */}
+              <TouchableOpacity
+                style={[
+                  styles.primaryButton,
+                  !studyRemindersEnabled && styles.primaryButtonDisabled,
+                  { marginTop: spacing[16] },
+                ]}
+                onPress={() => {
+                  if (studyRemindersEnabled) {
+                    goToStep(8, 'forward');
+                  }
+                }}
+                disabled={!studyRemindersEnabled}
+                accessibilityRole="button"
+                accessibilityLabel={
+                  studyRemindersEnabled ? "Next: Let's Jump In!" : 'Check study reminders above to continue'
+                }
+              >
+                <Text
+                  style={[
+                    styles.primaryButtonText,
+                    !studyRemindersEnabled && styles.primaryButtonTextDisabled,
+                  ]}
+                >
+                  {studyRemindersEnabled ? "Next: Let's Jump In!" : 'Check Reminders to Continue'}
+                </Text>
+                <HugeiconsIcon
+                  icon={ArrowRight01Icon}
+                  size={18}
+                  color={studyRemindersEnabled ? colors.onPrimary : colors.textMuted}
+                  strokeWidth={2.5}
+                />
               </TouchableOpacity>
             </View>
           )}
 
-          {/* STEP 5: LAUNCH GUEST VS GOOGLE (OPTION A) */}
-          {step === 5 && (
+          {/* STEP 8: LAUNCH GUEST VS GOOGLE (OPTION A) */}
+          {step === 8 && (
             <View style={styles.stepContainer}>
               <View style={styles.stepHeaderRow}>
                 <TouchableOpacity
-                  onPress={() => goToStep(4, 'backward')}
+                  onPress={() => goToStep(7, 'backward')}
                   style={styles.backButton}
                   accessibilityRole="button"
                   accessibilityLabel="Go back to daily goal"
@@ -568,7 +1128,9 @@ export default function WelcomeScreen() {
                   <HugeiconsIcon icon={ArrowLeft01Icon} size={20} color={colors.icon} strokeWidth={2} />
                 </TouchableOpacity>
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.stepTitle}>We're Ready to Roll!</Text>
+                  <Text style={styles.stepTitle}>
+                    We're Ready to Roll{firstName ? `, ${firstName}` : ''}!
+                  </Text>
                   <Text style={styles.stepSub}>Pick how you'd like to begin</Text>
                 </View>
               </View>
@@ -638,17 +1200,17 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     paddingVertical: spacing[12],
-    gap: 8,
+    gap: 6,
   },
   progressDot: {
-    width: 20,
+    width: 14,
     height: 6,
     borderRadius: 3,
     backgroundColor: colors.border,
   },
   progressDotActive: {
     backgroundColor: colors.primary,
-    width: 32,
+    width: 24,
   },
   progressDotCompleted: {
     backgroundColor: colors.primaryBorder,
@@ -759,10 +1321,19 @@ const styles = StyleSheet.create({
     gap: 8,
     boxShadow: '0 4px 10px rgba(99, 102, 241, 0.25)',
   },
+  primaryButtonDisabled: {
+    backgroundColor: colors.surfaceMuted,
+    borderWidth: 1,
+    borderColor: colors.border,
+    boxShadow: 'none',
+  },
   primaryButtonText: {
     fontSize: typography.fontSize[14],
     fontWeight: typography.fontWeight.bold,
     color: colors.onPrimary,
+  },
+  primaryButtonTextDisabled: {
+    color: colors.textMuted,
   },
   stepHeaderRow: {
     flexDirection: 'row',
@@ -786,6 +1357,136 @@ const styles = StyleSheet.create({
   stepSub: {
     fontSize: typography.fontSize[12.5],
     color: colors.textSecondary,
+  },
+  formCard: {
+    backgroundColor: colors.surface,
+    borderRadius: 18,
+    borderCurve: 'continuous',
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: spacing[16],
+  },
+  inputGroup: {
+    width: '100%',
+  },
+  inputLabel: {
+    fontSize: typography.fontSize[13],
+    fontWeight: typography.fontWeight.bold,
+    color: colors.text,
+    marginBottom: spacing[6],
+  },
+  textInput: {
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 14,
+    borderCurve: 'continuous',
+    paddingHorizontal: spacing[14],
+    paddingVertical: spacing[12],
+    fontSize: typography.fontSize[14],
+    color: colors.text,
+  },
+  formHint: {
+    fontSize: typography.fontSize[11.5],
+    color: colors.textSecondary,
+    marginTop: spacing[12],
+    lineHeight: 16,
+  },
+  ageOnlyCard: {
+    backgroundColor: colors.surface,
+    borderRadius: 18,
+    borderCurve: 'continuous',
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: spacing[16],
+    alignItems: 'center',
+  },
+  ageCardHeading: {
+    fontSize: typography.fontSize[14],
+    fontWeight: typography.fontWeight.bold,
+    color: colors.text,
+  },
+  ageHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    width: '100%',
+    marginBottom: 4,
+  },
+  ageDefaultBadge: {
+    backgroundColor: colors.primarySoft,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 8,
+    borderCurve: 'continuous',
+  },
+  ageDefaultBadgeText: {
+    fontSize: typography.fontSize[11],
+    fontWeight: typography.fontWeight.bold,
+    color: colors.primary,
+  },
+  agePromptText: {
+    fontSize: typography.fontSize[12],
+    color: colors.textSecondary,
+    marginBottom: spacing[10],
+    alignSelf: 'flex-start',
+  },
+  ageFootnote: {
+    fontSize: typography.fontSize[11],
+    color: colors.textMuted,
+    marginTop: spacing[10],
+    textAlign: 'center',
+  },
+  wheelContainer: {
+    height: 138,
+    width: '100%',
+    position: 'relative',
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: colors.background,
+    borderRadius: 16,
+    borderCurve: 'continuous',
+    borderWidth: 1,
+    borderColor: colors.border,
+    overflow: 'hidden',
+  },
+  wheelSelectionBand: {
+    position: 'absolute',
+    top: 46,
+    left: 10,
+    right: 10,
+    height: 46,
+    backgroundColor: colors.primarySoft,
+    borderRadius: 12,
+    borderCurve: 'continuous',
+    borderWidth: 1,
+    borderColor: colors.primaryBorder,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    paddingRight: spacing[16],
+  },
+  wheelSelectionSuffix: {
+    fontSize: typography.fontSize[12],
+    fontWeight: typography.fontWeight.semiBold,
+    color: colors.primary,
+  },
+  wheelItem: {
+    height: 46,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  wheelItemText: {
+    fontSize: typography.fontSize[16],
+    fontWeight: typography.fontWeight.medium,
+    color: colors.textMuted,
+    fontVariant: ['tabular-nums'],
+  },
+  wheelItemTextSelected: {
+    fontSize: typography.fontSize[22],
+    fontWeight: typography.fontWeight.bold,
+    color: colors.primary,
+    fontVariant: ['tabular-nums'],
   },
   trackList: {
     gap: 10,
@@ -832,6 +1533,88 @@ const styles = StyleSheet.create({
   trackCardDesc: {
     fontSize: typography.fontSize[11],
     color: colors.textSecondary,
+  },
+  conditionalBox: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 16,
+    borderCurve: 'continuous',
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: spacing[14],
+    marginTop: spacing[12],
+  },
+  conditionalHeader: {
+    marginBottom: spacing[10],
+  },
+  conditionalTitle: {
+    fontSize: typography.fontSize[13],
+    fontWeight: typography.fontWeight.bold,
+    color: colors.text,
+    marginBottom: 2,
+  },
+  conditionalSub: {
+    fontSize: typography.fontSize[11],
+    color: colors.textSecondary,
+  },
+  subFieldLabel: {
+    fontSize: typography.fontSize[12],
+    fontWeight: typography.fontWeight.semiBold,
+    color: colors.text,
+    marginBottom: spacing[6],
+  },
+  gradeGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  subChip: {
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingVertical: spacing[7],
+    paddingHorizontal: spacing[11],
+    borderRadius: 12,
+    borderCurve: 'continuous',
+  },
+  subChipSelected: {
+    backgroundColor: colors.primarySoft,
+    borderColor: colors.primary,
+  },
+  subChipText: {
+    fontSize: typography.fontSize[12],
+    fontWeight: typography.fontWeight.medium,
+    color: colors.text,
+  },
+  subChipTextSelected: {
+    fontWeight: typography.fontWeight.bold,
+    color: colors.primary,
+  },
+  majorSuggestionsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginTop: spacing[8],
+  },
+  majorSuggestionChip: {
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 8,
+    borderCurve: 'continuous',
+  },
+  majorSuggestionChipActive: {
+    backgroundColor: colors.primarySoft,
+    borderColor: colors.primary,
+  },
+  majorSuggestionText: {
+    fontSize: typography.fontSize[11],
+    color: colors.textSecondary,
+  },
+  majorSuggestionTextActive: {
+    color: colors.primary,
+    fontWeight: typography.fontWeight.bold,
   },
   formatList: {
     gap: 10,
@@ -901,8 +1684,6 @@ const styles = StyleSheet.create({
     borderCurve: 'continuous',
     borderWidth: 1.5,
     borderColor: colors.borderStrong,
-    alignItems: 'center',
-    justifyContent: 'center',
     backgroundColor: colors.surface,
   },
   checkboxSquareSelected: {
@@ -1023,6 +1804,59 @@ const styles = StyleSheet.create({
   momoTipDesc: {
     fontSize: typography.fontSize[11.5],
     color: '#78350F',
+    lineHeight: 16,
+  },
+  reminderCard: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: colors.surface,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    borderRadius: 16,
+    borderCurve: 'continuous',
+    padding: spacing[14],
+    marginTop: spacing[16],
+    gap: 12,
+  },
+  reminderCardActive: {
+    borderColor: colors.primary,
+    backgroundColor: colors.primarySoft,
+  },
+  reminderHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
+  reminderTitle: {
+    fontSize: typography.fontSize[13],
+    fontWeight: typography.fontWeight.bold,
+    color: colors.text,
+  },
+  reminderStatusBadge: {
+    backgroundColor: '#FEF3C7',
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 8,
+    borderCurve: 'continuous',
+  },
+  reminderStatusBadgeActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  reminderStatusBadgeText: {
+    fontSize: typography.fontSize[10],
+    fontWeight: typography.fontWeight.bold,
+    color: '#92400E',
+  },
+  reminderStatusBadgeTextActive: {
+    color: colors.onPrimary,
+  },
+  reminderDesc: {
+    fontSize: typography.fontSize[11.5],
+    color: colors.textSecondary,
     lineHeight: 16,
   },
   launchCardHighlighted: {

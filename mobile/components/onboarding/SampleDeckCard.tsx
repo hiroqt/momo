@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
-import {
+import { Platform, 
   View,
   StyleSheet,
   Image,
   TouchableOpacity,
   ActivityIndicator,
-} from 'react-native';
+ } from 'react-native';
 import { AppText as Text } from '@/components/common/app-text';
 import { useRouter } from 'expo-router';
 import { HugeiconsIcon } from '@hugeicons/react-native';
@@ -120,7 +120,17 @@ const styles = StyleSheet.create({
     marginBottom: spacing[16],
     borderWidth: 1.5,
     borderColor: '#C7D2FE',
-    boxShadow: '0 4px 10px rgba(79, 70, 229, 0.1)',
+    ...Platform.select({
+      ios: {
+        shadowColor: colors.shadow || '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 8,
+      },
+    }),
   },
   topRow: {
     flexDirection: 'row',

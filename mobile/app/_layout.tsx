@@ -56,7 +56,7 @@ export default function RootLayout() {
             <Stack
               screenOptions={{
                 headerShown: false,
-                animation: "fade",
+                animation: isIOS ? "fade" : "default",
                 animationDuration: 350,
                 gestureEnabled: true,
                 fullScreenGestureEnabled: isIOS,
@@ -69,13 +69,14 @@ export default function RootLayout() {
                 name="(auth)/welcome"
                 options={{
                   headerShown: false,
-                  animation: "fade",
+                  animation: isIOS ? "fade" : "default",
                 }}
               />
               <Stack.Screen
                 name="(tabs)"
                 options={{
                   headerShown: false,
+                  animation: isIOS ? "fade" : "default",
                 }}
               />
               <Stack.Screen
@@ -91,7 +92,7 @@ export default function RootLayout() {
                 name="create/[documentId]"
                 options={{
                   headerShown: false,
-                  animation: "fade",
+                  animation: isIOS ? "fade" : "default",
                   animationDuration: 350,
                 }}
               />
@@ -99,7 +100,7 @@ export default function RootLayout() {
                 name="generation/[jobId]"
                 options={{
                   headerShown: false,
-                  animation: "fade",
+                  animation: isIOS ? "fade" : "default",
                   animationDuration: 350,
                 }}
               />
@@ -107,7 +108,7 @@ export default function RootLayout() {
                 name="study/[studySetId]"
                 options={{
                   headerShown: false,
-                  animation: "fade",
+                  animation: isIOS ? "fade" : "default",
                   animationDuration: 350,
                 }}
               />

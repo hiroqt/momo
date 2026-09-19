@@ -32,8 +32,8 @@
         "expo-splash-screen",
         {
           "backgroundColor": "#FFFFFF",
-          "image": "./assets/splash.png",
-          "resizeMode": "cover"
+          "image": "./assets/animations/momo_loading.png",
+          "resizeMode": "contain"
         }
       ],
       "expo-font"

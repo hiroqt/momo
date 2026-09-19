@@ -46,6 +46,8 @@ export const TabTransitionView: React.FC<TabTransitionViewProps> = ({
 
   return (
     <Animated.View
+      renderToHardwareTextureAndroid={true}
+      needsOffscreenAlphaCompositing={true}
       style={[
         styles.container,
         style,

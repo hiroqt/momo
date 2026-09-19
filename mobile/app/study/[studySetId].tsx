@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { colors, spacing, typography } from '@/constants/theme';
 import {
+  Platform,
   View,
   StyleSheet,
   TouchableOpacity,
@@ -33,7 +34,6 @@ import { PlatformPressable } from '../../components/common/PlatformPressable';
 import { ConfirmationModal } from '../../components/common/ConfirmationModal';
 import { RenameModal } from '../../components/common/RenameModal';
 import { SmoothScrollView } from '../../components/common/SmoothScrollView';
-import { MomoMaker } from '../../components/mascot/MomoMaker';
 import { StudySet, StudyItem } from '../../types';
 import { useOnboarding } from '../../context/OnboardingContext';
 import { CelebrationModal } from '../../components/onboarding/CelebrationModal';
@@ -535,7 +535,17 @@ const styles = StyleSheet.create({
     paddingTop: spacing[12],
     paddingBottom: spacing[36],
     gap: spacing[8],
-    boxShadow: '0 -4px 16px rgba(0, 0, 0, 0.1)',
+    ...Platform.select({
+      ios: {
+        shadowColor: colors.shadow || '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
   },
   actionSheetHandle: {
     width: 36,
@@ -627,7 +637,17 @@ const styles = StyleSheet.create({
   activeModeTab: {
     backgroundColor: colors.surface,
     borderCurve: 'continuous',
-    boxShadow: '0 2px 4px rgba(0, 0, 0, 0.08)',
+    ...Platform.select({
+      ios: {
+        shadowColor: colors.shadow || '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.08,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
   },
   modeTabText: {
     fontSize: typography.fontSize[12.5],
@@ -672,7 +692,17 @@ const styles = StyleSheet.create({
     maxWidth: 400,
     borderWidth: 1,
     borderColor: colors.border,
-    boxShadow: '0 4px 16px rgba(0, 0, 0, 0.08)',
+    ...Platform.select({
+      ios: {
+        shadowColor: colors.shadow || '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.08,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
   },
   finishBadgeCircle: {
     width: 76,
@@ -746,7 +776,17 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
     borderRadius: 14,
     borderCurve: 'continuous',
-    boxShadow: '0 4px 8px rgba(0, 0, 0, 0.25)',
+    ...Platform.select({
+      ios: {
+        shadowColor: colors.shadow || '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.2,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
   },
   doneBtnText: {
     color: colors.onPrimary,

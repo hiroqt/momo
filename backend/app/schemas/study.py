@@ -3,8 +3,9 @@ from typing import Optional, List, Any, Dict
 from datetime import datetime
 
 class StudySetUpdateRequest(BaseModel):
-    title: str = Field(..., min_length=1, max_length=255)
+    title: Optional[str] = Field(None, min_length=1, max_length=255)
     description: Optional[str] = None
+    folder_id: Optional[str] = None
 
 
 class SourceMetadata(BaseModel):
@@ -32,6 +33,7 @@ class StudySetResponse(BaseModel):
     id: str
     user_id: str
     document_id: Optional[str] = None
+    folder_id: Optional[str] = None
     title: str
     description: Optional[str] = None
     item_count: int

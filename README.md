@@ -1,6 +1,14 @@
-# AI Study Platform
+![Momo Header](./mobile/assets/header_momo.png)
 
-A production-oriented educational platform that transforms uploaded academic documents into grounded, interactive study sets using NVIDIA Nemotron, Retrieval-Augmented Generation (RAG), FastAPI, and React Native (Expo).
+# Momo
+
+**Turn any document into a reliable, personalized, and interactive study guide—anytime, anywhere.**
+
+> *Overwhelmed by notes? Upload your materials to Momo and instantly get reliable, gamified flashcards and practice exams based only on your trusted documents. Study faster, anywhere!*
+
+Momo is a smart, friendly educational app that transforms your everyday study materials—like PDFs, Word documents, and presentations—into interactive review sessions. Instead of searching for answers online or risking inaccurate information from generic chatbots, Momo reads exactly what you upload. It creates personalized flashcards, practice tests, and summaries based *strictly* on your class materials. Guided by our helpful mascot, Momo, you earn points and track your progress as you learn, turning a stressful study session into a fun, rewarding experience you can take anywhere, even offline.
+
+*Under the hood, Momo is a production-oriented educational platform built using NVIDIA Nemotron, Retrieval-Augmented Generation (RAG), FastAPI, and React Native (Expo).*
 
 ---
 

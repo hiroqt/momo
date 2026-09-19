@@ -34,7 +34,7 @@ import { PageHeader } from '../../components/common/PageHeader';
 import { PlatformPressable } from '../../components/common/PlatformPressable';
 import { SmoothScrollView } from '../../components/common/SmoothScrollView';
 
-const TOTAL_STEPS = 5;
+const TOTAL_STEPS = 6;
 
 const STEP_TITLES = [
   'Reviewer Name',
@@ -42,6 +42,7 @@ const STEP_TITLES = [
   'Question Count',
   'Difficulty Level',
   'Study Formats',
+  'Question Timer',
 ];
 
 export default function CreateReviewerScreen() {
@@ -75,6 +76,8 @@ export default function CreateReviewerScreen() {
     identification: false,
   });
   const [instructions, setInstructions] = useState('');
+  const [timerOption, setTimerOption] = useState<'none' | '15' | '30' | '45' | '60' | 'custom'>('none');
+  const [customTimer, setCustomTimer] = useState('90');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
@@ -123,6 +126,12 @@ export default function CreateReviewerScreen() {
         return;
       }
     } else if (currentStep === 5) {
+      const selectedTypes = Object.keys(formats).filter((k) => formats[k]);
+      if (selectedTypes.length === 0) {
+        Alert.alert('Selection Required', 'Please select at least one study format.');
+        return;
+      }
+    } else if (currentStep === 6) {
       handleGenerate();
       return;
     }
@@ -155,6 +164,14 @@ export default function CreateReviewerScreen() {
 
     setIsSubmitting(true);
     try {
+      const parsedCustom = parseInt(customTimer, 10);
+      const timerSeconds =
+        timerOption === 'none'
+          ? undefined
+          : timerOption === 'custom'
+          ? (Number.isFinite(parsedCustom) && parsedCustom > 0 ? parsedCustom : 60)
+          : parseInt(timerOption, 10);
+
       const job = await createGeneration({
         document_id: documentId,
         title: title.trim() || `${topic.trim()} Reviewer`,
@@ -164,6 +181,7 @@ export default function CreateReviewerScreen() {
         question_types: selectedTypes,
         custom_instruction: instructions.trim() || undefined,
         source_only: true,
+        time_limit_per_question: timerSeconds,
       });
 
       router.replace(`/generation/${job.generation_id}`);
@@ -544,6 +562,69 @@ export default function CreateReviewerScreen() {
                 multiline
                 numberOfLines={3}
               />
+            </View>
+          </View>
+        )}
+
+        {/* STEP 6: Question Timer */}
+        {currentStep === 6 && (
+          <View style={styles.stepSection}>
+            <View style={styles.sectionHeader}>
+              <View style={styles.stepTitleRow}>
+                <View style={styles.stepIconBox}>
+                  <HugeiconsIcon icon={Clock01Icon} size={18} color={colors.primary} strokeWidth={2.2} />
+                </View>
+                <Text style={styles.stepTitle}>Set question timer</Text>
+              </View>
+              <Text style={styles.stepDesc}>
+                Set a time limit for each question during quiz sessions, or select Untimed for relaxed studying.
+              </Text>
+            </View>
+
+            <View style={styles.timerSection}>
+              <View style={styles.timerGrid}>
+                {[
+                  { id: 'none', label: 'Untimed', sub: 'Relaxed' },
+                  { id: '15', label: '15s', sub: 'Rapid fire' },
+                  { id: '30', label: '30s', sub: 'Standard' },
+                  { id: '45', label: '45s', sub: 'Challenging' },
+                  { id: '60', label: '60s', sub: 'Exam pace' },
+                  { id: 'custom', label: 'Custom', sub: 'Set secs' },
+                ].map((t) => {
+                  const isSelected = timerOption === t.id;
+                  return (
+                    <TouchableOpacity
+                      key={t.id}
+                      style={[styles.timerChip, isSelected && styles.timerChipSelected]}
+                      onPress={() => setTimerOption(t.id as any)}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={[styles.timerChipLabel, isSelected && styles.timerChipLabelSelected]}>
+                        {t.label}
+                      </Text>
+                      <Text style={[styles.timerChipSub, isSelected && styles.timerChipSubSelected]}>
+                        {t.sub}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+
+              {timerOption === 'custom' && (
+                <View style={styles.customTimerRow}>
+                  <Text style={styles.customTimerLabel}>Seconds per question:</Text>
+                  <TextInput
+                    style={styles.customTimerInput}
+                    keyboardType="number-pad"
+                    value={customTimer}
+                    onChangeText={setCustomTimer}
+                    placeholder="90"
+                    placeholderTextColor={colors.textDisabled}
+                    maxLength={4}
+                  />
+                  <Text style={styles.customTimerUnit}>seconds</Text>
+                </View>
+              )}
             </View>
           </View>
         )}
@@ -997,5 +1078,103 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSize[15.5],
     fontWeight: typography.fontWeight.bold,
     letterSpacing: typography.letterSpacing[-0.2],
+  },
+  timerSection: {
+    marginTop: spacing[20],
+    marginBottom: spacing[20],
+    backgroundColor: colors.surface,
+    padding: spacing[16],
+    borderRadius: 16,
+    borderWidth: 1.5,
+    borderColor: colors.borderStrong,
+  },
+  timerTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing[8],
+    marginBottom: spacing[4],
+  },
+  timerIconBox: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    backgroundColor: colors.primarySoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  timerDesc: {
+    fontSize: typography.fontSize[13],
+    color: colors.textMuted,
+    lineHeight: typography.lineHeight[18],
+    marginBottom: spacing[14],
+  },
+  timerGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing[8],
+  },
+  timerChip: {
+    flexBasis: '31%',
+    flexGrow: 1,
+    paddingVertical: spacing[10],
+    paddingHorizontal: spacing[8],
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: colors.borderStrong,
+    backgroundColor: colors.surfaceMuted,
+    alignItems: 'center',
+  },
+  timerChipSelected: {
+    borderColor: colors.primary,
+    backgroundColor: colors.primarySoft,
+  },
+  timerChipLabel: {
+    fontSize: typography.fontSize[13.5],
+    fontWeight: typography.fontWeight.bold,
+    color: colors.text,
+    marginBottom: 2,
+  },
+  timerChipLabelSelected: {
+    color: colors.primary,
+  },
+  timerChipSub: {
+    fontSize: typography.fontSize[11],
+    color: colors.textMuted,
+    fontWeight: typography.fontWeight.medium,
+  },
+  timerChipSubSelected: {
+    color: colors.primaryDark,
+    fontWeight: typography.fontWeight.semiBold,
+  },
+  customTimerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: spacing[12],
+    gap: spacing[10],
+    backgroundColor: colors.surfaceMuted,
+    padding: spacing[10],
+    borderRadius: 10,
+  },
+  customTimerLabel: {
+    fontSize: typography.fontSize[13],
+    color: colors.text,
+    fontWeight: typography.fontWeight.medium,
+  },
+  customTimerInput: {
+    width: 64,
+    backgroundColor: colors.surface,
+    borderWidth: 1.5,
+    borderColor: colors.borderStrong,
+    borderRadius: 8,
+    paddingHorizontal: spacing[8],
+    paddingVertical: spacing[6],
+    fontSize: typography.fontSize[14],
+    fontWeight: typography.fontWeight.bold,
+    textAlign: 'center',
+    color: colors.text,
+  },
+  customTimerUnit: {
+    fontSize: typography.fontSize[13],
+    color: colors.textMuted,
   },
 });

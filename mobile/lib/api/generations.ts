@@ -11,6 +11,7 @@ export interface GenerationRequest {
   source_only?: boolean;
   custom_instruction?: string;
   focus_sections?: string[];
+  time_limit_per_question?: number;
 }
 
 export async function createGeneration(req: GenerationRequest): Promise<GenerationJob> {

@@ -80,15 +80,17 @@ export default function StudySessionScreen() {
   const [isRenaming, setIsRenaming] = useState(false);
   const [showActionMenu, setShowActionMenu] = useState(false);
   const [finishedScore, setFinishedScore] = useState<{ correct: number; total: number } | null>(null);
+  const [isQuizCompleted, setIsQuizCompleted] = useState(false);
+  const [quizScore, setQuizScore] = useState<{ correct: number; total: number; xp: number } | null>(null);
   const [sessionKey, setSessionKey] = useState(0);
 
   const { hasSeenCelebrationModal, dismissCelebration, markSessionCompleted } = useOnboarding();
 
   useEffect(() => {
-    if (finishedScore) {
+    if (finishedScore || isQuizCompleted) {
       markSessionCompleted();
     }
-  }, [finishedScore]);
+  }, [finishedScore, isQuizCompleted]);
 
   const handleShuffleReset = () => {
     setItems((prev) => randomizeStudyItems(prev));
@@ -186,6 +188,8 @@ export default function StudySessionScreen() {
     setItems((prev) => randomizeStudyItems(prev));
     setSessionKey((prev) => prev + 1);
     setFinishedScore(null);
+    setIsQuizCompleted(false);
+    setQuizScore(null);
   };
 
   if (isLoading) {
@@ -212,7 +216,7 @@ export default function StudySessionScreen() {
     );
   }
 
-  if (finishedScore) {
+  if (finishedScore && mode === 'flashcard') {
     const percent = Math.round((finishedScore.correct / finishedScore.total) * 100);
     const isMastered = percent >= 70;
     return (
@@ -340,14 +344,22 @@ export default function StudySessionScreen() {
 
   return (
     <View style={styles.screen}>
+      <CelebrationModal
+        visible={!hasSeenCelebrationModal && isQuizCompleted}
+        onDismiss={dismissCelebration}
+        xpEarned={quizScore?.xp || actualQuizItems.length * 15}
+        itemsCount={quizScore?.total || actualQuizItems.length}
+      />
       <PageHeader
-        title={studySet?.title || 'Reviewer'}
-        subtitle={screenSubtitle}
-        rightAction={threeDotsButton}
+        title={isQuizCompleted ? 'Session Complete' : studySet?.title || 'Reviewer'}
+        subtitle={isQuizCompleted ? 'Review your results and answer explanations below' : screenSubtitle}
+        showBack={true}
+        onBack={() => router.replace('/(tabs)/library')}
+        rightAction={isQuizCompleted ? undefined : threeDotsButton}
       />
 
-      {/* Mode Switcher - Only shown if multiple modes exist */}
-      {availableModes.length > 1 && (
+      {/* Mode Switcher - Only shown if multiple modes exist and quiz is not completed */}
+      {availableModes.length > 1 && !isQuizCompleted && (
         <View style={styles.modeBar}>
           {availableModes.map((m) => {
             const isActive = mode === m.key;
@@ -385,7 +397,12 @@ export default function StudySessionScreen() {
           <QuizRunner
             key={`quiz-${sessionKey}-${actualQuizItems.map((i) => i.id).join('-')}`}
             items={actualQuizItems}
-            onFinish={(score) => setFinishedScore({ correct: score.correct, total: score.total })}
+            timeLimitPerQuestion={studySet?.generation_config?.time_limit_per_question}
+            onFinish={(score) => {
+              setIsQuizCompleted(true);
+              setQuizScore(score);
+              markSessionCompleted();
+            }}
             onRestart={handleRestart}
           />
         )}

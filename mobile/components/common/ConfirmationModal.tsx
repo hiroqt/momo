@@ -16,8 +16,8 @@ import {
   AlertCircleIcon,
   Logout01Icon,
 } from '@hugeicons/core-free-icons';
-import { MomoSadFace } from '../mascot/MomoSadFace';
-import { MomoThinkingFace } from '../mascot/MomoThinkingFace';
+import { Image } from 'react-native';
+
 
 export interface ConfirmationModalProps {
   visible: boolean;
@@ -76,14 +76,14 @@ export const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
     if (icon === 'delete') {
       return (
         <View style={styles.momoContainer}>
-          <MomoSadFace size={96} />
+          <Image source={require('../../assets/animations/worried_momo.png')} style={{ width: 96, height: 96 }} resizeMode="contain" />
         </View>
       );
     }
     if (icon === 'thinking') {
       return (
         <View style={styles.momoContainer}>
-          <MomoThinkingFace size={104} />
+          <Image source={require('../../assets/animations/thinking_momo.png')} style={{ width: 104, height: 104 }} resizeMode="contain" />
         </View>
       );
     }

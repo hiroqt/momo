@@ -581,7 +581,7 @@ export default function CreateReviewerScreen() {
             <Text style={styles.nextBtnText}>
               {currentStep === TOTAL_STEPS
                 ? isSubmitting
-                  ? 'Cooking Up Reviewer...'
+                  ? 'Creating Reviewer...'
                   : 'Generate Reviewer'
                 : 'Next Step'}
             </Text>

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { colors, spacing, typography } from '@/constants/theme';
+import {
+  colors, spacing, typography } from '@/constants/theme';
 import {
   View,
   StyleSheet,
@@ -22,8 +23,10 @@ import {
   CheckmarkCircle02Icon,
   HelpCircleIcon,
   Upload01Icon,
+  Coins01Icon,
 } from '@hugeicons/core-free-icons';
 import { listStudySets, deleteStudySet, updateStudySet } from '../../lib/api/studySets';
+import { getStreak } from '../../lib/api/stats';
 import { localDb } from '../../lib/storage/localDb';
 import { PlatformPressable } from '../../components/common/PlatformPressable';
 import { ConfirmationModal } from '../../components/common/ConfirmationModal';
@@ -34,6 +37,8 @@ import { TabTransitionView } from '../../components/common/TabTransitionView';
 import { StudySet } from '../../types';
 import { DynamicMomoHead } from '../../components/mascot/DynamicMomoHead';
 import { getRandomStudyQuote, StudyQuote } from '../../lib/data/studyQuotes';
+import { useCredits } from '../../context/CreditsContext';
+import { SampleDeckCard } from '../../components/onboarding/SampleDeckCard';
 
 function getGreeting(): string {
   const hour = new Date().getHours();
@@ -53,6 +58,7 @@ function getFormattedDate(): string {
 
 export default function HomeScreen() {
   const router = useRouter();
+  const { xp } = useCredits();
   const insets = useSafeAreaInsets();
   const [sets, setSets] = useState<StudySet[]>([]);
   const [refreshing, setRefreshing] = useState(false);
@@ -60,6 +66,7 @@ export default function HomeScreen() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [renameTarget, setRenameTarget] = useState<StudySet | null>(null);
   const [isRenaming, setIsRenaming] = useState(false);
+  const [streakData, setStreakData] = useState<{ active_dates: string[]; current_streak: number }>({ active_dates: [], current_streak: 0 });
 
   const [momoVisible, setMomoVisible] = useState(true);
   const [momoQuote, setMomoQuote] = useState<StudyQuote>(() => getRandomStudyQuote());
@@ -88,8 +95,14 @@ export default function HomeScreen() {
 
   const loadData = async () => {
     try {
-      const setsData = await listStudySets().catch(() => localDb.listStudySets());
+      const [setsData, streakRes] = await Promise.all([
+        listStudySets().catch(() => localDb.listStudySets()),
+        getStreak().catch(() => ({ active_dates: [], current_streak: 0 }))
+      ]);
       setSets(setsData || []);
+      if (streakRes) {
+        setStreakData(streakRes);
+      }
     } catch (err) {
       console.warn('Error loading home data:', err);
     }
@@ -153,65 +166,108 @@ export default function HomeScreen() {
             <Text style={styles.dateLabel}>{getFormattedDate()}</Text>
             <Text style={styles.greeting}>{getGreeting()}</Text>
           </View>
-          <TouchableOpacity
-            style={styles.profileBadge}
-            onPress={() => router.push('/(tabs)/profile')}
-            activeOpacity={0.8}
-          >
-            <View style={styles.avatarMini}>
-              <Text style={styles.avatarMiniText}>ST</Text>
-            </View>
-          </TouchableOpacity>
-        </View>
-
-        {/* Dismissible Momo Tip Banner (Interactive) */}
-        {momoVisible && (
-          <View style={styles.momoBanner}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
             <TouchableOpacity
-              style={styles.momoContent}
-              activeOpacity={0.7}
-              onPress={() => setMomoQuote(getRandomStudyQuote(momoQuote.id))}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                backgroundColor: '#FEF3C7',
+                paddingHorizontal: 12,
+                paddingVertical: 8,
+                borderRadius: 20,
+                borderWidth: 1,
+                borderColor: '#FDE68A',
+                gap: 6
+              }}
+              onPress={() => router.push('/shop')}
+              activeOpacity={0.8}
             >
-              <View style={styles.momoIconContainer}>
-                <View style={{ transform: [{ scale: 0.6 }], width: 92, height: 92, alignItems: 'center', justifyContent: 'center' }}>
-                  <DynamicMomoHead quote={momoQuote} />
-                </View>
-              </View>
-              <View style={styles.momoTextCol}>
-                <Text style={styles.momoTipTitle}>{momoQuote.emoji} {momoQuote.categoryLabel}</Text>
-                <Text style={styles.momoTipDesc}>{momoQuote.quote}</Text>
-              </View>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.momoCloseBtn} onPress={() => setMomoVisible(false)}>
-              <Text style={styles.momoCloseText}>✕</Text>
+              <HugeiconsIcon icon={Coins01Icon} size={18} color="#D97706" />
+              <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#B45309' }}>{xp} XP</Text>
             </TouchableOpacity>
           </View>
-        )}
+        </View>
+
+        {/* Interactive Momo with Chat Bubble */}
+        <View style={styles.momoBannerContainer}>
+          <TouchableOpacity
+            style={styles.momoAvatarBtn}
+            activeOpacity={0.7}
+            onPress={() => {
+              setMomoQuote(getRandomStudyQuote(momoQuote.id));
+              setMomoVisible(true);
+            }}
+          >
+            <View style={{ width: 130, height: 130, alignItems: 'center', justifyContent: 'center' }}>
+              <DynamicMomoHead quote={momoQuote} />
+            </View>
+          </TouchableOpacity>
+
+          {momoVisible && (
+            <View style={styles.chatBubble}>
+              <View style={styles.chatBubbleTailOuter} />
+              <View style={styles.chatBubbleTail} />
+              <TouchableOpacity
+                style={styles.chatBubbleContent}
+                activeOpacity={0.7}
+                onPress={() => setMomoQuote(getRandomStudyQuote(momoQuote.id))}
+              >
+                <Text style={styles.momoTipTitle}>{momoQuote.emoji} {momoQuote.categoryLabel}</Text>
+                <Text style={styles.momoTipDesc}>{momoQuote.quote}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.momoCloseBtn} onPress={() => setMomoVisible(false)}>
+                <Text style={styles.momoCloseText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
 
         {/* Horizontal Streak Timeline */}
         <View style={styles.streakTimelineContainer}>
           <View style={styles.streakHeader}>
-            <Text style={styles.streakTitle}>🔥 3 Day Streak</Text>
+            <Text style={styles.streakTitle}>🔥 {streakData.current_streak} Day Streak</Text>
             <Text style={styles.streakSub}>You're on a roll!</Text>
           </View>
           <View style={styles.streakDays}>
             {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((day, idx) => {
-              const isActive = idx < 3; // Mocking a 3-day streak
-              const isToday = idx === 2; // Mocking today is Wednesday
+              const today = new Date();
+              const currentDayOfWeek = today.getDay() === 0 ? 6 : today.getDay() - 1;
+              const dateForDay = new Date(today);
+              dateForDay.setDate(today.getDate() - currentDayOfWeek + idx);
+              
+              const yyyy = dateForDay.getFullYear();
+              const mm = String(dateForDay.getMonth() + 1).padStart(2, '0');
+              const dd = String(dateForDay.getDate()).padStart(2, '0');
+              const dateStr = `${yyyy}-${mm}-${dd}`;
+              
+              const isActive = streakData.active_dates.includes(dateStr);
+              const isToday = idx === currentDayOfWeek;
+              
               return (
                 <View key={idx} style={styles.streakDayWrapper}>
-                  <View style={[styles.streakDayCircle, isActive && styles.streakDayActive, isToday && styles.streakDayToday]}>
+                  <View style={[
+                    styles.streakDayCircle,
+                    isActive && !isToday && { backgroundColor: colors.warningSoft },
+                    isToday && { backgroundColor: isActive ? colors.warningAccent : colors.surfaceMuted },
+                    isToday && !isActive && { borderWidth: 1, borderColor: colors.borderStrong }
+                  ]}>
                     {isActive ? (
                       <HugeiconsIcon
                         icon={CheckmarkCircle02Icon}
                         size={16}
-                        color={isToday ? colors.onPrimary : colors.primary}
+                        color={isToday ? colors.onPrimary : colors.warningAccent}
                       />
                     ) : (
-                      <Text style={styles.streakDayText}>{day}</Text>
+                      <Text style={[
+                        styles.streakDayText,
+                        isToday && { color: colors.text, fontWeight: typography.fontWeight.black }
+                      ]}>{day}</Text>
                     )}
                   </View>
-                  <Text style={[styles.streakDayLabel, isActive && styles.streakDayLabelActive]}>{day}</Text>
+                  <Text style={[
+                    styles.streakDayLabel,
+                    isActive && { color: colors.warningAccent, fontWeight: typography.fontWeight.bold }
+                  ]}>{day}</Text>
                 </View>
               );
             })}
@@ -294,15 +350,7 @@ export default function HomeScreen() {
           </View>
 
           {sets.length === 0 ? (
-            <View style={styles.emptyState}>
-              <View style={styles.emptyIconCircle}>
-                <HugeiconsIcon icon={BookOpen01Icon} size={28} color={colors.primary} strokeWidth={1.8} />
-              </View>
-              <Text style={styles.emptyTitle}>No study sets yet</Text>
-              <Text style={styles.emptySubtitle}>
-                Tap the + button to upload material and create a reviewer.
-              </Text>
-            </View>
+            <SampleDeckCard onDeckSeeded={loadData} />
           ) : (
             <ScrollView
               horizontal
@@ -353,6 +401,7 @@ export default function HomeScreen() {
       <DashboardFAB
         onUpload={() => router.push('/documents/upload')}
         onStudySets={() => router.push('/(tabs)/library')}
+        onMathSolve={() => router.push('/math/solve')}
         studySetsCount={sets.length}
       />
 
@@ -430,45 +479,83 @@ const styles = StyleSheet.create({
     fontWeight: typography.fontWeight.bold,
     color: colors.primary,
   },
-  momoBanner: {
+  momoBannerContainer: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'flex-end',
+    marginBottom:  10,
+    paddingHorizontal: 4,
+    zIndex: 1,
+    elevation: 1,
+  },
+  momoAvatarBtn: {
+    marginRight: 12,
+    marginBottom:  -8,
+    position: 'relative',
+    zIndex: 2,
+    elevation: 2,
+  },
+  chatBubble: {
+    flex: 1,
     backgroundColor: '#FEF3C7',
-    padding: spacing[12],
-    borderRadius: 14,
-    marginBottom: spacing[20],
+    padding: 14,
+    borderRadius: 18,
     borderWidth: 1,
     borderColor: '#FDE68A',
-  },
-  momoContent: {
-    flex: 1,
+    position: 'relative',
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing[10],
+    alignItems: 'flex-start',
+    zIndex:  1,
+    elevation:  1,
   },
-  momoIconContainer: {
-    width: 48,
-    height: 48,
-    alignItems: 'center',
-    justifyContent: 'center',
+  chatBubbleTailOuter: {
+    position: 'absolute',
+    left: -9,
+    bottom: 35,
+    width: 0,
+    height: 0,
+    backgroundColor: 'transparent',
+    borderStyle: 'solid',
+    borderTopWidth: 8,
+    borderBottomWidth: 8,
+    borderRightWidth: 10,
+    borderTopColor: 'transparent',
+    borderBottomColor: 'transparent',
+    borderRightColor: '#FDE68A',
+    zIndex: 1,
   },
-  momoTextCol: {
+  chatBubbleTail: {
+    position: 'absolute',
+    left: -8,
+    bottom: 35,
+    width: 0,
+    height: 0,
+    backgroundColor: 'transparent',
+    borderStyle: 'solid',
+    borderTopWidth: 8,
+    borderBottomWidth: 8,
+    borderRightWidth: 10,
+    borderTopColor: 'transparent',
+    borderBottomColor: 'transparent',
+    borderRightColor: '#FEF3C7',
+    zIndex: 2,
+  },
+  chatBubbleContent: {
     flex: 1,
-    paddingRight: spacing[8],
+    paddingRight: 8,
   },
   momoTipTitle: {
-    fontSize: typography.fontSize[13],
-    fontWeight: typography.fontWeight.bold,
+    fontSize: 14,
+    fontWeight: '800',
     color: '#92400E',
-    marginBottom: 2,
+    marginBottom: 4,
   },
   momoTipDesc: {
-    fontSize: typography.fontSize[12],
+    fontSize: 13,
     color: '#B45309',
-    lineHeight: typography.lineHeight[17],
+    lineHeight: 18,
   },
   momoCloseBtn: {
-    padding: spacing[4],
+    padding: 4,
   },
   momoCloseText: {
     fontSize: 16,
@@ -482,6 +569,8 @@ const styles = StyleSheet.create({
     marginBottom: spacing[16],
     borderWidth: 1,
     borderColor: colors.border,
+    zIndex: 10,
+    elevation: 10,
     ...Platform.select({
       ios: {
         shadowColor: colors.shadow,

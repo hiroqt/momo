@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "AI Study Platform",
-    "slug": "ai-study-platform",
+    "name": "momo",
+    "slug": "momo",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -31,9 +31,8 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#F8FAFC",
-          "image": "./assets/icon.png",
-          "imageWidth": 100,
+          "backgroundColor": "#FFFFFF",
+          "image": "./assets/animations/momo_loading.png",
           "resizeMode": "contain"
         }
       ],

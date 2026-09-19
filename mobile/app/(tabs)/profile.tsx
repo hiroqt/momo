@@ -1,15 +1,17 @@
 import React, { useEffect, useState } from 'react';
 import { colors, spacing, typography } from '@/constants/theme';
 import {
+  Platform,
   View,
   StyleSheet,
   ScrollView,
   Alert,
-  Platform,
+  TouchableOpacity,
   StatusBar as RNStatusBar,
 } from 'react-native';
 import { AppText as Text } from '@/components/common/app-text';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
 import { HugeiconsIcon } from '@hugeicons/react-native';
 import {
   UserCircleIcon,
@@ -18,6 +20,9 @@ import {
   Shield01Icon,
   Logout01Icon,
   FlashIcon,
+  SparklesIcon,
+  RefreshIcon,
+  BookOpen01Icon,
 } from '@hugeicons/core-free-icons';
 import { apiFetch } from '../../lib/api/client';
 import { PlatformPressable } from '../../components/common/PlatformPressable';
@@ -25,11 +30,29 @@ import { ConfirmationModal } from '../../components/common/ConfirmationModal';
 import { SmoothScrollView } from '../../components/common/SmoothScrollView';
 import { TabTransitionView } from '../../components/common/TabTransitionView';
 import { UserProfile } from '../../types';
+import { useOnboarding } from '../../context/OnboardingContext';
 
 export default function ProfileScreen() {
+  const router = useRouter();
   const insets = useSafeAreaInsets();
+  const {
+    studyTrack,
+    preferredFormat,
+    preferredFormats,
+    dailyGoalMinutes,
+    isGuestMode,
+    resetOnboarding,
+    firstName,
+    lastName,
+    age,
+    highSchoolGrade,
+    collegeYear,
+    collegeCourse,
+    studyRemindersEnabled,
+  } = useOnboarding();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [showSignOutModal, setShowSignOutModal] = useState(false);
+  const [showResetModal, setShowResetModal] = useState(false);
 
   useEffect(() => {
     apiFetch<UserProfile>('/api/me')
@@ -68,7 +91,7 @@ export default function ProfileScreen() {
         contentContainerStyle={[
           styles.contentContainer,
           {
-            paddingTop: Platform.OS === 'android'
+            paddingTop: process.env.EXPO_OS === 'android'
               ? Math.max(insets.top, RNStatusBar.currentHeight || spacing[0], spacing[28]) + spacing[14]
               : Math.max(insets.top, spacing[20]),
             paddingBottom: Math.max(insets.bottom, spacing[24]) + spacing[88], // Floating nav clearance
@@ -86,7 +109,9 @@ export default function ProfileScreen() {
           <View style={styles.avatarCircle}>
             <HugeiconsIcon icon={UserCircleIcon} size={48} color={colors.primary} strokeWidth={1.5} />
           </View>
-          <Text style={styles.name}>{profile?.full_name || 'Student Account'}</Text>
+          <Text style={styles.name}>
+            {firstName ? `${firstName} ${lastName}`.trim() : (profile?.full_name || 'Student Account')}
+          </Text>
           <Text style={styles.email}>{profile?.email}</Text>
           <View style={styles.badgeRow}>
             <View style={styles.roleBadge}>
@@ -157,6 +182,86 @@ export default function ProfileScreen() {
           </Text>
         </View>
 
+        {/* Study Preferences & Onboarding Calibration */}
+        <View style={styles.preferencesCard}>
+          <View style={styles.preferencesHeader}>
+            <View style={styles.prefIconBadge}>
+              <HugeiconsIcon icon={SparklesIcon} size={16} color={colors.primary} strokeWidth={2.4} />
+            </View>
+            <Text style={styles.preferencesTitle}>Study Calibration</Text>
+            {isGuestMode && (
+              <View style={styles.guestPill}>
+                <Text style={styles.guestPillText}>Guest Preview</Text>
+              </View>
+            )}
+          </View>
+
+          {firstName ? (
+            <View style={styles.prefRow}>
+              <Text style={styles.prefKey}>Student Name</Text>
+              <Text style={styles.prefVal}>{`${firstName} ${lastName}`.trim()}</Text>
+            </View>
+          ) : null}
+
+          <View style={styles.prefRow}>
+            <Text style={styles.prefKey}>Age</Text>
+            <Text style={styles.prefVal}>{age ? `${age} yrs old` : '13+ yrs old'}</Text>
+          </View>
+
+          <View style={styles.prefRow}>
+            <Text style={styles.prefKey}>Study Track</Text>
+            <Text style={styles.prefVal}>
+              {studyTrack === 'high_school' && highSchoolGrade
+                ? `HIGH SCHOOL (${highSchoolGrade.toUpperCase()})`
+                : ['college', 'med_nursing', 'stem'].includes(studyTrack) && collegeYear
+                ? `${studyTrack.toUpperCase()} (${collegeYear.toUpperCase()}${collegeCourse ? ` • ${collegeCourse.toUpperCase()}` : ''})`
+                : collegeCourse
+                ? `${studyTrack ? studyTrack.toUpperCase() : 'COLLEGE'} (${collegeCourse.toUpperCase()})`
+                : studyTrack ? studyTrack.toUpperCase() : 'COLLEGE'}
+            </Text>
+          </View>
+
+          <View style={styles.prefRow}>
+            <Text style={styles.prefKey}>Preferred Format</Text>
+            <Text style={styles.prefVal}>
+              {preferredFormats && preferredFormats.length > 0
+                ? preferredFormats.includes('all')
+                  ? 'ALL FORMATS'
+                  : preferredFormats.map((f) => f.toUpperCase()).join(', ')
+                : preferredFormat
+                ? preferredFormat.toUpperCase()
+                : 'ALL FORMATS'}
+            </Text>
+          </View>
+
+          <View style={styles.prefRow}>
+            <Text style={styles.prefKey}>Daily Commitment</Text>
+            <Text style={styles.prefVal}>{dailyGoalMinutes} mins / day</Text>
+          </View>
+
+          <View style={styles.prefRow}>
+            <Text style={styles.prefKey}>Daily Reminders</Text>
+            <Text
+              style={[
+                styles.prefVal,
+                { color: studyRemindersEnabled ? colors.success : colors.textMuted },
+              ]}
+            >
+              {studyRemindersEnabled ? 'ENABLED' : 'DISABLED'}
+            </Text>
+          </View>
+
+          <TouchableOpacity
+            style={styles.replayButton}
+            onPress={() => setShowResetModal(true)}
+            accessibilityRole="button"
+            accessibilityLabel="Replay Onboarding & Reset Tips"
+          >
+            <HugeiconsIcon icon={RefreshIcon} size={14} color={colors.primary} strokeWidth={2.2} />
+            <Text style={styles.replayButtonText}>Replay Onboarding & Reset Tips</Text>
+          </TouchableOpacity>
+        </View>
+
         {/* Sign Out Button */}
         <PlatformPressable style={styles.logoutBtn} onPress={() => setShowSignOutModal(true)}>
           <View style={styles.logoutContent}>
@@ -165,6 +270,22 @@ export default function ProfileScreen() {
           </View>
         </PlatformPressable>
       </SmoothScrollView>
+
+      {/* Confirmation Modal for Resetting Onboarding */}
+      <ConfirmationModal
+        visible={showResetModal}
+        icon="thinking"
+        title="Replay Onboarding?"
+        message="This will reset all in-app contextual tips and return you to the Momo welcome experience."
+        confirmText="Replay Guide"
+        isDestructive={false}
+        onConfirm={async () => {
+          setShowResetModal(false);
+          await resetOnboarding();
+          router.replace('/(auth)/welcome');
+        }}
+        onCancel={() => setShowResetModal(false)}
+      />
 
       {/* Confirmation Modal for Sign Out */}
       <ConfirmationModal
@@ -209,6 +330,7 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: colors.surface,
     borderRadius: 18,
+    borderCurve: 'continuous',
     padding: spacing[22],
     alignItems: 'center',
     marginBottom: spacing[16],
@@ -216,10 +338,10 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     ...Platform.select({
       ios: {
-        shadowColor: colors.shadow,
+        shadowColor: colors.shadow || '#000',
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.04,
-        shadowRadius: 6,
+        shadowRadius: 8,
       },
       android: {
         elevation: 2,
@@ -259,6 +381,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing[8],
     paddingVertical: spacing[3],
     borderRadius: 8,
+    borderCurve: 'continuous',
     gap: spacing[4],
   },
   roleBadgeText: {
@@ -273,6 +396,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing[8],
     paddingVertical: spacing[3],
     borderRadius: 8,
+    borderCurve: 'continuous',
     gap: spacing[4],
   },
   cloudBadgeText: {
@@ -283,16 +407,17 @@ const styles = StyleSheet.create({
   quotaCard: {
     backgroundColor: colors.surface,
     borderRadius: 18,
+    borderCurve: 'continuous',
     padding: spacing[20],
     marginBottom: spacing[16],
     borderWidth: 1,
     borderColor: colors.border,
     ...Platform.select({
       ios: {
-        shadowColor: colors.shadow,
+        shadowColor: colors.shadow || '#000',
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.04,
-        shadowRadius: 6,
+        shadowRadius: 8,
       },
       android: {
         elevation: 2,
@@ -316,6 +441,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing[8],
     paddingVertical: spacing[2],
     borderRadius: 6,
+    borderCurve: 'continuous',
   },
   quotaPillText: {
     fontSize: typography.fontSize[11],
@@ -330,22 +456,26 @@ const styles = StyleSheet.create({
   usedNum: {
     fontSize: typography.fontSize[32],
     fontWeight: typography.fontWeight.extraBold,
+    fontVariant: ['tabular-nums'],
   },
   limitNum: {
     fontSize: typography.fontSize[18],
     fontWeight: typography.fontWeight.semiBold,
+    fontVariant: ['tabular-nums'],
     color: colors.textMuted,
   },
   barBackground: {
     height: 10,
     backgroundColor: colors.surfaceMuted,
     borderRadius: 5,
+    borderCurve: 'continuous',
     overflow: 'hidden',
     marginBottom: spacing[8],
   },
   barFill: {
     height: '100%',
     borderRadius: 5,
+    borderCurve: 'continuous',
   },
   quotaHint: {
     fontSize: typography.fontSize[12],
@@ -356,6 +486,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primarySoft,
     padding: spacing[16],
     borderRadius: 16,
+    borderCurve: 'continuous',
     marginBottom: spacing[14],
     borderWidth: 1,
     borderColor: colors.primarySoftStrong,
@@ -380,6 +511,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.successSoft,
     padding: spacing[16],
     borderRadius: 16,
+    borderCurve: 'continuous',
     marginBottom: spacing[24],
     borderWidth: 1,
     borderColor: colors.successBorder,
@@ -403,6 +535,7 @@ const styles = StyleSheet.create({
   logoutBtn: {
     backgroundColor: colors.dangerSoft,
     borderRadius: 14,
+    borderCurve: 'continuous',
   },
   logoutContent: {
     paddingVertical: spacing[14],
@@ -415,5 +548,80 @@ const styles = StyleSheet.create({
     color: colors.danger,
     fontWeight: typography.fontWeight.bold,
     fontSize: typography.fontSize[15],
+  },
+  preferencesCard: {
+    backgroundColor: colors.surface,
+    borderRadius: 18,
+    borderCurve: 'continuous',
+    padding: spacing[18],
+    marginBottom: spacing[16],
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  preferencesHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing[12],
+    gap: 8,
+  },
+  prefIconBadge: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    borderCurve: 'continuous',
+    backgroundColor: colors.primarySoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  preferencesTitle: {
+    flex: 1,
+    fontSize: typography.fontSize[14],
+    fontWeight: typography.fontWeight.bold,
+    color: colors.text,
+  },
+  guestPill: {
+    backgroundColor: '#FEF3C7',
+    paddingVertical: 2,
+    paddingHorizontal: 8,
+    borderRadius: 8,
+    borderCurve: 'continuous',
+  },
+  guestPillText: {
+    fontSize: typography.fontSize[10.5],
+    fontWeight: typography.fontWeight.bold,
+    color: '#92400E',
+  },
+  prefRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: spacing[6],
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  prefKey: {
+    fontSize: typography.fontSize[12.5],
+    color: colors.textSecondary,
+  },
+  prefVal: {
+    fontSize: typography.fontSize[12],
+    fontWeight: typography.fontWeight.bold,
+    color: colors.text,
+  },
+  replayButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.primarySoft,
+    borderRadius: 12,
+    borderCurve: 'continuous',
+    paddingVertical: spacing[10],
+    marginTop: spacing[14],
+    gap: 6,
+  },
+  replayButtonText: {
+    fontSize: typography.fontSize[12.5],
+    fontWeight: typography.fontWeight.bold,
+    color: colors.primary,
   },
 });

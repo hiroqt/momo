@@ -18,6 +18,7 @@ class StudyRepository:
         now = datetime.now(timezone.utc).isoformat()
         data["created_at"] = data.get("created_at") or now
         data["updated_at"] = data.get("updated_at") or now
+        data["item_count"] = data.get("item_count", 0)
 
         if supabase_session.is_configured and supabase_session.client:
             try:
@@ -80,6 +81,17 @@ class StudyRepository:
             self._study_items.pop(set_id, None)
             return True
         return False
+
+    async def detach_folder(self, folder_id: str, user_id: str) -> None:
+        if supabase_session.is_configured and supabase_session.client:
+            try:
+                supabase_session.client.table("study_sets").update({"folder_id": None}).eq("folder_id", folder_id).eq("user_id", user_id).execute()
+            except Exception as e:
+                logger.error(f"Error detaching folder in Supabase: {e}")
+
+        for s in self._study_sets.values():
+            if s.get("user_id") == user_id and s.get("folder_id") == folder_id:
+                s["folder_id"] = None
 
     async def save_study_items(self, set_id: str, items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         saved = []

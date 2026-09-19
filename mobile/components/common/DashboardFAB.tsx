@@ -15,17 +15,20 @@ import {
   Add01Icon,
   Upload01Icon,
   BookOpen01Icon,
+  Camera01Icon,
 } from '@hugeicons/core-free-icons';
 
 interface DashboardFABProps {
   onUpload: () => void;
   onStudySets: () => void;
+  onMathSolve: () => void;
   studySetsCount?: number;
 }
 
 export const DashboardFAB: React.FC<DashboardFABProps> = ({
   onUpload,
   onStudySets,
+  onMathSolve,
   studySetsCount = 0,
 }) => {
   const insets = useSafeAreaInsets();
@@ -65,6 +68,11 @@ export const DashboardFAB: React.FC<DashboardFABProps> = ({
     onStudySets();
   };
 
+  const handleMathSolvePress = () => {
+    closeMenu();
+    onMathSolve();
+  };
+
   // Main button rotation (0deg -> 45deg to form an '×')
   const rotation = animation.interpolate({
     inputRange: [0, 1],
@@ -95,6 +103,20 @@ export const DashboardFAB: React.FC<DashboardFABProps> = ({
     outputRange: [0, 0, 1],
   });
   const studySetsScale = animation.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.6, 1],
+  });
+
+  // Action item 3 (Math Solve): slide up and fade in (highest)
+  const mathSolveTranslateY = animation.interpolate({
+    inputRange: [0, 1],
+    outputRange: [40, 0],
+  });
+  const mathSolveOpacity = animation.interpolate({
+    inputRange: [0, 0.1, 1],
+    outputRange: [0, 0, 1],
+  });
+  const mathSolveScale = animation.interpolate({
     inputRange: [0, 1],
     outputRange: [0.6, 1],
   });
@@ -131,6 +153,40 @@ export const DashboardFAB: React.FC<DashboardFABProps> = ({
       >
         {/* Speed-Dial Menu Actions */}
         <View style={styles.actionsContainer} pointerEvents={isOpen ? 'auto' : 'none'}>
+          {/* Action 3: Math Solve */}
+          <Animated.View
+            style={[
+              styles.actionItemRow,
+              {
+                opacity: mathSolveOpacity,
+                transform: [
+                  { translateY: mathSolveTranslateY },
+                  { scale: mathSolveScale },
+                ],
+              },
+            ]}
+          >
+            <TouchableOpacity
+              style={styles.labelPill}
+              onPress={handleMathSolvePress}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.labelText}>Solve a Problem</Text>
+              <View style={[styles.countBadge, { backgroundColor: colors.warningSoft }]}>
+                <Text style={[styles.countBadgeText, { color: colors.warning }]}>AI</Text>
+              </View>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.miniFab, styles.mathSolveMiniFab]}
+              onPress={handleMathSolvePress}
+              activeOpacity={0.85}
+              accessibilityLabel="Solve a Problem"
+              accessibilityRole="button"
+            >
+              <HugeiconsIcon icon={Camera01Icon} size={20} color={colors.warning} strokeWidth={2.2} />
+            </TouchableOpacity>
+          </Animated.View>
+
           {/* Action 2: Study Sets */}
           <Animated.View
             style={[
@@ -309,6 +365,10 @@ const styles = StyleSheet.create({
   studySetsMiniFab: {
     backgroundColor: colors.primarySoft,
     borderColor: colors.primaryBorder,
+  },
+  mathSolveMiniFab: {
+    backgroundColor: colors.warningSoft,
+    borderColor: colors.warningBorder,
   },
   mainFab: {
     width: 56,

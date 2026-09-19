@@ -7,6 +7,7 @@ import {
   ScrollView,
   Animated,
   Platform,
+  Image,
 } from 'react-native';
 import { AppText as Text } from '@/components/common/app-text';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -23,7 +24,6 @@ import {
 import { getGenerationStatus, retryGeneration } from '../../lib/api/generations';
 import { PlatformPressable } from '../../components/common/PlatformPressable';
 import { SmoothScrollView } from '../../components/common/SmoothScrollView';
-import { MomoMaker } from '../../components/mascot/MomoMaker';
 import { GenerationJob } from '../../types';
 
 export default function GenerationProgressScreen() {
@@ -123,10 +123,14 @@ export default function GenerationProgressScreen() {
         <View style={styles.card}>
           {/* Animated Momo Crafting Mascot */}
           <View style={styles.mascotBox}>
-            <MomoMaker size={145} />
+            <Image 
+              source={require('@/assets/animations/creating_momo.png')} 
+              style={styles.logoImage}
+              resizeMode="contain"
+            />
           </View>
 
-          <Text style={styles.title}>Cooking up your reviewer</Text>
+          <Text style={styles.title}>Creating your reviewer</Text>
           <Text style={styles.subtitle}>
             Momo is crafting custom high-yield questions from your notes. No cap, this is gonna be good!
           </Text>
@@ -261,7 +265,13 @@ const styles = StyleSheet.create({
   mascotBox: {
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: spacing[8],
+    flexDirection: 'row',
+    gap: spacing[12],
+    marginBottom: spacing[16],
+  },
+  logoImage: {
+    width: 150,
+    height: 150,
   },
   formatRow: {
     alignItems: 'center',

@@ -9,6 +9,7 @@ from app.schemas.study import (
     StudySessionResponse
 )
 from app.db.repositories.study_repo import study_repo
+from app.db.repositories.folder_repo import folder_repo
 
 router = APIRouter(prefix="/api/study-sets", tags=["Study Sets"])
 
@@ -35,16 +36,39 @@ async def update_study_set(
     req: StudySetUpdateRequest,
     user: AuthenticatedUser = Depends(get_current_user)
 ):
-    cleaned_title = req.title.strip()
-    if not cleaned_title:
-        raise HTTPException(
-            status_code=422,
-            detail={"code": "INVALID_TITLE", "message": "Quiz title cannot be empty."}
-        )
+    updates = {}
+    if req.title is not None:
+        cleaned_title = req.title.strip()
+        if not cleaned_title:
+            raise HTTPException(
+                status_code=422,
+                detail={"code": "INVALID_TITLE", "message": "Quiz title cannot be empty."}
+            )
+        updates["title"] = cleaned_title
 
-    updates = {"title": cleaned_title}
     if req.description is not None:
         updates["description"] = req.description.strip()
+
+    if req.folder_id is not None:
+        if req.folder_id in ("", "none", "null"):
+            updates["folder_id"] = None
+        else:
+            f = await folder_repo.get_folder(req.folder_id, user.id)
+            if not f:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail={"code": "FOLDER_NOT_FOUND", "message": "Folder not found"}
+                )
+            updates["folder_id"] = req.folder_id
+
+    if not updates:
+        s = await study_repo.get_study_set(study_set_id, user.id)
+        if not s:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail={"code": "STUDY_SET_NOT_FOUND", "message": "Study set not found"}
+            )
+        return s
 
     updated = await study_repo.update_study_set(study_set_id, user.id, updates)
     if not updated:

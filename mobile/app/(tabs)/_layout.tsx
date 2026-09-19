@@ -1,6 +1,7 @@
 import React from 'react';
 import { Tabs } from 'expo-router';
 import { FloatingNavBar } from '../../components/common/FloatingNavBar';
+import { colors } from '@/constants/theme';
 
 export default function TabsLayout() {
   return (
@@ -8,6 +9,7 @@ export default function TabsLayout() {
       tabBar={(props) => <FloatingNavBar {...props} />}
       screenOptions={{
         headerShown: false,
+        sceneStyle: { backgroundColor: colors.background },
       }}
     >
       <Tabs.Screen
@@ -20,12 +22,6 @@ export default function TabsLayout() {
         name="library"
         options={{
           title: 'Library',
-        }}
-      />
-      <Tabs.Screen
-        name="shop"
-        options={{
-          title: 'Shop',
         }}
       />
       <Tabs.Screen

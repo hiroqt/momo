@@ -8,6 +8,7 @@ import {
   StyleProp,
   ViewStyle,
   TextStyle,
+  ScrollView,
 } from 'react-native';
 import { AppText as Text, AppTextInput as TextInput } from '@/components/common/app-text';
 import { useRouter } from 'expo-router';
@@ -25,6 +26,7 @@ import {
   RefreshIcon,
   SparklesIcon,
   EyeIcon,
+  FavouriteIcon,
 } from '@hugeicons/core-free-icons';
 import { StudyItem } from '../../types';
 import { SourceAttribution } from './SourceAttribution';
@@ -33,7 +35,9 @@ import { SmoothScrollView } from '../common/SmoothScrollView';
 import { syncEngine } from '../../lib/sync/syncEngine';
 import { isMeaningfulSection, sanitizeQuestionText } from '../../utils/formatters';
 import { useCredits } from '../../context/CreditsContext';
-import { MomoMoney } from '../mascot/MomoMoney';
+import { useOnboarding } from '../../context/OnboardingContext';
+import { CoachmarkTooltip } from '../onboarding/CoachmarkTooltip';
+import { Image } from 'react-native';
 import { Modal } from 'react-native';
 
 interface Props {
@@ -103,6 +107,8 @@ export const QuizRunner: React.FC<Props> = ({ items, onFinish, onRestart }) => {
   const isAndroid = Platform.OS === 'android';
   const bottomPadding = Math.max(insets.bottom, isAndroid ? 28 : 16) + 16;
 
+  const { hasSeenQuizXpTip, markTipSeen } = useOnboarding();
+
   const [currentIndex, setCurrentIndex] = useState(0);
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
   const [typedAnswer, setTypedAnswer] = useState<string>('');
@@ -110,10 +116,13 @@ export const QuizRunner: React.FC<Props> = ({ items, onFinish, onRestart }) => {
   const [isCurrentQuestionRevealed, setIsCurrentQuestionRevealed] = useState(false);
   const [currentXP, setCurrentXP] = useState(0);
   const [isQuizFinished, setIsQuizFinished] = useState(false);
+  const [selectedReviewIndex, setSelectedReviewIndex] = useState<number | null>(null);
   const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false);
+  const [correctStreak, setCorrectStreak] = useState(0);
   const [lastAnswerResult, setLastAnswerResult] = useState<{
     isCorrect: boolean;
     earnedXP: number;
+    streakBonus?: boolean;
   } | null>(null);
   const [userAnswers, setUserAnswers] = useState<
     Record<
@@ -128,8 +137,15 @@ export const QuizRunner: React.FC<Props> = ({ items, onFinish, onRestart }) => {
     >
   >({});
 
-  const { credits, deductCredits, addXP } = useCredits();
+  const { credits, deductCredits, addXP, hearts, deductHeart, addHeart } = useCredits();
   const [showCreditsModal, setShowCreditsModal] = useState(false);
+  const [showNoHeartsModal, setShowNoHeartsModal] = useState(false);
+
+  React.useEffect(() => {
+    if (hearts <= 0) {
+      setShowNoHeartsModal(true);
+    }
+  }, [hearts]);
 
   // Animated values
   const xpBarAnim = useRef(new Animated.Value(0)).current;
@@ -176,11 +192,32 @@ export const QuizRunner: React.FC<Props> = ({ items, onFinish, onRestart }) => {
 
   const handleNextQuestion = () => {
     if (isSubmittingFeedback) return;
+    
+    if (hearts <= 0) {
+      setShowNoHeartsModal(true);
+      return;
+    }
 
     const userAnswer = selectedOption || typedAnswer.trim();
     const wasRevealed = isCurrentQuestionRevealed;
     const isCorrect = !wasRevealed && checkIsCorrect(userAnswer, currentItem);
-    const earnedXP = isCorrect ? getQuestionXP(currentItem.type) : 0;
+    let earnedXP = isCorrect ? getQuestionXP(currentItem.type) : 0;
+    
+    let nextStreak = isCorrect ? correctStreak + 1 : 0;
+    let streakBonus = false;
+
+    if (isCorrect && nextStreak > 0 && nextStreak % 5 === 0) {
+      earnedXP *= 2;
+      addHeart(1);
+      streakBonus = true;
+    }
+
+    if (!isCorrect && !wasRevealed) {
+      deductHeart();
+    }
+    
+    setCorrectStreak(nextStreak);
+
     const nextXP = currentXP + earnedXP;
 
     const updatedAnswers = {
@@ -203,7 +240,7 @@ export const QuizRunner: React.FC<Props> = ({ items, onFinish, onRestart }) => {
 
     // Show visual feedback on the item selected or inputed
     setIsSubmittingFeedback(true);
-    setLastAnswerResult({ isCorrect, earnedXP });
+    setLastAnswerResult({ isCorrect, earnedXP, streakBonus });
 
     if (isCorrect) {
       setCurrentXP(nextXP);
@@ -251,6 +288,10 @@ export const QuizRunner: React.FC<Props> = ({ items, onFinish, onRestart }) => {
   };
 
   const handleRestartQuiz = () => {
+    if (hearts <= 0) {
+      setShowNoHeartsModal(true);
+      return;
+    }
     setCurrentIndex(0);
     setSelectedOption(null);
     setTypedAnswer('');
@@ -260,7 +301,9 @@ export const QuizRunner: React.FC<Props> = ({ items, onFinish, onRestart }) => {
     setLastAnswerResult(null);
     setUserAnswers({});
     setCurrentXP(0);
+    setCorrectStreak(0);
     setIsQuizFinished(false);
+    setSelectedReviewIndex(null);
     xpBarAnim.setValue(0);
     if (onRestart) {
       onRestart();
@@ -348,8 +391,60 @@ export const QuizRunner: React.FC<Props> = ({ items, onFinish, onRestart }) => {
           </Text>
         </View>
 
-        {/* Question Cards: User Answer (Green/Red), Correct Answer, and Grounded Explanation */}
-        {items.map((item, idx) => {
+        {/* Number Pagination */}
+        <View style={styles.paginationContainer}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.paginationScroll}>
+            {items.map((_, idx) => {
+              const uRecord = userAnswers[idx];
+              const isCorrect = uRecord?.isCorrect ?? false;
+              const isRevealed = uRecord?.wasRevealed ?? false;
+              const isSelected = selectedReviewIndex === idx;
+
+              let btnStyle: StyleProp<ViewStyle> = styles.pageBtnDefault;
+              let txtStyle: StyleProp<TextStyle> = styles.pageBtnTextDefault;
+
+              if (isRevealed) {
+                btnStyle = styles.pageBtnRevealed;
+                txtStyle = styles.pageBtnTextRevealed;
+              } else if (isCorrect) {
+                btnStyle = styles.pageBtnCorrect;
+                txtStyle = styles.pageBtnTextCorrect;
+              } else {
+                btnStyle = styles.pageBtnWrong;
+                txtStyle = styles.pageBtnTextWrong;
+              }
+
+              return (
+                <TouchableOpacity
+                  key={idx}
+                  style={[styles.pageBtn, btnStyle, isSelected && styles.pageBtnSelected]}
+                  onPress={() => setSelectedReviewIndex(idx)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.pageBtnText, txtStyle, isSelected && styles.pageBtnTextSelected]}>
+                    {idx + 1}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        </View>
+
+        {/* Selected Question Card */}
+        {(() => {
+          if (selectedReviewIndex === null) {
+            return (
+              <View style={styles.reviewInstructionBox}>
+                <HugeiconsIcon icon={ArrowUp01Icon} size={24} color="#64748B" strokeWidth={2} />
+                <Text style={styles.reviewInstructionText}>
+                  Select a question number above to view its detailed answer and explanation.
+                </Text>
+              </View>
+            );
+          }
+          const item = items[selectedReviewIndex];
+          if (!item) return null;
+          const idx = selectedReviewIndex;
           const userRecord = userAnswers[idx];
           const isCorrect = userRecord?.isCorrect ?? false;
           const userAnsText = userRecord?.userAnswer || '(Unanswered)';
@@ -357,7 +452,6 @@ export const QuizRunner: React.FC<Props> = ({ items, onFinish, onRestart }) => {
 
           return (
             <View
-              key={idx}
               style={[
                 styles.reviewQuestionCard,
                 userRecord?.wasRevealed
@@ -511,7 +605,7 @@ export const QuizRunner: React.FC<Props> = ({ items, onFinish, onRestart }) => {
               <SourceAttribution source={item.source_metadata} defaultExpanded={false} />
             </View>
           );
-        })}
+        })()}
 
         {/* Post-Quiz Actions */}
         <View style={styles.reviewActionFooter}>
@@ -555,10 +649,16 @@ export const QuizRunner: React.FC<Props> = ({ items, onFinish, onRestart }) => {
             </Text>
           </View>
 
-          {/* Live XP Badge */}
-          <View style={styles.xpBadge}>
-            <HugeiconsIcon icon={SparklesIcon} size={15} color="#D97706" strokeWidth={2.4} />
-            <Text style={styles.xpBadgeText}>{currentXP} XP</Text>
+          {/* Live Stats Row */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <View style={styles.xpBadge}>
+              <HugeiconsIcon icon={FavouriteIcon} size={15} color="#EF4444" strokeWidth={2.4} fill="#EF4444" />
+              <Text style={[styles.xpBadgeText, { color: '#EF4444' }]}>{hearts}</Text>
+            </View>
+            <View style={styles.xpBadge}>
+              <HugeiconsIcon icon={SparklesIcon} size={15} color="#D97706" strokeWidth={2.4} />
+              <Text style={styles.xpBadgeText}>{currentXP} XP</Text>
+            </View>
           </View>
         </View>
 
@@ -586,6 +686,16 @@ export const QuizRunner: React.FC<Props> = ({ items, onFinish, onRestart }) => {
           </View>
         </View>
       </View>
+
+      {/* Progressive Contextual Coachmark */}
+      {!hasSeenQuizXpTip && (
+        <CoachmarkTooltip
+          title="Earn XP & Level Up!"
+          description="Every right answer scores you XP! Harder questions give you an even bigger boost. Let's see how high you can score!"
+          onDismiss={() => markTipSeen('quizXp')}
+          arrowPosition="top"
+        />
+      )}
 
       {/* Main Question Card */}
       <View style={styles.card}>
@@ -699,7 +809,7 @@ export const QuizRunner: React.FC<Props> = ({ items, onFinish, onRestart }) => {
                           ]}
                         >
                           {lastAnswerResult?.isCorrect
-                            ? `+${lastAnswerResult.earnedXP} XP`
+                            ? `+${lastAnswerResult.earnedXP} XP${lastAnswerResult.streakBonus ? ' 🔥 x2' : ''}`
                             : '+0 XP'}
                         </Text>
                       </View>
@@ -766,7 +876,7 @@ export const QuizRunner: React.FC<Props> = ({ items, onFinish, onRestart }) => {
                       ]}
                     >
                       {lastAnswerResult?.isCorrect
-                        ? `+${lastAnswerResult.earnedXP} XP`
+                        ? `+${lastAnswerResult.earnedXP} XP${lastAnswerResult.streakBonus ? ' 🔥 x2' : ''}`
                         : '+0 XP'}
                     </Text>
                   </View>
@@ -870,7 +980,6 @@ export const QuizRunner: React.FC<Props> = ({ items, onFinish, onRestart }) => {
           <PlatformPressable
             style={[
               styles.primaryBtn,
-              styles.nextBtnFlex,
               (!hasAnswered || isSubmittingFeedback) && styles.disabledBtn,
             ]}
             disabled={!hasAnswered || isSubmittingFeedback}
@@ -905,18 +1014,12 @@ export const QuizRunner: React.FC<Props> = ({ items, onFinish, onRestart }) => {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <MomoMoney size={120} />
+            <Image source={require('../../assets/animations/no_credits_momo.png')} style={{ width: 120, height: 120 }} resizeMode="contain" />
             <Text style={styles.modalTitle}>Out of Credits!</Text>
             <Text style={styles.modalDesc}>
               You need 50 credits to reveal an answer. You currently have {credits}.
             </Text>
             <View style={styles.modalActions}>
-              <TouchableOpacity
-                style={styles.modalCancelBtn}
-                onPress={() => setShowCreditsModal(false)}
-              >
-                <Text style={styles.modalCancelText}>Cancel</Text>
-              </TouchableOpacity>
               <TouchableOpacity
                 style={styles.modalPurchaseBtn}
                 onPress={() => {
@@ -925,6 +1028,41 @@ export const QuizRunner: React.FC<Props> = ({ items, onFinish, onRestart }) => {
                 }}
               >
                 <Text style={styles.modalPurchaseText}>Purchase more credits</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.modalCancelBtn}
+                onPress={() => setShowCreditsModal(false)}
+              >
+                <Text style={styles.modalCancelText}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Insufficient Hearts Modal */}
+      <Modal
+        visible={showNoHeartsModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => {}}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <HugeiconsIcon icon={FavouriteIcon} size={64} color="#EF4444" strokeWidth={2} fill="#EF4444" />
+            <Text style={styles.modalTitle}>Out of Lives!</Text>
+            <Text style={styles.modalDesc}>
+              You have run out of lives for today. Lives refresh automatically every 24 hours.
+            </Text>
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={styles.modalPurchaseBtn}
+                onPress={() => {
+                  setShowNoHeartsModal(false);
+                  router.replace('/(tabs)/library');
+                }}
+              >
+                <Text style={styles.modalPurchaseText}>Go to Library</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -966,32 +1104,33 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   modalActions: {
-    flexDirection: 'row',
+    flexDirection: 'column',
+    alignItems: 'stretch',
     gap: 12,
     width: '100%',
   },
   modalCancelBtn: {
-    flex: 1,
     paddingVertical: 14,
     borderRadius: 14,
     backgroundColor: '#F1F5F9',
     alignItems: 'center',
+    justifyContent: 'center',
   },
   modalCancelText: {
     fontSize: 15,
-    fontWeight: '700',
+    fontFamily: 'Poppins-Bold',
     color: '#475569',
   },
   modalPurchaseBtn: {
-    flex: 1.5,
     paddingVertical: 14,
     borderRadius: 14,
     backgroundColor: '#4F46E5',
     alignItems: 'center',
+    justifyContent: 'center',
   },
   modalPurchaseText: {
     fontSize: 15,
-    fontWeight: '700',
+    fontFamily: 'Poppins-Bold',
     color: '#FFFFFF',
   },
   container: {
@@ -1419,14 +1558,15 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   actionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: 'column',
+    alignItems: 'stretch',
     gap: 10,
     width: '100%',
   },
   revealBtn: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: 6,
     paddingHorizontal: 14,
     paddingVertical: 15,
@@ -1442,13 +1582,10 @@ const styles = StyleSheet.create({
   revealBtnText: {
     color: '#4F46E5',
     fontSize: 14,
-    fontWeight: '700',
+    fontFamily: 'Poppins-Bold',
   },
   revealBtnTextActive: {
     color: '#B45309',
-  },
-  nextBtnFlex: {
-    flex: 1,
   },
   primaryBtn: {
     backgroundColor: '#4F46E5',
@@ -1486,7 +1623,7 @@ const styles = StyleSheet.create({
   primaryBtnText: {
     color: '#FFFFFF',
     fontSize: 15.5,
-    fontWeight: '700',
+    fontFamily: 'Poppins-Bold',
     letterSpacing: -0.2,
   },
 
@@ -1630,6 +1767,82 @@ const styles = StyleSheet.create({
     fontSize: 12.5,
     color: '#64748B',
     lineHeight: 18,
+  },
+  reviewInstructionBox: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 16,
+    padding: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    marginBottom: 14,
+    borderStyle: 'dashed',
+  },
+  reviewInstructionText: {
+    marginTop: 12,
+    fontSize: 14,
+    color: '#64748B',
+    textAlign: 'center',
+    lineHeight: 20,
+    paddingHorizontal: 20,
+  },
+  paginationContainer: {
+    marginBottom: 16,
+  },
+  paginationScroll: {
+    gap: 8,
+    paddingHorizontal: 2,
+    paddingVertical: 4,
+  },
+  pageBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+  },
+  pageBtnDefault: {
+    backgroundColor: '#F1F5F9',
+    borderColor: '#CBD5E1',
+  },
+  pageBtnRevealed: {
+    backgroundColor: '#FFFBEB',
+    borderColor: '#FDE68A',
+  },
+  pageBtnCorrect: {
+    backgroundColor: '#ECFDF5',
+    borderColor: '#A7F3D0',
+  },
+  pageBtnWrong: {
+    backgroundColor: '#FEF2F2',
+    borderColor: '#FECACA',
+  },
+  pageBtnSelected: {
+    borderWidth: 2.5,
+    borderColor: '#4F46E5',
+    transform: [{ scale: 1.05 }],
+  },
+  pageBtnText: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  pageBtnTextDefault: {
+    color: '#64748B',
+  },
+  pageBtnTextRevealed: {
+    color: '#B45309',
+  },
+  pageBtnTextCorrect: {
+    color: '#047857',
+  },
+  pageBtnTextWrong: {
+    color: '#B91C1C',
+  },
+  pageBtnTextSelected: {
+    color: '#4F46E5',
+    fontWeight: '800',
   },
   reviewQuestionCard: {
     backgroundColor: '#FFFFFF',

@@ -12,6 +12,7 @@ class GenerationCreateRequest(BaseModel):
     custom_instruction: Optional[str] = None
     title: Optional[str] = None
     focus_sections: Optional[List[str]] = None
+    time_limit_per_question: Optional[int] = None
 
 class GenerationJobResponse(BaseModel):
     generation_id: str

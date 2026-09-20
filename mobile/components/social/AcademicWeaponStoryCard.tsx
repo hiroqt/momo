@@ -54,58 +54,79 @@ export const AcademicWeaponStoryCard = forwardRef<View, AcademicWeaponStoryCardP
           </Text>
         </View>
 
-        {/* Mascot Center Stage Spotlight */}
-        <View style={styles.mascotSpotlight}>
-          <View style={[styles.mascotBackdropCircle, { borderColor: data.paletteAccent }]} />
-          <Image source={mascotSource} style={styles.mascotImage} resizeMode="contain" />
-        </View>
-
-        {/* Prominent High-Impact Stats Bar */}
-        <View style={styles.statsBar}>
-          {data.accuracy !== undefined ? (
-            <View style={styles.statBox}>
-              <Text style={[styles.statValue, { color: data.paletteAccent }]}>
-                {data.accuracy}%
-              </Text>
-              <Text style={styles.statLabel}>ACCURACY</Text>
-            </View>
-          ) : data.streak !== undefined ? (
-            <View style={styles.statBox}>
-              <View style={styles.statRow}>
-                <Text style={styles.fireEmoji}>🔥</Text>
-                <Text style={[styles.statValue, { color: '#EF4444' }]}>{data.streak}</Text>
-              </View>
-              <Text style={styles.statLabel}>DAY STREAK</Text>
-            </View>
-          ) : (
-            <View style={styles.statBox}>
-              <Text style={[styles.statValue, { color: data.paletteAccent }]}>
-                {data.cardsCount || 0}
-              </Text>
-              <Text style={styles.statLabel}>CARDS MASTERED</Text>
-            </View>
-          )}
-
-          <View style={styles.statDivider} />
-
-          <View style={styles.statBox}>
-            <Text style={styles.statSecondaryValue} numberOfLines={1}>
-              {data.subject}
-            </Text>
-            <Text style={styles.statLabel}>TOPIC</Text>
+        {/* Mascot & Stats Stage - Anchored with 0 Gap */}
+        <View style={styles.mascotAndStatsContainer}>
+          {/* Mascot Center Stage Spotlight */}
+          <View style={styles.mascotSpotlight}>
+            <View style={[styles.mascotBackdropCircle, { borderColor: data.paletteAccent }]} />
+            <Image source={mascotSource} style={styles.mascotImage} resizeMode="contain" />
           </View>
 
-          {data.xpEarned ? (
-            <>
-              <View style={styles.statDivider} />
-              <View style={styles.statBox}>
-                <Text style={[styles.statSecondaryValue, { color: '#F59E0B' }]}>
-                  +{data.xpEarned}
+          {/* Prominent High-Impact Stats Bar */}
+          <View style={styles.statsBar}>
+            {data.streak !== undefined ? (
+              /* Streak Mode: Just the Days Streak (no topic / daily consistency) */
+              <View style={[styles.statBox, { flex: 1 }]}>
+                <View style={styles.statValueContainer}>
+                  <View style={styles.statRow}>
+                    <Text style={styles.fireEmoji}>🔥</Text>
+                    <Text style={[styles.statValue, { color: '#EF4444', fontSize: 26 }]}>{data.streak}</Text>
+                  </View>
+                </View>
+                <Text style={styles.statLabel}>
+                  {data.streak === 1 ? 'DAY STREAK' : 'DAYS STREAK'}
                 </Text>
-                <Text style={styles.statLabel}>XP EARNED</Text>
               </View>
-            </>
-          ) : null}
+            ) : (
+              /* Quiz / Flashcard Mode: Accuracy/Cards + Topic (+ XP) */
+              <>
+                {data.accuracy !== undefined ? (
+                  <View style={[styles.statBox, { flex: data.xpEarned ? 1 : 1 }]}>
+                    <View style={styles.statValueContainer}>
+                      <Text style={[styles.statValue, { color: data.paletteAccent }]}>
+                        {data.accuracy}%
+                      </Text>
+                    </View>
+                    <Text style={styles.statLabel}>ACCURACY</Text>
+                  </View>
+                ) : (
+                  <View style={[styles.statBox, { flex: data.xpEarned ? 1 : 1 }]}>
+                    <View style={styles.statValueContainer}>
+                      <Text style={[styles.statValue, { color: data.paletteAccent }]}>
+                        {data.cardsCount || 0}
+                      </Text>
+                    </View>
+                    <Text style={styles.statLabel}>CARDS</Text>
+                  </View>
+                )}
+
+                <View style={styles.statDivider} />
+
+                <View style={[styles.statBox, { flex: data.xpEarned ? 1.25 : 1 }]}>
+                  <View style={styles.statValueContainer}>
+                    <Text style={styles.statTopicValue} numberOfLines={1}>
+                      {data.subject}
+                    </Text>
+                  </View>
+                  <Text style={styles.statLabel}>TOPIC</Text>
+                </View>
+
+                {data.xpEarned ? (
+                  <>
+                    <View style={styles.statDivider} />
+                    <View style={[styles.statBox, { flex: 1 }]}>
+                      <View style={styles.statValueContainer}>
+                        <Text style={[styles.statXpValue, { color: '#F59E0B' }]}>
+                          +{data.xpEarned}
+                        </Text>
+                      </View>
+                      <Text style={styles.statLabel}>XP EARNED</Text>
+                    </View>
+                  </>
+                ) : null}
+              </>
+            )}
+          </View>
         </View>
 
         {/* Instagram Interactive Challenge Sticker Box */}
@@ -214,12 +235,19 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginTop: 4,
   },
+  mascotAndStatsContainer: {
+    width: '100%',
+    alignItems: 'center',
+    position: 'relative',
+    zIndex: 3,
+  },
   mascotSpotlight: {
     alignItems: 'center',
-    justifyContent: 'center',
-    marginVertical: 12,
+    justifyContent: 'flex-end',
     position: 'relative',
-    zIndex: 2,
+    zIndex: 1,
+    elevation: 1,
+    marginBottom: 0,
   },
   mascotBackdropCircle: {
     position: 'absolute',
@@ -229,56 +257,81 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     opacity: 0.3,
     backgroundColor: 'rgba(255, 255, 255, 0.02)',
+    top: 6,
   },
   mascotImage: {
-    width: 150,
-    height: 150,
+    width: 155,
+    height: 155,
   },
   statsBar: {
+    width: '100%',
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-around',
+    justifyContent: 'space-between',
     backgroundColor: 'rgba(255, 255, 255, 0.06)',
-    borderRadius: 18,
+    borderRadius: 20,
     paddingVertical: 12,
-    paddingHorizontal: 14,
+    paddingHorizontal: 12,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.1)',
+    marginTop: 0,
     zIndex: 2,
+    elevation: 2,
   },
   statBox: {
     alignItems: 'center',
-    flex: 1,
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+  },
+  statValueContainer: {
+    height: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: '100%',
   },
   statRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: 4,
   },
   fireEmoji: {
-    fontSize: 20,
+    fontSize: 18,
+    lineHeight: 22,
   },
   statValue: {
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: '900',
     letterSpacing: -0.5,
+    lineHeight: 26,
   },
-  statSecondaryValue: {
-    fontSize: 14,
+  statTopicValue: {
+    fontSize: 13,
     fontWeight: '800',
     color: '#FFFFFF',
+    textAlign: 'center',
+    letterSpacing: -0.2,
+    lineHeight: 17,
+  },
+  statXpValue: {
+    fontSize: 18,
+    fontWeight: '900',
+    letterSpacing: -0.3,
+    lineHeight: 22,
   },
   statLabel: {
     fontSize: 9,
-    fontWeight: '700',
+    fontWeight: '800',
     color: '#94A3B8',
-    letterSpacing: 0.8,
-    marginTop: 2,
+    letterSpacing: 1.0,
+    marginTop: 4,
+    textAlign: 'center',
   },
   statDivider: {
     width: 1,
     height: 28,
     backgroundColor: 'rgba(255, 255, 255, 0.12)',
+    alignSelf: 'center',
   },
   stickerBox: {
     backgroundColor: '#FFFFFF',

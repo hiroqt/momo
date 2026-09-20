@@ -86,8 +86,8 @@ export const InteractiveTabPager: React.FC<InteractiveTabPagerProps> = ({
 
   const handleTabSettled = useCallback(
     (newIndex: number) => {
+      isGestureSettling.value = false;
       if (newIndex !== activeIndex) {
-        isGestureSettling.value = true;
         if (onTabChange) {
           onTabChange(newIndex);
         }
@@ -107,13 +107,11 @@ export const InteractiveTabPager: React.FC<InteractiveTabPagerProps> = ({
       progress.value = targetIndex;
       blurIntensity.value = 0;
 
-      runOnJS(handleTabSettled)(targetIndex);
-
       if (onTabChange) {
         onTabChange(targetIndex);
       }
     },
-    [activeIndex, onTabChange, handleTabSettled, progress, blurIntensity, isTabPressing, isGestureSettling]
+    [activeIndex, onTabChange, progress, blurIntensity, isTabPressing, isGestureSettling]
   );
 
   // Pan Gesture Handler running 100% on the UI thread
@@ -162,6 +160,8 @@ export const InteractiveTabPager: React.FC<InteractiveTabPagerProps> = ({
         }
       }
 
+      isGestureSettling.value = true;
+
       // Snappy spring to target tab position
       progress.value = withSpring(
         targetIndex,
@@ -176,12 +176,6 @@ export const InteractiveTabPager: React.FC<InteractiveTabPagerProps> = ({
           }
         }
       );
-
-      // Immediately notify active state change so navbar & route respond with 0ms delay
-      if (targetIndex !== activeIndex) {
-        isGestureSettling.value = true;
-        runOnJS(handleTabSettled)(targetIndex);
-      }
     });
 
   return (
@@ -235,10 +229,10 @@ const TabScene: React.FC<TabSceneProps> = React.memo(
       };
     });
 
-    // Frosted glass blur applied ONLY to the revealing page while swipe is held
+    // Frosted glass blur applied ONLY to the revealing page while swipe is held (iOS only)
     const blurAnimatedStyle = useAnimatedStyle(() => {
       'worklet';
-      if (!isDragging.value) {
+      if (!isDragging.value || IS_ANDROID) {
         return { opacity: 0 };
       }
 
@@ -272,24 +266,20 @@ const TabScene: React.FC<TabSceneProps> = React.memo(
       >
         <Component />
 
-        {/* Revealing page blur overlay while swipe is held and not yet released */}
-        <Animated.View
-          pointerEvents="none"
-          style={[styles.sceneBlurOverlay, blurAnimatedStyle]}
-        >
-          {IS_ANDROID ? (
-            <View style={styles.androidFrostedOverlay} />
-          ) : (
-            <>
-              <BlurView
-                intensity={45}
-                tint="light"
-                style={StyleSheet.absoluteFill}
-              />
-              <View style={styles.iosBlurTintBackdrop} />
-            </>
-          )}
-        </Animated.View>
+        {/* Revealing page blur overlay: enabled on iOS native; omitted on Android to prevent HWUI layer allocation flicker */}
+        {!IS_ANDROID && (
+          <Animated.View
+            pointerEvents="none"
+            style={[styles.sceneBlurOverlay, blurAnimatedStyle]}
+          >
+            <BlurView
+              intensity={45}
+              tint="light"
+              style={StyleSheet.absoluteFill}
+            />
+            <View style={styles.iosBlurTintBackdrop} />
+          </Animated.View>
+        )}
       </Animated.View>
     );
   }
@@ -309,15 +299,10 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     backgroundColor: colors.background,
-    ...(IS_ANDROID ? { elevation: 0 } : {}),
   },
   sceneBlurOverlay: {
     ...StyleSheet.absoluteFill,
     zIndex: 50,
-  },
-  androidFrostedOverlay: {
-    ...StyleSheet.absoluteFill,
-    backgroundColor: 'rgba(248, 250, 252, 0.42)',
   },
   iosBlurTintBackdrop: {
     ...StyleSheet.absoluteFill,

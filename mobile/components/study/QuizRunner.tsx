@@ -34,6 +34,7 @@ import {
 } from '@hugeicons/core-free-icons';
 import { StudyItem } from '../../types';
 import { AcademicWeaponShareModal } from '../social/AcademicWeaponShareModal';
+import { InstagramStoryButton } from '../social/InstagramStoryButton';
 import { SourceAttribution } from './SourceAttribution';
 import { PlatformPressable } from '../common/PlatformPressable';
 import { SmoothScrollView } from '../common/SmoothScrollView';
@@ -1829,15 +1830,9 @@ export const QuizRunner = forwardRef<QuizRunnerRef, Props>(({
 
         {/* Post-Quiz Actions */}
         <View style={styles.reviewActionFooter}>
-          <PlatformPressable
-            style={styles.flexStoryBtn}
+          <InstagramStoryButton
             onPress={() => setShowStoryModal(true)}
-          >
-            <View style={styles.btnRow}>
-              <HugeiconsIcon icon={SparklesIcon} size={18} color="#FFFFFF" strokeWidth={2.4} />
-              <Text style={styles.flexStoryBtnText}>🔥 Flex on IG Story</Text>
-            </View>
-          </PlatformPressable>
+          />
 
           <PlatformPressable style={styles.restartBtn} onPress={handleRestartQuiz}>
             <View style={styles.btnRow}>

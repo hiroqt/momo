@@ -49,6 +49,14 @@
               "scheme": "instagram-stories"
             }
           }
+        },
+        {
+          "intent": {
+            "action": "com.instagram.share.ADD_TO_STORY",
+            "data": {
+              "mimeType": "image/*"
+            }
+          }
         }
       ]
     },

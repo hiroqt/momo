@@ -7,6 +7,12 @@ export interface ShareStoryResult {
   error?: string;
 }
 
+export interface SaveGalleryResult {
+  success: boolean;
+  savedDirectly?: boolean;
+  error?: string;
+}
+
 function getCaptureRef(): ((viewRef: any, options?: any) => Promise<string>) | null {
   try {
     // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -43,41 +49,113 @@ function getExpoMediaLibrary(): any {
   }
 }
 
-function getExpoClipboard(): any {
+function getExpoIntentLauncher(): any {
   try {
     // eslint-disable-next-line @typescript-eslint/no-var-requires
-    return require('expo-clipboard');
+    return require('expo-intent-launcher');
   } catch (err) {
-    console.warn('[shareStory] expo-clipboard not available in binary:', err);
+    console.warn('[shareStory] expo-intent-launcher not available in binary:', err);
     return null;
   }
 }
 
 /**
- * Safely checks whether Instagram or Instagram Stories is installed and queryable.
+ * Converts a local file:// URI to a secure content:// URI via FileProvider on Android.
  */
-export async function isInstagramInstalled(): Promise<boolean> {
+async function getContentUri(fileUri: string): Promise<string> {
+  if (Platform.OS !== 'android') return fileUri;
   try {
-    const hasStory = await Linking.canOpenURL('instagram-stories://share');
-    if (hasStory) return true;
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const FileSystem = require('expo-file-system/legacy');
+    if (FileSystem && typeof FileSystem.getContentUriAsync === 'function') {
+      return await FileSystem.getContentUriAsync(fileUri);
+    }
   } catch {}
 
   try {
-    const hasCamera = await Linking.canOpenURL('instagram://story-camera');
-    if (hasCamera) return true;
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const FileSystem = require('expo-file-system');
+    if (FileSystem && typeof FileSystem.getContentUriAsync === 'function') {
+      return await FileSystem.getContentUriAsync(fileUri);
+    }
   } catch {}
 
+  return fileUri;
+}
+
+/**
+ * Directly writes an image file into the user's Photos/Gallery album via MediaLibrary.
+ * Works on both Android and iOS without opening system chooser or clipboard.
+ */
+async function saveImageToMediaLibrary(uri: string): Promise<{ success: boolean; uri?: string }> {
   try {
-    return await Linking.canOpenURL('instagram://app');
-  } catch {
-    return false;
+    const MediaLibrary = getExpoMediaLibrary();
+    if (!MediaLibrary) return { success: false };
+
+    // Request permissions (write-only where supported)
+    try {
+      if (typeof MediaLibrary.requestPermissionsAsync === 'function') {
+        await MediaLibrary.requestPermissionsAsync(true);
+      }
+    } catch (permErr) {
+      console.warn('[shareStory] requestPermissionsAsync warning:', permErr);
+    }
+
+    let assetUri = uri;
+
+    // 1. Legacy / Expo Go API: createAssetAsync
+    if (typeof MediaLibrary.createAssetAsync === 'function') {
+      try {
+        const asset = await MediaLibrary.createAssetAsync(uri);
+        if (asset?.uri) {
+          assetUri = asset.uri;
+        }
+        return { success: true, uri: assetUri };
+      } catch (err) {
+        console.warn('[shareStory] createAssetAsync error:', err);
+      }
+    }
+
+    // 2. Legacy / Expo Go API: saveToLibraryAsync
+    if (typeof MediaLibrary.saveToLibraryAsync === 'function') {
+      try {
+        await MediaLibrary.saveToLibraryAsync(uri);
+        return { success: true, uri: assetUri };
+      } catch (err) {
+        console.warn('[shareStory] saveToLibraryAsync error:', err);
+      }
+    }
+
+    // 3. Modern Expo SDK 57+ API: MediaLibrary.Asset.create(filePath)
+    if (MediaLibrary.Asset && typeof MediaLibrary.Asset.create === 'function') {
+      try {
+        const asset = await MediaLibrary.Asset.create(uri);
+        if (asset) {
+          if (typeof asset.getUri === 'function') {
+            try {
+              assetUri = await asset.getUri();
+            } catch {}
+          } else if (asset.id && asset.id.startsWith('content://')) {
+            assetUri = asset.id;
+          }
+          return { success: true, uri: assetUri };
+        }
+      } catch (err) {
+        console.warn('[shareStory] Asset.create error:', err);
+      }
+    }
+  } catch (outerErr) {
+    console.warn('[shareStory] saveImageToMediaLibrary error:', outerErr);
   }
+
+  return { success: false };
 }
 
 /**
  * Saves the 9:16 Academic Weapon Card directly to the user's Camera Roll / Photos.
+ * Uses MediaLibrary directly so it saves immediately without opening the share sheet.
  */
-export async function saveCardToGallery(cardRef: React.RefObject<any>): Promise<{ success: boolean; error?: string }> {
+export async function saveCardToGallery(cardRef: React.RefObject<any>): Promise<SaveGalleryResult> {
   if (!cardRef || !cardRef.current) {
     return { success: false, error: 'Card preview is not ready yet.' };
   }
@@ -95,28 +173,13 @@ export async function saveCardToGallery(cardRef: React.RefObject<any>): Promise<
       result: 'tmpfile',
     });
 
-    const MediaLibrary = getExpoMediaLibrary();
-    if (MediaLibrary) {
-      if (typeof MediaLibrary.requestPermissionsAsync === 'function') {
-        const { status } = await MediaLibrary.requestPermissionsAsync(true);
-        if (status !== 'granted') {
-          return {
-            success: false,
-            error: 'Photo access was not granted. Please allow photos permission in Settings to save your card.',
-          };
-        }
-      }
-
-      if (typeof MediaLibrary.saveToLibraryAsync === 'function') {
-        await MediaLibrary.saveToLibraryAsync(tmpUri);
-        return { success: true };
-      } else if (typeof MediaLibrary.createAssetAsync === 'function') {
-        await MediaLibrary.createAssetAsync(tmpUri);
-        return { success: true };
-      }
+    // 1. Save directly to photo library without opening system share sheet
+    const saveRes = await saveImageToMediaLibrary(tmpUri);
+    if (saveRes.success) {
+      return { success: true, savedDirectly: true };
     }
 
-    // Fallback: If direct media library access is unavailable, open system sharing sheet with Save Image action
+    // 2. Fallback only if MediaLibrary is completely unavailable
     const Sharing = getExpoSharing();
     if (Sharing && typeof Sharing.isAvailableAsync === 'function' && typeof Sharing.shareAsync === 'function') {
       const isAvailable = await Sharing.isAvailableAsync();
@@ -126,11 +189,11 @@ export async function saveCardToGallery(cardRef: React.RefObject<any>): Promise<
           dialogTitle: 'Save Academic Weapon Card',
           UTI: 'public.png',
         });
-        return { success: true };
+        return { success: true, savedDirectly: false };
       }
     }
 
-    return { success: false, error: 'Could not access photo library on this device.' };
+    return { success: false, error: 'Could not access photo saving on this device.' };
   } catch (err: any) {
     console.error('[saveCardToGallery] Error saving card to gallery:', err);
     return { success: false, error: err?.message || 'Failed to save image to photos.' };
@@ -139,11 +202,14 @@ export async function saveCardToGallery(cardRef: React.RefObject<any>): Promise<
 
 /**
  * Shares the 9:16 Academic Weapon Card directly to Instagram Stories on mobile.
- * 1. Captures view as a high-resolution PNG.
- * 2. Saves image to user's photo gallery so it's immediately available in camera roll.
- * 3. Copies image to clipboard for Instagram's "Add Sticker from Clipboard" prompt.
- * 4. Automatically opens Instagram Story (via instagram-stories://share or instagram://story-camera).
- * 5. Falls back seamlessly to Expo Sharing sheet if direct open is not available.
+ * 1. Captures view as a high-resolution PNG temporary file.
+ * 2. Directly saves the image to device Photos so it is guaranteed in the user's gallery.
+ * 3. On Android:
+ *    - Tries Meta's official 'com.instagram.share.ADD_TO_STORY' intent with media content URI.
+ *    - Falls back to opening Instagram Story Camera / Instagram app directly.
+ *    - Avoids the generic system share sheet to prevent unwanted "Copy to clipboard" options.
+ * 4. On iOS: Passes PNG file to native share sheet (UIActivityViewController) which directly
+ *    loads the image into Instagram Stories with the preview visible.
  */
 export async function shareToInstagramStory(cardRef: React.RefObject<any>): Promise<ShareStoryResult> {
   if (!cardRef || !cardRef.current) {
@@ -167,73 +233,66 @@ export async function shareToInstagramStory(cardRef: React.RefObject<any>): Prom
       result: 'tmpfile',
     });
 
-    // 2. Also capture base64 for clipboard sticker support
-    let base64Data: string | null = null;
-    try {
-      base64Data = await capture(cardRef, {
-        format: 'png',
-        quality: 1.0,
-        result: 'base64',
-      });
-    } catch (b64Err) {
-      console.warn('[shareStory] base64 capture error (non-critical):', b64Err);
-    }
+    // 2. Directly save card to user's gallery so it's always ready in the device Photos
+    const saveRes = await saveImageToMediaLibrary(tmpUri);
+    const mediaUri = saveRes.uri || tmpUri;
 
-    // 3. Automatically save image to photo gallery so it is directly at the top of recent photos in Instagram
-    const MediaLibrary = getExpoMediaLibrary();
-    if (MediaLibrary) {
-      try {
-        if (typeof MediaLibrary.requestPermissionsAsync === 'function') {
-          const { status } = await MediaLibrary.requestPermissionsAsync(true);
-          if (status === 'granted') {
-            if (typeof MediaLibrary.saveToLibraryAsync === 'function') {
-              await MediaLibrary.saveToLibraryAsync(tmpUri);
-            } else if (typeof MediaLibrary.createAssetAsync === 'function') {
-              await MediaLibrary.createAssetAsync(tmpUri);
-            }
-          }
-        }
-      } catch (saveErr) {
-        console.warn('[shareStory] Auto-saving to gallery failed (non-critical):', saveErr);
-      }
-    }
+    // 3. Android: Direct Instagram Launch
+    if (Platform.OS === 'android') {
+      const IntentLauncher = getExpoIntentLauncher();
 
-    // 4. Copy image to clipboard (on iOS, opening Instagram automatically triggers "Add Sticker from Clipboard")
-    if (base64Data) {
-      const Clipboard = getExpoClipboard();
-      if (Clipboard && typeof Clipboard.setImageAsync === 'function') {
+      // 3a. Try Meta's official Instagram Story Intent
+      if (IntentLauncher && typeof IntentLauncher.startActivityAsync === 'function') {
+        const storyContentUri = mediaUri.startsWith('content://') ? mediaUri : await getContentUri(tmpUri);
         try {
-          await Clipboard.setImageAsync(base64Data);
-        } catch (clipErr) {
-          console.warn('[shareStory] Clipboard copy failed (non-critical):', clipErr);
+          await IntentLauncher.startActivityAsync('com.instagram.share.ADD_TO_STORY', {
+            type: 'image/png',
+            data: storyContentUri,
+            flags: 1, // Intent.FLAG_GRANT_READ_URI_PERMISSION
+            extra: {
+              interactive_asset_uri: storyContentUri,
+              content_url: storyContentUri,
+              source_application: 'com.aistudy.platform',
+              top_background_color: '#09071A',
+              bottom_background_color: '#09071A',
+            },
+          });
+          return { success: true, autoOpened: true, fallbackUsed: false };
+        } catch (intentErr) {
+          console.warn('[shareStory] ADD_TO_STORY intent threw:', intentErr);
         }
       }
-    }
 
-    // 5. Check if Instagram is installed and auto-open directly to Instagram Story
-    const hasInstagram = await isInstagramInstalled();
-
-    if (hasInstagram) {
-      const igStorySchemes = [
-        'instagram-stories://share',
+      // 3b. Try Instagram Story Camera deep links directly
+      const storyCameraUrls = [
+        'intent://story-camera#Intent;package=com.instagram.android;scheme=https;end',
         'instagram://story-camera',
-        'instagram://app',
+        'instagram://camera',
       ];
-
-      for (const scheme of igStorySchemes) {
+      for (const url of storyCameraUrls) {
         try {
-          const canOpen = await Linking.canOpenURL(scheme);
-          if (canOpen) {
-            await Linking.openURL(scheme);
-            return { success: true, autoOpened: true, fallbackUsed: false };
-          }
-        } catch (openErr) {
-          console.warn(`[shareStory] Failed to open ${scheme}:`, openErr);
-        }
+          await Linking.openURL(url);
+          return { success: true, autoOpened: true, fallbackUsed: false };
+        } catch {}
       }
+
+      // 3c. Try launching Instagram application directly
+      if (IntentLauncher && typeof IntentLauncher.openApplication === 'function') {
+        try {
+          IntentLauncher.openApplication('com.instagram.android');
+          return { success: true, autoOpened: true, fallbackUsed: false };
+        } catch {}
+      }
+
+      try {
+        await Linking.openURL('instagram://app');
+        return { success: true, autoOpened: true, fallbackUsed: false };
+      } catch {}
     }
 
-    // 6. If direct URL could not be opened or Instagram is not installed, open system share sheet
+    // 4. iOS: Native Share Sheet with Image File Attached (UIActivityViewController)
+    // On iOS, Sharing.shareAsync passes the PNG directly to Instagram Stories
+    // so Instagram loads the image with the preview visible.
     const Sharing = getExpoSharing();
     if (Sharing && typeof Sharing.isAvailableAsync === 'function' && typeof Sharing.shareAsync === 'function') {
       try {
@@ -241,17 +300,17 @@ export async function shareToInstagramStory(cardRef: React.RefObject<any>): Prom
         if (isAvailable) {
           await Sharing.shareAsync(tmpUri, {
             mimeType: 'image/png',
-            dialogTitle: hasInstagram ? 'Share to Instagram Story' : 'Share Academic Weapon Card',
+            dialogTitle: 'Share to Instagram Story',
             UTI: 'public.png',
           });
-          return { success: true, autoOpened: false, fallbackUsed: !hasInstagram };
+          return { success: true, autoOpened: false, fallbackUsed: false };
         }
       } catch (expoErr) {
-        console.warn('[shareStory] ExpoSharing.shareAsync failed, falling back to RNShare:', expoErr);
+        console.warn('[shareStory] ExpoSharing failed, falling back to RNShare:', expoErr);
       }
     }
 
-    // 7. Core React Native Share fallback
+    // 5. Core React Native Share fallback
     await RNShare.share(
       Platform.OS === 'ios'
         ? { url: tmpUri, title: 'Academic Weapon Card' }

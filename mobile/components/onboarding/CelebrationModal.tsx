@@ -15,6 +15,7 @@ import {
   FlashIcon,
 } from '@hugeicons/core-free-icons';
 import { colors, spacing, typography } from '@/constants/theme';
+import { InstagramIcon } from '../social/InstagramIcon';
 
 interface CelebrationModalProps {
   visible: boolean;
@@ -110,7 +111,7 @@ export const CelebrationModal: React.FC<CelebrationModalProps> = ({
 
           {onShareStory && (
             <TouchableOpacity style={styles.shareStoryBtn} onPress={onShareStory} activeOpacity={0.8}>
-              <HugeiconsIcon icon={SparklesIcon} size={16} color="#8B5CF6" strokeWidth={2.2} />
+              <InstagramIcon size={16} color="#E1306C" strokeWidth={2.2} />
               <Text style={styles.shareStoryBtnText}>Share to Instagram Story</Text>
             </TouchableOpacity>
           )}
@@ -270,20 +271,20 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#F5F3FF',
+    backgroundColor: '#FFF1F5',
     paddingVertical: spacing[12],
     paddingHorizontal: spacing[20],
     borderRadius: 14,
     borderCurve: 'continuous',
     width: '100%',
-    gap: 6,
+    gap: 8,
     marginTop: spacing[10],
     borderWidth: 1,
-    borderColor: '#DDD6FE',
+    borderColor: '#FCE7F3',
   },
   shareStoryBtnText: {
     fontSize: typography.fontSize[14],
     fontWeight: typography.fontWeight.bold,
-    color: '#7C3AED',
+    color: '#E1306C',
   },
 });

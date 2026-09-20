@@ -222,7 +222,9 @@ export default function HomeScreen() {
         <View style={styles.streakTimelineContainer}>
           <View style={styles.streakHeader}>
             <View>
-              <Text style={styles.streakTitle}>🔥 {streakData.current_streak} Day Streak</Text>
+              <Text style={styles.streakTitle}>
+                🔥 {streakData.current_streak} {streakData.current_streak === 1 ? 'Day' : 'Days'} Streak
+              </Text>
               <Text style={styles.streakSub}>You're on a roll!</Text>
             </View>
             <TouchableOpacity
@@ -437,7 +439,6 @@ export default function HomeScreen() {
         inputData={{
           mode: 'streak',
           streak: streakData.current_streak,
-          subject: 'Daily Consistency',
         }}
       />
     </TabTransitionView>

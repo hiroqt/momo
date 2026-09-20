@@ -37,18 +37,20 @@ export function generateAcademicWeaponReport(input: AcademicWeaponInput): Academ
 
   if (input.mode === 'streak') {
     const streak = input.streak || 1;
+    const dayLabel = streak === 1 ? 'Day' : 'Days';
+    const dayLower = streak === 1 ? 'day' : 'days';
     return {
       headline: 'DISCIPLINE ON LOCK',
-      subtitle: `${streak} Days & Still Undefeated`,
-      challengeText: `Day ${streak} study streak. Can you even compete?`,
+      subtitle: `${streak} ${dayLabel} & Still Undefeated`,
+      challengeText: `${streak === 1 ? 'Day 1' : `Day ${streak}`} study streak. Can you even compete?`,
       subject: 'Daily Consistency',
       streak,
       momoMood: 'cheer',
       paletteAccent: '#EF4444', // Crimson Flame
       userName,
       alternativeChallenges: [
-        `Day ${streak} study streak. Can you even compete?`,
-        `${streak} days straight with Momo. Who's challenging this?`,
+        `${streak === 1 ? 'Day 1' : `Day ${streak}`} study streak. Can you even compete?`,
+        `${streak} ${dayLower} straight with Momo. Who's challenging this?`,
         'Never breaking the chain. Academic weapon mindset.',
       ],
     };

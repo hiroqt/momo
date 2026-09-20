@@ -24,7 +24,6 @@ import {
   Clock01Icon,
   CheckmarkCircle02Icon,
   MoreVerticalIcon,
-  SparklesIcon,
 } from '@hugeicons/core-free-icons';
 import { getStudySet, getStudyItems, deleteStudySet, updateStudySet } from '../../lib/api/studySets';
 import { localDb } from '../../lib/storage/localDb';
@@ -39,6 +38,7 @@ import { StudySet, StudyItem } from '../../types';
 import { useOnboarding } from '../../context/OnboardingContext';
 import { CelebrationModal } from '../../components/onboarding/CelebrationModal';
 import { AcademicWeaponShareModal } from '../../components/social/AcademicWeaponShareModal';
+import { InstagramStoryButton } from '../../components/social/InstagramStoryButton';
 import { MomoLoadingScreen } from '../../components/common/MomoLoadingScreen';
 import { isIpad } from '../../utils/device';
 
@@ -275,15 +275,9 @@ export default function StudySessionScreen() {
             </View>
 
             <View style={styles.finishActionCol}>
-              <PlatformPressable
-                style={styles.flexStoryBtn}
+              <InstagramStoryButton
                 onPress={() => setShowStoryModal(true)}
-              >
-                <View style={styles.btnRow}>
-                  <HugeiconsIcon icon={SparklesIcon} size={18} color="#FFFFFF" strokeWidth={2.4} />
-                  <Text style={styles.flexStoryBtnText}>🔥 Flex on IG Story</Text>
-                </View>
-              </PlatformPressable>
+              />
 
               <PlatformPressable style={styles.restartBtn} onPress={handleRestart}>
                 <View style={styles.btnRow}>

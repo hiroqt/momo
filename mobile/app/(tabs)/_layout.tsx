@@ -1,5 +1,6 @@
-import React, { useMemo, useCallback } from 'react';
-import { usePathname, useRouter, useSegments } from 'expo-router';
+import React, { useMemo, useCallback, useState, useEffect } from 'react';
+import { usePathname, useSegments } from 'expo-router';
+import { BackHandler } from 'react-native';
 import { InteractiveTabPager, TabPageConfig } from '../../components/common/InteractiveTabPager';
 import HomeScreen from './index';
 import LibraryScreen from './library';
@@ -20,19 +21,12 @@ const ROUTE_MAP: Record<string, number> = {
   profile: 3,
 };
 
-const INDEX_TO_ROUTE: Record<number, string> = {
-  0: '/(tabs)',
-  1: '/(tabs)/library',
-  2: '/(tabs)/shop',
-  3: '/(tabs)/profile',
-};
-
 export default function TabsLayout() {
   const pathname = usePathname();
   const segments = useSegments();
-  const router = useRouter();
 
-  const activeIndex = useMemo(() => {
+  // Compute route target index from external navigation / deep links
+  const routeTargetIndex = useMemo(() => {
     const segs = (segments || []) as string[];
     const path = (pathname || '').toLowerCase();
 
@@ -50,21 +44,41 @@ export default function TabsLayout() {
     return 0;
   }, [segments, pathname]);
 
-  const handleTabChange = useCallback(
-    (newIndex: number) => {
-      const targetRoute = INDEX_TO_ROUTE[newIndex];
-      if (targetRoute) {
-        router.replace(targetRoute as any);
+  const [activeTab, setActiveTab] = useState(routeTargetIndex);
+
+  // Sync activeTab when external navigation changes the URL
+  useEffect(() => {
+    setActiveTab(routeTargetIndex);
+  }, [routeTargetIndex]);
+
+  // Handle tab change from internal swipe or floating navbar press:
+  // All 4 tabs are rendered internally inside InteractiveTabPager.
+  // We do NOT call router.replace() here because calling router.replace() triggers
+  // react-native-screens fragment replacement on Android, which detaches views and causes a screen flicker.
+  const handleTabChange = useCallback((newIndex: number) => {
+    setActiveTab(newIndex);
+  }, []);
+
+  // Handle Android hardware back button: return to Home (tab 0) if on another tab
+  useEffect(() => {
+    const onBackPress = () => {
+      if (activeTab !== 0) {
+        setActiveTab(0);
+        return true;
       }
-    },
-    [router]
-  );
+      return false;
+    };
+
+    const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => sub.remove();
+  }, [activeTab]);
 
   return (
     <InteractiveTabPager
       pages={PAGES}
-      activeIndex={activeIndex}
+      activeIndex={activeTab}
       onTabChange={handleTabChange}
     />
   );
 }
+

@@ -73,25 +73,33 @@ The card is rendered with an exact 9:16 aspect ratio (`width: 360`, `height: 640
 ## 4. Technical Export Pipeline
 
 ### 4.1 Required Dependencies
-To render and share high-resolution images natively on Expo:
-- `react-native-view-shot`: Captures the `AcademicWeaponStoryCard` offscreen or in-modal ref as a high-density PNG.
-- `expo-sharing`: Invokes the native platform share dialog on iOS and Android with image MIME type.
+To render high-resolution images and launch directly into Instagram Stories:
+- `react-native-view-shot`: Captures the `AcademicWeaponStoryCard` offscreen or in-modal ref as a high-density base64 or PNG file.
+- `react-native-share`: Directly launches the Instagram Story composer via `Share.shareSingle({ social: Share.Social.INSTAGRAM_STORIES })` on both iOS and Android.
+- `expo-sharing`: Secondary fallback if Instagram is not installed.
 
-### 4.2 Sharing Flow
+### 4.2 Direct Instagram Stories Automation Flow
+
+When the user taps **"Share Story" / "Flex on IG Story"**, the app must immediately bypass generic picker sheets and open the native Instagram app directly into the Story creation screen:
 
 ```text
-User Taps "Flex on IG Story"
+User Taps "Share Story"
            ↓
-Open AcademicWeaponShareModal (Card Preview + Prompt Picker)
+Capture Card using captureRef (format: 'png', quality: 1.0)
            ↓
-User Taps "Share to Instagram Story"
+Direct Launch via Share.shareSingle({
+    social: Share.Social.INSTAGRAM_STORIES,
+    stickerImage: `data:image/png;base64,${base64Data}`,
+    backgroundTopColor: '#09071A',
+    backgroundBottomColor: '#1A0B2E',
+    appId: 'com.aistudy.platform'
+})
            ↓
-captureRef(cardViewRef, { format: 'png', quality: 1.0 })
-           ↓
-Check Instagram Deep Link (instagram-stories://share)
-     ├── Available on Device → Pass sticker asset / launch IG Stories
-     └── Fallback → Sharing.shareAsync(uri) with system share sheet
+Instagram app opens automatically with the Academic Weapon Card
+centered on the user's Story canvas ready to post!
 ```
+
+**Non-Instagram Fallback:** If Instagram is not detected on the device, the app displays a clear prompt ("Instagram is not installed") with an option to export via standard share sheet (`expo-sharing`).
 
 ---
 

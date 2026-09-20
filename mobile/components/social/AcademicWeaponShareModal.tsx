@@ -1,0 +1,282 @@
+import React, { useState, useRef, useEffect, useMemo } from 'react';
+import {
+  View,
+  Modal,
+  StyleSheet,
+  TouchableOpacity,
+  ScrollView,
+  ActivityIndicator,
+  Alert,
+  Pressable,
+} from 'react-native';
+import { AppText as Text } from '@/components/common/app-text';
+import { HugeiconsIcon } from '@hugeicons/react-native';
+import { Cancel01Icon, SparklesIcon, Share01Icon } from '@hugeicons/core-free-icons';
+import {
+  AcademicWeaponData,
+  AcademicWeaponInput,
+  generateAcademicWeaponReport,
+} from '@/utils/academicWeapon';
+import { AcademicWeaponStoryCard } from './AcademicWeaponStoryCard';
+import { shareToInstagramStory } from '@/utils/shareStory';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+export interface AcademicWeaponShareModalProps {
+  visible: boolean;
+  onClose: () => void;
+  inputData: AcademicWeaponInput;
+}
+
+export const AcademicWeaponShareModal: React.FC<AcademicWeaponShareModalProps> = ({
+  visible,
+  onClose,
+  inputData,
+}) => {
+  const insets = useSafeAreaInsets();
+  const cardRef = useRef<View>(null);
+  const reportData = useMemo(() => generateAcademicWeaponReport(inputData), [inputData]);
+  const [selectedChallenge, setSelectedChallenge] = useState(reportData.challengeText);
+  const [isSharing, setIsSharing] = useState(false);
+
+  useEffect(() => {
+    if (visible) {
+      setSelectedChallenge(reportData.challengeText);
+      setIsSharing(false);
+    }
+  }, [visible, reportData.challengeText]);
+
+  const activeData: AcademicWeaponData = useMemo(
+    () => ({
+      ...reportData,
+      challengeText: selectedChallenge,
+    }),
+    [reportData, selectedChallenge]
+  );
+
+  const handleShare = async () => {
+    if (isSharing) return;
+    setIsSharing(true);
+    try {
+      const res = await shareToInstagramStory(cardRef);
+      if (res.success) {
+        onClose();
+      } else if (res.error && res.error !== 'Instagram not installed') {
+        Alert.alert('Share Failed', res.error || 'Could not export story to Instagram.');
+      }
+    } catch (e: any) {
+      Alert.alert('Share Failed', e?.message || 'Could not export story.');
+    } finally {
+      setIsSharing(false);
+    }
+  };
+
+  return (
+    <Modal
+      visible={visible}
+      transparent
+      animationType="slide"
+      onRequestClose={onClose}
+    >
+      <View style={styles.modalOverlay}>
+        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
+        <View
+          style={[
+            styles.modalContainer,
+            { paddingBottom: Math.max(20, insets.bottom + 8) },
+          ]}
+        >
+          {/* Header Row */}
+          <View style={styles.modalHeader}>
+            <View style={styles.modalHeaderLeft}>
+              <View style={styles.sparkleIconBox}>
+                <HugeiconsIcon icon={SparklesIcon} size={18} color="#8B5CF6" strokeWidth={2.4} />
+              </View>
+              <Text style={styles.modalTitle}>Share to Instagram Story</Text>
+            </View>
+            <TouchableOpacity
+              style={styles.closeBtn}
+              onPress={onClose}
+              activeOpacity={0.7}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <HugeiconsIcon icon={Cancel01Icon} size={18} color="#94A3B8" strokeWidth={2.2} />
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.scrollContent}
+          >
+            {/* Live 9:16 Card Preview */}
+            <View style={styles.previewStage}>
+              <AcademicWeaponStoryCard ref={cardRef} data={activeData} scale={0.82} />
+            </View>
+
+            {/* Prompt Selector Pills */}
+            <View style={styles.promptsSection}>
+              <Text style={styles.sectionLabel}>CHOOSE YOUR CHALLENGE LINE</Text>
+              <View style={styles.promptList}>
+                {reportData.alternativeChallenges.map((prompt, idx) => {
+                  const isSelected = prompt === selectedChallenge;
+                  return (
+                    <TouchableOpacity
+                      key={idx}
+                      style={[
+                        styles.promptPill,
+                        isSelected && styles.promptPillSelected,
+                      ]}
+                      onPress={() => setSelectedChallenge(prompt)}
+                      activeOpacity={0.75}
+                    >
+                      <Text
+                        style={[
+                          styles.promptPillText,
+                          isSelected && styles.promptPillTextSelected,
+                        ]}
+                      >
+                        "{prompt}"
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </View>
+          </ScrollView>
+
+          {/* Action Footer */}
+          <View style={styles.footerBar}>
+            <TouchableOpacity
+              style={styles.shareBtn}
+              onPress={handleShare}
+              disabled={isSharing}
+              activeOpacity={0.85}
+            >
+              {isSharing ? (
+                <ActivityIndicator color="#FFFFFF" size="small" />
+              ) : (
+                <>
+                  <HugeiconsIcon icon={Share01Icon} size={20} color="#FFFFFF" strokeWidth={2.4} />
+                  <Text style={styles.shareBtnText}>Share to Instagram Story</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+};
+
+const styles = StyleSheet.create({
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.75)',
+    justifyContent: 'flex-end',
+  },
+  modalContainer: {
+    backgroundColor: '#0F172A',
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    maxHeight: '92%',
+    paddingTop: 16,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  modalHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  sparkleIconBox: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(139, 92, 246, 0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalTitle: {
+    fontSize: 17,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
+  closeBtn: {
+    padding: 6,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+  },
+  scrollContent: {
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 16,
+    alignItems: 'center',
+  },
+  previewStage: {
+    height: 540,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  promptsSection: {
+    width: '100%',
+    marginTop: 8,
+  },
+  sectionLabel: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#94A3B8',
+    letterSpacing: 0.8,
+    marginBottom: 8,
+  },
+  promptList: {
+    gap: 8,
+  },
+  promptPill: {
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: 14,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  promptPillSelected: {
+    backgroundColor: 'rgba(139, 92, 246, 0.2)',
+    borderColor: '#8B5CF6',
+  },
+  promptPillText: {
+    fontSize: 13,
+    color: '#CBD5E1',
+    fontWeight: '600',
+  },
+  promptPillTextSelected: {
+    color: '#FFFFFF',
+    fontWeight: '800',
+  },
+  footerBar: {
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  shareBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#8B5CF6',
+    borderRadius: 20,
+    paddingVertical: 14,
+    gap: 8,
+  },
+  shareBtnText: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
+});

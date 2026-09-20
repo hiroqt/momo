@@ -14,7 +14,10 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.aistudy.platform"
+      "bundleIdentifier": "com.aistudy.platform",
+      "infoPlist": {
+        "LSApplicationQueriesSchemes": ["instagram-stories", "instagram"]
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -24,7 +27,12 @@
         "backgroundColor": "#F8FAFC",
         "barStyle": "dark-content"
       },
-      "package": "com.aistudy.platform"
+      "package": "com.aistudy.platform",
+      "queries": [
+        {
+          "package": "com.instagram.android"
+        }
+      ]
     },
     "web": {
       "bundler": "metro"

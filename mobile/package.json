@@ -23,6 +23,7 @@
     "expo-image-picker": "~57.0.19",
     "expo-linking": "~57.0.10",
     "expo-router": "~57.0.21",
+    "expo-sharing": "^57.0.21",
     "expo-splash-screen": "~57.0.9",
     "expo-sqlite": "~57.0.3",
     "expo-status-bar": "~57.0.1",
@@ -36,7 +37,9 @@
     "react-native-reanimated": "4.5.1",
     "react-native-safe-area-context": "~5.7.0",
     "react-native-screens": "~4.26.0",
-    "react-native-svg": "15.15.4"
+    "react-native-share": "^12.3.1",
+    "react-native-svg": "15.15.4",
+    "react-native-view-shot": "^5.1.1"
   },
   "devDependencies": {
     "@types/react": "~19.2.4",

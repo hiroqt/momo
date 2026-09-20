@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef } from 'react';
+import React, { useCallback, useEffect } from 'react';
 import {
   StyleSheet,
   View,
@@ -10,16 +10,14 @@ import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withSpring,
-  withTiming,
   interpolate,
   Extrapolation,
   runOnJS,
   SharedValue,
-  Easing,
 } from 'react-native-reanimated';
 import { BlurView } from 'expo-blur';
 import { colors } from '@/constants/theme';
-import { FloatingNavBar, TABS } from './FloatingNavBar';
+import { FloatingNavBar } from './FloatingNavBar';
 
 export interface TabPageConfig {
   key: string;

@@ -2,8 +2,6 @@ import React, { useState } from 'react';
 import { View, Text, Modal, Image, StyleSheet, TouchableOpacity, Alert, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { HugeiconsIcon } from '@hugeicons/react-native';
-import { BitcoinShoppingIcon, FavouriteIcon, GameController01Icon, SparklesIcon, Coins01Icon } from '@hugeicons/core-free-icons';
 import { useCredits } from '../context/CreditsContext';
 import { PageHeader } from '../components/common/PageHeader';
 import { SmoothScrollView } from '../components/common/SmoothScrollView';
@@ -91,37 +89,87 @@ export default function ShopScreen() {
     <View style={styles.screen}>
       <PageHeader
         title="Momo's Shop"
-        subtitle={`🪙 ${credits}  |  ❤️ ${hearts}  |  🌟 ${xp}`}
+        subtitle="Power up your study journey"
         showBack={true}
         onBack={() => router.back()}
       />
+
+      {/* Live Currency Balance Bar */}
+      <View style={styles.statsBar}>
+        <View style={styles.statPill}>
+          <Text style={styles.statEmoji}>🪙</Text>
+          <View style={styles.statTextGroup}>
+            <Text style={styles.statValue} numberOfLines={1}>{credits.toLocaleString()}</Text>
+            <Text style={styles.statLabel}>Credits</Text>
+          </View>
+        </View>
+
+        <View style={styles.statDivider} />
+
+        <View style={styles.statPill}>
+          <Text style={styles.statEmoji}>❤️</Text>
+          <View style={styles.statTextGroup}>
+            <Text style={styles.statValue} numberOfLines={1}>{hearts.toLocaleString()}</Text>
+            <Text style={styles.statLabel}>Lives</Text>
+          </View>
+        </View>
+
+        <View style={styles.statDivider} />
+
+        <View style={styles.statPill}>
+          <Text style={styles.statEmoji}>🌟</Text>
+          <View style={styles.statTextGroup}>
+            <Text style={styles.statValue} numberOfLines={1}>{xp.toLocaleString()}</Text>
+            <Text style={styles.statLabel}>XP</Text>
+          </View>
+        </View>
+      </View>
       
+      {/* Category Tabs */}
       <View style={styles.tabSwitcher}>
         <TouchableOpacity 
           style={[styles.tabButton, activeTab === 'credits' && styles.tabButtonActive]}
           onPress={() => setActiveTab('credits')}
+          activeOpacity={0.7}
         >
-          <Text style={[styles.tabButtonText, activeTab === 'credits' && styles.tabButtonTextActive]}>🪙 Credits</Text>
+          <Text style={[styles.tabButtonText, activeTab === 'credits' && styles.tabButtonTextActive]} numberOfLines={1}>
+            🪙 Credits
+          </Text>
         </TouchableOpacity>
         <TouchableOpacity 
           style={[styles.tabButton, activeTab === 'hearts' && styles.tabButtonActive]}
           onPress={() => setActiveTab('hearts')}
+          activeOpacity={0.7}
         >
-          <Text style={[styles.tabButtonText, activeTab === 'hearts' && styles.tabButtonTextActive]}>❤️ Lives</Text>
+          <Text style={[styles.tabButtonText, activeTab === 'hearts' && styles.tabButtonTextActive]} numberOfLines={1}>
+            ❤️ Lives
+          </Text>
         </TouchableOpacity>
         <TouchableOpacity 
           style={[styles.tabButton, activeTab === 'trade' && styles.tabButtonActive]}
           onPress={() => setActiveTab('trade')}
+          activeOpacity={0.7}
         >
-          <Text style={[styles.tabButtonText, activeTab === 'trade' && styles.tabButtonTextActive]}>🌟 Trade XP</Text>
+          <Text style={[styles.tabButtonText, activeTab === 'trade' && styles.tabButtonTextActive]} numberOfLines={1}>
+            🌟 Trade XP
+          </Text>
         </TouchableOpacity>
       </View>
 
-      <SmoothScrollView contentContainerStyle={[styles.container, { paddingBottom: Math.max(insets.bottom, 24) + 88 }]}>
+      <SmoothScrollView
+        contentContainerStyle={[
+          styles.container,
+          { paddingBottom: Math.max(insets.bottom, 24) + 32 },
+        ]}
+      >
         {activeTab === 'credits' && (
           <>
             <View style={styles.headerBox}>
-              <Image source={require("../assets/animations/coins_momo.png")} style={{ width: 100, height: 100, marginBottom: 12 }} resizeMode="contain" />
+              <Image 
+                source={require("../assets/animations/coins_momo.png")} 
+                style={styles.mascotImage} 
+                resizeMode="contain" 
+              />
               <Text style={styles.headerTitle}>Momo's Magic Credits! ✨</Text>
               <Text style={styles.headerDesc}>
                 Need a hint during a tough quiz? Stock up on Momo's magic credits so I can help you out! 🐾
@@ -132,14 +180,14 @@ export default function ShopScreen() {
               <PackageCard
                 title="Little Pouch"
                 reward="100 Credits"
-                icon={<Text style={{ fontSize: 24 }}>🪙</Text>}
+                icon={<Text style={styles.packageEmoji}>🪙</Text>}
                 price="$0.99"
                 onPress={() => handlePurchase(100, '$0.99', 'credit')}
               />
               <PackageCard
                 title="Momo's Backpack"
                 reward="500 Credits"
-                icon={<Text style={{ fontSize: 24 }}>💰</Text>}
+                icon={<Text style={styles.packageEmoji}>💰</Text>}
                 price="$3.99"
                 recommended
                 onPress={() => handlePurchase(500, '$3.99', 'credit')}
@@ -147,7 +195,7 @@ export default function ShopScreen() {
               <PackageCard
                 title="Treasure Chest"
                 reward="1500 Credits"
-                icon={<Text style={{ fontSize: 24 }}>💎</Text>}
+                icon={<Text style={styles.packageEmoji}>💎</Text>}
                 price="$9.99"
                 onPress={() => handlePurchase(1500, '$9.99', 'credit')}
               />
@@ -157,10 +205,14 @@ export default function ShopScreen() {
 
         {activeTab === 'hearts' && (
           <>
-            <View style={[styles.headerBox, { backgroundColor: '#FEE2E2' }]}>
-              <Image source={require("../assets/animations/hearts_momo.png")} style={{ width: 100, height: 100, marginBottom: 12 }} resizeMode="contain" />
+            <View style={[styles.headerBox, { backgroundColor: '#FEF2F2' }]}>
+              <Image 
+                source={require("../assets/animations/hearts_momo.png")} 
+                style={styles.mascotImage} 
+                resizeMode="contain" 
+              />
               <Text style={[styles.headerTitle, { color: '#991B1B' }]}>Momo's Life Savers! ❤️</Text>
-              <Text style={[styles.headerDesc, { color: '#991B1B' }]}>
+              <Text style={[styles.headerDesc, { color: '#B91C1C' }]}>
                 Ran out of lives? Don't worry! Momo has some extra hearts right here so you can keep studying! 🐕
               </Text>
             </View>
@@ -169,14 +221,14 @@ export default function ShopScreen() {
               <PackageCard
                 title="Single Heart"
                 reward="1 Extra Life"
-                icon={<Text style={{ fontSize: 24 }}>❤️</Text>}
+                icon={<Text style={styles.packageEmoji}>❤️</Text>}
                 price="$0.99"
                 onPress={() => handlePurchase(1, '$0.99', 'heart')}
               />
               <PackageCard
                 title="High Five!"
                 reward="5 Extra Lives"
-                icon={<Text style={{ fontSize: 24 }}>💖</Text>}
+                icon={<Text style={styles.packageEmoji}>💖</Text>}
                 price="$2.99"
                 recommended
                 onPress={() => handlePurchase(5, '$2.99', 'heart')}
@@ -184,7 +236,7 @@ export default function ShopScreen() {
               <PackageCard
                 title="Full Bowl"
                 reward="15 Extra Lives"
-                icon={<Text style={{ fontSize: 24 }}>💝</Text>}
+                icon={<Text style={styles.packageEmoji}>💝</Text>}
                 price="$4.99"
                 onPress={() => handlePurchase(15, '$4.99', 'heart')}
               />
@@ -195,9 +247,13 @@ export default function ShopScreen() {
         {activeTab === 'trade' && (
           <>
             <View style={[styles.headerBox, { backgroundColor: '#FFFBEB' }]}>
-              <Image source={require("../assets/animations/xp_momo.png")} style={{ width: 100, height: 100, marginBottom: 12 }} resizeMode="contain" />
+              <Image 
+                source={require("../assets/animations/xp_momo.png")} 
+                style={styles.mascotImage} 
+                resizeMode="contain" 
+              />
               <Text style={[styles.headerTitle, { color: '#92400E' }]}>XP Trading Post! 🌟</Text>
-              <Text style={styles.headerDesc}>
+              <Text style={[styles.headerDesc, { color: '#B45309' }]}>
                 You've been studying so hard! Trade your shiny XP stars here for extra credits or lives! Momo is so proud of you! 🎓
               </Text>
             </View>
@@ -206,14 +262,14 @@ export default function ShopScreen() {
               <ExchangeCard
                 title="A Quick Hint"
                 reward="50 Credits"
-                icon={<Text style={{ fontSize: 24 }}>💡</Text>}
+                icon={<Text style={styles.packageEmoji}>💡</Text>}
                 xpCost={500}
                 onPress={() => handleExchange(500, 50, 'credit')}
               />
               <ExchangeCard
                 title="Momo's Special"
                 reward="150 Credits"
-                icon={<Text style={{ fontSize: 24 }}>✨</Text>}
+                icon={<Text style={styles.packageEmoji}>✨</Text>}
                 xpCost={1200}
                 recommended
                 onPress={() => handleExchange(1200, 150, 'credit')}
@@ -221,14 +277,14 @@ export default function ShopScreen() {
               <ExchangeCard
                 title="Life Saver"
                 reward="1 Extra Life"
-                icon={<Text style={{ fontSize: 24 }}>❤️</Text>}
+                icon={<Text style={styles.packageEmoji}>❤️</Text>}
                 xpCost={800}
                 onPress={() => handleExchange(800, 1, 'heart')}
               />
               <ExchangeCard
                 title="Five Lives Pack"
                 reward="5 Extra Lives"
-                icon={<Text style={{ fontSize: 24 }}>💖</Text>}
+                icon={<Text style={styles.packageEmoji}>💖</Text>}
                 xpCost={3500}
                 onPress={() => handleExchange(3500, 5, 'heart')}
               />
@@ -237,6 +293,7 @@ export default function ShopScreen() {
         )}
       </SmoothScrollView>
 
+      {/* Success Modal */}
       <Modal
         visible={showSuccessModal}
         transparent={true}
@@ -246,7 +303,7 @@ export default function ShopScreen() {
           <View style={styles.modalContent}>
             <Image 
               source={require('../assets/animations/cheer_momo.png')} 
-              style={{ width: 140, height: 140, marginBottom: 16 }} 
+              style={styles.modalImage} 
               resizeMode="contain" 
             />
             <Text style={styles.modalTitle}>Yay! It worked! 🐾</Text>
@@ -256,6 +313,7 @@ export default function ShopScreen() {
             <TouchableOpacity 
               style={styles.modalPurchaseBtn}
               onPress={() => setShowSuccessModal(false)}
+              activeOpacity={0.8}
             >
               <Text style={styles.modalPurchaseText}>Awesome!</Text>
             </TouchableOpacity>
@@ -263,6 +321,7 @@ export default function ShopScreen() {
         </View>
       </Modal>
 
+      {/* Not Enough XP Modal */}
       <Modal
         visible={showNotEnoughXpModal}
         transparent={true}
@@ -272,7 +331,7 @@ export default function ShopScreen() {
           <View style={styles.modalContent}>
             <Image 
               source={require('../assets/animations/no_credits_momo.png')} 
-              style={{ width: 140, height: 140, marginBottom: 16 }} 
+              style={styles.modalImage} 
               resizeMode="contain" 
             />
             <Text style={styles.modalTitle}>Not enough shiny XP! 🥺</Text>
@@ -282,6 +341,7 @@ export default function ShopScreen() {
             <TouchableOpacity 
               style={[styles.modalPurchaseBtn, { backgroundColor: '#D97706' }]}
               onPress={() => setShowNotEnoughXpModal(false)}
+              activeOpacity={0.8}
             >
               <Text style={styles.modalPurchaseText}>Got it, Momo!</Text>
             </TouchableOpacity>
@@ -289,6 +349,7 @@ export default function ShopScreen() {
         </View>
       </Modal>
 
+      {/* Purchase Confirmation Modal */}
       <Modal
         visible={showPurchaseModal}
         transparent={true}
@@ -298,7 +359,7 @@ export default function ShopScreen() {
           <View style={styles.modalContent}>
             <Image 
               source={require('../assets/animations/wealth_momo.png')} 
-              style={{ width: 140, height: 140, marginBottom: 16 }} 
+              style={styles.modalImage} 
               resizeMode="contain" 
             />
             <Text style={styles.modalTitle}>Ready to get {purchaseType === 'credit' ? 'Credits' : 'Lives'}? 🦴</Text>
@@ -309,12 +370,14 @@ export default function ShopScreen() {
               <TouchableOpacity 
                 style={styles.modalCancelBtn}
                 onPress={() => setShowPurchaseModal(false)}
+                activeOpacity={0.8}
               >
                 <Text style={styles.modalCancelText}>Nope</Text>
               </TouchableOpacity>
               <TouchableOpacity 
                 style={styles.modalPurchaseBtnSecondary}
                 onPress={confirmPurchase}
+                activeOpacity={0.8}
               >
                 <Text style={styles.modalPurchaseText}>Yes, please!</Text>
               </TouchableOpacity>
@@ -324,80 +387,168 @@ export default function ShopScreen() {
       </Modal>
     </View>
   );
-
 }
 
-function PackageCard({ title, reward, price, recommended = false, icon, onPress }: any) {
+interface PackageCardProps {
+  title: string;
+  reward: string;
+  price: string;
+  recommended?: boolean;
+  icon: React.ReactNode;
+  onPress: () => void;
+}
+
+function PackageCard({ title, reward, price, recommended = false, icon, onPress }: PackageCardProps) {
   return (
-    <PlatformPressable style={[styles.card, recommended && styles.cardRecommended]} onPress={onPress}>
+    <PlatformPressable
+      style={[styles.card, recommended && styles.cardRecommended]}
+      onPress={onPress}
+    >
       {recommended && (
         <View style={styles.recommendedBadge}>
-          <Text style={styles.recommendedText}>MOMO'S FAVORITE</Text>
+          <Text style={styles.recommendedText}>⭐ MOMO'S FAVORITE</Text>
         </View>
       )}
-      <View style={styles.cardLeft}>
+      <View style={styles.cardBody}>
         <View style={styles.iconCircle}>
           {icon}
         </View>
         <View style={styles.cardInfo}>
-          <Text style={styles.cardTitle}>{title}</Text>
-          <Text style={styles.cardCredits}>{reward}</Text>
+          <Text style={styles.cardTitle} numberOfLines={1}>{title}</Text>
+          <Text style={styles.cardCredits} numberOfLines={1}>{reward}</Text>
         </View>
-      </View>
-      <View style={styles.cardPriceBox}>
-        <Text style={styles.cardPrice}>{price}</Text>
+        <View style={styles.cardPriceBox}>
+          <Text style={styles.cardPrice} numberOfLines={1}>{price}</Text>
+        </View>
       </View>
     </PlatformPressable>
   );
 }
 
-function ExchangeCard({ title, reward, xpCost, recommended = false, icon, onPress }: any) {
+interface ExchangeCardProps {
+  title: string;
+  reward: string;
+  xpCost: number;
+  recommended?: boolean;
+  icon: React.ReactNode;
+  onPress: () => void;
+}
+
+function ExchangeCard({ title, reward, xpCost, recommended = false, icon, onPress }: ExchangeCardProps) {
   return (
-    <PlatformPressable style={[styles.card, recommended && { borderColor: '#D97706', borderWidth: 2 }]} onPress={onPress}>
+    <PlatformPressable
+      style={[styles.card, recommended && styles.cardRecommendedTrade]}
+      onPress={onPress}
+    >
       {recommended && (
-        <View style={[styles.recommendedBadge, { backgroundColor: '#D97706' }]}>
-          <Text style={styles.recommendedText}>MOMO'S CHOICE</Text>
+        <View style={styles.recommendedBadgeTrade}>
+          <Text style={styles.recommendedTextTrade}>✨ MOMO'S CHOICE</Text>
         </View>
       )}
-      <View style={styles.cardLeft}>
-        <View style={[styles.iconCircle, { backgroundColor: '#FEF3C7' }]}>
+      <View style={styles.cardBody}>
+        <View style={[styles.iconCircle, styles.iconCircleTrade]}>
           {icon}
         </View>
         <View style={styles.cardInfo}>
-          <Text style={styles.cardTitle}>{title}</Text>
-          <Text style={styles.cardCredits}>{reward}</Text>
+          <Text style={styles.cardTitle} numberOfLines={1}>{title}</Text>
+          <Text style={styles.cardCredits} numberOfLines={1}>{reward}</Text>
         </View>
-      </View>
-      <View style={[styles.cardPriceBox, { backgroundColor: '#FEF3C7', flexDirection: 'row', alignItems: 'center', gap: 4 }]}>
-        <Text style={[styles.cardPrice, { color: '#B45309', fontSize: 15 }]}>{xpCost}</Text>
-        <Text style={{ fontSize: 13, fontWeight: '800', color: '#D97706' }}>XP</Text>
+        <View style={styles.cardPriceBoxTrade}>
+          <Text style={styles.cardPriceTrade} numberOfLines={1}>{xpCost.toLocaleString()}</Text>
+          <Text style={styles.cardPriceLabelTrade}>XP</Text>
+        </View>
       </View>
     </PlatformPressable>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: '#F8FAFC' },
+  screen: {
+    flex: 1,
+    backgroundColor: '#F8FAFC',
+  },
+  statsBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#FFFFFF',
+    marginHorizontal: 20,
+    marginTop: 10,
+    marginBottom: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#0F172A',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.04,
+        shadowRadius: 6,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
+  },
+  statPill: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  statEmoji: {
+    fontSize: 20,
+  },
+  statTextGroup: {
+    alignItems: 'flex-start',
+  },
+  statValue: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  statLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#64748B',
+  },
+  statDivider: {
+    width: 1,
+    height: 24,
+    backgroundColor: '#E2E8F0',
+    marginHorizontal: 4,
+  },
   tabSwitcher: {
     flexDirection: 'row',
     marginHorizontal: 20,
-    marginTop: 8,
-    marginBottom: 4,
+    marginBottom: 8,
     backgroundColor: '#E2E8F0',
-    borderRadius: 12,
+    borderRadius: 14,
     padding: 4,
   },
   tabButton: {
     flex: 1,
-    paddingVertical: 10,
+    paddingVertical: 9,
+    paddingHorizontal: 6,
     alignItems: 'center',
+    justifyContent: 'center',
     borderRadius: 10,
   },
   tabButtonActive: {
     backgroundColor: '#FFFFFF',
     ...Platform.select({
-      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 1 },
-      android: { elevation: 1 },
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 2,
+      },
+      android: {
+        elevation: 1.5,
+      },
     }),
   },
   tabButtonText: {
@@ -407,71 +558,100 @@ const styles = StyleSheet.create({
   },
   tabButtonTextActive: {
     color: '#0F172A',
-    fontWeight: '700',
+    fontWeight: '800',
   },
-  container: { padding: 20 },
+  container: {
+    paddingHorizontal: 20,
+    paddingTop: 8,
+  },
   headerBox: {
     alignItems: 'center',
-    padding: 24,
+    padding: 20,
     backgroundColor: '#EEF2FF',
     borderRadius: 20,
-    marginBottom: 24,
+    marginBottom: 20,
+  },
+  mascotImage: {
+    width: 90,
+    height: 90,
+    marginBottom: 8,
   },
   headerTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '800',
-    color: '#0F172A',
-    marginTop: 16,
-    marginBottom: 8,
+    color: '#1E1B4B',
+    marginBottom: 6,
     textAlign: 'center',
   },
   headerDesc: {
-    fontSize: 14,
-    color: '#475569',
+    fontSize: 13,
+    color: '#4338CA',
     textAlign: 'center',
-    lineHeight: 20,
+    lineHeight: 19,
+    paddingHorizontal: 8,
   },
   packagesContainer: {
-    gap: 16,
+    gap: 14,
   },
   card: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
     backgroundColor: '#FFFFFF',
-    padding: 20,
-    borderRadius: 16,
-    borderWidth: 1,
+    borderRadius: 18,
+    borderWidth: 1.5,
     borderColor: '#E2E8F0',
-    position: 'relative',
     overflow: 'hidden',
     ...Platform.select({
-      ios: { shadowColor: '#0F172A', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4 },
-      android: { elevation: 2 },
+      ios: {
+        shadowColor: '#0F172A',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 6,
+      },
+      android: {
+        elevation: 2,
+      },
     }),
   },
   cardRecommended: {
-    borderColor: '#4F46E5',
-    borderWidth: 2,
+    borderColor: '#6366F1',
+    backgroundColor: '#FAF5FF',
+  },
+  cardRecommendedTrade: {
+    borderColor: '#F59E0B',
+    backgroundColor: '#FFFDF5',
   },
   recommendedBadge: {
-    position: 'absolute',
-    top: 0,
-    right: 0,
-    backgroundColor: '#4F46E5',
-    paddingHorizontal: 12,
+    backgroundColor: '#6366F1',
     paddingVertical: 4,
-    borderBottomLeftRadius: 12,
+    paddingHorizontal: 12,
+    alignSelf: 'flex-start',
+    borderBottomRightRadius: 10,
   },
   recommendedText: {
-    color: '#FFF',
+    color: '#FFFFFF',
     fontSize: 10,
     fontWeight: '800',
+    letterSpacing: 0.5,
   },
-  cardLeft: {
+  recommendedBadgeTrade: {
+    backgroundColor: '#D97706',
+    paddingVertical: 4,
+    paddingHorizontal: 12,
+    alignSelf: 'flex-start',
+    borderBottomRightRadius: 10,
+  },
+  recommendedTextTrade: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  cardBody: {
     flexDirection: 'row',
     alignItems: 'center',
-    flex: 1,
+    padding: 16,
+  },
+  packageEmoji: {
+    fontSize: 24,
   },
   iconCircle: {
     width: 48,
@@ -480,92 +660,150 @@ const styles = StyleSheet.create({
     backgroundColor: '#EEF2FF',
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 16,
+    marginRight: 14,
+    flexShrink: 0,
+  },
+  iconCircleTrade: {
+    backgroundColor: '#FEF3C7',
   },
   cardInfo: {
     flex: 1,
+    marginRight: 12,
+    justifyContent: 'center',
   },
   cardTitle: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '700',
-    color: '#1E293B',
-    marginBottom: 4,
+    color: '#0F172A',
+    marginBottom: 3,
   },
   cardCredits: {
-    fontSize: 14,
+    fontSize: 13,
     color: '#64748B',
+    fontWeight: '500',
   },
   cardPriceBox: {
     backgroundColor: '#F1F5F9',
-    paddingHorizontal: 16,
+    paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 70,
+    flexShrink: 0,
   },
   cardPrice: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '800',
     color: '#0F172A',
+  },
+  cardPriceBoxTrade: {
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    minWidth: 78,
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  cardPriceTrade: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#B45309',
+  },
+  cardPriceLabelTrade: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#D97706',
   },
   modalOverlay: {
     flex: 1, 
     backgroundColor: 'rgba(0,0,0,0.5)', 
     justifyContent: 'center', 
-    alignItems: 'center'
+    alignItems: 'center',
+    padding: 24,
   },
   modalContent: {
     backgroundColor: 'white', 
     padding: 24, 
     borderRadius: 24, 
     alignItems: 'center', 
-    width: '80%'
+    width: '100%',
+    maxWidth: 340,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.15,
+        shadowRadius: 20,
+      },
+      android: {
+        elevation: 8,
+      },
+    }),
+  },
+  modalImage: {
+    width: 110,
+    height: 110,
+    marginBottom: 12,
   },
   modalTitle: {
-    fontSize: 20, 
+    fontSize: 19, 
     fontWeight: '800', 
     color: '#1E293B', 
     marginBottom: 8, 
-    textAlign: 'center'
+    textAlign: 'center',
   },
   modalDesc: {
-    fontSize: 16, 
+    fontSize: 14, 
     color: '#64748B', 
     textAlign: 'center', 
-    marginBottom: 24
+    lineHeight: 20,
+    marginBottom: 20,
   },
   modalPurchaseBtn: {
     backgroundColor: '#4F46E5', 
     paddingHorizontal: 24, 
-    paddingVertical: 12, 
-    borderRadius: 12, 
-    width: '100%'
-  },
-  modalPurchaseBtnSecondary: {
-    flex: 1, 
-    backgroundColor: '#4F46E5', 
-    paddingVertical: 12, 
-    borderRadius: 12
-  },
-  modalPurchaseText: {
-    color: 'white', 
-    fontWeight: 'bold', 
-    textAlign: 'center', 
-    fontSize: 16
+    paddingVertical: 13, 
+    borderRadius: 14, 
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   modalActionsRow: {
     flexDirection: 'row', 
     gap: 12, 
-    width: '100%'
+    width: '100%',
   },
   modalCancelBtn: {
     flex: 1, 
     backgroundColor: '#F1F5F9', 
-    paddingVertical: 12, 
-    borderRadius: 12
+    paddingVertical: 13, 
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalPurchaseBtnSecondary: {
+    flex: 1.2, 
+    backgroundColor: '#4F46E5', 
+    paddingVertical: 13, 
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   modalCancelText: {
     color: '#475569', 
-    fontWeight: 'bold', 
+    fontWeight: '700', 
     textAlign: 'center', 
-    fontSize: 16
-  }
+    fontSize: 15,
+  },
+  modalPurchaseText: {
+    color: 'white', 
+    fontWeight: '700', 
+    textAlign: 'center', 
+    fontSize: 15,
+  },
 });

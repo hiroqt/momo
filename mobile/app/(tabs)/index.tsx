@@ -166,24 +166,16 @@ export default function HomeScreen() {
             <Text style={styles.dateLabel}>{getFormattedDate()}</Text>
             <Text style={styles.greeting}>{getGreeting()}</Text>
           </View>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+          <View style={styles.headerActions}>
             <TouchableOpacity
-              style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                backgroundColor: '#FEF3C7',
-                paddingHorizontal: 12,
-                paddingVertical: 8,
-                borderRadius: 20,
-                borderWidth: 1,
-                borderColor: '#FDE68A',
-                gap: 6
-              }}
+              style={styles.headerXpBadge}
               onPress={() => router.push('/shop')}
               activeOpacity={0.8}
+              accessibilityLabel={`${xp} XP`}
+              accessibilityRole="button"
             >
               <HugeiconsIcon icon={Coins01Icon} size={18} color="#D97706" />
-              <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#B45309' }}>{xp} XP</Text>
+              <Text style={styles.headerXpBadgeText}>{xp} XP</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -446,6 +438,27 @@ const styles = StyleSheet.create({
   headerTextCol: {
     flex: 1,
     marginRight: spacing[12],
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing[8],
+  },
+  headerXpBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: spacing[12],
+    paddingVertical: spacing[8],
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    gap: spacing[6],
+  },
+  headerXpBadgeText: {
+    fontSize: typography.fontSize[14],
+    fontWeight: typography.fontWeight.bold,
+    color: '#B45309',
   },
   dateLabel: {
     fontSize: typography.fontSize[12],

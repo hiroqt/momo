@@ -17,10 +17,12 @@ import Reanimated, {
 import { AppText as Text } from "@/components/common/app-text";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { HugeiconsIcon } from "@hugeicons/react-native";
+import { useRouter } from "expo-router";
 import {
   Home01Icon,
   BookOpen01Icon,
   UserCircleIcon,
+  Store01Icon,
 } from "@hugeicons/core-free-icons";
 
 export interface TabConfig {
@@ -32,8 +34,15 @@ export interface TabConfig {
 export const TABS: TabConfig[] = [
   { name: "index", label: "Home", icon: Home01Icon },
   { name: "library", label: "Library", icon: BookOpen01Icon },
+  { name: "shop", label: "Shop", icon: Store01Icon },
   { name: "profile", label: "Profile", icon: UserCircleIcon },
 ];
+
+const TAB_NAME_TO_PAGE_INDEX: Record<string, number> = {
+  index: 0,
+  library: 1,
+  profile: 2,
+};
 
 export interface FloatingNavBarProps {
   state?: any;
@@ -51,6 +60,7 @@ export const FloatingNavBar: React.FC<FloatingNavBarProps> = ({
   progressAnim,
   onTabPress,
 }) => {
+  const router = useRouter();
   const insets = useSafeAreaInsets();
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
   const [dockWidth, setDockWidth] = useState(340);
@@ -103,7 +113,7 @@ export const FloatingNavBar: React.FC<FloatingNavBarProps> = ({
     outputRange: [
       horizontalPadding,
       horizontalPadding + tabWidth,
-      horizontalPadding + tabWidth * 2,
+      horizontalPadding + tabWidth * 3,
     ],
     extrapolate: 'clamp',
   });
@@ -149,17 +159,22 @@ export const FloatingNavBar: React.FC<FloatingNavBarProps> = ({
         {/* Tab Items Row */}
         <View style={styles.tabsRow}>
           {TABS.map((tab, idx) => {
-            const routeIndex = state?.routes?.findIndex((r: any) => r.name === tab.name) ?? idx;
-            const isFocused = activeIndex === (state ? routeIndex : idx);
+            const pageIndex = TAB_NAME_TO_PAGE_INDEX[tab.name];
+            const isFocused = pageIndex !== undefined && activeIndex === pageIndex;
             return (
               <TabItem
                 key={tab.name}
                 tab={tab}
                 isFocused={isFocused}
                 onPress={() => {
+                  if (tab.name === "shop") {
+                    router.push("/shop");
+                    return;
+                  }
                   if (onTabPress) {
-                    onTabPress(idx);
+                    onTabPress(pageIndex ?? idx);
                   } else if (navigation && state) {
+                    const routeIndex = state?.routes?.findIndex((r: any) => r.name === tab.name) ?? idx;
                     const event = navigation.emit({
                       type: "tabPress",
                       target: state.routes[routeIndex]?.key,
@@ -193,7 +208,7 @@ const ReanimatedIndicator: React.FC<{
       [
         horizontalPadding,
         horizontalPadding + tabWidth,
-        horizontalPadding + tabWidth * 2,
+        horizontalPadding + tabWidth * 3,
       ],
       Extrapolation.CLAMP
     );
@@ -336,11 +351,11 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: spacing[6],
+    gap: spacing[4],
     borderRadius: 24,
   },
   tabLabel: {
-    fontSize: typography.fontSize[13],
+    fontSize: typography.fontSize[12],
     letterSpacing: typography.letterSpacing[-0.2],
   },
   activeTabLabel: {

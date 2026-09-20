@@ -134,6 +134,14 @@ export default function RootLayout() {
                     animationDuration: 350,
                   }}
                 />
+                <Stack.Screen
+                  name="shop"
+                  options={{
+                    headerShown: false,
+                    animation: isIOS ? "fade" : "default",
+                    animationDuration: 350,
+                  }}
+                />
               </Stack>
             </SafeAreaProvider>
           </AuthGate>

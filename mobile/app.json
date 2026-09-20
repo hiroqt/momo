@@ -16,7 +16,9 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.aistudy.platform",
       "infoPlist": {
-        "LSApplicationQueriesSchemes": ["instagram-stories", "instagram"]
+        "LSApplicationQueriesSchemes": ["instagram-stories", "instagram"],
+        "NSPhotoLibraryUsageDescription": "Save Academic Weapon streak and study cards to your photo library.",
+        "NSPhotoLibraryAddUsageDescription": "Save Academic Weapon streak and study cards to your photo library."
       }
     },
     "android": {
@@ -31,6 +33,22 @@
       "queries": [
         {
           "package": "com.instagram.android"
+        },
+        {
+          "intent": {
+            "action": "android.intent.action.VIEW",
+            "data": {
+              "scheme": "instagram"
+            }
+          }
+        },
+        {
+          "intent": {
+            "action": "android.intent.action.VIEW",
+            "data": {
+              "scheme": "instagram-stories"
+            }
+          }
         }
       ]
     },
@@ -49,7 +67,14 @@
           "resizeMode": "contain"
         }
       ],
-      "expo-font"
+      "expo-font",
+      [
+        "expo-media-library",
+        {
+          "photosPermission": "Save Academic Weapon streak and study cards to your photo library.",
+          "savePhotosPermission": "Save Academic Weapon streak and study cards to your photo library."
+        }
+      ]
     ]
   }
 }

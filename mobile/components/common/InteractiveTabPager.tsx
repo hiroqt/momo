@@ -32,32 +32,23 @@ export interface InteractiveTabPagerProps {
   onTabChange?: (index: number) => void;
 }
 
-// Snappy, highly-responsive spring config for programmatic tab taps (zero perceived latency, settles in ~140ms)
-const TAB_TAP_SPRING_CONFIG = {
-  damping: 28,
-  stiffness: 380,
-  mass: 0.45,
-};
-
 // Physics-grounded snappy spring config for pan swipe gestures matching click responsiveness
 const SWIPE_SPRING_CONFIG = {
-  damping: 28,
-  stiffness: 380,
-  mass: 0.45,
+  damping: 34,
+  stiffness: 450,
+  mass: 0.35,
 };
 
 const IS_ANDROID = Platform.OS === 'android';
 
 /**
- * High-performance iOS-style interactive tab swipe pager
+ * High-performance interactive tab swipe pager
  * Features:
- * - Full multi-page horizontal layout: adjacent content is revealed alongside disappearing content
- * - No empty white screen or black shadow artifacts on both Android and iOS
- * - Hardware-accelerated UI-thread gesture tracking with Reanimated & Gesture Handler
- * - Real-time animated translateX, opacity crossfade, and iOS parallax scale
- * - Frosted blur intensity that scales with drag delta and smoothly returns to 0 on completion
- * - Android-optimized compositor: eliminates RenderEffect buffer flash and hardware layer destruction shadow
- * - Integrated 1:1 real-time sliding bottom navigation pill
+ * - 1:1 hardware-accelerated linear translation with zero scale/opacity distortion
+ * - Immediate tab switching on button tap: zero ease/slide animation across pages
+ * - Frosted blur shown only on the revealing page while swipe gesture is held and unreleased
+ * - Instant blur clearance and crisp snap when swipe gesture is released
+ * - 100% UI-thread execution with Reanimated worklets and Gesture Handler
  */
 export const InteractiveTabPager: React.FC<InteractiveTabPagerProps> = ({
   pages,
@@ -73,63 +64,58 @@ export const InteractiveTabPager: React.FC<InteractiveTabPagerProps> = ({
   const blurIntensity = useSharedValue(0);
   const isDragging = useSharedValue(false);
 
-  // Ref to track whether change came from a gesture or tab press to prevent double-animation
-  const isGestureSettling = useRef(false);
-  const isTabPressing = useRef(false);
+  // Shared values to track whether change came from a gesture or tab press
+  const isGestureSettling = useSharedValue(false);
+  const isTabPressing = useSharedValue(false);
 
   // Sync shared value when activeIndex prop updates programmatically
   useEffect(() => {
-    if (isGestureSettling.current) {
-      isGestureSettling.current = false;
+    if (isGestureSettling.value) {
+      isGestureSettling.value = false;
       return;
     }
-    if (isTabPressing.current) {
-      isTabPressing.current = false;
+    if (isTabPressing.value) {
+      isTabPressing.value = false;
       return;
     }
 
     // External navigation or initial sync: snap immediately with zero delay
-    // This fixes the issue where the page is already loaded but the fill/indicator
-    // took 0.2s - 0.5s to spring across from the previous tab.
     if (!isDragging.value) {
       progress.value = activeIndex;
       blurIntensity.value = 0;
     }
-  }, [activeIndex, isDragging, progress, blurIntensity]);
+  }, [activeIndex, isDragging, progress, blurIntensity, isGestureSettling, isTabPressing]);
 
   const handleTabSettled = useCallback(
     (newIndex: number) => {
       if (newIndex !== activeIndex) {
-        isGestureSettling.current = true;
+        isGestureSettling.value = true;
         if (onTabChange) {
           onTabChange(newIndex);
         }
       }
     },
-    [onTabChange, activeIndex]
+    [onTabChange, activeIndex, isGestureSettling]
   );
 
   const handleTabPress = useCallback(
     (targetIndex: number) => {
       if (targetIndex === activeIndex) return;
 
-      isTabPressing.current = true;
-      isGestureSettling.current = false;
+      isTabPressing.value = true;
+      isGestureSettling.value = false;
 
-      // Animate progress smoothly with ultra-responsive tab tap spring
-      progress.value = withSpring(targetIndex, TAB_TAP_SPRING_CONFIG, (finished) => {
-        'worklet';
-        if (finished) {
-          runOnJS(handleTabSettled)(targetIndex);
-        }
-      });
+      // Remove the ease animation for switching tabs: switch immediately with zero slide
+      progress.value = targetIndex;
+      blurIntensity.value = 0;
 
-      // Immediately notify parent so route, activeIndex, and active indicator highlights update with zero lag
+      runOnJS(handleTabSettled)(targetIndex);
+
       if (onTabChange) {
         onTabChange(targetIndex);
       }
     },
-    [activeIndex, onTabChange, handleTabSettled, progress]
+    [activeIndex, onTabChange, handleTabSettled, progress, blurIntensity, isTabPressing, isGestureSettling]
   );
 
   // Pan Gesture Handler running 100% on the UI thread
@@ -155,16 +141,6 @@ export const InteractiveTabPager: React.FC<InteractiveTabPagerProps> = ({
       }
 
       progress.value = clampedProgress;
-
-      // Calculate blur intensity based on gesture distance
-      const distance = Math.abs(deltaX);
-      const blurLevel = interpolate(
-        distance,
-        [0, screenWidth * 0.3],
-        [0, 1],
-        Extrapolation.CLAMP
-      );
-      blurIntensity.value = blurLevel;
     })
     .onEnd((event) => {
       'worklet';
@@ -188,13 +164,7 @@ export const InteractiveTabPager: React.FC<InteractiveTabPagerProps> = ({
         }
       }
 
-      // Smoothly animate blur back to zero
-      blurIntensity.value = withTiming(0, {
-        duration: 180,
-        easing: Easing.out(Easing.quad),
-      });
-
-      // Spring to target tab position
+      // Snappy spring to target tab position
       progress.value = withSpring(
         targetIndex,
         {
@@ -209,57 +179,30 @@ export const InteractiveTabPager: React.FC<InteractiveTabPagerProps> = ({
         }
       );
 
-      // Immediately notify active state change so navbar & route respond with 0ms delay just like click navigation!
+      // Immediately notify active state change so navbar & route respond with 0ms delay
       if (targetIndex !== activeIndex) {
-        isGestureSettling.current = true;
+        isGestureSettling.value = true;
         runOnJS(handleTabSettled)(targetIndex);
       }
     });
 
-  // Frosted Glass Blur Overlay Style
-  const blurOverlayAnimatedStyle = useAnimatedStyle(() => {
-    'worklet';
-    return {
-      opacity: blurIntensity.value,
-    };
-  });
-
   return (
     <GestureDetector gesture={panGesture}>
       <View style={styles.container}>
-        {/* Render all pages side-by-side with individual UI-thread transformations */}
+        {/* Render all pages side-by-side with 1:1 UI-thread transformations */}
         {pages.map((page, index) => {
           return (
             <TabScene
               key={page.key}
               index={index}
               progress={progress}
+              startProgress={startProgress}
               screenWidth={screenWidth}
+              isDragging={isDragging}
               Component={page.component}
             />
           );
         })}
-
-        {/* Dynamic Frosted Glass Blur Overlay during active swipe */}
-        <Animated.View
-          pointerEvents="none"
-          style={[styles.blurOverlay, blurOverlayAnimatedStyle]}
-        >
-          {IS_ANDROID ? (
-            // Android: Pure hardware-accelerated frosted glass diffusion (zero buffer flash or dark shadow)
-            <View style={styles.androidFrostedOverlay} />
-          ) : (
-            // iOS: Native Apple UIVisualEffectView frosted glass
-            <>
-              <BlurView
-                intensity={55}
-                tint="light"
-                style={StyleSheet.absoluteFill}
-              />
-              <View style={styles.iosBlurTintBackdrop} />
-            </>
-          )}
-        </Animated.View>
 
         {/* Floating Bottom Nav Bar synced with progress */}
         <FloatingNavBar
@@ -275,43 +218,49 @@ export const InteractiveTabPager: React.FC<InteractiveTabPagerProps> = ({
 interface TabSceneProps {
   index: number;
   progress: SharedValue<number>;
+  startProgress: SharedValue<number>;
   screenWidth: number;
+  isDragging: SharedValue<boolean>;
   Component: React.ComponentType<any>;
 }
 
 const TabScene: React.FC<TabSceneProps> = React.memo(
-  ({ index, progress, screenWidth, Component }) => {
+  ({ index, progress, startProgress, screenWidth, isDragging, Component }) => {
+    // Pure 1:1 hardware-accelerated translation with solid opacity
     const animatedStyle = useAnimatedStyle(() => {
       'worklet';
       const offset = (index - progress.value) * screenWidth;
-      const distanceFromCenter = Math.abs(index - progress.value);
 
-      if (IS_ANDROID) {
-        // Android: 100% solid opacity and clean translateX to eliminate dark canvas shadow leaks
-        return {
-          transform: [{ translateX: offset }],
-          opacity: 1,
-        };
+      return {
+        transform: [{ translateX: offset }],
+        opacity: 1,
+      };
+    });
+
+    // Frosted glass blur applied ONLY to the revealing page while swipe is held
+    const blurAnimatedStyle = useAnimatedStyle(() => {
+      'worklet';
+      if (!isDragging.value) {
+        return { opacity: 0 };
       }
 
-      // iOS: Opacity crossfade & subtle depth scale
-      const opacity = interpolate(
-        distanceFromCenter,
-        [0, 0.7, 1.2],
-        [1.0, 0.88, 0.65],
-        Extrapolation.CLAMP
-      );
+      // The active page the user started swiping from remains completely crisp and unblurred
+      const isSourcePage = index === Math.round(startProgress.value);
+      if (isSourcePage) {
+        return { opacity: 0 };
+      }
 
-      const scale = interpolate(
+      // The adjacent page being revealed shows the frosted blur smoothly
+      const distanceFromCenter = Math.abs(index - progress.value);
+      const blurOpacity = interpolate(
         distanceFromCenter,
+        [0.02, 0.2],
         [0, 1],
-        [1.0, 0.965],
         Extrapolation.CLAMP
       );
 
       return {
-        transform: [{ translateX: offset }, { scale }],
-        opacity,
+        opacity: blurOpacity,
       };
     });
 
@@ -324,6 +273,25 @@ const TabScene: React.FC<TabSceneProps> = React.memo(
         ]}
       >
         <Component />
+
+        {/* Revealing page blur overlay while swipe is held and not yet released */}
+        <Animated.View
+          pointerEvents="none"
+          style={[styles.sceneBlurOverlay, blurAnimatedStyle]}
+        >
+          {IS_ANDROID ? (
+            <View style={styles.androidFrostedOverlay} />
+          ) : (
+            <>
+              <BlurView
+                intensity={45}
+                tint="light"
+                style={StyleSheet.absoluteFill}
+              />
+              <View style={styles.iosBlurTintBackdrop} />
+            </>
+          )}
+        </Animated.View>
       </Animated.View>
     );
   }
@@ -345,9 +313,9 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
     ...(IS_ANDROID ? { elevation: 0 } : {}),
   },
-  blurOverlay: {
+  sceneBlurOverlay: {
     ...StyleSheet.absoluteFill,
-    zIndex: 900,
+    zIndex: 50,
   },
   androidFrostedOverlay: {
     ...StyleSheet.absoluteFill,

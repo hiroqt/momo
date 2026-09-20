@@ -11,14 +11,14 @@ import {
 } from 'react-native';
 import { AppText as Text } from '@/components/common/app-text';
 import { HugeiconsIcon } from '@hugeicons/react-native';
-import { Cancel01Icon, SparklesIcon, Share01Icon } from '@hugeicons/core-free-icons';
+import { Cancel01Icon, SparklesIcon, Share01Icon, Download01Icon } from '@hugeicons/core-free-icons';
 import {
   AcademicWeaponData,
   AcademicWeaponInput,
   generateAcademicWeaponReport,
 } from '@/utils/academicWeapon';
 import { AcademicWeaponStoryCard } from './AcademicWeaponStoryCard';
-import { shareToInstagramStory } from '@/utils/shareStory';
+import { shareToInstagramStory, saveCardToGallery } from '@/utils/shareStory';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useOnboarding } from '@/context/OnboardingContext';
 
@@ -45,11 +45,13 @@ export const AcademicWeaponShareModal: React.FC<AcademicWeaponShareModalProps> =
   const reportData = useMemo(() => generateAcademicWeaponReport(inputDataWithUser), [inputDataWithUser]);
   const [selectedChallenge, setSelectedChallenge] = useState(reportData.challengeText);
   const [isSharing, setIsSharing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     if (visible) {
       setSelectedChallenge(reportData.challengeText);
       setIsSharing(false);
+      setIsSaving(false);
     }
   }, [visible, reportData.challengeText]);
 
@@ -62,7 +64,7 @@ export const AcademicWeaponShareModal: React.FC<AcademicWeaponShareModalProps> =
   );
 
   const handleShare = async () => {
-    if (isSharing) return;
+    if (isSharing || isSaving) return;
     setIsSharing(true);
     try {
       const res = await shareToInstagramStory(cardRef);
@@ -75,6 +77,23 @@ export const AcademicWeaponShareModal: React.FC<AcademicWeaponShareModalProps> =
       Alert.alert('Share Failed', e?.message || 'Could not export story.');
     } finally {
       setIsSharing(false);
+    }
+  };
+
+  const handleSaveImage = async () => {
+    if (isSaving || isSharing) return;
+    setIsSaving(true);
+    try {
+      const res = await saveCardToGallery(cardRef);
+      if (res.success) {
+        Alert.alert('Saved to Photos! 📸', 'Your Academic Weapon story card has been saved to your Photos.');
+      } else {
+        Alert.alert('Save Failed', res.error || 'Could not save the image to your photos.');
+      }
+    } catch (e: any) {
+      Alert.alert('Save Failed', e?.message || 'Could not save the image.');
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -153,21 +172,39 @@ export const AcademicWeaponShareModal: React.FC<AcademicWeaponShareModalProps> =
 
           {/* Action Footer */}
           <View style={styles.footerBar}>
-            <TouchableOpacity
-              style={styles.shareBtn}
-              onPress={handleShare}
-              disabled={isSharing}
-              activeOpacity={0.85}
-            >
-              {isSharing ? (
-                <ActivityIndicator color="#FFFFFF" size="small" />
-              ) : (
-                <>
-                  <HugeiconsIcon icon={Share01Icon} size={20} color="#FFFFFF" strokeWidth={2.4} />
-                  <Text style={styles.shareBtnText}>Share to Instagram Story</Text>
-                </>
-              )}
-            </TouchableOpacity>
+            <View style={styles.footerActionRow}>
+              <TouchableOpacity
+                style={styles.saveBtn}
+                onPress={handleSaveImage}
+                disabled={isSaving || isSharing}
+                activeOpacity={0.8}
+              >
+                {isSaving ? (
+                  <ActivityIndicator color="#CBD5E1" size="small" />
+                ) : (
+                  <>
+                    <HugeiconsIcon icon={Download01Icon} size={18} color="#CBD5E1" strokeWidth={2.2} />
+                    <Text style={styles.saveBtnText}>Save Image</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.shareBtn}
+                onPress={handleShare}
+                disabled={isSharing || isSaving}
+                activeOpacity={0.85}
+              >
+                {isSharing ? (
+                  <ActivityIndicator color="#FFFFFF" size="small" />
+                ) : (
+                  <>
+                    <HugeiconsIcon icon={Share01Icon} size={18} color="#FFFFFF" strokeWidth={2.4} />
+                    <Text style={styles.shareBtnText}>Share Story</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </View>
@@ -273,7 +310,30 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: 'rgba(255, 255, 255, 0.08)',
   },
+  footerActionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  saveBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderRadius: 20,
+    paddingVertical: 14,
+    gap: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+  },
+  saveBtnText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#E2E8F0',
+  },
   shareBtn: {
+    flex: 1.35,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -281,9 +341,14 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     paddingVertical: 14,
     gap: 8,
+    shadowColor: '#8B5CF6',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 8,
+    elevation: 4,
   },
   shareBtnText: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '800',
     color: '#FFFFFF',
   },

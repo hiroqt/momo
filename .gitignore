@@ -119,6 +119,7 @@ local.properties
 .claude/
 .claude*
 skills-lock.json
+.obsidian/
 
 # ==============================================================================
 # OS Files

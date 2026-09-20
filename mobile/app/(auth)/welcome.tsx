@@ -9,8 +9,6 @@ import {
   Animated,
   Easing,
   Platform,
-  UIManager,
-  LayoutAnimation,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppText as Text } from '@/components/common/app-text';
@@ -33,11 +31,6 @@ import {
   PreferredFormat,
 } from '../../context/OnboardingContext';
 import { seedSampleDeck } from '../../lib/data/sampleDeck';
-
-// Enable LayoutAnimation for Android
-if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
-  UIManager.setLayoutAnimationEnabledExperimental(true);
-}
 
 const TRACK_OPTIONS: { id: StudyTrack; label: string; iconText: string; desc: string }[] = [
   { id: 'college', label: 'College & University', iconText: '🎓', desc: 'Lectures, syllabi & midterms' },

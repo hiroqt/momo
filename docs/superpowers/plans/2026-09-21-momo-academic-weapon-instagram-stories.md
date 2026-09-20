@@ -1,6 +1,6 @@
 # Momo Mascot "Academic Weapon" Instagram Stories Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Implement a "Spotify Wrapped"-style, 9:16 vertical "Academic Weapon" story card featuring the Momo mascot that automatically launches directly into the Instagram Story composer on the user's mobile device with dynamic study stats, persona tags, and the interactive challenge prompt *"Can you beat my score in [Subject]?"*.
 
@@ -31,14 +31,14 @@
 - Consumes: NPM packages `react-native-view-shot`, `react-native-share`, `expo-sharing`
 - Produces: Installed native libraries and configured intent queries for Instagram (`instagram-stories` on iOS and `com.instagram.android` on Android)
 
-- [ ] **Step 1: Install packages in mobile directory**
+- [x] **Step 1: Install packages in mobile directory**
 
 Run in `mobile/`:
 ```bash
 npm install react-native-view-shot react-native-share expo-sharing
 ```
 
-- [ ] **Step 2: Update `mobile/app.json` with iOS schemes and Android package queries**
+- [x] **Step 2: Update `mobile/app.json` with iOS schemes and Android package queries**
 
 In `mobile/app.json`:
 Add to `ios.infoPlist`:
@@ -54,7 +54,7 @@ And add to `android`:
 ]
 ```
 
-- [ ] **Step 3: Update `mobile/ios/momo/Info.plist` directly for native builds**
+- [x] **Step 3: Update `mobile/ios/momo/Info.plist` directly for native builds**
 
 Add inside `<dict>`:
 ```xml
@@ -65,7 +65,7 @@ Add inside `<dict>`:
 </array>
 ```
 
-- [ ] **Step 4: Update `mobile/android/app/src/main/AndroidManifest.xml` with queries**
+- [x] **Step 4: Update `mobile/android/app/src/main/AndroidManifest.xml` with queries**
 
 Add inside `<manifest>`:
 ```xml
@@ -78,11 +78,11 @@ Add inside `<manifest>`:
 </queries>
 ```
 
-- [ ] **Step 5: Verify types compile**
+- [x] **Step 5: Verify types compile**
 
 Run: `npm --prefix mobile run lint`
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add mobile/package.json mobile/package-lock.json mobile/app.json mobile/ios/momo/Info.plist mobile/android/app/src/main/AndroidManifest.xml
@@ -116,7 +116,7 @@ git commit -m "feat(social): install react-native-view-shot and react-native-sha
   export function generateAcademicWeaponReport(input: Partial<AcademicWeaponData> & { mode: 'quiz' | 'flashcard' | 'streak' }): AcademicWeaponData;
   ```
 
-- [ ] **Step 1: Implement `mobile/utils/academicWeapon.ts`**
+- [x] **Step 1: Implement `mobile/utils/academicWeapon.ts`**
 
 ```typescript
 // mobile/utils/academicWeapon.ts
@@ -258,11 +258,11 @@ export function generateAcademicWeaponReport(input: AcademicWeaponInput): Academ
 }
 ```
 
-- [ ] **Step 2: Verify type check**
+- [x] **Step 2: Verify type check**
 
 Run: `npm --prefix mobile run lint`
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add mobile/utils/academicWeapon.ts
@@ -280,7 +280,7 @@ git commit -m "feat(social): add academic weapon persona generator and type defi
 - Consumes: `AcademicWeaponData` from `mobile/utils/academicWeapon.ts`
 - Produces: `AcademicWeaponStoryCard: React.ForwardRefExoticComponent<...>` (forwardRef enabled for `react-native-view-shot` capture)
 
-- [ ] **Step 1: Implement `AcademicWeaponStoryCard.tsx`**
+- [x] **Step 1: Implement `AcademicWeaponStoryCard.tsx`**
 
 The component must:
 1. Accept `ref` forward for capturing.
@@ -642,11 +642,11 @@ const styles = StyleSheet.create({
 });
 ```
 
-- [ ] **Step 2: Verify type check**
+- [x] **Step 2: Verify type check**
 
 Run: `npm --prefix mobile run lint`
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add mobile/components/social/AcademicWeaponStoryCard.tsx
@@ -664,7 +664,7 @@ git commit -m "feat(social): create 9:16 Spotify-Wrapped AcademicWeaponStoryCard
 - Consumes: `View` ref of the rendered story card
 - Produces: `export async function shareToInstagramStory(cardRef: React.RefObject<any>): Promise<{ success: boolean; fallbackUsed: boolean; error?: string }>`
 
-- [ ] **Step 1: Implement `mobile/utils/shareStory.ts`**
+- [x] **Step 1: Implement `mobile/utils/shareStory.ts`**
 
 ```typescript
 // mobile/utils/shareStory.ts
@@ -736,11 +736,11 @@ export async function shareToInstagramStory(cardRef: React.RefObject<any>): Prom
 }
 ```
 
-- [ ] **Step 2: Verify type check**
+- [x] **Step 2: Verify type check**
 
 Run: `npm --prefix mobile run lint`
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add mobile/utils/shareStory.ts
@@ -758,7 +758,7 @@ git commit -m "feat(social): add automatic Instagram Story direct sharing handle
 - Consumes: `visible: boolean`, `onClose: () => void`, `initialData: AcademicWeaponInput`
 - Produces: Interactive modal with live card preview, prompt picker carousel, and 1-tap "Share to Instagram Story" button.
 
-- [ ] **Step 1: Implement `AcademicWeaponShareModal.tsx`**
+- [x] **Step 1: Implement `AcademicWeaponShareModal.tsx`**
 
 ```typescript
 // mobile/components/social/AcademicWeaponShareModal.tsx
@@ -1017,11 +1017,11 @@ const styles = StyleSheet.create({
 });
 ```
 
-- [ ] **Step 2: Verify type check**
+- [x] **Step 2: Verify type check**
 
 Run: `npm --prefix mobile run lint`
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add mobile/components/social/AcademicWeaponShareModal.tsx
@@ -1039,20 +1039,20 @@ git commit -m "feat(social): create AcademicWeaponShareModal preview and export 
 - Consumes: `AcademicWeaponShareModal`
 - Produces: "🔥 Flex on IG Story" button in the Quiz Review screen footer and state handler
 
-- [ ] **Step 1: Import `AcademicWeaponShareModal` in `QuizRunner.tsx`**
+- [x] **Step 1: Import `AcademicWeaponShareModal` in `QuizRunner.tsx`**
 
 Add import:
 ```typescript
 import { AcademicWeaponShareModal } from '../social/AcademicWeaponShareModal';
 ```
 
-- [ ] **Step 2: Add modal state in `QuizRunner` component**
+- [x] **Step 2: Add modal state in `QuizRunner` component**
 
 ```typescript
 const [showStoryModal, setShowStoryModal] = useState(false);
 ```
 
-- [ ] **Step 3: Add "Flex on IG Story" button in post-quiz review actions**
+- [x] **Step 3: Add "Flex on IG Story" button in post-quiz review actions**
 
 Around line 1827 of `QuizRunner.tsx`:
 Add above `styles.reviewActionFooter`:
@@ -1084,7 +1084,7 @@ Render modal at the end of the review screen:
 />
 ```
 
-- [ ] **Step 4: Add styling for `flexStoryBtn` in `styles`**
+- [x] **Step 4: Add styling for `flexStoryBtn` in `styles`**
 
 ```typescript
 flexStoryBtn: {
@@ -1107,11 +1107,11 @@ flexStoryBtnText: {
 },
 ```
 
-- [ ] **Step 5: Verify type check**
+- [x] **Step 5: Verify type check**
 
 Run: `npm --prefix mobile run lint`
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add mobile/components/study/QuizRunner.tsx
@@ -1130,7 +1130,7 @@ git commit -m "feat(social): integrate Academic Weapon story sharing on Quiz fin
 - Consumes: `AcademicWeaponShareModal`
 - Produces: Flashcard deck completion share CTA with card counts
 
-- [ ] **Step 1: Update `CelebrationModal.tsx` with Share Story CTA**
+- [x] **Step 1: Update `CelebrationModal.tsx` with Share Story CTA**
 
 Add prop:
 ```typescript
@@ -1146,15 +1146,15 @@ Render secondary button under Continue:
 )}
 ```
 
-- [ ] **Step 2: Update `mobile/app/study/[studySetId].tsx`**
+- [x] **Step 2: Update `mobile/app/study/[studySetId].tsx`**
 
 Import `AcademicWeaponShareModal`, manage `showStoryModal`, and pass `onShareStory={() => setShowStoryModal(true)}` to `CelebrationModal`. Also render the button in `styles.finishActionCol` on the flashcard finish view.
 
-- [ ] **Step 3: Verify type check**
+- [x] **Step 3: Verify type check**
 
 Run: `npm --prefix mobile run lint`
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add mobile/components/onboarding/CelebrationModal.tsx mobile/app/study/[studySetId].tsx
@@ -1172,15 +1172,15 @@ git commit -m "feat(social): integrate Academic Weapon story sharing on Flashcar
 - Consumes: `AcademicWeaponShareModal` with `mode: 'streak'`
 - Produces: Interactive "Share" badge in the Streak Header row
 
-- [ ] **Step 1: Import `AcademicWeaponShareModal` in `mobile/app/(tabs)/index.tsx`**
+- [x] **Step 1: Import `AcademicWeaponShareModal` in `mobile/app/(tabs)/index.tsx`**
 
-- [ ] **Step 2: Add `showStreakStoryModal` state**
+- [x] **Step 2: Add `showStreakStoryModal` state**
 
 ```typescript
 const [showStreakStoryModal, setShowStreakStoryModal] = useState(false);
 ```
 
-- [ ] **Step 3: Add share button in `streakHeader`**
+- [x] **Step 3: Add share button in `streakHeader`**
 
 In `styles.streakHeader` (line 220):
 ```tsx
@@ -1213,7 +1213,7 @@ Render modal:
 />
 ```
 
-- [ ] **Step 4: Add `streakShareBtn` and `streakShareText` styles**
+- [x] **Step 4: Add `streakShareBtn` and `streakShareText` styles**
 
 ```typescript
 streakShareBtn: {
@@ -1234,11 +1234,11 @@ streakShareText: {
 },
 ```
 
-- [ ] **Step 5: Verify type check**
+- [x] **Step 5: Verify type check**
 
 Run: `npm --prefix mobile run lint`
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add mobile/app/(tabs)/index.tsx
@@ -1252,12 +1252,12 @@ git commit -m "feat(social): add streak share trigger to dashboard timeline"
 **Files:**
 - Test across all modified and new files
 
-- [ ] **Step 1: Run comprehensive TypeScript compilation**
+- [x] **Step 1: Run comprehensive TypeScript compilation**
 
 Run: `npm --prefix mobile run lint`
 Expected: 0 errors.
 
-- [ ] **Step 2: Commit any final polish and update docs**
+- [x] **Step 2: Commit any final polish and update docs**
 
 ```bash
 git commit --allow-empty -m "chore(social): complete Momo Academic Weapon Instagram Story implementation"

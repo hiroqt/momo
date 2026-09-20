@@ -44,36 +44,48 @@ export const FlashcardDeck: React.FC<Props> = ({ items, onFinish }) => {
 
   // 3D Flip animation
   const animatedValue = useRef(new Animated.Value(0)).current;
-  const currentValue = useRef(0);
   const isFlippedRef = useRef(false);
+  const isAnimating = useRef(false);
+  const flipTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    const listenerId = animatedValue.addListener(({ value }) => {
-      currentValue.current = value;
-      const flipped = value >= 90;
-      if (flipped !== isFlippedRef.current) {
-        isFlippedRef.current = flipped;
-        setIsFlipped(flipped);
-      }
-    });
     return () => {
-      animatedValue.removeListener(listenerId);
+      if (flipTimeoutRef.current) {
+        clearTimeout(flipTimeoutRef.current);
+      }
     };
-  }, [animatedValue]);
+  }, []);
 
   const flipCard = () => {
-    const targetValue = currentValue.current >= 90 ? 0 : 180;
+    if (isAnimating.current) return;
+    if (flipTimeoutRef.current) {
+      clearTimeout(flipTimeoutRef.current);
+      flipTimeoutRef.current = null;
+    }
+    const nextFlipped = !isFlippedRef.current;
+    isFlippedRef.current = nextFlipped;
+    isAnimating.current = true;
+
     Animated.spring(animatedValue, {
-      toValue: targetValue,
+      toValue: nextFlipped ? 180 : 0,
       friction: 8,
       tension: 10,
       useNativeDriver: true,
-    }).start();
+    }).start(({ finished }) => {
+      isAnimating.current = false;
+      if (finished) {
+        setIsFlipped(nextFlipped);
+      }
+    });
   };
 
   const resetFlip = () => {
+    if (flipTimeoutRef.current) {
+      clearTimeout(flipTimeoutRef.current);
+      flipTimeoutRef.current = null;
+    }
+    isAnimating.current = false;
     animatedValue.setValue(0);
-    currentValue.current = 0;
     isFlippedRef.current = false;
     setIsFlipped(false);
   };
@@ -105,24 +117,71 @@ export const FlashcardDeck: React.FC<Props> = ({ items, onFinish }) => {
     }
   };
 
+  // Android: Standard 3D Y-axis rotation with perspective
   const frontInterpolate = animatedValue.interpolate({
     inputRange: [0, 180],
     outputRange: ['0deg', '180deg'],
+    extrapolate: 'clamp',
   });
 
   const backInterpolate = animatedValue.interpolate({
     inputRange: [0, 180],
     outputRange: ['180deg', '360deg'],
+    extrapolate: 'clamp',
+  });
+
+  // iOS: Symmetric horizontal flip scaling so Core Animation never bisects/clips the card at Z=0
+  const frontScaleX = animatedValue.interpolate({
+    inputRange: [0, 90, 180],
+    outputRange: [1, 0, 0],
+    extrapolate: 'clamp',
+  });
+
+  const backScaleX = animatedValue.interpolate({
+    inputRange: [0, 90, 180],
+    outputRange: [0, 0, 1],
+    extrapolate: 'clamp',
+  });
+
+  // Subtle 3D perspective lift during flip
+  const cardScale = animatedValue.interpolate({
+    inputRange: [0, 90, 180],
+    outputRange: [1, 0.95, 1],
+    extrapolate: 'clamp',
   });
 
   const frontOpacity = animatedValue.interpolate({
-    inputRange: [89, 90],
-    outputRange: [1, 0],
+    inputRange: [0, 89.9, 90, 180],
+    outputRange: [1, 1, 0, 0],
+    extrapolate: 'clamp',
   });
 
   const backOpacity = animatedValue.interpolate({
-    inputRange: [89, 90],
-    outputRange: [0, 1],
+    inputRange: [0, 90, 90.1, 180],
+    outputRange: [0, 0, 1, 1],
+    extrapolate: 'clamp',
+  });
+
+  const frontTransform = Platform.select({
+    ios: [
+      { scaleX: frontScaleX },
+      { scale: cardScale },
+    ],
+    default: [
+      { perspective: 1000 },
+      { rotateY: frontInterpolate },
+    ],
+  });
+
+  const backTransform = Platform.select({
+    ios: [
+      { scaleX: backScaleX },
+      { scale: cardScale },
+    ],
+    default: [
+      { perspective: 1000 },
+      { rotateY: backInterpolate },
+    ],
   });
 
   // Buttons transition synchronously in lockstep with the card flip
@@ -175,7 +234,7 @@ export const FlashcardDeck: React.FC<Props> = ({ items, onFinish }) => {
       </View>
 
       {/* Progressive Contextual Coachmarks */}
-      {!hasSeenFlashcardGestureTip && (
+      {!isFlipped && !hasSeenFlashcardGestureTip && (
         <CoachmarkTooltip
           title="Tap to Flip & Check Yourself"
           description="Give it your best guess first, then tap anywhere on the card to see the answer and explanation."
@@ -194,15 +253,16 @@ export const FlashcardDeck: React.FC<Props> = ({ items, onFinish }) => {
       )}
 
       {/* 3D Flip Card Container */}
-      <View style={styles.cardWrapper}>
+      <View style={styles.cardWrapper} collapsable={false}>
         {/* Front Face */}
         <Animated.View
+          collapsable={false}
           pointerEvents={isFlipped ? 'none' : 'auto'}
           style={[
             styles.cardFace,
             styles.cardFront,
             {
-              transform: [{ perspective: 1000 }, { rotateY: frontInterpolate }],
+              transform: frontTransform,
               opacity: frontOpacity,
             },
           ]}
@@ -257,12 +317,13 @@ export const FlashcardDeck: React.FC<Props> = ({ items, onFinish }) => {
 
         {/* Back Face */}
         <Animated.View
+          collapsable={false}
           pointerEvents={isFlipped ? 'auto' : 'none'}
           style={[
             styles.cardFace,
             styles.cardBack,
             {
-              transform: [{ perspective: 1000 }, { rotateY: backInterpolate }],
+              transform: backTransform,
               opacity: backOpacity,
             },
           ]}
@@ -441,6 +502,7 @@ const styles = StyleSheet.create({
     maxHeight: 540,
     marginBottom: spacing[16],
     position: 'relative',
+    overflow: 'visible',
   },
   cardFace: {
     backgroundColor: colors.surface,
@@ -587,6 +649,7 @@ const styles = StyleSheet.create({
     fontWeight: typography.fontWeight.medium,
   },
   backScrollContent: {
+    flexGrow: 1,
     paddingBottom: spacing[16],
   },
   prominentAnswerCard: {

@@ -19,6 +19,7 @@ import { colors, spacing, typography } from '@/constants/theme';
 interface CelebrationModalProps {
   visible: boolean;
   onDismiss: () => void;
+  onShareStory?: () => void;
   title?: string;
   subtitle?: string;
   xpEarned?: number;
@@ -28,6 +29,7 @@ interface CelebrationModalProps {
 export const CelebrationModal: React.FC<CelebrationModalProps> = ({
   visible,
   onDismiss,
+  onShareStory,
   title = "Boom! You're Locked In!",
   subtitle = "Momo is super proud! You just crushed your study session with flying colors.",
   xpEarned = 50,
@@ -105,6 +107,13 @@ export const CelebrationModal: React.FC<CelebrationModalProps> = ({
           >
             <Text style={styles.continueBtnText}>Awesome, Let's Keep Going!</Text>
           </TouchableOpacity>
+
+          {onShareStory && (
+            <TouchableOpacity style={styles.shareStoryBtn} onPress={onShareStory} activeOpacity={0.8}>
+              <HugeiconsIcon icon={SparklesIcon} size={16} color="#8B5CF6" strokeWidth={2.2} />
+              <Text style={styles.shareStoryBtnText}>Share to Instagram Story</Text>
+            </TouchableOpacity>
+          )}
         </View>
       </View>
     </Modal>
@@ -256,5 +265,25 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSize[14],
     fontWeight: typography.fontWeight.bold,
     color: colors.onPrimary,
+  },
+  shareStoryBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F5F3FF',
+    paddingVertical: spacing[12],
+    paddingHorizontal: spacing[20],
+    borderRadius: 14,
+    borderCurve: 'continuous',
+    width: '100%',
+    gap: 6,
+    marginTop: spacing[10],
+    borderWidth: 1,
+    borderColor: '#DDD6FE',
+  },
+  shareStoryBtnText: {
+    fontSize: typography.fontSize[14],
+    fontWeight: typography.fontWeight.bold,
+    color: '#7C3AED',
   },
 });

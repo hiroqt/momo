@@ -7,6 +7,7 @@ import {
   Animated as RNAnimated,
   Platform,
   Keyboard,
+  useWindowDimensions,
 } from "react-native";
 import Reanimated, {
   useAnimatedStyle,
@@ -64,13 +65,26 @@ export const FloatingNavBar: React.FC<FloatingNavBarProps> = ({
 }) => {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { width: windowWidth } = useWindowDimensions();
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
-  const [dockWidth, setDockWidth] = useState(340);
+
+  const isTablet = isIpad();
+  const defaultDockWidth = Math.min(windowWidth * 0.9, isTablet ? 620 : 360);
+  const [dockWidth, setDockWidth] = useState(defaultDockWidth);
 
   const activeIndex = customActiveIndex !== undefined ? customActiveIndex : (state?.index ?? 0);
 
+  // Instantaneous optimistic active index for 0ms active indicator feedback
+  const [optimisticIndex, setOptimisticIndex] = useState<number | null>(null);
+
+  useEffect(() => {
+    setOptimisticIndex(null);
+  }, [activeIndex]);
+
+  const effectiveActiveIndex = optimisticIndex !== null ? optimisticIndex : activeIndex;
+
   // Native-driven sliding indicator for standard React Navigation fallback
-  const indicatorAnim = useRef(new RNAnimated.Value(activeIndex)).current;
+  const indicatorAnim = useRef(new RNAnimated.Value(effectiveActiveIndex)).current;
 
   // Keyboard show/hide listener to prevent covering input fields
   useEffect(() => {
@@ -93,19 +107,18 @@ export const FloatingNavBar: React.FC<FloatingNavBarProps> = ({
   useEffect(() => {
     if (!progressAnim) {
       RNAnimated.spring(indicatorAnim, {
-        toValue: activeIndex,
+        toValue: effectiveActiveIndex,
         useNativeDriver: true,
-        speed: 24,
-        bounciness: 4,
+        speed: 36,
+        bounciness: 2,
       }).start();
     }
-  }, [activeIndex, progressAnim]);
+  }, [effectiveActiveIndex, progressAnim]);
 
   if (isKeyboardVisible) {
     return null;
   }
 
-  const isTablet = isIpad();
   const bottomOffset = isTablet ? insets.bottom + spacing[16] : Math.max(insets.bottom, spacing[12]) + spacing[4];
   const horizontalPadding = isTablet ? spacing[12] : spacing[6];
   const innerWidth = Math.max(dockWidth - horizontalPadding * 2, 60);
@@ -150,6 +163,7 @@ export const FloatingNavBar: React.FC<FloatingNavBarProps> = ({
           />
         ) : (
           <RNAnimated.View
+            pointerEvents="none"
             style={[
               styles.slidingIndicator,
               {
@@ -164,15 +178,19 @@ export const FloatingNavBar: React.FC<FloatingNavBarProps> = ({
         <View style={styles.tabsRow}>
           {TABS.map((tab, idx) => {
             const pageIndex = TAB_NAME_TO_PAGE_INDEX[tab.name];
-            const isFocused = pageIndex !== undefined && activeIndex === pageIndex;
+            const isFocused = pageIndex !== undefined && effectiveActiveIndex === pageIndex;
             return (
               <TabItem
                 key={tab.name}
                 tab={tab}
+                pageIndex={pageIndex ?? idx}
                 isFocused={isFocused}
+                progressAnim={progressAnim}
                 onPress={() => {
+                  const targetIndex = pageIndex ?? idx;
+                  setOptimisticIndex(targetIndex);
                   if (onTabPress) {
-                    onTabPress(pageIndex ?? idx);
+                    onTabPress(targetIndex);
                   } else if (navigation && state) {
                     const routeIndex = state?.routes?.findIndex((r: any) => r.name === tab.name) ?? idx;
                     const event = navigation.emit({
@@ -202,7 +220,7 @@ const ReanimatedIndicator: React.FC<{
 }> = ({ progressAnim, tabWidth, horizontalPadding }) => {
   const animatedStyle = useAnimatedStyle(() => {
     'worklet';
-    const clampedProgress = Math.max(0, Math.min(3, progressAnim.value));
+    const clampedProgress = Math.max(0, Math.min(TABS.length - 1, progressAnim.value));
     const tx = horizontalPadding + clampedProgress * tabWidth;
     return {
       transform: [{ translateX: tx }],
@@ -211,6 +229,7 @@ const ReanimatedIndicator: React.FC<{
 
   return (
     <Reanimated.View
+      pointerEvents="none"
       style={[
         styles.slidingIndicator,
         {
@@ -224,12 +243,22 @@ const ReanimatedIndicator: React.FC<{
 
 interface TabItemProps {
   tab: TabConfig;
+  pageIndex: number;
   isFocused: boolean;
+  progressAnim?: SharedValue<number>;
   onPress: () => void;
 }
 
-const TabItem: React.FC<TabItemProps> = ({ tab, isFocused, onPress }) => {
+const TabItem: React.FC<TabItemProps> = ({
+  tab,
+  pageIndex,
+  isFocused,
+  progressAnim,
+  onPress,
+}) => {
   const scaleAnim = useRef(new RNAnimated.Value(1)).current;
+  const isTablet = isIpad();
+  const iconSize = isTablet ? 26 : 20;
 
   const handlePressIn = () => {
     RNAnimated.spring(scaleAnim, {
@@ -249,6 +278,37 @@ const TabItem: React.FC<TabItemProps> = ({ tab, isFocused, onPress }) => {
     }).start();
   };
 
+  // UI-thread animated crossfade driven 1:1 by swipe progress
+  const activeAnimatedStyle = useAnimatedStyle(() => {
+    'worklet';
+    if (!progressAnim) {
+      return { opacity: isFocused ? 1 : 0 };
+    }
+    const dist = Math.abs(progressAnim.value - pageIndex);
+    const active = interpolate(
+      dist,
+      [0, 0.65],
+      [1, 0],
+      Extrapolation.CLAMP
+    );
+    return { opacity: active };
+  });
+
+  const inactiveAnimatedStyle = useAnimatedStyle(() => {
+    'worklet';
+    if (!progressAnim) {
+      return { opacity: isFocused ? 0 : 1 };
+    }
+    const dist = Math.abs(progressAnim.value - pageIndex);
+    const active = interpolate(
+      dist,
+      [0, 0.65],
+      [1, 0],
+      Extrapolation.CLAMP
+    );
+    return { opacity: 1 - active };
+  });
+
   return (
     <RNAnimated.View
       style={[styles.tabButtonWrapper, { transform: [{ scale: scaleAnim }] }]}
@@ -263,21 +323,43 @@ const TabItem: React.FC<TabItemProps> = ({ tab, isFocused, onPress }) => {
         accessibilityState={{ selected: isFocused }}
         accessibilityLabel={tab.label}
       >
-        <HugeiconsIcon
-          icon={tab.icon}
-          size={isIpad() ? 26 : 20}
-          color={isFocused ? colors.primary : colors.textMuted}
-          strokeWidth={isFocused ? 2.4 : 1.8}
-        />
-        <Text
-          style={[
-            styles.tabLabel,
-            isFocused ? styles.activeTabLabel : styles.inactiveTabLabel,
-          ]}
-          numberOfLines={1}
+        {/* Inactive state (grey icon, muted label) */}
+        <Reanimated.View
+          pointerEvents="none"
+          style={[styles.tabItemInner, inactiveAnimatedStyle]}
         >
-          {tab.label}
-        </Text>
+          <HugeiconsIcon
+            icon={tab.icon}
+            size={iconSize}
+            color={colors.textMuted}
+            strokeWidth={1.8}
+          />
+          <Text
+            style={[styles.tabLabel, styles.inactiveTabLabel]}
+            numberOfLines={1}
+          >
+            {tab.label}
+          </Text>
+        </Reanimated.View>
+
+        {/* Active state (violet icon, bold primary label) */}
+        <Reanimated.View
+          pointerEvents="none"
+          style={[styles.tabItemInner, styles.tabItemActiveOverlay, activeAnimatedStyle]}
+        >
+          <HugeiconsIcon
+            icon={tab.icon}
+            size={iconSize}
+            color={colors.primary}
+            strokeWidth={2.4}
+          />
+          <Text
+            style={[styles.tabLabel, styles.activeTabLabel]}
+            numberOfLines={1}
+          >
+            {tab.label}
+          </Text>
+        </Reanimated.View>
       </Pressable>
     </RNAnimated.View>
   );
@@ -342,11 +424,23 @@ const styles = StyleSheet.create({
   },
   tabButton: {
     flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    position: "relative",
+    borderRadius: isPadDevice ? 30 : 24,
+  },
+  tabItemInner: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: isPadDevice ? spacing[8] : spacing[4],
-    borderRadius: isPadDevice ? 30 : 24,
+  },
+  tabItemActiveOverlay: {
+    position: "absolute",
+    top: 0,
+    bottom: 0,
+    left: 0,
+    right: 0,
   },
   tabLabel: {
     fontSize: isPadDevice ? typography.fontSize[15] : typography.fontSize[12],

@@ -24,6 +24,7 @@ import {
   HelpCircleIcon,
   Upload01Icon,
   Coins01Icon,
+  Share01Icon,
 } from '@hugeicons/core-free-icons';
 import { listStudySets, deleteStudySet, updateStudySet } from '../../lib/api/studySets';
 import { getStreak } from '../../lib/api/stats';
@@ -31,6 +32,7 @@ import { localDb } from '../../lib/storage/localDb';
 import { PlatformPressable } from '../../components/common/PlatformPressable';
 import { ConfirmationModal } from '../../components/common/ConfirmationModal';
 import { RenameModal } from '../../components/common/RenameModal';
+import { AcademicWeaponShareModal } from '../../components/social/AcademicWeaponShareModal';
 import { DashboardFAB } from '../../components/common/DashboardFAB';
 import { SmoothScrollView } from '../../components/common/SmoothScrollView';
 import { TabTransitionView } from '../../components/common/TabTransitionView';
@@ -68,6 +70,7 @@ export default function HomeScreen() {
   const [renameTarget, setRenameTarget] = useState<StudySet | null>(null);
   const [isRenaming, setIsRenaming] = useState(false);
   const [streakData, setStreakData] = useState<{ active_dates: string[]; current_streak: number }>({ active_dates: [], current_streak: 0 });
+  const [showStreakStoryModal, setShowStreakStoryModal] = useState(false);
 
   const [momoVisible, setMomoVisible] = useState(true);
   const [momoQuote, setMomoQuote] = useState<StudyQuote>(() => getRandomStudyQuote());
@@ -218,8 +221,18 @@ export default function HomeScreen() {
         {/* Horizontal Streak Timeline */}
         <View style={styles.streakTimelineContainer}>
           <View style={styles.streakHeader}>
-            <Text style={styles.streakTitle}>🔥 {streakData.current_streak} Day Streak</Text>
-            <Text style={styles.streakSub}>You're on a roll!</Text>
+            <View>
+              <Text style={styles.streakTitle}>🔥 {streakData.current_streak} Day Streak</Text>
+              <Text style={styles.streakSub}>You're on a roll!</Text>
+            </View>
+            <TouchableOpacity
+              style={styles.streakShareBtn}
+              onPress={() => setShowStreakStoryModal(true)}
+              activeOpacity={0.75}
+            >
+              <HugeiconsIcon icon={Share01Icon} size={14} color="#EF4444" strokeWidth={2.4} />
+              <Text style={styles.streakShareText}>Share</Text>
+            </TouchableOpacity>
           </View>
           <View style={styles.streakDays}>
             {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((day, idx) => {
@@ -416,6 +429,16 @@ export default function HomeScreen() {
         isLoading={isRenaming}
         onSave={handleConfirmRename}
         onCancel={() => setRenameTarget(null)}
+      />
+
+      <AcademicWeaponShareModal
+        visible={showStreakStoryModal}
+        onClose={() => setShowStreakStoryModal(false)}
+        inputData={{
+          mode: 'streak',
+          streak: streakData.current_streak,
+          subject: 'Daily Consistency',
+        }}
       />
     </TabTransitionView>
   );
@@ -625,8 +648,24 @@ const styles = StyleSheet.create({
   streakHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-end',
+    alignItems: 'center',
     marginBottom: isPadDevice ? spacing[20] : spacing[16],
+  },
+  streakShareBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.2)',
+  },
+  streakShareText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#EF4444',
   },
   streakTitle: {
     fontSize: isPadDevice ? typography.fontSize[20] : typography.fontSize[16],

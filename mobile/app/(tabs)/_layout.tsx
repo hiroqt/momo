@@ -34,13 +34,19 @@ export default function TabsLayout() {
 
   const activeIndex = useMemo(() => {
     const segs = (segments || []) as string[];
-    if (segs[0] === '(tabs)') {
-      const tabName = segs[1] || 'index';
-      return ROUTE_MAP[tabName] ?? 0;
+    const path = (pathname || '').toLowerCase();
+
+    // Priority 1: Direct segment inspection & pathname checks for specific non-home tabs
+    if (segs.includes('library') || path.includes('library')) return 1;
+    if (segs.includes('shop') || path.includes('shop')) return 2;
+    if (segs.includes('profile') || path.includes('profile')) return 3;
+    if (segs.includes('index') || path.endsWith('/(tabs)') || path === '/') return 0;
+
+    // Priority 2: Structured (tabs) route mapping if child segment is resolved
+    if (segs[0] === '(tabs)' && segs[1] && ROUTE_MAP[segs[1]] !== undefined) {
+      return ROUTE_MAP[segs[1]];
     }
-    if (pathname.includes('library')) return 1;
-    if (pathname.includes('shop')) return 2;
-    if (pathname.includes('profile')) return 3;
+
     return 0;
   }, [segments, pathname]);
 

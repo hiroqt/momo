@@ -33,6 +33,7 @@ import {
   Task01Icon,
 } from '@hugeicons/core-free-icons';
 import { StudyItem } from '../../types';
+import { AcademicWeaponShareModal } from '../social/AcademicWeaponShareModal';
 import { SourceAttribution } from './SourceAttribution';
 import { PlatformPressable } from '../common/PlatformPressable';
 import { SmoothScrollView } from '../common/SmoothScrollView';
@@ -47,6 +48,7 @@ import { isIpad } from '../../utils/device';
 
 interface Props {
   items: StudyItem[];
+  title?: string;
   isExamMode?: boolean;
   timeLimitPerQuestion?: number;
   onFinish?: (score: { correct: number; total: number; xp: number }) => void;
@@ -113,6 +115,7 @@ export interface QuizRunnerRef {
 
 export const QuizRunner = forwardRef<QuizRunnerRef, Props>(({
   items,
+  title,
   timeLimitPerQuestion,
   onFinish,
   onRestart,
@@ -135,6 +138,7 @@ export const QuizRunner = forwardRef<QuizRunnerRef, Props>(({
   const [isCurrentQuestionRevealed, setIsCurrentQuestionRevealed] = useState(false);
   const [currentXP, setCurrentXP] = useState(0);
   const [isQuizFinished, setIsQuizFinished] = useState(false);
+  const [showStoryModal, setShowStoryModal] = useState(false);
   const [selectedReviewIndex, setSelectedReviewIndex] = useState<number | null>(null);
   const [isOverviewExpanded, setIsOverviewExpanded] = useState(false);
   const [reviewFilter, setReviewFilter] = useState<'all' | 'correct' | 'wrong' | 'skipped'>('all');
@@ -1825,6 +1829,16 @@ export const QuizRunner = forwardRef<QuizRunnerRef, Props>(({
 
         {/* Post-Quiz Actions */}
         <View style={styles.reviewActionFooter}>
+          <PlatformPressable
+            style={styles.flexStoryBtn}
+            onPress={() => setShowStoryModal(true)}
+          >
+            <View style={styles.btnRow}>
+              <HugeiconsIcon icon={SparklesIcon} size={18} color="#FFFFFF" strokeWidth={2.4} />
+              <Text style={styles.flexStoryBtnText}>🔥 Flex on IG Story</Text>
+            </View>
+          </PlatformPressable>
+
           <PlatformPressable style={styles.restartBtn} onPress={handleRestartQuiz}>
             <View style={styles.btnRow}>
               <HugeiconsIcon icon={RefreshIcon} size={18} color="#4F46E5" strokeWidth={2.2} />
@@ -1844,6 +1858,19 @@ export const QuizRunner = forwardRef<QuizRunnerRef, Props>(({
 
         {/* Quiz Overview Modal Rendered on Review Screen */}
         {renderOverviewModal()}
+
+        <AcademicWeaponShareModal
+          visible={showStoryModal}
+          onClose={() => setShowStoryModal(false)}
+          inputData={{
+            mode: 'quiz',
+            subject: title || 'Quiz Session',
+            accuracy: percent,
+            correctCount: totalCorrect,
+            totalQuestions,
+            xpEarned: currentXP,
+          }}
+        />
       </SmoothScrollView>
     );
   }
@@ -3557,6 +3584,24 @@ const styles = StyleSheet.create({
     gap: 10,
     marginTop: 8,
     marginBottom: 20,
+  },
+  flexStoryBtn: {
+    backgroundColor: '#8B5CF6',
+    borderRadius: 20,
+    paddingVertical: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+    shadowColor: '#8B5CF6',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  flexStoryBtnText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '800',
   },
   restartBtn: {
     backgroundColor: '#EEF2FF',

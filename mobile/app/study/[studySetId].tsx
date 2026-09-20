@@ -24,6 +24,7 @@ import {
   Clock01Icon,
   CheckmarkCircle02Icon,
   MoreVerticalIcon,
+  SparklesIcon,
 } from '@hugeicons/core-free-icons';
 import { getStudySet, getStudyItems, deleteStudySet, updateStudySet } from '../../lib/api/studySets';
 import { localDb } from '../../lib/storage/localDb';
@@ -37,6 +38,7 @@ import { SmoothScrollView } from '../../components/common/SmoothScrollView';
 import { StudySet, StudyItem } from '../../types';
 import { useOnboarding } from '../../context/OnboardingContext';
 import { CelebrationModal } from '../../components/onboarding/CelebrationModal';
+import { AcademicWeaponShareModal } from '../../components/social/AcademicWeaponShareModal';
 import { MomoLoadingScreen } from '../../components/common/MomoLoadingScreen';
 import { isIpad } from '../../utils/device';
 
@@ -86,6 +88,7 @@ export default function StudySessionScreen() {
   const [isQuizCompleted, setIsQuizCompleted] = useState(false);
   const [quizScore, setQuizScore] = useState<{ correct: number; total: number; xp: number } | null>(null);
   const [sessionKey, setSessionKey] = useState(0);
+  const [showStoryModal, setShowStoryModal] = useState(false);
 
   const { hasSeenCelebrationModal, dismissCelebration, markSessionCompleted } = useOnboarding();
 
@@ -213,6 +216,7 @@ export default function StudySessionScreen() {
         <CelebrationModal
           visible={!hasSeenCelebrationModal}
           onDismiss={dismissCelebration}
+          onShareStory={() => setShowStoryModal(true)}
           xpEarned={finishedScore.correct * 15}
           itemsCount={finishedScore.total}
         />
@@ -271,6 +275,16 @@ export default function StudySessionScreen() {
             </View>
 
             <View style={styles.finishActionCol}>
+              <PlatformPressable
+                style={styles.flexStoryBtn}
+                onPress={() => setShowStoryModal(true)}
+              >
+                <View style={styles.btnRow}>
+                  <HugeiconsIcon icon={SparklesIcon} size={18} color="#FFFFFF" strokeWidth={2.4} />
+                  <Text style={styles.flexStoryBtnText}>🔥 Flex on IG Story</Text>
+                </View>
+              </PlatformPressable>
+
               <PlatformPressable style={styles.restartBtn} onPress={handleRestart}>
                 <View style={styles.btnRow}>
                   <HugeiconsIcon icon={RefreshIcon} size={18} color={colors.primary} strokeWidth={2.2} />
@@ -289,6 +303,17 @@ export default function StudySessionScreen() {
             </View>
           </View>
         </SmoothScrollView>
+
+        <AcademicWeaponShareModal
+          visible={showStoryModal}
+          onClose={() => setShowStoryModal(false)}
+          inputData={{
+            mode: 'flashcard',
+            subject: studySet?.title || 'Flashcards',
+            cardsCount: finishedScore.total,
+            xpEarned: finishedScore.correct * 15,
+          }}
+        />
       </View>
     );
   }
@@ -336,6 +361,7 @@ export default function StudySessionScreen() {
       <CelebrationModal
         visible={!hasSeenCelebrationModal && isQuizCompleted}
         onDismiss={dismissCelebration}
+        onShareStory={() => setShowStoryModal(true)}
         xpEarned={quizScore?.xp || actualQuizItems.length * 15}
         itemsCount={quizScore?.total || actualQuizItems.length}
       />
@@ -386,6 +412,7 @@ export default function StudySessionScreen() {
           <QuizRunner ref={quizRef}
             key={`quiz-${sessionKey}-${actualQuizItems.map((i) => i.id).join('-')}`}
             items={actualQuizItems}
+            title={studySet?.title}
             timeLimitPerQuestion={studySet?.generation_config?.time_limit_per_question}
             onFinish={(score) => {
               setIsQuizCompleted(true);
@@ -528,6 +555,20 @@ export default function StudySessionScreen() {
         isLoading={isRenaming}
         onSave={handleRename}
         onCancel={() => setShowRenameModal(false)}
+      />
+
+      <AcademicWeaponShareModal
+        visible={showStoryModal}
+        onClose={() => setShowStoryModal(false)}
+        inputData={{
+          mode: quizScore ? 'quiz' : 'flashcard',
+          subject: studySet?.title || 'Study Session',
+          accuracy: quizScore && quizScore.total > 0 ? Math.round((quizScore.correct / quizScore.total) * 100) : 100,
+          correctCount: quizScore?.correct,
+          totalQuestions: quizScore?.total,
+          cardsCount: actualFlashcardItems.length,
+          xpEarned: quizScore?.xp || actualQuizItems.length * 15,
+        }}
       />
     </View>
   );
@@ -796,6 +837,24 @@ const styles = StyleSheet.create({
   finishActionCol: {
     width: '100%',
     gap: isPadDevice ? spacing[14] : spacing[10],
+  },
+  flexStoryBtn: {
+    backgroundColor: '#8B5CF6',
+    borderRadius: 20,
+    paddingVertical: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+    shadowColor: '#8B5CF6',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  flexStoryBtnText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '800',
   },
   restartBtn: {
     backgroundColor: colors.primarySoft,

@@ -32,10 +32,18 @@ export interface InteractiveTabPagerProps {
   onTabChange?: (index: number) => void;
 }
 
-const SPRING_CONFIG = {
-  damping: 24,
-  stiffness: 220,
-  mass: 0.8,
+// Snappy, highly-responsive spring config for programmatic tab taps (zero perceived latency, settles in ~140ms)
+const TAB_TAP_SPRING_CONFIG = {
+  damping: 28,
+  stiffness: 380,
+  mass: 0.45,
+};
+
+// Physics-grounded snappy spring config for pan swipe gestures matching click responsiveness
+const SWIPE_SPRING_CONFIG = {
+  damping: 28,
+  stiffness: 380,
+  mass: 0.45,
 };
 
 const IS_ANDROID = Platform.OS === 'android';
@@ -65,8 +73,9 @@ export const InteractiveTabPager: React.FC<InteractiveTabPagerProps> = ({
   const blurIntensity = useSharedValue(0);
   const isDragging = useSharedValue(false);
 
-  // Ref to track whether change came from a gesture to prevent double-blur blip
+  // Ref to track whether change came from a gesture or tab press to prevent double-animation
   const isGestureSettling = useRef(false);
+  const isTabPressing = useRef(false);
 
   // Sync shared value when activeIndex prop updates programmatically
   useEffect(() => {
@@ -74,16 +83,17 @@ export const InteractiveTabPager: React.FC<InteractiveTabPagerProps> = ({
       isGestureSettling.current = false;
       return;
     }
+    if (isTabPressing.current) {
+      isTabPressing.current = false;
+      return;
+    }
 
-    if (!isDragging.value && Math.abs(progress.value - activeIndex) > 0.01) {
-      if (!IS_ANDROID) {
-        blurIntensity.value = withTiming(0.4, { duration: 100 }, () => {
-          'worklet';
-          blurIntensity.value = withTiming(0, { duration: 180 });
-        });
-      }
-
-      progress.value = withSpring(activeIndex, SPRING_CONFIG);
+    // External navigation or initial sync: snap immediately with zero delay
+    // This fixes the issue where the page is already loaded but the fill/indicator
+    // took 0.2s - 0.5s to spring across from the previous tab.
+    if (!isDragging.value) {
+      progress.value = activeIndex;
+      blurIntensity.value = 0;
     }
   }, [activeIndex, isDragging, progress, blurIntensity]);
 
@@ -103,24 +113,23 @@ export const InteractiveTabPager: React.FC<InteractiveTabPagerProps> = ({
     (targetIndex: number) => {
       if (targetIndex === activeIndex) return;
 
+      isTabPressing.current = true;
       isGestureSettling.current = false;
 
-      // Gentle blur accent on iOS during programmatic tap
-      if (!IS_ANDROID) {
-        blurIntensity.value = withTiming(0.4, { duration: 100 }, () => {
-          'worklet';
-          blurIntensity.value = withTiming(0, { duration: 200, easing: Easing.out(Easing.ease) });
-        });
-      }
-
-      progress.value = withSpring(targetIndex, SPRING_CONFIG, (finished) => {
+      // Animate progress smoothly with ultra-responsive tab tap spring
+      progress.value = withSpring(targetIndex, TAB_TAP_SPRING_CONFIG, (finished) => {
         'worklet';
         if (finished) {
           runOnJS(handleTabSettled)(targetIndex);
         }
       });
+
+      // Immediately notify parent so route, activeIndex, and active indicator highlights update with zero lag
+      if (onTabChange) {
+        onTabChange(targetIndex);
+      }
     },
-    [activeIndex, blurIntensity, handleTabSettled, progress]
+    [activeIndex, onTabChange, handleTabSettled, progress]
   );
 
   // Pan Gesture Handler running 100% on the UI thread
@@ -181,7 +190,7 @@ export const InteractiveTabPager: React.FC<InteractiveTabPagerProps> = ({
 
       // Smoothly animate blur back to zero
       blurIntensity.value = withTiming(0, {
-        duration: 220,
+        duration: 180,
         easing: Easing.out(Easing.quad),
       });
 
@@ -189,7 +198,7 @@ export const InteractiveTabPager: React.FC<InteractiveTabPagerProps> = ({
       progress.value = withSpring(
         targetIndex,
         {
-          ...SPRING_CONFIG,
+          ...SWIPE_SPRING_CONFIG,
           velocity: velocityUnits,
         },
         (finished) => {
@@ -199,6 +208,12 @@ export const InteractiveTabPager: React.FC<InteractiveTabPagerProps> = ({
           }
         }
       );
+
+      // Immediately notify active state change so navbar & route respond with 0ms delay just like click navigation!
+      if (targetIndex !== activeIndex) {
+        isGestureSettling.current = true;
+        runOnJS(handleTabSettled)(targetIndex);
+      }
     });
 
   // Frosted Glass Blur Overlay Style

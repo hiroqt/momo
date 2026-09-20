@@ -25,6 +25,7 @@ import { syncEngine } from '../../lib/sync/syncEngine';
 import { isMeaningfulSection, sanitizeQuestionText } from '../../utils/formatters';
 import { useOnboarding } from '../../context/OnboardingContext';
 import { CoachmarkTooltip } from '../onboarding/CoachmarkTooltip';
+import { isIpad } from '../../utils/device';
 
 interface Props {
   items: StudyItem[];
@@ -32,6 +33,7 @@ interface Props {
 }
 
 export const FlashcardDeck: React.FC<Props> = ({ items, onFinish }) => {
+  const isPadDevice = isIpad();
   const insets = useSafeAreaInsets();
   const isAndroid = Platform.OS === 'android';
   const bottomPadding = Math.max(insets.bottom, isAndroid ? spacing[28] : spacing[16]) + spacing[16];
@@ -277,7 +279,7 @@ export const FlashcardDeck: React.FC<Props> = ({ items, onFinish }) => {
               activeOpacity={0.7}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             >
-               <HugeiconsIcon icon={EyeIcon} size={13} color={colors.primary} strokeWidth={2.2} />
+              <HugeiconsIcon icon={EyeIcon} size={isPadDevice ? 18 : 13} color={colors.primary} strokeWidth={2.2} />
               <Text style={styles.flipHint}>Tap to reveal</Text>
             </TouchableOpacity>
           </View>
@@ -296,7 +298,7 @@ export const FlashcardDeck: React.FC<Props> = ({ items, onFinish }) => {
             >
               {isMeaningfulSection(currentItem.source_metadata?.section) ? (
                 <View style={styles.topicBadge}>
-                  <HugeiconsIcon icon={BookOpen01Icon} size={12} color={colors.primary} strokeWidth={2.2} />
+                  <HugeiconsIcon icon={BookOpen01Icon} size={isPadDevice ? 16 : 12} color={colors.primary} strokeWidth={2.2} />
                   <Text style={styles.topicBadgeText} numberOfLines={1}>
                     {currentItem.source_metadata?.section?.toUpperCase()}
                   </Text>
@@ -330,7 +332,7 @@ export const FlashcardDeck: React.FC<Props> = ({ items, onFinish }) => {
         >
           <View style={styles.cardHeaderRow}>
             <View style={styles.backTag}>
-              <HugeiconsIcon icon={CheckmarkCircle02Icon} size={13} color={colors.success} strokeWidth={2.4} />
+              <HugeiconsIcon icon={CheckmarkCircle02Icon} size={isPadDevice ? 18 : 13} color={colors.success} strokeWidth={2.4} />
               <Text style={styles.backTagText}>ANSWER REVEALED</Text>
             </View>
             <TouchableOpacity
@@ -339,7 +341,7 @@ export const FlashcardDeck: React.FC<Props> = ({ items, onFinish }) => {
               activeOpacity={0.7}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             >
-              <HugeiconsIcon icon={RefreshIcon} size={13} color={colors.textMuted} strokeWidth={2} />
+              <HugeiconsIcon icon={RefreshIcon} size={isPadDevice ? 18 : 13} color={colors.textMuted} strokeWidth={2} />
               <Text style={styles.backFlipHint}>Flip back</Text>
             </TouchableOpacity>
           </View>
@@ -354,7 +356,7 @@ export const FlashcardDeck: React.FC<Props> = ({ items, onFinish }) => {
             {/* Prominent Answer Hero Box */}
             <View style={styles.prominentAnswerCard}>
               <View style={styles.prominentAnswerHeader}>
-                <HugeiconsIcon icon={CheckmarkCircle02Icon} size={14} color={colors.success} strokeWidth={2.4} />
+                <HugeiconsIcon icon={CheckmarkCircle02Icon} size={isPadDevice ? 20 : 14} color={colors.success} strokeWidth={2.4} />
                 <Text style={styles.prominentAnswerBadgeLabel}>CORRECT ANSWER</Text>
               </View>
               <Text style={styles.answerText}>{currentItem.answer}</Text>
@@ -364,7 +366,7 @@ export const FlashcardDeck: React.FC<Props> = ({ items, onFinish }) => {
             {currentItem.explanation ? (
               <View style={styles.explanationBox}>
                 <View style={styles.explanationHeaderRow}>
-                  <HugeiconsIcon icon={BookOpen01Icon} size={14} color={colors.primary} strokeWidth={2.2} />
+                  <HugeiconsIcon icon={BookOpen01Icon} size={isPadDevice ? 20 : 14} color={colors.primary} strokeWidth={2.2} />
                   <Text style={styles.explanationLabel}>EXPLANATION & CONTEXT</Text>
                 </View>
                 <Text style={styles.explanationText}>{currentItem.explanation}</Text>
@@ -392,7 +394,7 @@ export const FlashcardDeck: React.FC<Props> = ({ items, onFinish }) => {
         >
           <PlatformPressable style={styles.revealButton} onPress={flipCard}>
             <View style={styles.revealContent}>
-              <HugeiconsIcon icon={EyeIcon} size={18} color={colors.onPrimary} strokeWidth={2.2} />
+              <HugeiconsIcon icon={EyeIcon} size={isPadDevice ? 24 : 18} color={colors.onPrimary} strokeWidth={2.2} />
               <Text style={styles.revealButtonText}>Show Answer</Text>
             </View>
           </PlatformPressable>
@@ -416,7 +418,7 @@ export const FlashcardDeck: React.FC<Props> = ({ items, onFinish }) => {
               onPress={() => handleNext(false)}
             >
               <View style={styles.actionBtnContent}>
-                <HugeiconsIcon icon={Cancel01Icon} size={18} color={colors.danger} strokeWidth={2.4} />
+                <HugeiconsIcon icon={Cancel01Icon} size={isPadDevice ? 24 : 18} color={colors.danger} strokeWidth={2.4} />
                 <Text style={styles.reviewAgainText}>Review Again</Text>
               </View>
             </PlatformPressable>
@@ -426,7 +428,7 @@ export const FlashcardDeck: React.FC<Props> = ({ items, onFinish }) => {
               onPress={() => handleNext(true)}
             >
               <View style={styles.actionBtnContent}>
-                <HugeiconsIcon icon={CheckmarkCircle02Icon} size={18} color={colors.onPrimary} strokeWidth={2.4} />
+                <HugeiconsIcon icon={CheckmarkCircle02Icon} size={isPadDevice ? 24 : 18} color={colors.onPrimary} strokeWidth={2.4} />
                 <Text style={styles.gotItText}>Got It</Text>
               </View>
             </PlatformPressable>
@@ -437,77 +439,82 @@ export const FlashcardDeck: React.FC<Props> = ({ items, onFinish }) => {
   );
 };
 
+const isPadDevice = isIpad();
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: spacing[16],
+    padding: isPadDevice ? spacing[28] : spacing[16],
     justifyContent: 'space-between',
+    width: '100%',
+    maxWidth: isPadDevice ? 860 : undefined,
+    alignSelf: 'center',
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: spacing[12],
+    marginBottom: isPadDevice ? spacing[18] : spacing[12],
   },
   progressCol: {
     flex: 1,
     marginRight: spacing[12],
   },
   progressText: {
-    fontSize: typography.fontSize[13],
+    fontSize: isPadDevice ? typography.fontSize[16] : typography.fontSize[13],
     fontWeight: typography.fontWeight.bold,
     color: colors.textMuted,
-    marginBottom: spacing[4],
+    marginBottom: isPadDevice ? spacing[6] : spacing[4],
   },
   miniProgressBar: {
-    height: 6,
+    height: isPadDevice ? 10 : 6,
     backgroundColor: colors.surfaceMuted,
-    borderRadius: 3,
+    borderRadius: isPadDevice ? 5 : 3,
     overflow: 'hidden',
   },
   miniProgressFill: {
     height: '100%',
     backgroundColor: colors.primary,
-    borderRadius: 3,
+    borderRadius: isPadDevice ? 5 : 3,
   },
   badgeRow: {
     flexDirection: 'row',
-    gap: spacing[6],
+    gap: isPadDevice ? spacing[10] : spacing[6],
   },
   masteredBadge: {
     backgroundColor: colors.successSoft,
-    paddingHorizontal: spacing[8],
-    paddingVertical: spacing[3],
-    borderRadius: 6,
+    paddingHorizontal: isPadDevice ? spacing[12] : spacing[8],
+    paddingVertical: isPadDevice ? spacing[6] : spacing[3],
+    borderRadius: isPadDevice ? 8 : 6,
   },
   masteredText: {
-    fontSize: typography.fontSize[11],
+    fontSize: isPadDevice ? typography.fontSize[14] : typography.fontSize[11],
     fontWeight: typography.fontWeight.bold,
     color: colors.success,
   },
   difficultyBadge: {
     backgroundColor: colors.primarySoft,
-    paddingHorizontal: spacing[8],
-    paddingVertical: spacing[3],
-    borderRadius: 6,
+    paddingHorizontal: isPadDevice ? spacing[12] : spacing[8],
+    paddingVertical: isPadDevice ? spacing[6] : spacing[3],
+    borderRadius: isPadDevice ? 8 : 6,
   },
   difficultyText: {
-    fontSize: typography.fontSize[11],
+    fontSize: isPadDevice ? typography.fontSize[14] : typography.fontSize[11],
     fontWeight: typography.fontWeight.bold,
     color: colors.primary,
   },
   cardWrapper: {
     flex: 1,
-    minHeight: 360,
-    maxHeight: 540,
-    marginBottom: spacing[16],
+    minHeight: isPadDevice ? 540 : 360,
+    maxHeight: isPadDevice ? 740 : 540,
+    marginBottom: isPadDevice ? spacing[24] : spacing[16],
     position: 'relative',
     overflow: 'visible',
   },
   cardFace: {
     backgroundColor: colors.surface,
-    borderRadius: 20,
-    padding: spacing[20],
+    borderRadius: isPadDevice ? 28 : 20,
+    padding: isPadDevice ? spacing[28] : spacing[20],
     borderWidth: 1,
     borderColor: colors.border,
     position: 'absolute',
@@ -539,16 +546,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: spacing[12],
+    marginBottom: isPadDevice ? spacing[16] : spacing[12],
   },
   frontTag: {
     backgroundColor: colors.primarySoft,
-    paddingHorizontal: spacing[8],
-    paddingVertical: 3.5,
-    borderRadius: 6,
+    paddingHorizontal: isPadDevice ? spacing[12] : spacing[8],
+    paddingVertical: isPadDevice ? 6 : 3.5,
+    borderRadius: isPadDevice ? 8 : 6,
   },
   frontTagText: {
-    fontSize: typography.fontSize[10],
+    fontSize: isPadDevice ? typography.fontSize[12] : typography.fontSize[10],
     fontWeight: typography.fontWeight.extraBold,
     color: colors.primary,
     letterSpacing: typography.letterSpacing[0.6],
@@ -558,12 +565,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing[4],
     backgroundColor: colors.successSoft,
-    paddingHorizontal: spacing[8],
-    paddingVertical: 3.5,
-    borderRadius: 6,
+    paddingHorizontal: isPadDevice ? spacing[12] : spacing[8],
+    paddingVertical: isPadDevice ? 6 : 3.5,
+    borderRadius: isPadDevice ? 8 : 6,
   },
   backTagText: {
-    fontSize: typography.fontSize[10],
+    fontSize: isPadDevice ? typography.fontSize[12] : typography.fontSize[10],
     fontWeight: typography.fontWeight.extraBold,
     color: colors.success,
     letterSpacing: typography.letterSpacing[0.6],
@@ -574,12 +581,12 @@ const styles = StyleSheet.create({
     gap: spacing[4],
     flexShrink: 0,
     backgroundColor: colors.primarySoft,
-    paddingHorizontal: spacing[8],
-    paddingVertical: 3.5,
-    borderRadius: 6,
+    paddingHorizontal: isPadDevice ? spacing[12] : spacing[8],
+    paddingVertical: isPadDevice ? 6 : 3.5,
+    borderRadius: isPadDevice ? 8 : 6,
   },
   flipHint: {
-    fontSize: typography.fontSize[11],
+    fontSize: isPadDevice ? typography.fontSize[13] : typography.fontSize[11],
     color: colors.primary,
     fontWeight: typography.fontWeight.semiBold,
   },
@@ -589,30 +596,30 @@ const styles = StyleSheet.create({
     gap: spacing[4],
     flexShrink: 0,
     backgroundColor: colors.surfaceMuted,
-    paddingHorizontal: spacing[8],
-    paddingVertical: 3.5,
-    borderRadius: 6,
+    paddingHorizontal: isPadDevice ? spacing[12] : spacing[8],
+    paddingVertical: isPadDevice ? 6 : 3.5,
+    borderRadius: isPadDevice ? 8 : 6,
   },
   backFlipHint: {
-    fontSize: typography.fontSize[11],
+    fontSize: isPadDevice ? typography.fontSize[13] : typography.fontSize[11],
     color: colors.textMuted,
     fontWeight: typography.fontWeight.semiBold,
   },
   topicBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing[5],
+    gap: isPadDevice ? spacing[8] : spacing[5],
     backgroundColor: colors.background,
     borderWidth: 1,
     borderColor: colors.border,
-    paddingHorizontal: spacing[10],
-    paddingVertical: spacing[4],
-    borderRadius: 8,
-    marginBottom: spacing[14],
+    paddingHorizontal: isPadDevice ? spacing[14] : spacing[10],
+    paddingVertical: isPadDevice ? spacing[6] : spacing[4],
+    borderRadius: isPadDevice ? 10 : 8,
+    marginBottom: isPadDevice ? spacing[18] : spacing[14],
     maxWidth: '90%',
   },
   topicBadgeText: {
-    fontSize: typography.fontSize[10],
+    fontSize: isPadDevice ? typography.fontSize[12] : typography.fontSize[10],
     fontWeight: typography.fontWeight.bold,
     color: colors.textSecondary,
     letterSpacing: typography.letterSpacing[0.5],
@@ -623,7 +630,7 @@ const styles = StyleSheet.create({
   frontScrollContent: {
     flexGrow: 1,
     justifyContent: 'center',
-    paddingVertical: spacing[12],
+    paddingVertical: isPadDevice ? spacing[18] : spacing[12],
   },
   frontQuestionTouch: {
     width: '100%',
@@ -631,34 +638,33 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   questionText: {
-    fontSize: typography.fontSize[19],
+    fontSize: isPadDevice ? typography.fontSize[28] : typography.fontSize[19],
     fontWeight: typography.fontWeight.bold,
     color: colors.text,
-    lineHeight: typography.lineHeight[28],
+    lineHeight: isPadDevice ? typography.lineHeight[40] : typography.lineHeight[28],
     textAlign: 'center',
   },
   cardBottomBar: {
     alignItems: 'center',
-    paddingTop: spacing[12],
+    paddingTop: isPadDevice ? spacing[16] : spacing[12],
     borderTopWidth: 1,
     borderTopColor: colors.surfaceMuted,
   },
   cardBottomHint: {
-    fontSize: typography.fontSize[12],
+    fontSize: isPadDevice ? typography.fontSize[15] : typography.fontSize[12],
     color: colors.textDisabled,
     fontWeight: typography.fontWeight.medium,
   },
   backScrollContent: {
-    flexGrow: 1,
     paddingBottom: spacing[16],
   },
   prominentAnswerCard: {
     backgroundColor: colors.successSoft,
-    borderRadius: 14,
-    padding: spacing[16],
+    borderRadius: isPadDevice ? 18 : 14,
+    padding: isPadDevice ? spacing[22] : spacing[16],
     borderWidth: 1.5,
     borderColor: colors.successBorder,
-    marginBottom: spacing[12],
+    marginBottom: isPadDevice ? spacing[16] : spacing[12],
   },
   prominentAnswerHeader: {
     flexDirection: 'row',
@@ -667,26 +673,26 @@ const styles = StyleSheet.create({
     marginBottom: spacing[6],
   },
   prominentAnswerBadgeLabel: {
-    fontSize: typography.fontSize[10.5],
+    fontSize: isPadDevice ? typography.fontSize[13] : typography.fontSize[10.5],
     fontWeight: typography.fontWeight.extraBold,
     color: colors.success,
     letterSpacing: typography.letterSpacing[0.5],
   },
   answerText: {
-    fontSize: typography.fontSize[18],
+    fontSize: isPadDevice ? typography.fontSize[26] : typography.fontSize[18],
     fontWeight: typography.fontWeight.extraBold,
     color: colors.success,
-    lineHeight: typography.lineHeight[25],
+    lineHeight: isPadDevice ? typography.lineHeight[36] : typography.lineHeight[25],
   },
   explanationBox: {
     backgroundColor: colors.background,
-    padding: spacing[14],
-    borderRadius: 12,
-    borderLeftWidth: 3.5,
+    padding: isPadDevice ? spacing[20] : spacing[14],
+    borderRadius: isPadDevice ? 16 : 12,
+    borderLeftWidth: isPadDevice ? 4.5 : 3.5,
     borderLeftColor: colors.primary,
     borderWidth: 1,
     borderColor: colors.border,
-    marginBottom: spacing[8],
+    marginBottom: isPadDevice ? spacing[14] : spacing[8],
   },
   explanationHeaderRow: {
     flexDirection: 'row',
@@ -695,19 +701,19 @@ const styles = StyleSheet.create({
     marginBottom: spacing[6],
   },
   explanationLabel: {
-    fontSize: typography.fontSize[10.5],
+    fontSize: isPadDevice ? typography.fontSize[13] : typography.fontSize[10.5],
     fontWeight: typography.fontWeight.extraBold,
     color: colors.primary,
     letterSpacing: typography.letterSpacing[0.5],
   },
   explanationText: {
-    fontSize: typography.fontSize[13.5],
+    fontSize: isPadDevice ? typography.fontSize[16] : typography.fontSize[13.5],
     color: colors.textSecondary,
-    lineHeight: typography.lineHeight[20],
+    lineHeight: isPadDevice ? typography.lineHeight[24] : typography.lineHeight[20],
   },
   controls: {
     position: 'relative',
-    minHeight: 56,
+    minHeight: isPadDevice ? 66 : 56,
     justifyContent: 'center',
     marginBottom: spacing[8],
   },
@@ -723,7 +729,7 @@ const styles = StyleSheet.create({
   },
   revealButton: {
     backgroundColor: colors.primary,
-    borderRadius: 14,
+    borderRadius: isPadDevice ? 18 : 14,
     ...Platform.select({
       ios: {
         shadowColor: colors.shadow,
@@ -737,7 +743,7 @@ const styles = StyleSheet.create({
     }),
   },
   revealContent: {
-    paddingVertical: spacing[16],
+    paddingVertical: isPadDevice ? spacing[20] : spacing[16],
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
@@ -745,15 +751,15 @@ const styles = StyleSheet.create({
   },
   revealButtonText: {
     color: colors.onPrimary,
-    fontSize: typography.fontSize[16],
+    fontSize: isPadDevice ? typography.fontSize[19] : typography.fontSize[16],
     fontWeight: typography.fontWeight.bold,
   },
   actionRow: {
     flexDirection: 'row',
-    gap: spacing[12],
+    gap: isPadDevice ? spacing[16] : spacing[12],
   },
   actionBtnContent: {
-    paddingVertical: spacing[15],
+    paddingVertical: isPadDevice ? spacing[18] : spacing[15],
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
@@ -762,19 +768,19 @@ const styles = StyleSheet.create({
   reviewAgainBtn: {
     flex: 1,
     backgroundColor: colors.dangerSoft,
-    borderRadius: 14,
+    borderRadius: isPadDevice ? 18 : 14,
     borderWidth: 1,
     borderColor: colors.dangerBorder,
   },
   reviewAgainText: {
     color: colors.danger,
     fontWeight: typography.fontWeight.bold,
-    fontSize: typography.fontSize[15],
+    fontSize: isPadDevice ? typography.fontSize[17] : typography.fontSize[15],
   },
   gotItBtn: {
     flex: 1,
     backgroundColor: colors.success,
-    borderRadius: 14,
+    borderRadius: isPadDevice ? 18 : 14,
     ...Platform.select({
       ios: {
         shadowColor: colors.shadow,
@@ -790,7 +796,7 @@ const styles = StyleSheet.create({
   gotItText: {
     color: colors.onPrimary,
     fontWeight: typography.fontWeight.bold,
-    fontSize: typography.fontSize[15],
+    fontSize: isPadDevice ? typography.fontSize[17] : typography.fontSize[15],
   },
   emptyContainer: {
     flex: 1,
@@ -799,7 +805,7 @@ const styles = StyleSheet.create({
     padding: spacing[32],
   },
   emptyText: {
-    fontSize: typography.fontSize[15],
+    fontSize: isPadDevice ? typography.fontSize[18] : typography.fontSize[15],
     color: colors.textMuted,
   },
 });

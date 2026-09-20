@@ -8,6 +8,7 @@ import {
   TextStyle,
 } from 'react-native';
 import { typography } from '@/constants/theme';
+import { isIpad, IPAD_FONT_SCALE } from '@/utils/device';
 
 const getFontFamily = (fontWeight: TextStyle['fontWeight']) => {
   if (fontWeight === 'bold') {
@@ -37,6 +38,15 @@ const resolveTypographyStyle = (style: TextProps['style']): TextStyle => {
 
   delete resolvedStyle.fontFamily;
   delete resolvedStyle.fontWeight;
+
+  if (isIpad()) {
+    if (typeof resolvedStyle.fontSize === 'number') {
+      resolvedStyle.fontSize = Math.round(resolvedStyle.fontSize * IPAD_FONT_SCALE);
+    }
+    if (typeof resolvedStyle.lineHeight === 'number') {
+      resolvedStyle.lineHeight = Math.round(resolvedStyle.lineHeight * IPAD_FONT_SCALE);
+    }
+  }
 
   return {
     ...resolvedStyle,

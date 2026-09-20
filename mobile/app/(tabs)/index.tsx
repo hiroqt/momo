@@ -39,6 +39,7 @@ import { DynamicMomoHead } from '../../components/mascot/DynamicMomoHead';
 import { getRandomStudyQuote, StudyQuote } from '../../lib/data/studyQuotes';
 import { useCredits } from '../../context/CreditsContext';
 import { SampleDeckCard } from '../../components/onboarding/SampleDeckCard';
+import { isIpad } from '@/utils/device';
 
 function getGreeting(): string {
   const hour = new Date().getHours();
@@ -138,6 +139,8 @@ export default function HomeScreen() {
   const featured = sets.length > 0 ? sets[0] : null;
   const totalCards = sets.reduce((sum, s) => sum + (s.item_count || 0), 0);
 
+  const isTablet = isIpad();
+
   return (
     <TabTransitionView style={styles.screen} tabName="index">
       <SmoothScrollView
@@ -174,7 +177,7 @@ export default function HomeScreen() {
               accessibilityLabel={`${xp} XP`}
               accessibilityRole="button"
             >
-              <HugeiconsIcon icon={Coins01Icon} size={18} color="#D97706" />
+              <HugeiconsIcon icon={Coins01Icon} size={isTablet ? 24 : 18} color="#D97706" />
               <Text style={styles.headerXpBadgeText}>{xp} XP</Text>
             </TouchableOpacity>
           </View>
@@ -190,7 +193,7 @@ export default function HomeScreen() {
               setMomoVisible(true);
             }}
           >
-            <DynamicMomoHead quote={momoQuote} size={120} />
+            <DynamicMomoHead quote={momoQuote} size={isTablet ? 160 : 120} />
           </TouchableOpacity>
 
           {momoVisible && (
@@ -244,7 +247,7 @@ export default function HomeScreen() {
                     {isActive ? (
                       <HugeiconsIcon
                         icon={CheckmarkCircle02Icon}
-                        size={16}
+                        size={isTablet ? 22 : 16}
                         color={isToday ? colors.onPrimary : colors.warningAccent}
                       />
                     ) : (
@@ -303,7 +306,7 @@ export default function HomeScreen() {
                   }
                 >
                   <View style={styles.resumeBtnContent}>
-                    <HugeiconsIcon icon={FlashIcon} size={16} color={colors.onPrimary} strokeWidth={2.5} />
+                    <HugeiconsIcon icon={FlashIcon} size={isTablet ? 22 : 16} color={colors.onPrimary} strokeWidth={2.5} />
                     <Text style={styles.resumePrimaryBtnText}>Flashcards</Text>
                   </View>
                 </PlatformPressable>
@@ -318,7 +321,7 @@ export default function HomeScreen() {
                   }
                 >
                   <View style={styles.resumeBtnContent}>
-                    <HugeiconsIcon icon={HelpCircleIcon} size={16} color={colors.primaryDark} strokeWidth={2.2} />
+                    <HugeiconsIcon icon={HelpCircleIcon} size={isTablet ? 22 : 16} color={colors.primaryDark} strokeWidth={2.2} />
                     <Text style={styles.resumeSecondaryBtnText}>Quiz</Text>
                   </View>
                 </PlatformPressable>
@@ -346,7 +349,7 @@ export default function HomeScreen() {
               horizontal
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.carouselContainer}
-              snapToInterval={280 + spacing[12]}
+              snapToInterval={(isTablet ? 420 : 280) + spacing[12]}
               decelerationRate="fast"
             >
               {sets.map((s) => (
@@ -369,14 +372,14 @@ export default function HomeScreen() {
                         style={styles.iconBtn}
                         hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                       >
-                        <HugeiconsIcon icon={Edit02Icon} size={16} color={colors.textSecondary} />
+                        <HugeiconsIcon icon={Edit02Icon} size={isTablet ? 20 : 16} color={colors.textSecondary} />
                       </TouchableOpacity>
                       <TouchableOpacity
                         onPress={() => setDeleteTarget(s)}
                         style={styles.iconBtn}
                         hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                       >
-                        <HugeiconsIcon icon={Delete02Icon} size={16} color={colors.dangerAccent} />
+                        <HugeiconsIcon icon={Delete02Icon} size={isTablet ? 20 : 16} color={colors.dangerAccent} />
                       </TouchableOpacity>
                     </View>
                   </View>
@@ -418,6 +421,8 @@ export default function HomeScreen() {
   );
 }
 
+const isPadDevice = isIpad();
+
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
@@ -427,13 +432,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
-    paddingHorizontal: spacing[18],
+    paddingHorizontal: isPadDevice ? spacing[36] : spacing[18],
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: spacing[20],
+    marginBottom: isPadDevice ? spacing[28] : spacing[20],
   },
   headerTextCol: {
     flex: 1,
@@ -448,20 +453,20 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FEF3C7',
-    paddingHorizontal: spacing[12],
-    paddingVertical: spacing[8],
-    borderRadius: 20,
+    paddingHorizontal: isPadDevice ? spacing[16] : spacing[12],
+    paddingVertical: isPadDevice ? spacing[10] : spacing[8],
+    borderRadius: isPadDevice ? 24 : 20,
     borderWidth: 1,
     borderColor: '#FDE68A',
     gap: spacing[6],
   },
   headerXpBadgeText: {
-    fontSize: typography.fontSize[14],
+    fontSize: isPadDevice ? typography.fontSize[17] : typography.fontSize[14],
     fontWeight: typography.fontWeight.bold,
     color: '#B45309',
   },
   dateLabel: {
-    fontSize: typography.fontSize[12],
+    fontSize: isPadDevice ? typography.fontSize[15] : typography.fontSize[12],
     fontWeight: typography.fontWeight.bold,
     color: colors.primary,
     textTransform: 'uppercase',
@@ -469,7 +474,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing[2],
   },
   greeting: {
-    fontSize: typography.fontSize[26],
+    fontSize: isPadDevice ? typography.fontSize[34] : typography.fontSize[26],
     fontWeight: typography.fontWeight.extraBold,
     color: colors.text,
     letterSpacing: -0.5,
@@ -493,14 +498,14 @@ const styles = StyleSheet.create({
   momoBannerContainer: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    height: 120,
+    height: isPadDevice ? 160 : 120,
     marginBottom: 0,
     paddingHorizontal: 2,
     zIndex: 1,
     elevation: 1,
   },
   momoAvatarBtn: {
-    marginRight: 8,
+    marginRight: isPadDevice ? 12 : 8,
     marginBottom: 0,
     position: 'relative',
     zIndex: 2,
@@ -508,12 +513,12 @@ const styles = StyleSheet.create({
   },
   chatBubble: {
     flex: 1,
-    height: 80,
-    marginBottom: 12,
+    height: isPadDevice ? 104 : 80,
+    marginBottom: isPadDevice ? 16 : 12,
     backgroundColor: '#FEF3C7',
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 16,
+    paddingHorizontal: isPadDevice ? 18 : 14,
+    paddingVertical: isPadDevice ? 14 : 10,
+    borderRadius: isPadDevice ? 20 : 16,
     borderWidth: 1,
     borderColor: '#FDE68A',
     position: 'relative',
@@ -574,7 +579,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   momoTipTitle: {
-    fontSize: 11.5,
+    fontSize: isPadDevice ? 14 : 11.5,
     fontWeight: '800',
     color: '#92400E',
     marginBottom: 2,
@@ -582,25 +587,25 @@ const styles = StyleSheet.create({
     letterSpacing: 0.3,
   },
   momoTipDesc: {
-    fontSize: 12.5,
+    fontSize: isPadDevice ? 15.5 : 12.5,
     fontWeight: '600',
     color: '#78350F',
-    lineHeight: 17,
+    lineHeight: isPadDevice ? 22 : 17,
   },
   momoCloseBtn: {
     padding: 6,
     marginLeft: 2,
   },
   momoCloseText: {
-    fontSize: 13,
+    fontSize: isPadDevice ? 15 : 13,
     color: '#B45309',
     fontWeight: 'bold',
   },
   streakTimelineContainer: {
     backgroundColor: colors.surface,
-    borderRadius: 16,
-    padding: spacing[16],
-    marginBottom: spacing[16],
+    borderRadius: isPadDevice ? 22 : 16,
+    padding: isPadDevice ? spacing[22] : spacing[16],
+    marginBottom: isPadDevice ? spacing[20] : spacing[16],
     borderWidth: 1,
     borderColor: colors.border,
     zIndex: 10,
@@ -621,15 +626,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-end',
-    marginBottom: spacing[16],
+    marginBottom: isPadDevice ? spacing[20] : spacing[16],
   },
   streakTitle: {
-    fontSize: typography.fontSize[16],
+    fontSize: isPadDevice ? typography.fontSize[20] : typography.fontSize[16],
     fontWeight: typography.fontWeight.bold,
     color: colors.text,
   },
   streakSub: {
-    fontSize: typography.fontSize[13],
+    fontSize: isPadDevice ? typography.fontSize[15] : typography.fontSize[13],
     color: colors.primary,
     fontWeight: typography.fontWeight.medium,
   },
@@ -642,9 +647,9 @@ const styles = StyleSheet.create({
     gap: spacing[6],
   },
   streakDayCircle: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: isPadDevice ? 46 : 32,
+    height: isPadDevice ? 46 : 32,
+    borderRadius: isPadDevice ? 23 : 16,
     backgroundColor: colors.surfaceMuted,
     alignItems: 'center',
     justifyContent: 'center',
@@ -656,12 +661,12 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
   },
   streakDayText: {
-    fontSize: typography.fontSize[12],
+    fontSize: isPadDevice ? typography.fontSize[15] : typography.fontSize[12],
     fontWeight: typography.fontWeight.bold,
     color: colors.textMuted,
   },
   streakDayLabel: {
-    fontSize: typography.fontSize[11],
+    fontSize: isPadDevice ? typography.fontSize[13] : typography.fontSize[11],
     fontWeight: typography.fontWeight.medium,
     color: colors.textMuted,
   },
@@ -671,15 +676,15 @@ const styles = StyleSheet.create({
   },
   statsRow: {
     flexDirection: 'row',
-    gap: spacing[12],
-    marginBottom: spacing[24],
+    gap: isPadDevice ? spacing[16] : spacing[12],
+    marginBottom: isPadDevice ? spacing[28] : spacing[24],
   },
   statCard: {
     flex: 1,
     backgroundColor: colors.surface,
-    paddingVertical: spacing[16],
-    paddingHorizontal: spacing[12],
-    borderRadius: 16,
+    paddingVertical: isPadDevice ? spacing[22] : spacing[16],
+    paddingHorizontal: isPadDevice ? spacing[18] : spacing[12],
+    borderRadius: isPadDevice ? 20 : 16,
     alignItems: 'center',
     borderWidth: 1,
     borderColor: colors.border,
@@ -696,19 +701,19 @@ const styles = StyleSheet.create({
     }),
   },
   statValue: {
-    fontSize: typography.fontSize[24],
+    fontSize: isPadDevice ? typography.fontSize[34] : typography.fontSize[24],
     fontWeight: typography.fontWeight.black,
     color: colors.primary,
     marginBottom: spacing[2],
   },
   statLabel: {
-    fontSize: typography.fontSize[11],
+    fontSize: isPadDevice ? typography.fontSize[13] : typography.fontSize[11],
     fontWeight: typography.fontWeight.semiBold,
     color: colors.textMuted,
     textTransform: 'uppercase',
   },
   section: {
-    marginBottom: spacing[28],
+    marginBottom: isPadDevice ? spacing[32] : spacing[28],
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -717,21 +722,21 @@ const styles = StyleSheet.create({
     marginBottom: spacing[12],
   },
   sectionTitle: {
-    fontSize: typography.fontSize[19],
+    fontSize: isPadDevice ? typography.fontSize[24] : typography.fontSize[19],
     fontWeight: typography.fontWeight.bold,
     color: colors.text,
     letterSpacing: -0.3,
     marginBottom: spacing[12],
   },
   seeAllText: {
-    fontSize: typography.fontSize[13],
+    fontSize: isPadDevice ? typography.fontSize[15] : typography.fontSize[13],
     color: colors.primary,
     fontWeight: typography.fontWeight.semiBold,
   },
   resumeWidget: {
     backgroundColor: colors.primaryDark,
-    borderRadius: 20,
-    padding: spacing[20],
+    borderRadius: isPadDevice ? 24 : 20,
+    padding: isPadDevice ? spacing[28] : spacing[20],
     ...Platform.select({
       ios: {
         shadowColor: colors.primaryDark,
@@ -766,22 +771,22 @@ const styles = StyleSheet.create({
     backgroundColor: colors.successAccent,
   },
   resumeActiveText: {
-    fontSize: typography.fontSize[10],
+    fontSize: isPadDevice ? typography.fontSize[12] : typography.fontSize[10],
     fontWeight: typography.fontWeight.bold,
     color: colors.successBorder,
     letterSpacing: 0.5,
   },
   resumeCountText: {
-    fontSize: typography.fontSize[12],
+    fontSize: isPadDevice ? typography.fontSize[14] : typography.fontSize[12],
     fontWeight: typography.fontWeight.semiBold,
     color: colors.primaryBorder,
   },
   resumeTitle: {
-    fontSize: typography.fontSize[22],
+    fontSize: isPadDevice ? typography.fontSize[28] : typography.fontSize[22],
     fontWeight: typography.fontWeight.extraBold,
     color: colors.onPrimary,
     marginBottom: spacing[20],
-    lineHeight: typography.lineHeight[26],
+    lineHeight: isPadDevice ? 36 : typography.lineHeight[26],
     letterSpacing: -0.3,
   },
   resumeActionGrid: {
@@ -791,15 +796,15 @@ const styles = StyleSheet.create({
   resumePrimaryBtn: {
     flex: 1,
     backgroundColor: colors.primary,
-    borderRadius: 12,
+    borderRadius: isPadDevice ? 16 : 12,
   },
   resumeSecondaryBtn: {
     flex: 1,
     backgroundColor: colors.surface,
-    borderRadius: 12,
+    borderRadius: isPadDevice ? 16 : 12,
   },
   resumeBtnContent: {
-    paddingVertical: spacing[14],
+    paddingVertical: isPadDevice ? spacing[18] : spacing[14],
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
@@ -808,26 +813,26 @@ const styles = StyleSheet.create({
   resumePrimaryBtnText: {
     color: colors.onPrimary,
     fontWeight: typography.fontWeight.bold,
-    fontSize: typography.fontSize[14],
+    fontSize: isPadDevice ? typography.fontSize[16] : typography.fontSize[14],
   },
   resumeSecondaryBtnText: {
     color: colors.primaryDark,
     fontWeight: typography.fontWeight.bold,
-    fontSize: typography.fontSize[14],
+    fontSize: isPadDevice ? typography.fontSize[16] : typography.fontSize[14],
   },
   carouselContainer: {
-    gap: spacing[12],
-    paddingRight: spacing[18],
+    gap: isPadDevice ? spacing[16] : spacing[12],
+    paddingRight: isPadDevice ? spacing[36] : spacing[18],
   },
   carouselCard: {
-    width: 280,
+    width: isPadDevice ? 420 : 280,
     backgroundColor: colors.surface,
-    borderRadius: 16,
-    padding: spacing[16],
+    borderRadius: isPadDevice ? 20 : 16,
+    padding: isPadDevice ? spacing[22] : spacing[16],
     borderWidth: 1,
     borderColor: colors.border,
     justifyContent: 'space-between',
-    minHeight: 120,
+    minHeight: isPadDevice ? 160 : 120,
     ...Platform.select({
       ios: {
         shadowColor: colors.shadow,
@@ -844,10 +849,10 @@ const styles = StyleSheet.create({
     marginBottom: spacing[12],
   },
   carouselTitle: {
-    fontSize: typography.fontSize[16],
+    fontSize: isPadDevice ? typography.fontSize[20] : typography.fontSize[16],
     fontWeight: typography.fontWeight.bold,
     color: colors.text,
-    lineHeight: typography.lineHeight[22],
+    lineHeight: isPadDevice ? 28 : typography.lineHeight[22],
   },
   carouselCardBottom: {
     flexDirection: 'row',
@@ -858,7 +863,7 @@ const styles = StyleSheet.create({
     paddingTop: spacing[12],
   },
   carouselMeta: {
-    fontSize: typography.fontSize[13],
+    fontSize: isPadDevice ? typography.fontSize[15] : typography.fontSize[13],
     fontWeight: typography.fontWeight.medium,
     color: colors.textMuted,
   },

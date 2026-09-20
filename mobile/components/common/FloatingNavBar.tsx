@@ -18,6 +18,7 @@ import { AppText as Text } from "@/components/common/app-text";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { HugeiconsIcon } from "@hugeicons/react-native";
 import { useRouter } from "expo-router";
+import { isIpad } from "@/utils/device";
 import {
   Home01Icon,
   BookOpen01Icon,
@@ -41,7 +42,8 @@ export const TABS: TabConfig[] = [
 const TAB_NAME_TO_PAGE_INDEX: Record<string, number> = {
   index: 0,
   library: 1,
-  profile: 2,
+  shop: 2,
+  profile: 3,
 };
 
 export interface FloatingNavBarProps {
@@ -103,16 +105,18 @@ export const FloatingNavBar: React.FC<FloatingNavBarProps> = ({
     return null;
   }
 
-  const bottomOffset = Math.max(insets.bottom, spacing[12]) + spacing[4];
-  const horizontalPadding = spacing[6];
+  const isTablet = isIpad();
+  const bottomOffset = isTablet ? insets.bottom + spacing[16] : Math.max(insets.bottom, spacing[12]) + spacing[4];
+  const horizontalPadding = isTablet ? spacing[12] : spacing[6];
   const innerWidth = Math.max(dockWidth - horizontalPadding * 2, 60);
   const tabWidth = innerWidth / TABS.length;
 
   const fallbackTranslateX = indicatorAnim.interpolate({
-    inputRange: [0, 1, 2],
+    inputRange: [0, 1, 2, 3],
     outputRange: [
       horizontalPadding,
       horizontalPadding + tabWidth,
+      horizontalPadding + tabWidth * 2,
       horizontalPadding + tabWidth * 3,
     ],
     extrapolate: 'clamp',
@@ -167,10 +171,6 @@ export const FloatingNavBar: React.FC<FloatingNavBarProps> = ({
                 tab={tab}
                 isFocused={isFocused}
                 onPress={() => {
-                  if (tab.name === "shop") {
-                    router.push("/shop");
-                    return;
-                  }
                   if (onTabPress) {
                     onTabPress(pageIndex ?? idx);
                   } else if (navigation && state) {
@@ -202,16 +202,8 @@ const ReanimatedIndicator: React.FC<{
 }> = ({ progressAnim, tabWidth, horizontalPadding }) => {
   const animatedStyle = useAnimatedStyle(() => {
     'worklet';
-    const tx = interpolate(
-      progressAnim.value,
-      [0, 1, 2],
-      [
-        horizontalPadding,
-        horizontalPadding + tabWidth,
-        horizontalPadding + tabWidth * 3,
-      ],
-      Extrapolation.CLAMP
-    );
+    const clampedProgress = Math.max(0, Math.min(3, progressAnim.value));
+    const tx = horizontalPadding + clampedProgress * tabWidth;
     return {
       transform: [{ translateX: tx }],
     };
@@ -273,7 +265,7 @@ const TabItem: React.FC<TabItemProps> = ({ tab, isFocused, onPress }) => {
       >
         <HugeiconsIcon
           icon={tab.icon}
-          size={20}
+          size={isIpad() ? 26 : 20}
           color={isFocused ? colors.primary : colors.textMuted}
           strokeWidth={isFocused ? 2.4 : 1.8}
         />
@@ -291,6 +283,8 @@ const TabItem: React.FC<TabItemProps> = ({ tab, isFocused, onPress }) => {
   );
 };
 
+const isPadDevice = isIpad();
+
 const styles = StyleSheet.create({
   dockWrapper: {
     position: "absolute",
@@ -302,12 +296,12 @@ const styles = StyleSheet.create({
   },
   dockCard: {
     width: "90%",
-    maxWidth: 360,
-    height: 58,
+    maxWidth: isPadDevice ? 620 : 360,
+    height: isPadDevice ? 72 : 58,
     backgroundColor: colors.surface,
-    borderRadius: 30,
-    paddingHorizontal: spacing[6],
-    paddingVertical: spacing[5],
+    borderRadius: isPadDevice ? 36 : 30,
+    paddingHorizontal: isPadDevice ? spacing[12] : spacing[6],
+    paddingVertical: isPadDevice ? spacing[8] : spacing[5],
     borderWidth: 1.5,
     borderColor: colors.border,
     position: "relative",
@@ -326,10 +320,10 @@ const styles = StyleSheet.create({
   },
   slidingIndicator: {
     position: "absolute",
-    top: 5,
-    bottom: 5,
+    top: isPadDevice ? 6 : 5,
+    bottom: isPadDevice ? 6 : 5,
     backgroundColor: colors.primarySoft,
-    borderRadius: 24,
+    borderRadius: isPadDevice ? 30 : 24,
     borderWidth: 1,
     borderColor: colors.primaryBorder,
     zIndex: 1,
@@ -351,11 +345,11 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: spacing[4],
-    borderRadius: 24,
+    gap: isPadDevice ? spacing[8] : spacing[4],
+    borderRadius: isPadDevice ? 30 : 24,
   },
   tabLabel: {
-    fontSize: typography.fontSize[12],
+    fontSize: isPadDevice ? typography.fontSize[15] : typography.fontSize[12],
     letterSpacing: typography.letterSpacing[-0.2],
   },
   activeTabLabel: {

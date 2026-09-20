@@ -12,6 +12,7 @@ import { AppText as Text } from '@/components/common/app-text';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { HugeiconsIcon } from '@hugeicons/react-native';
+import { isIpad } from '@/utils/device';
 import { ArrowLeft01Icon, Cancel01Icon } from '@hugeicons/core-free-icons';
 
 interface PageHeaderProps {
@@ -75,7 +76,7 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
             >
               <HugeiconsIcon
                 icon={isModal ? Cancel01Icon : ArrowLeft01Icon}
-                size={20}
+                size={isIpad() ? 24 : 20}
                 color={colors.text}
                 strokeWidth={2}
               />
@@ -120,31 +121,33 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
   );
 };
 
+const isPadDevice = isIpad();
+
 const styles = StyleSheet.create({
   container: {
     backgroundColor: colors.surface,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.border,
-    paddingHorizontal: spacing[16],
-    paddingBottom: spacing[12],
+    paddingHorizontal: isPadDevice ? spacing[28] : spacing[16],
+    paddingBottom: isPadDevice ? spacing[16] : spacing[12],
     zIndex: 10,
   },
   contentRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    minHeight: 40,
+    minHeight: isPadDevice ? 52 : 40,
   },
   leftCol: {
-    minWidth: 40,
+    minWidth: isPadDevice ? 48 : 40,
     flexShrink: 0,
     alignItems: 'flex-start',
     justifyContent: 'center',
   },
   iconBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: isPadDevice ? 46 : 36,
+    height: isPadDevice ? 46 : 36,
+    borderRadius: isPadDevice ? 23 : 18,
     borderCurve: 'continuous',
     backgroundColor: colors.surfaceMuted,
     alignItems: 'center',
@@ -170,7 +173,7 @@ const styles = StyleSheet.create({
     flexShrink: 1,
   },
   title: {
-    fontSize: typography.fontSize[17],
+    fontSize: isPadDevice ? typography.fontSize[22] : typography.fontSize[17],
     fontWeight: typography.fontWeight.bold,
     color: colors.text,
     textAlign: 'center',
@@ -180,7 +183,7 @@ const styles = StyleSheet.create({
     textAlign: 'left',
   },
   subtitle: {
-    fontSize: typography.fontSize[12],
+    fontSize: isPadDevice ? typography.fontSize[15] : typography.fontSize[12],
     color: colors.textMuted,
     marginTop: spacing[1],
     textAlign: 'center',
@@ -189,12 +192,12 @@ const styles = StyleSheet.create({
     textAlign: 'left',
   },
   rightCol: {
-    minWidth: 40,
+    minWidth: isPadDevice ? 48 : 40,
     flexShrink: 0,
     alignItems: 'flex-end',
     justifyContent: 'center',
   },
   placeholder: {
-    width: 36,
+    width: isPadDevice ? 46 : 36,
   },
 });

@@ -47,6 +47,7 @@ import { TabTransitionView } from '../../components/common/TabTransitionView';
 import { CreateFolderModal } from '../../components/library/CreateFolderModal';
 import { MoveToFolderModal } from '../../components/library/MoveToFolderModal';
 import { StudySet, DocumentItem, Folder } from '../../types';
+import { isIpad } from '@/utils/device';
 
 function formatFileSize(bytes: number): string {
   if (!bytes || bytes <= 0) return '0 KB';
@@ -323,7 +324,7 @@ export default function LibraryScreen() {
       {/* Search Input */}
       <View style={styles.searchBox}>
         <View style={styles.searchIconWrapper}>
-          <HugeiconsIcon icon={Search01Icon} size={18} color={colors.textDisabled} strokeWidth={2} />
+          <HugeiconsIcon icon={Search01Icon} size={isIpad() ? 22 : 18} color={colors.textDisabled} strokeWidth={2} />
         </View>
         <TextInput
           style={styles.searchInput}
@@ -540,7 +541,7 @@ export default function LibraryScreen() {
                         accessibilityRole="button"
                         accessibilityLabel="Study set options"
                       >
-                        <HugeiconsIcon icon={MoreVerticalIcon} size={18} color={colors.textSecondary} strokeWidth={2} />
+                        <HugeiconsIcon icon={MoreVerticalIcon} size={isIpad() ? 22 : 18} color={colors.textSecondary} strokeWidth={2} />
                       </TouchableOpacity>
                     </View>
                   </View>
@@ -1059,38 +1060,42 @@ export default function LibraryScreen() {
   );
 }
 
+const isPadDevice = isIpad();
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
-    paddingHorizontal: spacing[16],
+    paddingHorizontal: isPadDevice ? spacing[36] : spacing[16],
   },
   header: {
-    marginBottom: spacing[16],
+    marginBottom: isPadDevice ? spacing[22] : spacing[16],
   },
   headerTitle: {
-    fontSize: typography.fontSize[24],
+    fontSize: isPadDevice ? typography.fontSize[34] : typography.fontSize[24],
     fontWeight: typography.fontWeight.extraBold,
     color: colors.text,
     letterSpacing: typography.letterSpacing[-0.4],
   },
   headerSub: {
-    fontSize: typography.fontSize[13],
+    fontSize: isPadDevice ? typography.fontSize[16] : typography.fontSize[13],
     color: colors.textMuted,
     marginTop: spacing[2],
   },
   segmentContainer: {
     flexDirection: 'row',
     backgroundColor: colors.surfaceMuted,
-    borderRadius: 12,
-    padding: spacing[3],
-    marginBottom: spacing[12],
+    borderRadius: isPadDevice ? 16 : 12,
+    padding: isPadDevice ? spacing[4] : spacing[3],
+    marginBottom: isPadDevice ? spacing[16] : spacing[12],
+    height: isPadDevice ? 52 : 44,
   },
   segmentBtn: {
     flex: 1,
-    paddingVertical: spacing[9],
+    paddingVertical: isPadDevice ? spacing[12] : spacing[9],
     alignItems: 'center',
-    borderRadius: 9,
+    justifyContent: 'center',
+    borderRadius: isPadDevice ? 12 : 9,
   },
   activeSegmentBtn: {
     backgroundColor: colors.surface,
@@ -1107,7 +1112,7 @@ const styles = StyleSheet.create({
     }),
   },
   segmentText: {
-    fontSize: typography.fontSize[14],
+    fontSize: isPadDevice ? typography.fontSize[15] : typography.fontSize[14],
     fontWeight: typography.fontWeight.semiBold,
     color: colors.textMuted,
   },
@@ -1121,9 +1126,10 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: 12,
-    paddingHorizontal: spacing[12],
-    marginBottom: spacing[12],
+    borderRadius: isPadDevice ? 16 : 12,
+    paddingHorizontal: isPadDevice ? spacing[16] : spacing[12],
+    marginBottom: isPadDevice ? spacing[16] : spacing[12],
+    height: isPadDevice ? 54 : 44,
     ...Platform.select({
       ios: {
         shadowColor: colors.shadow,
@@ -1142,14 +1148,14 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     paddingVertical: Platform.OS === 'ios' ? spacing[12] : spacing[10],
-    fontSize: typography.fontSize[14],
+    fontSize: isPadDevice ? typography.fontSize[16] : typography.fontSize[14],
     color: colors.text,
   },
   clearBtn: {
     padding: spacing[4],
   },
   foldersSection: {
-    marginBottom: spacing[12],
+    marginBottom: isPadDevice ? spacing[16] : spacing[12],
   },
   folderSectionHeader: {
     flexDirection: 'row',
@@ -1164,7 +1170,7 @@ const styles = StyleSheet.create({
     gap: spacing[6],
   },
   folderSectionTitle: {
-    fontSize: typography.fontSize[14],
+    fontSize: isPadDevice ? typography.fontSize[16] : typography.fontSize[14],
     fontWeight: typography.fontWeight.bold,
     color: colors.text,
   },
@@ -1183,13 +1189,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing[4],
-    paddingVertical: spacing[4],
-    paddingHorizontal: spacing[8],
+    paddingVertical: isPadDevice ? spacing[6] : spacing[4],
+    paddingHorizontal: isPadDevice ? spacing[12] : spacing[8],
     borderRadius: 8,
     backgroundColor: colors.primarySoft,
   },
   addFolderHeaderText: {
-    fontSize: typography.fontSize[12],
+    fontSize: isPadDevice ? typography.fontSize[14] : typography.fontSize[12],
     fontWeight: typography.fontWeight.bold,
     color: colors.primary,
   },
@@ -1203,9 +1209,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.surface,
-    paddingVertical: spacing[8],
-    paddingHorizontal: spacing[12],
-    borderRadius: 12,
+    paddingVertical: isPadDevice ? spacing[11] : spacing[8],
+    paddingHorizontal: isPadDevice ? spacing[16] : spacing[12],
+    borderRadius: isPadDevice ? 14 : 12,
     borderWidth: 1,
     borderColor: colors.border,
     gap: spacing[6],
@@ -1226,9 +1232,9 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primarySoft,
   },
   folderCardIconBox: {
-    width: 24,
-    height: 24,
-    borderRadius: 6,
+    width: isPadDevice ? 28 : 24,
+    height: isPadDevice ? 28 : 24,
+    borderRadius: isPadDevice ? 8 : 6,
     backgroundColor: colors.surfaceMuted,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1237,10 +1243,10 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
   },
   folderCardName: {
-    fontSize: typography.fontSize[13],
+    fontSize: isPadDevice ? typography.fontSize[15] : typography.fontSize[13],
     fontWeight: typography.fontWeight.semiBold,
     color: colors.text,
-    maxWidth: 120,
+    maxWidth: isPadDevice ? 180 : 120,
   },
   folderCardNameActive: {
     color: colors.primary,
@@ -1272,9 +1278,9 @@ const styles = StyleSheet.create({
   },
   card: {
     backgroundColor: colors.surface,
-    padding: spacing[16],
-    borderRadius: 18,
-    marginBottom: spacing[12],
+    padding: isPadDevice ? spacing[22] : spacing[16],
+    borderRadius: isPadDevice ? 22 : 18,
+    marginBottom: isPadDevice ? spacing[16] : spacing[12],
     borderWidth: 1,
     borderColor: colors.border,
     ...Platform.select({
@@ -1308,9 +1314,9 @@ const styles = StyleSheet.create({
     gap: spacing[8],
   },
   moreOptionsBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: isPadDevice ? 38 : 32,
+    height: isPadDevice ? 38 : 32,
+    borderRadius: isPadDevice ? 19 : 16,
     backgroundColor: colors.surfaceMuted,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1333,34 +1339,34 @@ const styles = StyleSheet.create({
     maxWidth: 160,
   },
   cardTitle: {
-    fontSize: typography.fontSize[16],
+    fontSize: isPadDevice ? typography.fontSize[19] : typography.fontSize[16],
     fontWeight: typography.fontWeight.bold,
     color: colors.text,
     letterSpacing: typography.letterSpacing[-0.2],
   },
   badge: {
     backgroundColor: colors.primarySoft,
-    paddingHorizontal: spacing[8],
-    paddingVertical: spacing[3],
+    paddingHorizontal: isPadDevice ? spacing[10] : spacing[8],
+    paddingVertical: isPadDevice ? spacing[4] : spacing[3],
     borderRadius: 6,
   },
   badgeText: {
-    fontSize: typography.fontSize[11],
+    fontSize: isPadDevice ? typography.fontSize[13] : typography.fontSize[11],
     fontWeight: typography.fontWeight.bold,
     color: colors.primary,
   },
   cardDesc: {
-    fontSize: typography.fontSize[13],
+    fontSize: isPadDevice ? typography.fontSize[15] : typography.fontSize[13],
     color: colors.textMuted,
     marginBottom: spacing[8],
-    lineHeight: typography.lineHeight[18],
+    lineHeight: isPadDevice ? 22 : typography.lineHeight[18],
   },
   cardFooter: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: spacing[10],
-    paddingTop: spacing[10],
+    marginTop: isPadDevice ? spacing[14] : spacing[10],
+    paddingTop: isPadDevice ? spacing[14] : spacing[10],
     borderTopWidth: 1,
     borderTopColor: '#F8FAFC',
   },
@@ -1386,10 +1392,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 6,
     backgroundColor: colors.primary,
-    paddingVertical: 9,
-    paddingHorizontal: 16,
+    paddingVertical: isPadDevice ? 12 : 9,
+    paddingHorizontal: isPadDevice ? 20 : 16,
     borderRadius: 12,
-    minHeight: 40,
+    minHeight: isPadDevice ? 46 : 40,
     ...Platform.select({
       ios: {
         shadowColor: colors.primary,
@@ -1403,16 +1409,16 @@ const styles = StyleSheet.create({
     }),
   },
   studyNowBtnText: {
-    fontSize: typography.fontSize[13],
+    fontSize: isPadDevice ? typography.fontSize[15] : typography.fontSize[13],
     fontWeight: typography.fontWeight.bold,
     color: colors.onPrimary,
     letterSpacing: -0.1,
   },
   docCard: {
     backgroundColor: colors.surface,
-    padding: spacing[14],
-    borderRadius: 14,
-    marginBottom: spacing[10],
+    padding: isPadDevice ? spacing[20] : spacing[14],
+    borderRadius: isPadDevice ? 18 : 14,
+    marginBottom: isPadDevice ? spacing[14] : spacing[10],
     borderWidth: 1,
     borderColor: colors.border,
     flexDirection: 'row',
@@ -1430,9 +1436,9 @@ const styles = StyleSheet.create({
     }),
   },
   docIconBox: {
-    width: 42,
-    height: 42,
-    borderRadius: 10,
+    width: isPadDevice ? 52 : 42,
+    height: isPadDevice ? 52 : 42,
+    borderRadius: isPadDevice ? 14 : 10,
     backgroundColor: colors.primarySoft,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1443,7 +1449,7 @@ const styles = StyleSheet.create({
     marginRight: spacing[8],
   },
   docTitle: {
-    fontSize: typography.fontSize[14],
+    fontSize: isPadDevice ? typography.fontSize[17] : typography.fontSize[14],
     fontWeight: typography.fontWeight.bold,
     color: colors.text,
   },
@@ -1454,7 +1460,7 @@ const styles = StyleSheet.create({
     gap: spacing[6],
   },
   docMeta: {
-    fontSize: typography.fontSize[12],
+    fontSize: isPadDevice ? typography.fontSize[14] : typography.fontSize[12],
     color: colors.textMuted,
   },
   docMetaDot: {
@@ -1724,7 +1730,13 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    paddingHorizontal: spacing[20],
+    borderBottomLeftRadius: isPadDevice ? 24 : 0,
+    borderBottomRightRadius: isPadDevice ? 24 : 0,
+    maxWidth: isPadDevice ? 560 : undefined,
+    width: '100%',
+    alignSelf: isPadDevice ? 'center' : undefined,
+    marginBottom: isPadDevice ? spacing[32] : 0,
+    paddingHorizontal: isPadDevice ? spacing[28] : spacing[20],
     paddingTop: spacing[20],
     paddingBottom: Platform.OS === 'ios' ? spacing[36] : spacing[24],
     borderCurve: 'continuous',

@@ -33,6 +33,7 @@ import { getDocument } from '../../lib/api/documents';
 import { PageHeader } from '../../components/common/PageHeader';
 import { PlatformPressable } from '../../components/common/PlatformPressable';
 import { SmoothScrollView } from '../../components/common/SmoothScrollView';
+import { isIpad } from '../../utils/device';
 
 const TOTAL_STEPS = 6;
 
@@ -679,30 +680,32 @@ export default function CreateReviewerScreen() {
   );
 }
 
+const isPadDevice = isIpad();
+
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: colors.background,
   },
   topProgressArea: {
-    paddingHorizontal: spacing[20],
-    paddingTop: spacing[8],
-    paddingBottom: spacing[14],
+    paddingHorizontal: isPadDevice ? spacing[36] : spacing[20],
+    paddingTop: isPadDevice ? spacing[14] : spacing[8],
+    paddingBottom: isPadDevice ? spacing[18] : spacing[14],
     backgroundColor: colors.surface,
     borderBottomWidth: 1,
     borderBottomColor: colors.surfaceMuted,
   },
   stepTrack: {
-    height: 6,
+    height: isPadDevice ? 10 : 6,
     backgroundColor: colors.surfaceMuted,
-    borderRadius: 3,
+    borderRadius: isPadDevice ? 5 : 3,
     overflow: 'hidden',
     marginBottom: spacing[12],
   },
   stepBarFill: {
     height: '100%',
     backgroundColor: colors.primary,
-    borderRadius: 3,
+    borderRadius: isPadDevice ? 5 : 3,
   },
   stepPillRow: {
     flexDirection: 'row',
@@ -714,9 +717,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   pillDot: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
+    width: isPadDevice ? 32 : 22,
+    height: isPadDevice ? 32 : 22,
+    borderRadius: isPadDevice ? 16 : 11,
     backgroundColor: colors.surfaceMuted,
     alignItems: 'center',
     justifyContent: 'center',
@@ -728,7 +731,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
   },
   pillNumber: {
-    fontSize: typography.fontSize[10.5],
+    fontSize: isPadDevice ? typography.fontSize[14] : typography.fontSize[10.5],
     fontWeight: typography.fontWeight.bold,
     color: colors.textMuted,
   },
@@ -739,13 +742,16 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
-    padding: spacing[20],
+    padding: isPadDevice ? spacing[36] : spacing[20],
+    maxWidth: isPadDevice ? 860 : undefined,
+    width: isPadDevice ? '100%' : undefined,
+    alignSelf: isPadDevice ? 'center' : undefined,
   },
   stepSection: {
     flex: 1,
   },
   sectionHeader: {
-    marginBottom: spacing[20],
+    marginBottom: isPadDevice ? spacing[26] : spacing[20],
   },
   stepTitleRow: {
     flexDirection: 'row',
@@ -754,36 +760,36 @@ const styles = StyleSheet.create({
     marginBottom: spacing[6],
   },
   stepIconBox: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
+    width: isPadDevice ? 40 : 32,
+    height: isPadDevice ? 40 : 32,
+    borderRadius: isPadDevice ? 10 : 8,
     backgroundColor: colors.primarySoft,
     alignItems: 'center',
     justifyContent: 'center',
   },
   stepTitle: {
-    fontSize: typography.fontSize[21],
+    fontSize: isPadDevice ? typography.fontSize[26] : typography.fontSize[21],
     fontWeight: typography.fontWeight.extraBold,
     color: colors.text,
     letterSpacing: typography.letterSpacing[-0.3],
   },
   stepDesc: {
-    fontSize: typography.fontSize[13.5],
+    fontSize: isPadDevice ? typography.fontSize[16] : typography.fontSize[13.5],
     color: colors.textMuted,
-    lineHeight: typography.lineHeight[20],
+    lineHeight: isPadDevice ? typography.lineHeight[24] : typography.lineHeight[20],
   },
   inputWrapper: {
     marginBottom: spacing[16],
   },
   label: {
-    fontSize: typography.fontSize[13.5],
+    fontSize: isPadDevice ? typography.fontSize[16] : typography.fontSize[13.5],
     fontWeight: typography.fontWeight.bold,
     color: colors.text,
     marginBottom: spacing[8],
     letterSpacing: typography.letterSpacing[-0.2],
   },
   sublabel: {
-    fontSize: typography.fontSize[12.5],
+    fontSize: isPadDevice ? typography.fontSize[14] : typography.fontSize[12.5],
     fontWeight: typography.fontWeight.semiBold,
     color: colors.textMuted,
     marginBottom: spacing[10],
@@ -792,34 +798,34 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderWidth: 1.5,
     borderColor: colors.borderStrong,
-    borderRadius: 14,
-    paddingHorizontal: spacing[16],
-    paddingVertical: spacing[14],
-    fontSize: typography.fontSize[15],
+    borderRadius: isPadDevice ? 18 : 14,
+    paddingHorizontal: isPadDevice ? spacing[20] : spacing[16],
+    paddingVertical: isPadDevice ? spacing[18] : spacing[14],
+    fontSize: isPadDevice ? typography.fontSize[18] : typography.fontSize[15],
     color: colors.text,
   },
   textArea: {
-    minHeight: 90,
+    minHeight: isPadDevice ? 120 : 90,
     textAlignVertical: 'top',
-    paddingTop: spacing[12],
+    paddingTop: isPadDevice ? spacing[16] : spacing[12],
   },
   docHintBox: {
     marginTop: spacing[8],
-    padding: spacing[12],
+    padding: isPadDevice ? spacing[16] : spacing[12],
     backgroundColor: colors.primarySoft,
-    borderRadius: 10,
+    borderRadius: isPadDevice ? 14 : 10,
     borderWidth: 1,
     borderColor: colors.primarySoftStrong,
   },
   docHintLabel: {
-    fontSize: typography.fontSize[11],
+    fontSize: isPadDevice ? typography.fontSize[13] : typography.fontSize[11],
     fontWeight: typography.fontWeight.bold,
     color: colors.primary,
     textTransform: 'uppercase',
     marginBottom: spacing[2],
   },
   docHintValue: {
-    fontSize: typography.fontSize[13],
+    fontSize: isPadDevice ? typography.fontSize[15] : typography.fontSize[13],
     color: colors.primaryDark,
     fontWeight: typography.fontWeight.semiBold,
   },
@@ -829,15 +835,15 @@ const styles = StyleSheet.create({
   suggestedContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: spacing[8],
+    gap: isPadDevice ? spacing[12] : spacing[8],
   },
   topicChip: {
     backgroundColor: colors.surface,
     borderWidth: 1.5,
     borderColor: colors.border,
-    paddingHorizontal: spacing[12],
-    paddingVertical: spacing[8],
-    borderRadius: 20,
+    paddingHorizontal: isPadDevice ? spacing[18] : spacing[12],
+    paddingVertical: isPadDevice ? spacing[12] : spacing[8],
+    borderRadius: isPadDevice ? 24 : 20,
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing[6],
@@ -847,7 +853,7 @@ const styles = StyleSheet.create({
     borderColor: colors.primary,
   },
   topicChipText: {
-    fontSize: typography.fontSize[12.5],
+    fontSize: isPadDevice ? typography.fontSize[15] : typography.fontSize[12.5],
     color: colors.textSecondary,
     fontWeight: typography.fontWeight.semiBold,
   },
@@ -862,8 +868,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderWidth: 1.5,
     borderColor: colors.border,
-    borderRadius: 16,
-    padding: spacing[16],
+    borderRadius: isPadDevice ? 20 : 16,
+    padding: isPadDevice ? spacing[22] : spacing[16],
   },
   countCardActive: {
     borderColor: colors.primary,
@@ -876,7 +882,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing[4],
   },
   countCardNum: {
-    fontSize: typography.fontSize[22],
+    fontSize: isPadDevice ? typography.fontSize[28] : typography.fontSize[22],
     fontWeight: typography.fontWeight.extraBold,
     color: colors.text,
   },
@@ -901,7 +907,7 @@ const styles = StyleSheet.create({
     color: colors.primaryDark,
   },
   countCardLabel: {
-    fontSize: typography.fontSize[13],
+    fontSize: isPadDevice ? typography.fontSize[15] : typography.fontSize[13],
     color: colors.textMuted,
     fontWeight: typography.fontWeight.medium,
   },
@@ -910,14 +916,14 @@ const styles = StyleSheet.create({
     fontWeight: typography.fontWeight.bold,
   },
   diffCardList: {
-    gap: spacing[12],
+    gap: isPadDevice ? spacing[16] : spacing[12],
   },
   diffCard: {
     backgroundColor: colors.surface,
     borderWidth: 1.5,
     borderColor: colors.border,
-    borderRadius: 16,
-    padding: spacing[16],
+    borderRadius: isPadDevice ? 20 : 16,
+    padding: isPadDevice ? spacing[22] : spacing[16],
   },
   diffHeader: {
     flexDirection: 'row',
@@ -941,18 +947,18 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
   },
   diffTitle: {
-    fontSize: typography.fontSize[15],
+    fontSize: isPadDevice ? typography.fontSize[18] : typography.fontSize[15],
     fontWeight: typography.fontWeight.bold,
     color: colors.text,
   },
   diffDesc: {
-    fontSize: typography.fontSize[12.5],
+    fontSize: isPadDevice ? typography.fontSize[15] : typography.fontSize[12.5],
     color: colors.textMuted,
-    lineHeight: typography.lineHeight[18],
+    lineHeight: isPadDevice ? typography.lineHeight[22] : typography.lineHeight[18],
     marginLeft: spacing[30],
   },
   formatGroup: {
-    gap: spacing[10],
+    gap: isPadDevice ? spacing[14] : spacing[10],
     marginBottom: spacing[20],
   },
   formatCard: {
@@ -961,8 +967,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderWidth: 1.5,
     borderColor: colors.border,
-    borderRadius: 14,
-    padding: spacing[14],
+    borderRadius: isPadDevice ? 18 : 14,
+    padding: isPadDevice ? spacing[18] : spacing[14],
   },
   formatCardChecked: {
     borderColor: colors.primary,
@@ -987,7 +993,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   formatTitle: {
-    fontSize: typography.fontSize[14.5],
+    fontSize: isPadDevice ? typography.fontSize[17] : typography.fontSize[14.5],
     fontWeight: typography.fontWeight.bold,
     color: colors.text,
   },
@@ -995,7 +1001,7 @@ const styles = StyleSheet.create({
     color: colors.primary,
   },
   formatDesc: {
-    fontSize: typography.fontSize[12],
+    fontSize: isPadDevice ? typography.fontSize[14] : typography.fontSize[12],
     color: colors.textMuted,
     marginTop: spacing[2],
   },
@@ -1010,11 +1016,11 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderTopWidth: 1,
     borderTopColor: colors.border,
-    paddingHorizontal: spacing[20],
-    paddingTop: spacing[12],
+    paddingHorizontal: isPadDevice ? spacing[36] : spacing[20],
+    paddingTop: isPadDevice ? spacing[16] : spacing[12],
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing[12],
+    gap: isPadDevice ? spacing[16] : spacing[12],
     ...Platform.select({
       ios: {
         shadowColor: colors.shadow,
@@ -1031,16 +1037,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing[6],
-    paddingVertical: spacing[14],
-    paddingHorizontal: spacing[16],
-    borderRadius: 12,
+    paddingVertical: isPadDevice ? spacing[18] : spacing[14],
+    paddingHorizontal: isPadDevice ? spacing[22] : spacing[16],
+    borderRadius: isPadDevice ? 16 : 12,
     backgroundColor: colors.surfaceMuted,
   },
   prevBtnDisabled: {
     opacity: 0.5,
   },
   prevBtnText: {
-    fontSize: typography.fontSize[14],
+    fontSize: isPadDevice ? typography.fontSize[16] : typography.fontSize[14],
     fontWeight: typography.fontWeight.semiBold,
     color: colors.textSecondary,
   },
@@ -1050,7 +1056,7 @@ const styles = StyleSheet.create({
   nextBtn: {
     flex: 1,
     backgroundColor: colors.primary,
-    borderRadius: 14,
+    borderRadius: isPadDevice ? 18 : 14,
     ...Platform.select({
       ios: {
         shadowColor: colors.shadow,
@@ -1064,7 +1070,7 @@ const styles = StyleSheet.create({
     }),
   },
   nextBtnContent: {
-    paddingVertical: spacing[15],
+    paddingVertical: isPadDevice ? spacing[18] : spacing[15],
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
@@ -1075,7 +1081,7 @@ const styles = StyleSheet.create({
   },
   nextBtnText: {
     color: colors.onPrimary,
-    fontSize: typography.fontSize[15.5],
+    fontSize: isPadDevice ? typography.fontSize[18] : typography.fontSize[15.5],
     fontWeight: typography.fontWeight.bold,
     letterSpacing: typography.letterSpacing[-0.2],
   },
@@ -1083,8 +1089,8 @@ const styles = StyleSheet.create({
     marginTop: spacing[20],
     marginBottom: spacing[20],
     backgroundColor: colors.surface,
-    padding: spacing[16],
-    borderRadius: 16,
+    padding: isPadDevice ? spacing[22] : spacing[16],
+    borderRadius: isPadDevice ? 20 : 16,
     borderWidth: 1.5,
     borderColor: colors.borderStrong,
   },
@@ -1116,9 +1122,9 @@ const styles = StyleSheet.create({
   timerChip: {
     flexBasis: '31%',
     flexGrow: 1,
-    paddingVertical: spacing[10],
-    paddingHorizontal: spacing[8],
-    borderRadius: 12,
+    paddingVertical: isPadDevice ? spacing[14] : spacing[10],
+    paddingHorizontal: isPadDevice ? spacing[12] : spacing[8],
+    borderRadius: isPadDevice ? 16 : 12,
     borderWidth: 1.5,
     borderColor: colors.borderStrong,
     backgroundColor: colors.surfaceMuted,
@@ -1129,7 +1135,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primarySoft,
   },
   timerChipLabel: {
-    fontSize: typography.fontSize[13.5],
+    fontSize: isPadDevice ? typography.fontSize[16] : typography.fontSize[13.5],
     fontWeight: typography.fontWeight.bold,
     color: colors.text,
     marginBottom: 2,

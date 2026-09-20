@@ -43,6 +43,7 @@ import { useOnboarding } from '../../context/OnboardingContext';
 import { CoachmarkTooltip } from '../onboarding/CoachmarkTooltip';
 import { Image } from 'react-native';
 import { Modal } from 'react-native';
+import { isIpad } from '../../utils/device';
 
 interface Props {
   items: StudyItem[];
@@ -2529,6 +2530,8 @@ export const QuizRunner = forwardRef<QuizRunnerRef, Props>(({
   );
 });
 
+const isPadDevice = isIpad();
+
 const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
@@ -2539,25 +2542,25 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 24,
-    padding: 24,
+    borderRadius: isPadDevice ? 28 : 24,
+    padding: isPadDevice ? 32 : 24,
     alignItems: 'center',
     width: '100%',
-    maxWidth: 340,
+    maxWidth: isPadDevice ? 520 : 340,
   },
   modalTitle: {
-    fontSize: 20,
+    fontSize: isPadDevice ? 24 : 20,
     fontWeight: '800',
     color: '#0F172A',
     marginTop: 16,
     marginBottom: 8,
   },
   modalDesc: {
-    fontSize: 14,
+    fontSize: isPadDevice ? 16 : 14,
     color: '#475569',
     textAlign: 'center',
     marginBottom: 24,
-    lineHeight: 20,
+    lineHeight: isPadDevice ? 24 : 20,
   },
   modalActions: {
     flexDirection: 'column',
@@ -2566,33 +2569,36 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   modalCancelBtn: {
-    paddingVertical: 14,
-    borderRadius: 14,
+    paddingVertical: isPadDevice ? 18 : 14,
+    borderRadius: isPadDevice ? 16 : 14,
     backgroundColor: '#F1F5F9',
     alignItems: 'center',
     justifyContent: 'center',
   },
   modalCancelText: {
-    fontSize: 15,
+    fontSize: isPadDevice ? 17 : 15,
     fontFamily: 'Poppins-Bold',
     color: '#475569',
   },
   modalPurchaseBtn: {
-    paddingVertical: 14,
-    borderRadius: 14,
+    paddingVertical: isPadDevice ? 18 : 14,
+    borderRadius: isPadDevice ? 16 : 14,
     backgroundColor: '#4F46E5',
     alignItems: 'center',
     justifyContent: 'center',
   },
   modalPurchaseText: {
-    fontSize: 15,
+    fontSize: isPadDevice ? 17 : 15,
     fontFamily: 'Poppins-Bold',
     color: '#FFFFFF',
   },
   container: {
-    padding: 16,
+    padding: isPadDevice ? 28 : 16,
     flexGrow: 1,
     justifyContent: 'space-between',
+    width: '100%',
+    maxWidth: isPadDevice ? 860 : undefined,
+    alignSelf: 'center',
   },
   center: {
     flex: 1,
@@ -2609,7 +2615,7 @@ const styles = StyleSheet.create({
   // Header & XP Progress Bar
   // -------------------------
   topHeader: {
-    marginBottom: 16,
+    marginBottom: isPadDevice ? 22 : 16,
     position: 'relative',
   },
   topInfoRow: {
@@ -2620,14 +2626,14 @@ const styles = StyleSheet.create({
   },
   simpleQuestionCountBadge: {
     backgroundColor: '#F8FAFC',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
+    paddingHorizontal: isPadDevice ? 14 : 10,
+    paddingVertical: isPadDevice ? 6 : 4,
+    borderRadius: isPadDevice ? 14 : 12,
     borderWidth: 1,
     borderColor: '#E2E8F0',
   },
   simpleQuestionCountText: {
-    fontSize: 13,
+    fontSize: isPadDevice ? 15 : 13,
     fontWeight: '800',
     color: '#64748B',
     fontVariant: ['tabular-nums'],
@@ -2649,14 +2655,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 5,
     backgroundColor: '#FEF3C7',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
+    paddingHorizontal: isPadDevice ? 14 : 10,
+    paddingVertical: isPadDevice ? 6 : 4,
+    borderRadius: isPadDevice ? 14 : 12,
     borderWidth: 1,
     borderColor: '#FDE68A',
   },
   xpBadgeText: {
-    fontSize: 13,
+    fontSize: isPadDevice ? 15 : 13,
     fontWeight: '800',
     color: '#B45309',
     fontVariant: ['tabular-nums'],
@@ -2665,16 +2671,16 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   xpTrack: {
-    height: 8,
+    height: isPadDevice ? 12 : 8,
     backgroundColor: '#E2E8F0',
-    borderRadius: 4,
+    borderRadius: isPadDevice ? 6 : 4,
     overflow: 'hidden',
     marginBottom: 4,
   },
   xpFill: {
     height: '100%',
     backgroundColor: '#F59E0B',
-    borderRadius: 4,
+    borderRadius: isPadDevice ? 6 : 4,
   },
   xpLabelRow: {
     flexDirection: 'row',
@@ -2682,12 +2688,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   xpTrackLabel: {
-    fontSize: 11,
+    fontSize: isPadDevice ? 13 : 11,
     fontWeight: '600',
     color: '#64748B',
   },
   xpTrackLabelBold: {
-    fontSize: 11,
+    fontSize: isPadDevice ? 13 : 11,
     fontWeight: '700',
     color: '#D97706',
     fontVariant: ['tabular-nums'],
@@ -2743,11 +2749,11 @@ const styles = StyleSheet.create({
   // -------------------------
   card: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    padding: 20,
+    borderRadius: isPadDevice ? 28 : 20,
+    padding: isPadDevice ? 28 : 20,
     borderWidth: 1,
     borderColor: '#E2E8F0',
-    marginBottom: 20,
+    marginBottom: isPadDevice ? 24 : 20,
     ...Platform.select({
       ios: {
         shadowColor: '#0F172A',
@@ -2768,45 +2774,45 @@ const styles = StyleSheet.create({
   },
   questionTypeTag: {
     backgroundColor: '#F1F5F9',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
+    paddingHorizontal: isPadDevice ? 12 : 8,
+    paddingVertical: isPadDevice ? 5 : 3,
+    borderRadius: isPadDevice ? 8 : 6,
   },
   questionTypeTagText: {
-    fontSize: 10,
+    fontSize: isPadDevice ? 12 : 10,
     fontWeight: '800',
     color: '#475569',
     letterSpacing: 0.5,
   },
   questionSectionTag: {
     backgroundColor: '#EEF2FF',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-    maxWidth: 160,
+    paddingHorizontal: isPadDevice ? 12 : 8,
+    paddingVertical: isPadDevice ? 5 : 3,
+    borderRadius: isPadDevice ? 8 : 6,
+    maxWidth: isPadDevice ? 260 : 160,
   },
   questionSectionText: {
-    fontSize: 9.5,
+    fontSize: isPadDevice ? 12 : 9.5,
     fontWeight: '700',
     color: '#4F46E5',
     letterSpacing: 0.4,
   },
   questionText: {
-    fontSize: 18,
+    fontSize: isPadDevice ? 25 : 18,
     fontWeight: '700',
     color: '#0F172A',
-    lineHeight: 26,
-    marginBottom: 20,
+    lineHeight: isPadDevice ? 35 : 26,
+    marginBottom: isPadDevice ? 24 : 20,
     letterSpacing: -0.2,
   },
   optionsList: {
-    gap: 10,
+    gap: isPadDevice ? 14 : 10,
   },
   optionBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 12,
-    borderRadius: 12,
+    padding: isPadDevice ? 18 : 12,
+    borderRadius: isPadDevice ? 16 : 12,
     borderWidth: 1.5,
     borderColor: '#E2E8F0',
     backgroundColor: '#FFFFFF',
@@ -2816,19 +2822,19 @@ const styles = StyleSheet.create({
     backgroundColor: '#EEF2FF',
   },
   optionLetter: {
-    width: 28,
-    height: 28,
-    borderRadius: 8,
+    width: isPadDevice ? 38 : 28,
+    height: isPadDevice ? 38 : 28,
+    borderRadius: isPadDevice ? 10 : 8,
     backgroundColor: '#F1F5F9',
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 10,
+    marginRight: isPadDevice ? 14 : 10,
   },
   selectedOptionLetter: {
     backgroundColor: '#4F46E5',
   },
   optionLetterText: {
-    fontSize: 12,
+    fontSize: isPadDevice ? 15 : 12,
     fontWeight: '700',
     color: '#64748B',
   },
@@ -2836,7 +2842,7 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   optionText: {
-    fontSize: 15,
+    fontSize: isPadDevice ? 18 : 15,
     color: '#334155',
     fontWeight: '500',
     flex: 1,
@@ -2887,9 +2893,9 @@ const styles = StyleSheet.create({
   textInput: {
     borderWidth: 1.5,
     borderColor: '#CBD5E1',
-    borderRadius: 12,
-    padding: 14,
-    fontSize: 15,
+    borderRadius: isPadDevice ? 16 : 12,
+    padding: isPadDevice ? 18 : 14,
+    fontSize: isPadDevice ? 18 : 15,
     backgroundColor: '#FFFFFF',
     color: '#0F172A',
   },
@@ -2911,9 +2917,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFBEB',
     borderWidth: 1.5,
     borderColor: '#FDE68A',
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    borderRadius: isPadDevice ? 16 : 12,
+    paddingHorizontal: isPadDevice ? 16 : 12,
+    paddingVertical: isPadDevice ? 14 : 10,
   },
   hintTriggerBtnActive: {
     backgroundColor: '#FEF3C7',
@@ -2939,7 +2945,7 @@ const styles = StyleSheet.create({
     borderColor: '#D97706',
   },
   hintTriggerText: {
-    fontSize: 12.5,
+    fontSize: isPadDevice ? 15 : 12.5,
     fontWeight: '700',
     color: '#92400E',
   },
@@ -2949,10 +2955,10 @@ const styles = StyleSheet.create({
   hintCard: {
     marginTop: 8,
     backgroundColor: '#FFFFFF',
-    borderRadius: 12,
+    borderRadius: isPadDevice ? 16 : 12,
     borderWidth: 1.5,
     borderColor: '#FDE68A',
-    padding: 14,
+    padding: isPadDevice ? 18 : 14,
   },
   hintCardHeader: {
     flexDirection: 'row',
@@ -2992,7 +2998,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   maskedSkeletonText: {
-    fontSize: 15,
+    fontSize: isPadDevice ? 18 : 15,
     fontWeight: '800',
     color: '#1E293B',
     letterSpacing: 2,
@@ -3002,9 +3008,9 @@ const styles = StyleSheet.create({
     paddingTop: 2,
   },
   hintDetailText: {
-    fontSize: 12,
+    fontSize: isPadDevice ? 14 : 12,
     color: '#475569',
-    lineHeight: 17,
+    lineHeight: isPadDevice ? 20 : 17,
   },
 
   revealedNoticeBanner: {
@@ -3012,15 +3018,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
     backgroundColor: '#FFFBEB',
-    paddingHorizontal: 12,
-    paddingVertical: 9,
-    borderRadius: 10,
+    paddingHorizontal: isPadDevice ? 16 : 12,
+    paddingVertical: isPadDevice ? 12 : 9,
+    borderRadius: isPadDevice ? 14 : 10,
     borderWidth: 1,
     borderColor: '#FDE68A',
     marginBottom: 14,
   },
   revealedNoticeText: {
-    fontSize: 12.5,
+    fontSize: isPadDevice ? 15 : 12.5,
     fontWeight: '700',
     color: '#B45309',
     flex: 1,
@@ -3035,7 +3041,7 @@ const styles = StyleSheet.create({
   actionRow: {
     flexDirection: 'column',
     alignItems: 'stretch',
-    gap: 10,
+    gap: isPadDevice ? 14 : 10,
     width: '100%',
   },
   revealBtn: {
@@ -3044,8 +3050,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    height: 48,
-    borderRadius: 14,
+    height: isPadDevice ? 58 : 48,
+    borderRadius: isPadDevice ? 18 : 14,
     borderWidth: 1.5,
     borderColor: '#C7D2FE',
     backgroundColor: '#EEF2FF',
@@ -3056,7 +3062,7 @@ const styles = StyleSheet.create({
   },
   revealBtnText: {
     color: '#4F46E5',
-    fontSize: 14,
+    fontSize: isPadDevice ? 17 : 14,
     fontFamily: 'Poppins-Bold',
   },
   revealBtnTextActive: {
@@ -3064,7 +3070,7 @@ const styles = StyleSheet.create({
   },
   primaryBtn: {
     backgroundColor: '#4F46E5',
-    borderRadius: 14,
+    borderRadius: isPadDevice ? 18 : 14,
     borderWidth: 1,
     borderColor: '#4338CA',
     ...Platform.select({
@@ -3080,7 +3086,7 @@ const styles = StyleSheet.create({
     }),
   },
   btnContent: {
-    paddingVertical: 15,
+    paddingVertical: isPadDevice ? 18 : 15,
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
@@ -3097,7 +3103,7 @@ const styles = StyleSheet.create({
   },
   primaryBtnText: {
     color: '#FFFFFF',
-    fontSize: 15.5,
+    fontSize: isPadDevice ? 18 : 15.5,
     fontFamily: 'Poppins-Bold',
     letterSpacing: -0.2,
   },
@@ -3106,13 +3112,16 @@ const styles = StyleSheet.create({
   // Review Screen Styles
   // -------------------------
   reviewContainer: {
-    padding: 16,
+    padding: isPadDevice ? 28 : 16,
     paddingBottom: 40,
+    width: '100%',
+    maxWidth: isPadDevice ? 860 : undefined,
+    alignSelf: 'center',
   },
   reviewHeroCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 24,
-    padding: 24,
+    borderRadius: isPadDevice ? 28 : 24,
+    padding: isPadDevice ? 32 : 24,
     alignItems: 'center',
     borderWidth: 1,
     borderColor: '#E2E8F0',
@@ -3130,9 +3139,9 @@ const styles = StyleSheet.create({
     }),
   },
   heroBadgeCircle: {
-    width: 76,
-    height: 76,
-    borderRadius: 38,
+    width: isPadDevice ? 96 : 76,
+    height: isPadDevice ? 96 : 76,
+    borderRadius: isPadDevice ? 48 : 38,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 12,
@@ -3147,7 +3156,7 @@ const styles = StyleSheet.create({
     borderColor: '#C7D2FE',
   },
   heroTitle: {
-    fontSize: 22,
+    fontSize: isPadDevice ? 28 : 22,
     fontWeight: '900',
     color: '#0F172A',
     marginBottom: 14,
@@ -3157,18 +3166,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
     backgroundColor: '#FFFBEB',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    borderRadius: 16,
+    paddingHorizontal: isPadDevice ? 20 : 16,
+    paddingVertical: isPadDevice ? 18 : 14,
+    borderRadius: isPadDevice ? 20 : 16,
     borderWidth: 1,
     borderColor: '#FDE68A',
     width: '100%',
     marginBottom: 16,
   },
   xpEarnedIconBox: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
+    width: isPadDevice ? 48 : 40,
+    height: isPadDevice ? 48 : 40,
+    borderRadius: isPadDevice ? 14 : 12,
     backgroundColor: '#FEF3C7',
     borderWidth: 1,
     borderColor: '#FDE68A',
@@ -3179,12 +3188,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   xpEarnedValue: {
-    fontSize: 18,
+    fontSize: isPadDevice ? 22 : 18,
     fontWeight: '900',
     color: '#92400E',
   },
   xpEarnedSub: {
-    fontSize: 12,
+    fontSize: isPadDevice ? 14 : 12,
     fontWeight: '600',
     color: '#B45309',
     marginTop: 1,
@@ -3201,20 +3210,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flex: 1,
     backgroundColor: '#F8FAFC',
-    paddingVertical: 10,
-    paddingHorizontal: 8,
-    borderRadius: 14,
+    paddingVertical: isPadDevice ? 14 : 10,
+    paddingHorizontal: isPadDevice ? 12 : 8,
+    borderRadius: isPadDevice ? 16 : 14,
     borderWidth: 1,
     borderColor: '#E2E8F0',
   },
   metricValue: {
-    fontSize: 16,
+    fontSize: isPadDevice ? 20 : 16,
     fontWeight: '900',
     color: '#0F172A',
     fontVariant: ['tabular-nums'],
   },
   metricLabel: {
-    fontSize: 11,
+    fontSize: isPadDevice ? 13 : 11,
     fontWeight: '700',
     color: '#64748B',
     marginTop: 2,
@@ -3240,14 +3249,14 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   reviewSectionTitle: {
-    fontSize: 17,
+    fontSize: isPadDevice ? 20 : 17,
     fontWeight: '800',
     color: '#0F172A',
   },
   reviewSectionSubtitle: {
-    fontSize: 12.5,
+    fontSize: isPadDevice ? 14.5 : 12.5,
     color: '#64748B',
-    lineHeight: 18,
+    lineHeight: isPadDevice ? 22 : 18,
   },
   reviewInstructionBox: {
     backgroundColor: '#F8FAFC',
@@ -3331,8 +3340,8 @@ const styles = StyleSheet.create({
   },
   reviewQuestionCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    padding: 18,
+    borderRadius: isPadDevice ? 24 : 20,
+    padding: isPadDevice ? 24 : 18,
     borderWidth: 1,
     borderColor: '#E2E8F0',
     marginBottom: 14,

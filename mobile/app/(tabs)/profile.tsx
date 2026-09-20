@@ -31,6 +31,7 @@ import { SmoothScrollView } from '../../components/common/SmoothScrollView';
 import { TabTransitionView } from '../../components/common/TabTransitionView';
 import { UserProfile } from '../../types';
 import { useOnboarding } from '../../context/OnboardingContext';
+import { isIpad } from '@/utils/device';
 
 export default function ProfileScreen() {
   const router = useRouter();
@@ -302,6 +303,8 @@ export default function ProfileScreen() {
   );
 }
 
+const isPadDevice = isIpad();
+
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
@@ -311,29 +314,29 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   contentContainer: {
-    paddingHorizontal: spacing[16],
+    paddingHorizontal: isPadDevice ? spacing[36] : spacing[16],
   },
   header: {
-    marginBottom: spacing[16],
+    marginBottom: isPadDevice ? spacing[22] : spacing[16],
   },
   headerTitle: {
-    fontSize: typography.fontSize[24],
+    fontSize: isPadDevice ? typography.fontSize[34] : typography.fontSize[24],
     fontWeight: typography.fontWeight.extraBold,
     color: colors.text,
     letterSpacing: typography.letterSpacing[-0.4],
   },
   headerSub: {
-    fontSize: typography.fontSize[13],
+    fontSize: isPadDevice ? typography.fontSize[16] : typography.fontSize[13],
     color: colors.textMuted,
     marginTop: spacing[2],
   },
   card: {
     backgroundColor: colors.surface,
-    borderRadius: 18,
+    borderRadius: isPadDevice ? 22 : 18,
     borderCurve: 'continuous',
-    padding: spacing[22],
+    padding: isPadDevice ? spacing[28] : spacing[22],
     alignItems: 'center',
-    marginBottom: spacing[16],
+    marginBottom: isPadDevice ? spacing[20] : spacing[16],
     borderWidth: 1,
     borderColor: colors.border,
     ...Platform.select({
@@ -349,9 +352,9 @@ const styles = StyleSheet.create({
     }),
   },
   avatarCircle: {
-    width: 68,
-    height: 68,
-    borderRadius: 34,
+    width: isPadDevice ? 84 : 68,
+    height: isPadDevice ? 84 : 68,
+    borderRadius: isPadDevice ? 42 : 34,
     backgroundColor: colors.primarySoft,
     alignItems: 'center',
     justifyContent: 'center',
@@ -360,12 +363,12 @@ const styles = StyleSheet.create({
     borderColor: colors.primaryBorder,
   },
   name: {
-    fontSize: typography.fontSize[18],
+    fontSize: isPadDevice ? typography.fontSize[24] : typography.fontSize[18],
     fontWeight: typography.fontWeight.bold,
     color: colors.text,
   },
   email: {
-    fontSize: typography.fontSize[13],
+    fontSize: isPadDevice ? typography.fontSize[16] : typography.fontSize[13],
     color: colors.textMuted,
     marginTop: spacing[2],
   },
@@ -378,14 +381,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.successSoft,
-    paddingHorizontal: spacing[8],
-    paddingVertical: spacing[3],
+    paddingHorizontal: isPadDevice ? spacing[12] : spacing[8],
+    paddingVertical: isPadDevice ? spacing[5] : spacing[3],
     borderRadius: 8,
     borderCurve: 'continuous',
     gap: spacing[4],
   },
   roleBadgeText: {
-    fontSize: typography.fontSize[11],
+    fontSize: isPadDevice ? typography.fontSize[13] : typography.fontSize[11],
     fontWeight: typography.fontWeight.bold,
     color: colors.success,
   },
@@ -393,23 +396,23 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.primarySoft,
-    paddingHorizontal: spacing[8],
-    paddingVertical: spacing[3],
+    paddingHorizontal: isPadDevice ? spacing[12] : spacing[8],
+    paddingVertical: isPadDevice ? spacing[5] : spacing[3],
     borderRadius: 8,
     borderCurve: 'continuous',
     gap: spacing[4],
   },
   cloudBadgeText: {
-    fontSize: typography.fontSize[11],
+    fontSize: isPadDevice ? typography.fontSize[13] : typography.fontSize[11],
     fontWeight: typography.fontWeight.bold,
     color: colors.primary,
   },
   quotaCard: {
     backgroundColor: colors.surface,
-    borderRadius: 18,
+    borderRadius: isPadDevice ? 22 : 18,
     borderCurve: 'continuous',
-    padding: spacing[20],
-    marginBottom: spacing[16],
+    padding: isPadDevice ? spacing[26] : spacing[20],
+    marginBottom: isPadDevice ? spacing[20] : spacing[16],
     borderWidth: 1,
     borderColor: colors.border,
     ...Platform.select({
@@ -430,7 +433,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   quotaHeader: {
-    fontSize: typography.fontSize[13],
+    fontSize: isPadDevice ? typography.fontSize[15] : typography.fontSize[13],
     fontWeight: typography.fontWeight.bold,
     color: colors.textSecondary,
     textTransform: 'uppercase',
@@ -444,7 +447,7 @@ const styles = StyleSheet.create({
     borderCurve: 'continuous',
   },
   quotaPillText: {
-    fontSize: typography.fontSize[11],
+    fontSize: isPadDevice ? typography.fontSize[13] : typography.fontSize[11],
     fontWeight: typography.fontWeight.bold,
     color: colors.textSecondary,
   },
@@ -454,20 +457,20 @@ const styles = StyleSheet.create({
     marginVertical: spacing[10],
   },
   usedNum: {
-    fontSize: typography.fontSize[32],
+    fontSize: isPadDevice ? typography.fontSize[42] : typography.fontSize[32],
     fontWeight: typography.fontWeight.extraBold,
     fontVariant: ['tabular-nums'],
   },
   limitNum: {
-    fontSize: typography.fontSize[18],
+    fontSize: isPadDevice ? typography.fontSize[24] : typography.fontSize[18],
     fontWeight: typography.fontWeight.semiBold,
     fontVariant: ['tabular-nums'],
     color: colors.textMuted,
   },
   barBackground: {
-    height: 10,
+    height: isPadDevice ? 14 : 10,
     backgroundColor: colors.surfaceMuted,
-    borderRadius: 5,
+    borderRadius: isPadDevice ? 7 : 5,
     borderCurve: 'continuous',
     overflow: 'hidden',
     marginBottom: spacing[8],

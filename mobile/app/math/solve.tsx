@@ -9,12 +9,14 @@ import { HugeiconsIcon } from '@hugeicons/react-native';
 import { Camera01Icon, ArrowLeft01Icon, SparklesIcon } from '@hugeicons/core-free-icons';
 import { PlatformPressable } from '@/components/common/PlatformPressable';
 import { PageHeader } from '@/components/common/PageHeader';
+import { isIpad } from '@/utils/device';
 
 const API_BASE = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:8000';
 
 export default function MathSolveScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const isPadDevice = isIpad();
   
   const [imageUri, setImageUri] = useState<string | null>(null);
   const [imageBase64, setImageBase64] = useState<string | null>(null);
@@ -62,12 +64,11 @@ export default function MathSolveScreen() {
       base64: true,
     });
 
-    if (!result.canceled && result.assets && result.assets.length > 0) {
+    if (!result.canceled && result.assets && result.assets[0]) {
       const asset = result.assets[0];
       setImageUri(asset.uri);
-      setImageBase64(asset.base64 || null);
-      setResult(null);
       if (asset.base64) {
+        setImageBase64(asset.base64);
         solveWithBase64(asset.base64);
       }
     }
@@ -81,12 +82,11 @@ export default function MathSolveScreen() {
       base64: true,
     });
 
-    if (!result.canceled && result.assets && result.assets.length > 0) {
+    if (!result.canceled && result.assets && result.assets[0]) {
       const asset = result.assets[0];
       setImageUri(asset.uri);
-      setImageBase64(asset.base64 || null);
-      setResult(null);
       if (asset.base64) {
+        setImageBase64(asset.base64);
         solveWithBase64(asset.base64);
       }
     }
@@ -95,6 +95,8 @@ export default function MathSolveScreen() {
   const solveProblem = () => {
     if (imageBase64) {
       solveWithBase64(imageBase64);
+    } else {
+      Alert.alert('Error', 'Please capture or pick an image first.');
     }
   };
 
@@ -113,7 +115,7 @@ export default function MathSolveScreen() {
           <View style={styles.placeholderCard}>
             <TouchableOpacity style={styles.cameraPlaceholder} onPress={takePicture} activeOpacity={0.8}>
               <View style={styles.iconCircle}>
-                <HugeiconsIcon icon={Camera01Icon} size={36} color={colors.primary} />
+                <HugeiconsIcon icon={Camera01Icon} size={isPadDevice ? 52 : 36} color={colors.primary} />
               </View>
               <Text style={styles.placeholderTitle}>Take a picture</Text>
               <Text style={styles.placeholderDesc}>Capture a handwritten or typed math equation</Text>
@@ -139,7 +141,7 @@ export default function MathSolveScreen() {
 
         {imageUri && !isSolving && !result && (
           <PlatformPressable style={styles.solveBtn} onPress={solveProblem}>
-            <HugeiconsIcon icon={SparklesIcon} size={20} color={colors.onPrimary} />
+            <HugeiconsIcon icon={SparklesIcon} size={isPadDevice ? 24 : 20} color={colors.onPrimary} />
             <Text style={styles.solveBtnText}>Solve Problem</Text>
           </PlatformPressable>
         )}
@@ -148,7 +150,7 @@ export default function MathSolveScreen() {
           <View style={styles.loadingContainer}>
             <Image 
               source={require('../../assets/animations/math_momo.png')} 
-              style={{ width: 140, height: 140, marginBottom: 16 }} 
+              style={{ width: isPadDevice ? 180 : 140, height: isPadDevice ? 180 : 140, marginBottom: 16 }} 
               resizeMode="contain" 
             />
             <ActivityIndicator size="large" color={colors.primary} />
@@ -211,7 +213,7 @@ export default function MathSolveScreen() {
               style={[styles.solveBtn, styles.solveAnotherBtn]} 
               onPress={takePicture}
             >
-              <HugeiconsIcon icon={Camera01Icon} size={20} color={colors.onPrimary} />
+              <HugeiconsIcon icon={Camera01Icon} size={isPadDevice ? 24 : 20} color={colors.onPrimary} />
               <Text style={styles.solveBtnText}>Solve Another Problem</Text>
             </PlatformPressable>
           </View>
@@ -221,29 +223,34 @@ export default function MathSolveScreen() {
   );
 }
 
+const isPadDevice = isIpad();
+
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: colors.background,
   },
   content: {
-    padding: spacing[16],
+    padding: isPadDevice ? spacing[36] : spacing[16],
+    maxWidth: isPadDevice ? 860 : undefined,
+    width: '100%',
+    alignSelf: 'center',
   },
   cameraPlaceholder: {
     backgroundColor: colors.surface,
     borderWidth: 2,
     borderColor: colors.borderStrong,
     borderStyle: 'dashed',
-    borderRadius: 16,
-    padding: spacing[32],
+    borderRadius: isPadDevice ? 24 : 16,
+    padding: isPadDevice ? spacing[48] : spacing[32],
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: spacing[16],
   },
   iconCircle: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
+    width: isPadDevice ? 96 : 72,
+    height: isPadDevice ? 96 : 72,
+    borderRadius: isPadDevice ? 48 : 36,
     backgroundColor: colors.primarySoft,
     alignItems: 'center',
     justifyContent: 'center',
@@ -263,14 +270,14 @@ const styles = StyleSheet.create({
   imageContainer: {
     marginTop: spacing[16],
     alignItems: 'center',
-    borderRadius: 16,
+    borderRadius: isPadDevice ? 24 : 16,
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: colors.border,
   },
   imagePreview: {
     width: '100%',
-    height: 250,
+    height: isPadDevice ? 380 : 250,
     backgroundColor: colors.surfaceMuted,
   },
   placeholderCard: {
@@ -280,10 +287,10 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.border,
-    paddingVertical: spacing[12],
+    paddingVertical: isPadDevice ? spacing[16] : spacing[12],
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 12,
+    borderRadius: isPadDevice ? 16 : 12,
   },
   galleryBtnText: {
     color: colors.text,
@@ -324,8 +331,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: spacing[16],
-    borderRadius: 14,
+    paddingVertical: isPadDevice ? spacing[20] : spacing[16],
+    borderRadius: isPadDevice ? 18 : 14,
     marginTop: spacing[24],
     gap: spacing[8],
   },
@@ -335,7 +342,7 @@ const styles = StyleSheet.create({
   },
   solveBtnText: {
     color: colors.onPrimary,
-    fontSize: typography.fontSize[16],
+    fontSize: isPadDevice ? typography.fontSize[18] : typography.fontSize[16],
     fontWeight: typography.fontWeight.bold,
   },
   loadingContainer: {
@@ -343,7 +350,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: spacing[24],
     backgroundColor: colors.surface,
-    borderRadius: 16,
+    borderRadius: isPadDevice ? 24 : 16,
     borderWidth: 1,
     borderColor: colors.border,
   },
@@ -365,8 +372,8 @@ const styles = StyleSheet.create({
   },
   resultCard: {
     backgroundColor: colors.surface,
-    padding: spacing[16],
-    borderRadius: 16,
+    padding: isPadDevice ? spacing[24] : spacing[16],
+    borderRadius: isPadDevice ? 22 : 16,
     borderWidth: 1,
     borderColor: colors.border,
   },
@@ -423,9 +430,9 @@ const styles = StyleSheet.create({
     paddingRight: spacing[16],
   },
   stepBadge: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+    width: isPadDevice ? 32 : 24,
+    height: isPadDevice ? 32 : 24,
+    borderRadius: isPadDevice ? 16 : 12,
     backgroundColor: colors.primarySoft,
     alignItems: 'center',
     justifyContent: 'center',
@@ -434,7 +441,7 @@ const styles = StyleSheet.create({
   },
   stepBadgeText: {
     color: colors.primary,
-    fontSize: typography.fontSize[12],
+    fontSize: isPadDevice ? typography.fontSize[15] : typography.fontSize[12],
     fontWeight: typography.fontWeight.bold,
   },
   stepText: {

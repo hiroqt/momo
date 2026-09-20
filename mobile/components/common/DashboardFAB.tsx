@@ -11,6 +11,7 @@ import {
 import { AppText as Text } from '@/components/common/app-text';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { HugeiconsIcon } from '@hugeicons/react-native';
+import { isIpad } from '@/utils/device';
 import {
   Add01Icon,
   Upload01Icon,
@@ -127,8 +128,11 @@ export const DashboardFAB: React.FC<DashboardFABProps> = ({
     outputRange: [0, 1],
   });
 
-  // Position above the floating dock bar (dock is at insets.bottom + 4, height 58)
-  const bottomPosition = Math.max(insets.bottom, spacing[12]) + spacing[76];
+  // Position above the floating dock bar (dock is at insets.bottom + 4, height 58 on phone, taller on iPad)
+  const isTablet = isIpad();
+  const bottomPosition = isTablet
+    ? insets.bottom + spacing[24] + 82
+    : Math.max(insets.bottom, spacing[12]) + spacing[76];
 
   return (
     <>
@@ -183,7 +187,7 @@ export const DashboardFAB: React.FC<DashboardFABProps> = ({
               accessibilityLabel="Solve a Problem"
               accessibilityRole="button"
             >
-              <HugeiconsIcon icon={Camera01Icon} size={20} color={colors.warning} strokeWidth={2.2} />
+              <HugeiconsIcon icon={Camera01Icon} size={isTablet ? 24 : 20} color={colors.warning} strokeWidth={2.2} />
             </TouchableOpacity>
           </Animated.View>
 
@@ -219,7 +223,7 @@ export const DashboardFAB: React.FC<DashboardFABProps> = ({
               accessibilityLabel="View Study Sets"
               accessibilityRole="button"
             >
-              <HugeiconsIcon icon={BookOpen01Icon} size={20} color={colors.primary} strokeWidth={2.2} />
+              <HugeiconsIcon icon={BookOpen01Icon} size={isTablet ? 24 : 20} color={colors.primary} strokeWidth={2.2} />
             </TouchableOpacity>
           </Animated.View>
 
@@ -251,7 +255,7 @@ export const DashboardFAB: React.FC<DashboardFABProps> = ({
               accessibilityLabel="Upload Document"
               accessibilityRole="button"
             >
-              <HugeiconsIcon icon={Upload01Icon} size={20} color={colors.success} strokeWidth={2.2} />
+              <HugeiconsIcon icon={Upload01Icon} size={isTablet ? 24 : 20} color={colors.success} strokeWidth={2.2} />
             </TouchableOpacity>
           </Animated.View>
         </View>
@@ -265,13 +269,15 @@ export const DashboardFAB: React.FC<DashboardFABProps> = ({
           accessibilityRole="button"
         >
           <Animated.View style={{ transform: [{ rotate: rotation }] }}>
-            <HugeiconsIcon icon={Add01Icon} size={26} color={colors.onPrimary} strokeWidth={2.6} />
+            <HugeiconsIcon icon={Add01Icon} size={isTablet ? 32 : 26} color={colors.onPrimary} strokeWidth={2.6} />
           </Animated.View>
         </TouchableOpacity>
       </View>
     </>
   );
 };
+
+const isPadDevice = isIpad();
 
 const styles = StyleSheet.create({
   backdrop: {
@@ -281,31 +287,31 @@ const styles = StyleSheet.create({
   },
   container: {
     position: 'absolute',
-    right: 20,
+    right: isPadDevice ? 36 : 20,
     alignItems: 'flex-end',
     zIndex: 100,
   },
   actionsContainer: {
     alignItems: 'flex-end',
-    marginBottom: spacing[14],
-    gap: spacing[12],
+    marginBottom: isPadDevice ? spacing[18] : spacing[14],
+    gap: isPadDevice ? spacing[16] : spacing[12],
   },
   actionItemRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'flex-end',
-    gap: spacing[10],
+    gap: isPadDevice ? spacing[14] : spacing[10],
   },
   labelPill: {
     backgroundColor: colors.surface,
-    paddingVertical: spacing[7],
-    paddingHorizontal: spacing[12],
-    borderRadius: 10,
+    paddingVertical: isPadDevice ? spacing[10] : spacing[7],
+    paddingHorizontal: isPadDevice ? spacing[16] : spacing[12],
+    borderRadius: isPadDevice ? 14 : 10,
     borderWidth: 1,
     borderColor: colors.border,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing[6],
+    gap: isPadDevice ? spacing[8] : spacing[6],
     ...Platform.select({
       ios: {
         shadowColor: colors.shadow,
@@ -340,9 +346,9 @@ const styles = StyleSheet.create({
     color: colors.primary,
   },
   miniFab: {
-    width: 46,
-    height: 46,
-    borderRadius: 23,
+    width: isPadDevice ? 56 : 46,
+    height: isPadDevice ? 56 : 46,
+    borderRadius: isPadDevice ? 28 : 23,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1.5,
@@ -371,9 +377,9 @@ const styles = StyleSheet.create({
     borderColor: colors.warningBorder,
   },
   mainFab: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: isPadDevice ? 68 : 56,
+    height: isPadDevice ? 68 : 56,
+    borderRadius: isPadDevice ? 34 : 28,
     backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',

@@ -39,6 +39,7 @@ import { PageHeader } from '../../components/common/PageHeader';
 import { PlatformPressable } from '../../components/common/PlatformPressable';
 import { SmoothScrollView } from '../../components/common/SmoothScrollView';
 import { getRandomStudyQuote, StudyQuote } from '../../lib/data/studyQuotes';
+import { isIpad } from '../../utils/device';
 
 interface FormatConfig {
   ext: string;
@@ -480,7 +481,7 @@ export default function UploadScreen() {
                   ]}
                 >
                   <View style={styles.dropzoneIconInner}>
-                    <HugeiconsIcon icon={Upload01Icon} size={36} color={colors.primary} strokeWidth={2} />
+                    <HugeiconsIcon icon={Upload01Icon} size={isPadDevice ? 52 : 36} color={colors.primary} strokeWidth={2} />
                   </View>
                 </Animated.View>
 
@@ -490,12 +491,12 @@ export default function UploadScreen() {
                 </Text>
 
                 <View style={styles.constraintsBadge}>
-                  <HugeiconsIcon icon={Clock01Icon} size={13} color={colors.textMuted} strokeWidth={2} />
+                  <HugeiconsIcon icon={Clock01Icon} size={isPadDevice ? 16 : 13} color={colors.textMuted} strokeWidth={2} />
                   <Text style={styles.constraintsText}>Up to 15MB • Max 50 pages</Text>
                 </View>
 
                 <View style={styles.browseButtonTrigger}>
-                  <HugeiconsIcon icon={BookOpen01Icon} size={16} color={colors.primary} strokeWidth={2} />
+                  <HugeiconsIcon icon={BookOpen01Icon} size={isPadDevice ? 20 : 16} color={colors.primary} strokeWidth={2} />
                   <Text style={styles.browseButtonText}>Browse Files</Text>
                 </View>
               </TouchableOpacity>
@@ -624,6 +625,8 @@ export default function UploadScreen() {
   );
 }
 
+const isPadDevice = isIpad();
+
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
@@ -633,15 +636,18 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    padding: spacing[20],
-    paddingTop: spacing[12],
+    padding: isPadDevice ? spacing[36] : spacing[20],
+    paddingTop: isPadDevice ? spacing[20] : spacing[12],
+    maxWidth: isPadDevice ? 860 : undefined,
+    width: isPadDevice ? '100%' : undefined,
+    alignSelf: isPadDevice ? 'center' : undefined,
   },
   contentWrapper: {
     width: '100%',
     gap: spacing[20],
   },
   sectionLabel: {
-    fontSize: typography.fontSize[11],
+    fontSize: isPadDevice ? typography.fontSize[13] : typography.fontSize[11],
     fontWeight: typography.fontWeight.bold,
     color: colors.textMuted,
     letterSpacing: typography.letterSpacing[0.6],
@@ -654,13 +660,13 @@ const styles = StyleSheet.create({
   },
   formatCardsRow: {
     flexDirection: 'row',
-    gap: spacing[8],
+    gap: isPadDevice ? spacing[12] : spacing[8],
   },
   formatMiniCard: {
     flex: 1,
-    paddingVertical: spacing[10],
-    paddingHorizontal: spacing[8],
-    borderRadius: 12,
+    paddingVertical: isPadDevice ? spacing[16] : spacing[10],
+    paddingHorizontal: isPadDevice ? spacing[12] : spacing[8],
+    borderRadius: isPadDevice ? 16 : 12,
     borderWidth: 1.5,
     alignItems: 'center',
     justifyContent: 'center',
@@ -670,11 +676,11 @@ const styles = StyleSheet.create({
     borderColor: colors.primary,
   },
   formatMiniCardTitle: {
-    fontSize: typography.fontSize[13],
+    fontSize: isPadDevice ? typography.fontSize[16] : typography.fontSize[13],
     fontWeight: typography.fontWeight.bold,
   },
   formatMiniCardSub: {
-    fontSize: typography.fontSize[10],
+    fontSize: isPadDevice ? typography.fontSize[12] : typography.fontSize[10],
     fontWeight: typography.fontWeight.semiBold,
     color: colors.textMuted,
     marginTop: spacing[2],
@@ -686,8 +692,9 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: colors.borderStrong,
     borderStyle: 'dashed',
-    borderRadius: 22,
-    padding: spacing[28],
+    borderRadius: isPadDevice ? 28 : 22,
+    padding: isPadDevice ? spacing[40] : spacing[28],
+    minHeight: isPadDevice ? 280 : undefined,
     alignItems: 'center',
     justifyContent: 'center',
     ...Platform.select({
@@ -703,13 +710,13 @@ const styles = StyleSheet.create({
     }),
   },
   dropzoneIconHalo: {
-    width: 76,
-    height: 76,
-    borderRadius: 38,
+    width: isPadDevice ? 96 : 76,
+    height: isPadDevice ? 96 : 76,
+    borderRadius: isPadDevice ? 48 : 38,
     backgroundColor: colors.primarySoft,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: spacing[16],
+    marginBottom: isPadDevice ? spacing[20] : spacing[16],
     borderWidth: 1,
     borderColor: colors.primaryBorder,
   },
@@ -718,13 +725,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   dropzoneHeading: {
-    fontSize: typography.fontSize[17],
+    fontSize: isPadDevice ? typography.fontSize[24] : typography.fontSize[17],
     fontWeight: typography.fontWeight.bold,
     color: colors.text,
     textAlign: 'center',
   },
   dropzoneSubheading: {
-    fontSize: typography.fontSize[13.5],
+    fontSize: isPadDevice ? typography.fontSize[16] : typography.fontSize[13.5],
     color: colors.textSecondary,
     textAlign: 'center',
     marginTop: spacing[4],
@@ -734,13 +741,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing[6],
     backgroundColor: colors.surfaceMuted,
-    paddingHorizontal: spacing[12],
-    paddingVertical: spacing[6],
+    paddingHorizontal: isPadDevice ? spacing[16] : spacing[12],
+    paddingVertical: isPadDevice ? spacing[8] : spacing[6],
     borderRadius: 20,
-    marginTop: spacing[14],
+    marginTop: isPadDevice ? spacing[18] : spacing[14],
   },
   constraintsText: {
-    fontSize: typography.fontSize[12],
+    fontSize: isPadDevice ? typography.fontSize[14] : typography.fontSize[12],
     fontWeight: typography.fontWeight.medium,
     color: colors.textMuted,
   },
@@ -749,13 +756,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing[6],
     backgroundColor: colors.primarySoft,
-    paddingHorizontal: spacing[18],
-    paddingVertical: spacing[10],
-    borderRadius: 12,
-    marginTop: spacing[16],
+    paddingHorizontal: isPadDevice ? spacing[24] : spacing[18],
+    paddingVertical: isPadDevice ? spacing[14] : spacing[10],
+    borderRadius: isPadDevice ? 16 : 12,
+    marginTop: isPadDevice ? spacing[20] : spacing[16],
   },
   browseButtonText: {
-    fontSize: typography.fontSize[14],
+    fontSize: isPadDevice ? typography.fontSize[16] : typography.fontSize[14],
     fontWeight: typography.fontWeight.bold,
     color: colors.primary,
   },
@@ -879,7 +886,7 @@ const styles = StyleSheet.create({
   /* Primary Action CTA Button */
   primaryActionButton: {
     backgroundColor: colors.primary,
-    borderRadius: 16,
+    borderRadius: isPadDevice ? 20 : 16,
     ...Platform.select({
       ios: {
         shadowColor: colors.primary,
@@ -896,12 +903,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: spacing[16],
+    paddingVertical: isPadDevice ? spacing[20] : spacing[16],
     paddingHorizontal: spacing[20],
     gap: spacing[10],
   },
   primaryActionText: {
-    fontSize: typography.fontSize[16],
+    fontSize: isPadDevice ? typography.fontSize[18] : typography.fontSize[16],
     fontWeight: typography.fontWeight.bold,
     color: colors.onPrimary,
     letterSpacing: typography.letterSpacing[-0.2],

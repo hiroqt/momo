@@ -3,24 +3,28 @@ import { usePathname, useRouter, useSegments } from 'expo-router';
 import { InteractiveTabPager, TabPageConfig } from '../../components/common/InteractiveTabPager';
 import HomeScreen from './index';
 import LibraryScreen from './library';
+import TabShop from './shop';
 import ProfileScreen from './profile';
 
 const PAGES: TabPageConfig[] = [
   { key: 'index', component: HomeScreen },
   { key: 'library', component: LibraryScreen },
+  { key: 'shop', component: TabShop },
   { key: 'profile', component: ProfileScreen },
 ];
 
 const ROUTE_MAP: Record<string, number> = {
   index: 0,
   library: 1,
-  profile: 2,
+  shop: 2,
+  profile: 3,
 };
 
 const INDEX_TO_ROUTE: Record<number, string> = {
   0: '/(tabs)',
   1: '/(tabs)/library',
-  2: '/(tabs)/profile',
+  2: '/(tabs)/shop',
+  3: '/(tabs)/profile',
 };
 
 export default function TabsLayout() {
@@ -35,7 +39,8 @@ export default function TabsLayout() {
       return ROUTE_MAP[tabName] ?? 0;
     }
     if (pathname.includes('library')) return 1;
-    if (pathname.includes('profile')) return 2;
+    if (pathname.includes('shop')) return 2;
+    if (pathname.includes('profile')) return 3;
     return 0;
   }, [segments, pathname]);
 

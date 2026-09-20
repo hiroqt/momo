@@ -38,6 +38,7 @@ import { StudySet, StudyItem } from '../../types';
 import { useOnboarding } from '../../context/OnboardingContext';
 import { CelebrationModal } from '../../components/onboarding/CelebrationModal';
 import { MomoLoadingScreen } from '../../components/common/MomoLoadingScreen';
+import { isIpad } from '../../utils/device';
 
 function shuffleArray<T>(array: T[]): T[] {
   const shuffled = [...array];
@@ -532,15 +533,17 @@ export default function StudySessionScreen() {
   );
 }
 
+const isPadDevice = isIpad();
+
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: colors.background,
   },
   threeDotsBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: isPadDevice ? 44 : 36,
+    height: isPadDevice ? 44 : 36,
+    borderRadius: isPadDevice ? 22 : 18,
     borderCurve: 'continuous',
     backgroundColor: colors.surfaceMuted,
     alignItems: 'center',
@@ -549,16 +552,21 @@ const styles = StyleSheet.create({
   actionSheetBackdrop: {
     flex: 1,
     backgroundColor: 'rgba(15, 23, 42, 0.55)',
-    justifyContent: 'flex-end',
+    justifyContent: isPadDevice ? 'center' : 'flex-end',
+    alignItems: isPadDevice ? 'center' : undefined,
+    padding: isPadDevice ? spacing[24] : 0,
   },
   reviewerActionSheet: {
     backgroundColor: colors.surface,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
+    borderRadius: isPadDevice ? 24 : undefined,
+    maxWidth: isPadDevice ? 520 : undefined,
+    width: '100%',
     borderCurve: 'continuous',
-    paddingHorizontal: spacing[20],
+    paddingHorizontal: isPadDevice ? spacing[24] : spacing[20],
     paddingTop: spacing[12],
-    paddingBottom: spacing[36],
+    paddingBottom: isPadDevice ? spacing[24] : spacing[36],
     gap: spacing[8],
     ...Platform.select({
       ios: {
@@ -642,22 +650,25 @@ const styles = StyleSheet.create({
   modeBar: {
     flexDirection: 'row',
     backgroundColor: colors.surfaceMuted,
-    padding: spacing[4],
-    marginHorizontal: spacing[16],
+    padding: isPadDevice ? spacing[6] : spacing[4],
+    marginHorizontal: isPadDevice ? spacing[36] : spacing[16],
     marginTop: spacing[10],
     marginBottom: spacing[8],
-    borderRadius: 12,
+    borderRadius: isPadDevice ? 16 : 12,
     borderWidth: 1,
     borderColor: colors.border,
+    maxWidth: isPadDevice ? 860 : undefined,
+    width: isPadDevice ? '100%' : undefined,
+    alignSelf: isPadDevice ? 'center' : undefined,
   },
   modeTab: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: spacing[6],
-    paddingVertical: spacing[9],
-    borderRadius: 9,
+    gap: isPadDevice ? spacing[8] : spacing[6],
+    paddingVertical: isPadDevice ? spacing[14] : spacing[9],
+    borderRadius: isPadDevice ? 12 : 9,
   },
   activeModeTab: {
     backgroundColor: colors.surface,
@@ -675,7 +686,7 @@ const styles = StyleSheet.create({
     }),
   },
   modeTabText: {
-    fontSize: typography.fontSize[12.5],
+    fontSize: isPadDevice ? typography.fontSize[15] : typography.fontSize[12.5],
     fontWeight: typography.fontWeight.semiBold,
     color: colors.textMuted,
   },
@@ -704,17 +715,17 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    padding: spacing[20],
-    paddingVertical: spacing[32],
+    padding: isPadDevice ? spacing[32] : spacing[20],
+    paddingVertical: isPadDevice ? spacing[40] : spacing[32],
   },
   finishCard: {
     backgroundColor: colors.surface,
-    borderRadius: 24,
+    borderRadius: isPadDevice ? 32 : 24,
     borderCurve: 'continuous',
-    padding: spacing[28],
+    padding: isPadDevice ? spacing[36] : spacing[28],
     alignItems: 'center',
     width: '100%',
-    maxWidth: 400,
+    maxWidth: isPadDevice ? 640 : 400,
     borderWidth: 1,
     borderColor: colors.border,
     ...Platform.select({
@@ -730,12 +741,12 @@ const styles = StyleSheet.create({
     }),
   },
   finishBadgeCircle: {
-    width: 76,
-    height: 76,
-    borderRadius: 38,
+    width: isPadDevice ? 96 : 76,
+    height: isPadDevice ? 96 : 76,
+    borderRadius: isPadDevice ? 48 : 38,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: spacing[14],
+    marginBottom: isPadDevice ? spacing[18] : spacing[14],
   },
   trophyBadge: {
     backgroundColor: colors.warningSoft,
@@ -748,23 +759,23 @@ const styles = StyleSheet.create({
     borderColor: colors.primarySoftStrong,
   },
   finishTitle: {
-    fontSize: typography.fontSize[22],
+    fontSize: isPadDevice ? typography.fontSize[28] : typography.fontSize[22],
     fontWeight: typography.fontWeight.extraBold,
     color: colors.text,
     marginBottom: spacing[6],
     letterSpacing: typography.letterSpacing[-0.3],
   },
   finishScore: {
-    fontSize: typography.fontSize[16],
+    fontSize: isPadDevice ? typography.fontSize[20] : typography.fontSize[16],
     fontWeight: typography.fontWeight.semiBold,
     color: colors.textMuted,
     marginBottom: spacing[8],
   },
   masteryPill: {
-    paddingHorizontal: spacing[12],
-    paddingVertical: spacing[4],
+    paddingHorizontal: isPadDevice ? spacing[16] : spacing[12],
+    paddingVertical: isPadDevice ? spacing[6] : spacing[4],
     borderRadius: 16,
-    marginBottom: spacing[24],
+    marginBottom: isPadDevice ? spacing[28] : spacing[24],
   },
   masteryPillHigh: {
     backgroundColor: colors.successSoft,
@@ -773,7 +784,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primarySoft,
   },
   masteryPillText: {
-    fontSize: typography.fontSize[14],
+    fontSize: isPadDevice ? typography.fontSize[16] : typography.fontSize[14],
     fontWeight: typography.fontWeight.extraBold,
   },
   masteryTextHigh: {
@@ -784,22 +795,22 @@ const styles = StyleSheet.create({
   },
   finishActionCol: {
     width: '100%',
-    gap: spacing[10],
+    gap: isPadDevice ? spacing[14] : spacing[10],
   },
   restartBtn: {
     backgroundColor: colors.primarySoft,
-    borderRadius: 14,
+    borderRadius: isPadDevice ? 18 : 14,
     borderWidth: 1,
     borderColor: colors.primaryBorder,
   },
   restartBtnText: {
     color: colors.primary,
     fontWeight: typography.fontWeight.bold,
-    fontSize: typography.fontSize[15],
+    fontSize: isPadDevice ? typography.fontSize[17] : typography.fontSize[15],
   },
   doneBtn: {
     backgroundColor: colors.primary,
-    borderRadius: 14,
+    borderRadius: isPadDevice ? 18 : 14,
     borderCurve: 'continuous',
     ...Platform.select({
       ios: {
@@ -816,10 +827,10 @@ const styles = StyleSheet.create({
   doneBtnText: {
     color: colors.onPrimary,
     fontWeight: typography.fontWeight.bold,
-    fontSize: typography.fontSize[15],
+    fontSize: isPadDevice ? typography.fontSize[17] : typography.fontSize[15],
   },
   btnRow: {
-    paddingVertical: spacing[14],
+    paddingVertical: isPadDevice ? spacing[18] : spacing[14],
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',

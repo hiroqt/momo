@@ -1,8 +1,6 @@
 import React, { forwardRef } from 'react';
 import { View, StyleSheet, Image, ImageSourcePropType } from 'react-native';
 import { AppText as Text } from '@/components/common/app-text';
-import { HugeiconsIcon } from '@hugeicons/react-native';
-import { SparklesIcon, FlashIcon, TrophyIcon, BookOpen01Icon } from '@hugeicons/core-free-icons';
 import { AcademicWeaponData, MomoMood } from '@/utils/academicWeapon';
 
 const MOMO_MOOD_MAP: Record<MomoMood, ImageSourcePropType> = {
@@ -37,9 +35,8 @@ export const AcademicWeaponStoryCard = forwardRef<View, AcademicWeaponStoryCardP
         {/* Top Header Editorial Bar */}
         <View style={styles.headerRow}>
           <View style={[styles.badgeTag, { borderColor: data.paletteAccent }]}>
-            <HugeiconsIcon icon={SparklesIcon} size={12} color={data.paletteAccent} strokeWidth={2.5} />
             <Text style={[styles.badgeTagText, { color: data.paletteAccent }]}>
-              MOMO WRAPPED // REPORT
+              {data.userName ? `${data.userName.toUpperCase()} STREAK` : 'STUDENT STREAK'}
             </Text>
           </View>
           <Text style={styles.headerDate}>
@@ -181,19 +178,18 @@ const styles = StyleSheet.create({
     zIndex: 2,
   },
   badgeTag: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 14,
     borderWidth: 1,
     backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   badgeTagText: {
     fontSize: 10,
     fontWeight: '800',
-    letterSpacing: 1.2,
+    letterSpacing: 1.1,
   },
   headerDate: {
     fontSize: 11,

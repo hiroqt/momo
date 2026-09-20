@@ -20,6 +20,7 @@ import {
 import { AcademicWeaponStoryCard } from './AcademicWeaponStoryCard';
 import { shareToInstagramStory } from '@/utils/shareStory';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useOnboarding } from '@/context/OnboardingContext';
 
 export interface AcademicWeaponShareModalProps {
   visible: boolean;
@@ -33,8 +34,15 @@ export const AcademicWeaponShareModal: React.FC<AcademicWeaponShareModalProps> =
   inputData,
 }) => {
   const insets = useSafeAreaInsets();
+  const { firstName } = useOnboarding();
   const cardRef = useRef<View>(null);
-  const reportData = useMemo(() => generateAcademicWeaponReport(inputData), [inputData]);
+
+  const inputDataWithUser = useMemo(() => ({
+    ...inputData,
+    userName: inputData.userName || firstName || undefined,
+  }), [inputData, firstName]);
+
+  const reportData = useMemo(() => generateAcademicWeaponReport(inputDataWithUser), [inputDataWithUser]);
   const [selectedChallenge, setSelectedChallenge] = useState(reportData.challengeText);
   const [isSharing, setIsSharing] = useState(false);
 

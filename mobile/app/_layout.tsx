@@ -11,6 +11,8 @@ import { colors, typography } from "@/constants/theme";
 // Keep splash screen visible while loading fonts and initializing
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
+export { ErrorBoundary } from "expo-router";
+
 import { CreditsProvider } from '../context/CreditsContext';
 import { OnboardingProvider, useOnboarding } from '../context/OnboardingContext';
 import { useRouter, useSegments } from 'expo-router';

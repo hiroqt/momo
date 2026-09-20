@@ -10,6 +10,7 @@ export interface AcademicWeaponInput {
   streak?: number;
   xpEarned?: number;
   studyHour?: number; // 0 - 23
+  userName?: string;
 }
 
 export interface AcademicWeaponData {
@@ -25,12 +26,14 @@ export interface AcademicWeaponData {
   momoMood: MomoMood;
   paletteAccent: string; // Hex color for glow and badges
   alternativeChallenges: string[];
+  userName?: string;
 }
 
 export function generateAcademicWeaponReport(input: AcademicWeaponInput): AcademicWeaponData {
   const hour = input.studyHour ?? new Date().getHours();
   const isLateNight = hour >= 23 || hour <= 4;
   const subjectName = input.subject && input.subject.trim() ? input.subject.trim() : 'General Study';
+  const userName = input.userName;
 
   if (input.mode === 'streak') {
     const streak = input.streak || 1;
@@ -42,6 +45,7 @@ export function generateAcademicWeaponReport(input: AcademicWeaponInput): Academ
       streak,
       momoMood: 'cheer',
       paletteAccent: '#EF4444', // Crimson Flame
+      userName,
       alternativeChallenges: [
         `Day ${streak} study streak. Can you even compete?`,
         `${streak} days straight with Momo. Who's challenging this?`,
@@ -61,6 +65,7 @@ export function generateAcademicWeaponReport(input: AcademicWeaponInput): Academ
       xpEarned: input.xpEarned,
       momoMood: 'xp',
       paletteAccent: '#10B981', // Cyber Emerald
+      userName,
       alternativeChallenges: [
         `Already memorized the entire deck in ${subjectName}. Your move.`,
         `Crushed ${cards} flashcards with zero hesitation.`,
@@ -89,6 +94,7 @@ export function generateAcademicWeaponReport(input: AcademicWeaponInput): Academ
       xpEarned: input.xpEarned,
       momoMood: 'focus',
       paletteAccent: '#6366F1', // Deep Indigo
+      userName,
       alternativeChallenges: [
         `Who needs sleep when you're acing ${subjectName}?`,
         `Late night grind hit different. Scored ${accuracy}% in ${subjectName}!`,
@@ -108,6 +114,7 @@ export function generateAcademicWeaponReport(input: AcademicWeaponInput): Academ
       xpEarned: input.xpEarned,
       momoMood: 'cool',
       paletteAccent: '#8B5CF6', // Neon Violet
+      userName,
       alternativeChallenges: [
         `Can you beat my ${accuracy}% in ${subjectName}?`,
         `Momo cooked, I ate. Top this score in ${subjectName}!`,
@@ -126,6 +133,7 @@ export function generateAcademicWeaponReport(input: AcademicWeaponInput): Academ
     xpEarned: input.xpEarned,
     momoMood: 'cheer',
     paletteAccent: '#F59E0B', // Electric Amber
+    userName,
     alternativeChallenges: [
       `Surviving ${subjectName} one quiz at a time. Beat my score?`,
       `Progress > Perfection in ${subjectName}. Can you beat my score?`,

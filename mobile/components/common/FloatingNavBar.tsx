@@ -25,6 +25,13 @@ import { HugeiconsIcon } from "@hugeicons/react-native";
 import { useRouter } from "expo-router";
 import { isIpad } from "@/utils/device";
 import {
+  GlassSurface,
+  GlassButton,
+  GlassContainer,
+  triggerGlassHaptic,
+  glassRadius,
+} from "@/components/glass";
+import {
   Home01Icon,
   BookOpen01Icon,
   UserCircleIcon,
@@ -210,6 +217,7 @@ export const FloatingNavBar: React.FC<FloatingNavBarProps> = ({
   };
 
   const handleTabSelect = (tabName: string, targetIndex: number) => {
+    triggerGlassHaptic('selection');
     setOptimisticIndex(targetIndex);
     if (onTabPress) {
       onTabPress(targetIndex);
@@ -238,7 +246,9 @@ export const FloatingNavBar: React.FC<FloatingNavBarProps> = ({
         ]}
         pointerEvents="box-none"
       >
-        <View
+        <GlassSurface
+          variant="prominent"
+          radius={isTablet ? glassRadius.navBarTablet : glassRadius.navBarPhone}
           style={styles.dockCard}
           onLayout={(e) => {
             const width = e.nativeEvent.layout.width;
@@ -267,8 +277,8 @@ export const FloatingNavBar: React.FC<FloatingNavBarProps> = ({
             />
           )}
 
-          {/* 5-Slot Navigation Row */}
-          <View style={styles.tabsRow}>
+          {/* 5-Slot Navigation Row grouped with native GlassContainer */}
+          <GlassContainer spacing={8} style={styles.tabsRow}>
             {/* Slot 0: Home (Tab 0) */}
             <TabItem
               tab={TABS[0]}
@@ -311,8 +321,8 @@ export const FloatingNavBar: React.FC<FloatingNavBarProps> = ({
               progressAnim={progressAnim}
               onPress={() => handleTabSelect(TABS[3].name, 3)}
             />
-          </View>
-        </View>
+          </GlassContainer>
+        </GlassSurface>
       </View>
 
       {/* Action Drawer Sliding Up from Bottom */}
@@ -366,14 +376,17 @@ export const FloatingNavBar: React.FC<FloatingNavBarProps> = ({
                 <Text style={styles.drawerTitle}>Create & Study</Text>
                 <Text style={styles.drawerSubtitle}>Choose an action to start learning</Text>
               </View>
-              <TouchableOpacity
-                style={styles.drawerCloseBtn}
+              <GlassButton
+                variant="subtle"
+                size="icon"
+                radius={16}
                 onPress={closeFabMenu}
-                activeOpacity={0.7}
                 accessibilityLabel="Close drawer"
+                style={styles.drawerCloseBtn}
+                contentStyle={{ width: 32, height: 32 }}
               >
                 <Text style={styles.drawerCloseText}>✕</Text>
-              </TouchableOpacity>
+              </GlassButton>
             </View>
 
             {/* Action Tiles List */}
@@ -529,6 +542,8 @@ const CenterFabButton: React.FC<CenterFabButtonProps> = ({
     }).start();
   };
 
+  const btnDimension = isTablet ? 62 : 50;
+
   return (
     <View style={styles.centerFabSlot}>
       <RNAnimated.View
@@ -539,18 +554,21 @@ const CenterFabButton: React.FC<CenterFabButtonProps> = ({
           },
         ]}
       >
-        <TouchableOpacity
+        <GlassButton
+          variant="primary"
+          size="icon"
+          radius={glassRadius.full}
+          haptic="medium"
+          onPress={onPress}
+          onPressIn={handlePressIn}
+          onPressOut={handlePressOut}
           style={[
             styles.centerFabBtn,
             isTablet && styles.centerFabBtnTablet,
             isOpen && styles.centerFabBtnOpen,
           ]}
-          onPress={onPress}
-          onPressIn={handlePressIn}
-          onPressOut={handlePressOut}
-          activeOpacity={0.9}
+          contentStyle={{ width: btnDimension, height: btnDimension }}
           accessibilityLabel="Open creation drawer"
-          accessibilityRole="button"
         >
           <HugeiconsIcon
             icon={Add01Icon}
@@ -558,7 +576,7 @@ const CenterFabButton: React.FC<CenterFabButtonProps> = ({
             color="#FFFFFF"
             strokeWidth={2.8}
           />
-        </TouchableOpacity>
+        </GlassButton>
       </RNAnimated.View>
     </View>
   );
@@ -721,12 +739,8 @@ const styles = StyleSheet.create({
     width: "92%",
     maxWidth: isPadDevice ? 620 : 368,
     height: isPadDevice ? 72 : 58,
-    backgroundColor: colors.surface,
-    borderRadius: isPadDevice ? 36 : 30,
     paddingHorizontal: isPadDevice ? spacing[12] : spacing[6],
     paddingVertical: isPadDevice ? spacing[8] : spacing[5],
-    borderWidth: 1.5,
-    borderColor: colors.border,
     position: "relative",
     justifyContent: "center",
     ...Platform.select({
@@ -810,33 +824,23 @@ const styles = StyleSheet.create({
     marginTop: isPadDevice ? -16 : -12,
   },
   centerFabBtn: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: colors.primary,
     alignItems: "center",
     justifyContent: "center",
-    borderWidth: 2.5,
-    borderColor: "#FFFFFF",
     ...Platform.select({
       ios: {
         shadowColor: colors.primary,
         shadowOffset: { width: 0, height: 6 },
-        shadowOpacity: 0.4,
+        shadowOpacity: 0.35,
         shadowRadius: 10,
       },
       android: {
-        elevation: 10,
+        elevation: 8,
       },
     }),
   },
-  centerFabBtnTablet: {
-    width: 62,
-    height: 62,
-    borderRadius: 31,
-  },
+  centerFabBtnTablet: {},
   centerFabBtnOpen: {
-    backgroundColor: colors.text,
+    opacity: 0.95,
   },
 
   // Drawer modal styling
@@ -903,12 +907,6 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   drawerCloseBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#F2F4F7',
-    alignItems: "center",
-    justifyContent: "center",
     marginLeft: 12,
   },
   drawerCloseText: {

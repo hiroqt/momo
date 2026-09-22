@@ -38,6 +38,7 @@ import { listDocuments } from '@/lib/api/documents';
 import { localDb } from '@/lib/storage/localDb';
 import { ChatMessageItem } from '@/components/chat/ChatMessageItem';
 import { ChatHistoryDrawer } from '@/components/chat/ChatHistoryDrawer';
+import { GlassButton } from '@/components/glass';
 
 // Hoisted static assets to prevent re-instantiation and avatar flickering
 const MOMO_THINKING_IMG = require('@/assets/animations/thinking_momo.png');
@@ -73,15 +74,19 @@ const ChatHeader = React.memo<ChatHeaderProps>(
       <View style={[styles.header, { paddingTop: topInset + 8 }]}>
         <View style={styles.headerLeft}>
           {onBack && (
-            <TouchableOpacity
-              style={styles.backBtn}
+            <GlassButton
+              variant="subtle"
+              size="icon"
+              radius={18}
+              haptic="light"
               onPress={onBack}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               accessibilityLabel="Go back"
-              accessibilityRole="button"
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              style={styles.backBtn}
+              contentStyle={{ width: 36, height: 36 }}
             >
               <HugeiconsIcon icon={ArrowLeft02Icon} size={20} color={colors.text} />
-            </TouchableOpacity>
+            </GlassButton>
           )}
           <View style={styles.avatarWrapper}>
             <Image
@@ -111,13 +116,16 @@ const ChatHeader = React.memo<ChatHeaderProps>(
         </View>
 
         {/* Sleek Three Dots Button (Opens Drawer with New Chat & History) */}
-        <TouchableOpacity
-          style={styles.moreButton}
+        <GlassButton
+          variant="subtle"
+          size="icon"
+          radius={19}
+          haptic="light"
           onPress={onOpenMenu}
-          activeOpacity={0.7}
           accessibilityLabel="Open conversations and options"
-          accessibilityRole="button"
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          style={styles.moreButton}
+          contentStyle={{ width: 38, height: 38 }}
         >
           <HugeiconsIcon icon={MoreHorizontalIcon} size={20} color={colors.text} />
           {sessionCount > 0 && (
@@ -125,7 +133,7 @@ const ChatHeader = React.memo<ChatHeaderProps>(
               <Text style={styles.moreBadgeText}>{sessionCount}</Text>
             </View>
           )}
-        </TouchableOpacity>
+        </GlassButton>
       </View>
     );
   },
@@ -698,15 +706,20 @@ export default function ChatScreen() {
               />
 
               {/* Elevated Send Button */}
-              <TouchableOpacity
+              <GlassButton
+                variant={inputText.trim() ? "primary" : "subtle"}
+                size="icon"
+                radius={19}
+                haptic={inputText.trim() ? "medium" : false}
+                onPress={() => handleSendMessage()}
+                disabled={!inputText.trim() || sending}
                 style={[
                   styles.dockSendButton,
                   inputText.trim() && !sending && styles.dockSendButtonActive,
                   (!inputText.trim() || sending) && styles.dockSendButtonDisabled,
                 ]}
-                onPress={() => handleSendMessage()}
-                disabled={!inputText.trim() || sending}
-                activeOpacity={0.8}
+                contentStyle={{ width: 38, height: 38 }}
+                accessibilityLabel="Send message"
               >
                 {sending ? (
                   <ActivityIndicator size="small" color="#FFFFFF" />
@@ -717,7 +730,7 @@ export default function ChatScreen() {
                     color={inputText.trim() ? '#FFFFFF' : '#98A2B3'}
                   />
                 )}
-              </TouchableOpacity>
+              </GlassButton>
             </View>
           </View>
         </View>
@@ -768,15 +781,7 @@ const styles = StyleSheet.create({
     marginRight: 10,
   },
   backBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#F8F9FA',
-    justifyContent: 'center',
-    alignItems: 'center',
     marginRight: 8,
-    borderWidth: 1,
-    borderColor: '#EAECF0',
     flexShrink: 0,
   },
   avatarWrapper: {
@@ -820,24 +825,21 @@ const styles = StyleSheet.create({
     color: colors.text,
   },
   companionBadge: {
-    backgroundColor: '#F4EBFF',
+    backgroundColor: colors.primarySoft,
     paddingHorizontal: 6,
-    paddingVertical: 1.5,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: '#E9D7FE',
-    flexShrink: 0,
+    paddingVertical: 1,
+    borderRadius: 4,
   },
   companionBadgeText: {
     fontSize: 10,
-    fontFamily: typography.fontFamily.semiBold,
+    fontFamily: typography.fontFamily.bold,
     color: colors.primary,
   },
   statusRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    marginTop: 2,
+    marginTop: 1,
   },
   statusPulseDot: {
     width: 6,
@@ -853,12 +855,6 @@ const styles = StyleSheet.create({
     flexShrink: 1,
   },
   moreButton: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: '#F8F9FA',
-    borderWidth: 1,
-    borderColor: '#EAECF0',
     alignItems: 'center',
     justifyContent: 'center',
     flexShrink: 0,
@@ -1175,23 +1171,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
   },
   dockSendButton: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 2,
     marginLeft: 6,
   },
-  dockSendButtonActive: {
-    backgroundColor: colors.primary,
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.35,
-    shadowRadius: 5,
-    elevation: 3,
-  },
-  dockSendButtonDisabled: {
-    backgroundColor: '#F2F4F7',
-  },
+  dockSendButtonActive: {},
+  dockSendButtonDisabled: {},
 });

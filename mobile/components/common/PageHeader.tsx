@@ -3,7 +3,6 @@ import { colors, spacing, typography } from '@/constants/theme';
 import {
   View,
   StyleSheet,
-  TouchableOpacity,
   StyleProp,
   ViewStyle,
   StatusBar as RNStatusBar,
@@ -14,12 +13,14 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { HugeiconsIcon } from '@hugeicons/react-native';
 import { isIpad } from '@/utils/device';
 import { ArrowLeft01Icon, Cancel01Icon } from '@hugeicons/core-free-icons';
+import { GlassButton, GlassSurface } from '@/components/glass';
 
 interface PageHeaderProps {
   title: string;
   subtitle?: string;
   showBack?: boolean;
   isModal?: boolean;
+  glass?: boolean;
   onBack?: () => void;
   titleLeftAction?: React.ReactNode;
   rightAction?: React.ReactNode;
@@ -31,6 +32,7 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
   subtitle,
   showBack = true,
   isModal = false,
+  glass = false,
   onBack,
   titleLeftAction,
   rightAction,
@@ -53,70 +55,95 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
     ? Math.max(insets.top, statusBarHeight, spacing[28]) + spacing[14]
     : Math.max(insets.top, spacing[16]);
 
-  return (
-    <View
-      style={[
-        styles.container,
-        {
-          paddingTop: topPadding,
-        },
-        style,
-      ]}
-    >
-      <View style={styles.contentRow}>
-        <View style={styles.leftCol}>
-          {showBack && (
-            <TouchableOpacity
-              style={styles.iconBtn}
-              onPress={handleBack}
-              activeOpacity={0.7}
-              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-              accessibilityRole="button"
-              accessibilityLabel={isModal ? 'Close' : 'Go back'}
-            >
-              <HugeiconsIcon
-                icon={isModal ? Cancel01Icon : ArrowLeft01Icon}
-                size={isIpad() ? 24 : 20}
-                color={colors.text}
-                strokeWidth={2}
-              />
-            </TouchableOpacity>
-          )}
-        </View>
+  const headerContent = (
+    <View style={styles.contentRow}>
+      <View style={styles.leftCol}>
+        {showBack && (
+          <GlassButton
+            variant="subtle"
+            size="icon"
+            radius={isIpad() ? 23 : 18}
+            haptic="light"
+            onPress={handleBack}
+            accessibilityRole="button"
+            accessibilityLabel={isModal ? 'Close' : 'Go back'}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            style={styles.iconBtnWrapper}
+            contentStyle={{
+              width: isIpad() ? 46 : 36,
+              height: isIpad() ? 46 : 36,
+            }}
+          >
+            <HugeiconsIcon
+              icon={isModal ? Cancel01Icon : ArrowLeft01Icon}
+              size={isIpad() ? 24 : 20}
+              color={colors.text}
+              strokeWidth={2}
+            />
+          </GlassButton>
+        )}
+      </View>
 
-        <View style={[styles.titleCol, titleLeftAction ? styles.titleColWithLeftAction : undefined]}>
-          {titleLeftAction ? (
-            <View style={styles.titleRow}>
-              {titleLeftAction}
-              <View style={styles.titleTextWrapper}>
-                <Text style={[styles.title, styles.titleAlignLeft]} numberOfLines={1}>
-                  {title}
-                </Text>
-                {subtitle ? (
-                  <Text style={[styles.subtitle, styles.subtitleAlignLeft]} numberOfLines={1}>
-                    {subtitle}
-                  </Text>
-                ) : null}
-              </View>
-            </View>
-          ) : (
-            <>
-              <Text style={styles.title} numberOfLines={1}>
+      <View style={[styles.titleCol, titleLeftAction ? styles.titleColWithLeftAction : undefined]}>
+        {titleLeftAction ? (
+          <View style={styles.titleRow}>
+            {titleLeftAction}
+            <View style={styles.titleTextWrapper}>
+              <Text style={[styles.title, styles.titleAlignLeft]} numberOfLines={1}>
                 {title}
               </Text>
               {subtitle ? (
-                <Text style={styles.subtitle} numberOfLines={1}>
+                <Text style={[styles.subtitle, styles.subtitleAlignLeft]} numberOfLines={1}>
                   {subtitle}
                 </Text>
               ) : null}
-            </>
-          )}
-        </View>
-
-        <View style={styles.rightCol}>
-          {rightAction || <View style={styles.placeholder} />}
-        </View>
+            </View>
+          </View>
+        ) : (
+          <>
+            <Text style={styles.title} numberOfLines={1}>
+              {title}
+            </Text>
+            {subtitle ? (
+              <Text style={styles.subtitle} numberOfLines={1}>
+                {subtitle}
+              </Text>
+            ) : null}
+          </>
+        )}
       </View>
+
+      <View style={styles.rightCol}>
+        {rightAction || <View style={styles.placeholder} />}
+      </View>
+    </View>
+  );
+
+  const containerStyle: StyleProp<ViewStyle> = [
+    styles.container,
+    glass && styles.glassContainer,
+    {
+      paddingTop: topPadding,
+    },
+    style,
+  ];
+
+  if (glass) {
+    return (
+      <GlassSurface
+        variant="regular"
+        radius={0}
+        hasBorder={false}
+        style={containerStyle}
+      >
+        {headerContent}
+      </GlassSurface>
+    );
+  }
+
+  return (
+    <View style={containerStyle}>
+      {headerContent}
     </View>
   );
 };
@@ -132,6 +159,10 @@ const styles = StyleSheet.create({
     paddingBottom: isPadDevice ? spacing[16] : spacing[12],
     zIndex: 10,
   },
+  glassContainer: {
+    backgroundColor: 'transparent',
+    borderBottomColor: 'rgba(226, 232, 240, 0.65)',
+  },
   contentRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -144,12 +175,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     justifyContent: 'center',
   },
-  iconBtn: {
-    width: isPadDevice ? 46 : 36,
-    height: isPadDevice ? 46 : 36,
-    borderRadius: isPadDevice ? 23 : 18,
-    borderCurve: 'continuous',
-    backgroundColor: colors.surfaceMuted,
+  iconBtnWrapper: {
     alignItems: 'center',
     justifyContent: 'center',
   },

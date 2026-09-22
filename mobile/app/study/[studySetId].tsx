@@ -41,6 +41,7 @@ import { AcademicWeaponShareModal } from '../../components/social/AcademicWeapon
 import { InstagramStoryButton } from '../../components/social/InstagramStoryButton';
 import { MomoLoadingScreen } from '../../components/common/MomoLoadingScreen';
 import { isIpad } from '../../utils/device';
+import { GlassButton } from '../../components/glass';
 
 function shuffleArray<T>(array: T[]): T[] {
   const shuffled = [...array];
@@ -338,16 +339,21 @@ export default function StudySessionScreen() {
     : `${actualQuizItems.length} questions`;
 
   const threeDotsButton = (
-    <TouchableOpacity
-      style={styles.threeDotsBtn}
+    <GlassButton
+      variant="subtle"
+      size="icon"
+      radius={isIpad() ? 23 : 18}
+      haptic="light"
       onPress={() => setShowActionMenu(true)}
-      activeOpacity={0.7}
-      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-      accessibilityRole="button"
       accessibilityLabel="Reviewer options: reset, edit, or delete"
+      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+      contentStyle={{
+        width: isIpad() ? 46 : 36,
+        height: isIpad() ? 46 : 36,
+      }}
     >
       <HugeiconsIcon icon={MoreVerticalIcon} size={18} color={colors.text} strokeWidth={2.2} />
-    </TouchableOpacity>
+    </GlassButton>
   );
 
   return (
@@ -576,11 +582,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   threeDotsBtn: {
-    width: isPadDevice ? 44 : 36,
-    height: isPadDevice ? 44 : 36,
-    borderRadius: isPadDevice ? 22 : 18,
-    borderCurve: 'continuous',
-    backgroundColor: colors.surfaceMuted,
     alignItems: 'center',
     justifyContent: 'center',
   },

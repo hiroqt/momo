@@ -18,6 +18,12 @@ import {
   BookOpen01Icon,
   Camera01Icon,
 } from '@hugeicons/core-free-icons';
+import {
+  GlassButton,
+  GlassSurface,
+  triggerGlassHaptic,
+  glassRadius,
+} from '@/components/glass';
 
 interface DashboardFABProps {
   onUpload: () => void;
@@ -40,6 +46,7 @@ export const DashboardFAB: React.FC<DashboardFABProps> = ({
 
   const toggleOpen = () => {
     const toValue = isOpen ? 0 : 1;
+    triggerGlassHaptic(isOpen ? 'light' : 'medium');
     Animated.spring(animation, {
       toValue,
       friction: 6,
@@ -128,11 +135,13 @@ export const DashboardFAB: React.FC<DashboardFABProps> = ({
     outputRange: [0, 1],
   });
 
-  // Position above the floating dock bar (dock is at insets.bottom + 4, height 58 on phone, taller on iPad)
   const isTablet = isIpad();
   const bottomPosition = isTablet
     ? insets.bottom + spacing[24] + 82
     : Math.max(insets.bottom, spacing[12]) + spacing[76];
+
+  const mainFabDimension = isTablet ? 68 : 56;
+  const miniFabDimension = isTablet ? 56 : 46;
 
   return (
     <>
@@ -170,25 +179,35 @@ export const DashboardFAB: React.FC<DashboardFABProps> = ({
               },
             ]}
           >
-            <TouchableOpacity
-              style={styles.labelPill}
-              onPress={handleMathSolvePress}
-              activeOpacity={0.8}
+            <GlassSurface
+              variant="regular"
+              radius={isTablet ? 14 : 10}
+              style={styles.labelPillSurface}
             >
-              <Text style={styles.labelText}>Solve a Problem</Text>
-              <View style={[styles.countBadge, { backgroundColor: colors.warningSoft }]}>
-                <Text style={[styles.countBadgeText, { color: colors.warning }]}>AI</Text>
-              </View>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.miniFab, styles.mathSolveMiniFab]}
+              <TouchableOpacity
+                style={styles.labelPill}
+                onPress={handleMathSolvePress}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.labelText}>Solve a Problem</Text>
+                <View style={[styles.countBadge, { backgroundColor: colors.warningSoft }]}>
+                  <Text style={[styles.countBadgeText, { color: colors.warning }]}>AI</Text>
+                </View>
+              </TouchableOpacity>
+            </GlassSurface>
+
+            <GlassButton
+              variant="subtle"
+              size="icon"
+              radius={glassRadius.full}
+              haptic="light"
               onPress={handleMathSolvePress}
-              activeOpacity={0.85}
               accessibilityLabel="Solve a Problem"
-              accessibilityRole="button"
+              style={[styles.miniFab, styles.mathSolveMiniFab]}
+              contentStyle={{ width: miniFabDimension, height: miniFabDimension }}
             >
               <HugeiconsIcon icon={Camera01Icon} size={isTablet ? 24 : 20} color={colors.warning} strokeWidth={2.2} />
-            </TouchableOpacity>
+            </GlassButton>
           </Animated.View>
 
           {/* Action 2: Study Sets */}
@@ -204,27 +223,37 @@ export const DashboardFAB: React.FC<DashboardFABProps> = ({
               },
             ]}
           >
-            <TouchableOpacity
-              style={styles.labelPill}
-              onPress={handleStudySetsPress}
-              activeOpacity={0.8}
+            <GlassSurface
+              variant="regular"
+              radius={isTablet ? 14 : 10}
+              style={styles.labelPillSurface}
             >
-              <Text style={styles.labelText}>Study Sets</Text>
-              {studySetsCount > 0 && (
-                <View style={styles.countBadge}>
-                  <Text style={styles.countBadgeText}>{studySetsCount}</Text>
-                </View>
-              )}
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.miniFab, styles.studySetsMiniFab]}
+              <TouchableOpacity
+                style={styles.labelPill}
+                onPress={handleStudySetsPress}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.labelText}>Study Sets</Text>
+                {studySetsCount > 0 && (
+                  <View style={styles.countBadge}>
+                    <Text style={styles.countBadgeText}>{studySetsCount}</Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+            </GlassSurface>
+
+            <GlassButton
+              variant="subtle"
+              size="icon"
+              radius={glassRadius.full}
+              haptic="light"
               onPress={handleStudySetsPress}
-              activeOpacity={0.85}
               accessibilityLabel="View Study Sets"
-              accessibilityRole="button"
+              style={[styles.miniFab, styles.studySetsMiniFab]}
+              contentStyle={{ width: miniFabDimension, height: miniFabDimension }}
             >
               <HugeiconsIcon icon={BookOpen01Icon} size={isTablet ? 24 : 20} color={colors.primary} strokeWidth={2.2} />
-            </TouchableOpacity>
+            </GlassButton>
           </Animated.View>
 
           {/* Action 1: Upload Document */}
@@ -240,38 +269,51 @@ export const DashboardFAB: React.FC<DashboardFABProps> = ({
               },
             ]}
           >
-            <TouchableOpacity
-              style={styles.labelPill}
-              onPress={handleUploadPress}
-              activeOpacity={0.8}
+            <GlassSurface
+              variant="regular"
+              radius={isTablet ? 14 : 10}
+              style={styles.labelPillSurface}
             >
-              <Text style={styles.labelText}>Upload Document</Text>
-              <Text style={styles.labelSubText}>PDF, DOCX, PPTX</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.miniFab, styles.uploadMiniFab]}
+              <TouchableOpacity
+                style={styles.labelPill}
+                onPress={handleUploadPress}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.labelText}>Upload Document</Text>
+                <Text style={styles.labelSubText}>PDF, DOCX, PPTX</Text>
+              </TouchableOpacity>
+            </GlassSurface>
+
+            <GlassButton
+              variant="subtle"
+              size="icon"
+              radius={glassRadius.full}
+              haptic="light"
               onPress={handleUploadPress}
-              activeOpacity={0.85}
               accessibilityLabel="Upload Document"
-              accessibilityRole="button"
+              style={[styles.miniFab, styles.uploadMiniFab]}
+              contentStyle={{ width: miniFabDimension, height: miniFabDimension }}
             >
               <HugeiconsIcon icon={Upload01Icon} size={isTablet ? 24 : 20} color={colors.success} strokeWidth={2.2} />
-            </TouchableOpacity>
+            </GlassButton>
           </Animated.View>
         </View>
 
-        {/* Primary FAB Button */}
-        <TouchableOpacity
-          style={styles.mainFab}
+        {/* Primary Liquid Glass FAB Button */}
+        <GlassButton
+          variant="primary"
+          size="icon"
+          radius={glassRadius.full}
+          haptic="medium"
           onPress={toggleOpen}
-          activeOpacity={0.9}
           accessibilityLabel={isOpen ? 'Close action menu' : 'Open action menu'}
-          accessibilityRole="button"
+          style={styles.mainFab}
+          contentStyle={{ width: mainFabDimension, height: mainFabDimension }}
         >
           <Animated.View style={{ transform: [{ rotate: rotation }] }}>
             <HugeiconsIcon icon={Add01Icon} size={isTablet ? 32 : 26} color={colors.onPrimary} strokeWidth={2.6} />
           </Animated.View>
-        </TouchableOpacity>
+        </GlassButton>
       </View>
     </>
   );
@@ -302,16 +344,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
     gap: isPadDevice ? spacing[14] : spacing[10],
   },
-  labelPill: {
-    backgroundColor: colors.surface,
-    paddingVertical: isPadDevice ? spacing[10] : spacing[7],
-    paddingHorizontal: isPadDevice ? spacing[16] : spacing[12],
-    borderRadius: isPadDevice ? 14 : 10,
-    borderWidth: 1,
-    borderColor: colors.border,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: isPadDevice ? spacing[8] : spacing[6],
+  labelPillSurface: {
     ...Platform.select({
       ios: {
         shadowColor: colors.shadow,
@@ -323,6 +356,13 @@ const styles = StyleSheet.create({
         elevation: 4,
       },
     }),
+  },
+  labelPill: {
+    paddingVertical: isPadDevice ? spacing[10] : spacing[7],
+    paddingHorizontal: isPadDevice ? spacing[16] : spacing[12],
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: isPadDevice ? spacing[8] : spacing[6],
   },
   labelText: {
     fontSize: typography.fontSize[13],
@@ -346,12 +386,8 @@ const styles = StyleSheet.create({
     color: colors.primary,
   },
   miniFab: {
-    width: isPadDevice ? 56 : 46,
-    height: isPadDevice ? 56 : 46,
-    borderRadius: isPadDevice ? 28 : 23,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1.5,
     ...Platform.select({
       ios: {
         shadowColor: colors.shadow,
@@ -365,22 +401,15 @@ const styles = StyleSheet.create({
     }),
   },
   uploadMiniFab: {
-    backgroundColor: colors.successSoft,
     borderColor: colors.successBorder,
   },
   studySetsMiniFab: {
-    backgroundColor: colors.primarySoft,
     borderColor: colors.primaryBorder,
   },
   mathSolveMiniFab: {
-    backgroundColor: colors.warningSoft,
     borderColor: colors.warningBorder,
   },
   mainFab: {
-    width: isPadDevice ? 68 : 56,
-    height: isPadDevice ? 68 : 56,
-    borderRadius: isPadDevice ? 34 : 28,
-    backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
     ...Platform.select({

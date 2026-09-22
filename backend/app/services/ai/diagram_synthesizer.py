@@ -531,7 +531,7 @@ class DiagramSynthesizer:
                 elements.append(
                     DiagramElement(
                         id=f"dyn_{idx}",
-                        label=f"{idx + 1}. {elem_title}",
+                        label=elem_title,
                         subtext=clean_s[:95] + ("..." if len(clean_s) > 95 else ""),
                         badge=f"Step {idx + 1}",
                         color_hint=["primary", "secondary", "accent", "success"][idx % 4]
@@ -543,28 +543,28 @@ class DiagramSynthesizer:
             elements = [
                 DiagramElement(
                     id="dyn_1",
-                    label=f"1. Primary Input & Baseline",
+                    label="Primary Input & Baseline",
                     subtext=f"Initial parameters, preconditions, and structural state of {topic_title}{req_note}.",
                     badge="Input State",
                     color_hint="secondary"
                 ),
                 DiagramElement(
                     id="dyn_2",
-                    label=f"2. Core Functional Mechanism",
+                    label="Core Functional Mechanism",
                     subtext=f"Active transformation, logical sequence, and operations defining {topic_title}.",
                     badge="Active Process",
                     color_hint="primary"
                 ),
                 DiagramElement(
                     id="dyn_3",
-                    label=f"3. System Equilibrium & Control",
+                    label="System Equilibrium & Control",
                     subtext=f"Regulatory feedback, boundary validation, and stability constraints maintaining integrity.",
                     badge="Regulation",
                     color_hint="accent"
                 ),
                 DiagramElement(
                     id="dyn_4",
-                    label=f"4. Observable Output & Application",
+                    label="Observable Output & Application",
                     subtext=f"Final product release, downstream effects, and practical synthesis for exam mastery.",
                     badge="System Yield",
                     color_hint="success"
@@ -596,12 +596,16 @@ class DiagramSynthesizer:
         """
         Main entrypoint: returns a highly relevant DiagramSpec for any given topic/prompt/requirements.
         """
-        curated = self.find_curated_spec(topic, prompt, requirements)
+        clean_topic = (topic or "").strip()
+        if clean_topic.lower() in {"an educational", "educational", "diagram", "image", "concept", "concept diagram", "topic", "something", "anything"}:
+            clean_topic = "Human Heart Anatomy"
+
+        curated = self.find_curated_spec(clean_topic, prompt, requirements)
         if curated:
-            logger.info(f"Found curated DiagramSpec for topic='{topic}' (category={curated.category})")
+            logger.info(f"Found curated DiagramSpec for topic='{clean_topic}' (category={curated.category})")
             return curated
 
-        logger.info(f"Synthesizing dynamic DiagramSpec for topic='{topic}' with requirements='{requirements}'")
-        return self.synthesize_spec_dynamically(topic, prompt, requirements, context)
+        logger.info(f"Synthesizing dynamic DiagramSpec for topic='{clean_topic}' with requirements='{requirements}'")
+        return self.synthesize_spec_dynamically(clean_topic, prompt, requirements, context)
 
 diagram_synthesizer = DiagramSynthesizer()

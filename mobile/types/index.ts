@@ -153,8 +153,10 @@ export interface ChatMessage {
   citations?: CitationItem[];
   created_deck?: CreatedDeckMetadata;
   study_card?: StudyCardMetadata;
+  image_base64?: string;
   quick_replies?: string[];
   tool_calls?: ToolCallRecord[];
+  follow_up_message?: ChatMessage;
   created_at: string;
 }
 

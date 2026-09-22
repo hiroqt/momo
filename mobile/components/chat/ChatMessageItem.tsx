@@ -9,6 +9,7 @@ import { ChatMessage } from '../../types';
 import { ChatCitationPill } from './ChatCitationPill';
 import { ChatDeckCard } from './ChatDeckCard';
 import { ChatStudyCard } from './ChatStudyCard';
+import { ChatImageBubble } from './ChatImageBubble';
 
 // Hoisted static asset to prevent flickering on keystrokes/re-renders
 const MOMO_AVATAR_IMG = require('@/assets/animations/thinking_momo.png');
@@ -243,6 +244,17 @@ export const ChatMessageItem = React.memo<ChatMessageItemProps>(
       );
     }
 
+    const imageBase64 = message.image_base64 || message.study_card?.image_base64;
+    const isPureDiagram = Boolean(
+      imageBase64 &&
+      (
+        message.image_base64 ||
+        message.study_card?.question?.includes('Visual Concept Diagram') ||
+        message.study_card?.question?.toLowerCase().includes('diagram') ||
+        !message.study_card?.options
+      )
+    );
+
     // --- ASSISTANT (MOMO) MESSAGE ---
     return (
       <View style={styles.assistantContainer}>
@@ -271,29 +283,45 @@ export const ChatMessageItem = React.memo<ChatMessageItemProps>(
             <Text style={styles.assistantTimestamp}>{formatTime(message.created_at)}</Text>
           </View>
 
-          {/* Message Bubble */}
-          <View style={styles.assistantBubble}>
-            <FormattedChatText content={displayContent} isUser={false} />
+          {/* If message is a visual diagram, render edge-to-edge ChatImageBubble */}
+          {isPureDiagram && imageBase64 ? (
+            <ChatImageBubble
+              imageBase64={imageBase64}
+              topic={message.study_card?.topic}
+              studyCard={message.study_card}
+              customFollowUps={message.quick_replies}
+              onSelectFollowUp={onSelectQuickReply}
+            />
+          ) : (
+            <>
+              {/* Message Bubble */}
+              <View style={styles.assistantBubble}>
+                <FormattedChatText content={displayContent} isUser={false} />
 
-            {/* Copy Action */}
-            <View style={styles.bubbleFooter}>
-              <TouchableOpacity
-                style={styles.copyButton}
-                onPress={handleCopy}
-                activeOpacity={0.7}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              >
-                <HugeiconsIcon
-                  icon={copied ? CopyCheckIcon : Copy01Icon}
-                  size={13}
-                  color={copied ? '#12B76A' : colors.textSecondary}
-                />
-                <Text style={[styles.copyText, copied && styles.copiedText]}>
-                  {copied ? 'Copied' : 'Copy'}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
+                {/* Copy Action */}
+                <View style={styles.bubbleFooter}>
+                  <TouchableOpacity
+                    style={styles.copyButton}
+                    onPress={handleCopy}
+                    activeOpacity={0.7}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
+                    <HugeiconsIcon
+                      icon={copied ? CopyCheckIcon : Copy01Icon}
+                      size={13}
+                      color={copied ? '#12B76A' : colors.textSecondary}
+                    />
+                    <Text style={[styles.copyText, copied && styles.copiedText]}>
+                      {copied ? 'Copied' : 'Copy'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              {/* Generated Single Study Card (with import to library button) */}
+              {message.study_card && <ChatStudyCard card={message.study_card} />}
+            </>
+          )}
 
           {/* Citations list */}
           {message.citations && message.citations.length > 0 && (
@@ -310,14 +338,11 @@ export const ChatMessageItem = React.memo<ChatMessageItemProps>(
             </View>
           )}
 
-          {/* Generated Single Study Card (with import to library button) */}
-          {message.study_card && <ChatStudyCard card={message.study_card} />}
-
           {/* Generated Deck Card */}
           {message.created_deck && <ChatDeckCard deck={message.created_deck} />}
 
-          {/* Interactive Quick Reply Chips */}
-          {message.quick_replies && message.quick_replies.length > 0 && (
+          {/* Interactive Quick Reply Chips for non-diagram messages */}
+          {!isPureDiagram && message.quick_replies && message.quick_replies.length > 0 && (
             <View style={styles.quickRepliesContainer}>
               {message.quick_replies.map((rawQr, qIdx) => {
                 const qr = stripEmojis(rawQr).trim();
@@ -343,6 +368,8 @@ export const ChatMessageItem = React.memo<ChatMessageItemProps>(
     prev.message.id === next.message.id &&
     prev.message.content === next.message.content &&
     prev.message.role === next.message.role &&
+    prev.message.image_base64 === next.message.image_base64 &&
+    prev.message.study_card?.image_base64 === next.message.study_card?.image_base64 &&
     prev.message.created_deck?.study_set_id === next.message.created_deck?.study_set_id &&
     prev.message.study_card?.question === next.message.study_card?.question &&
     (prev.message.citations?.length || 0) === (next.message.citations?.length || 0) &&
@@ -407,7 +434,7 @@ const styles = StyleSheet.create({
   },
   assistantContent: {
     flex: 1,
-    alignItems: 'flex-start',
+    alignItems: 'stretch',
   },
   assistantMetaRow: {
     flexDirection: 'row',
@@ -458,8 +485,8 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 6,
     elevation: 2,
+    width: '100%',
     maxWidth: '100%',
-    alignSelf: 'flex-start',
   },
 
   // Formatted Text Layout
@@ -542,13 +569,14 @@ const styles = StyleSheet.create({
   listRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    marginBottom: 4,
-    paddingLeft: 2,
+    width: '100%',
+    marginBottom: 6,
   },
   bulletDot: {
     fontSize: 14,
     lineHeight: 21,
-    marginRight: 6,
+    marginRight: 8,
+    flexShrink: 0,
   },
   bulletDotAssistant: {
     color: colors.primary,
@@ -557,13 +585,15 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontFamily: typography.fontFamily.bold,
     lineHeight: 21,
-    marginRight: 6,
+    marginRight: 8,
+    flexShrink: 0,
   },
   numberedPrefixAssistant: {
     color: colors.primary,
   },
   listContentText: {
     flex: 1,
+    flexShrink: 1,
     fontSize: 14,
     fontFamily: typography.fontFamily.regular,
     lineHeight: 21,
@@ -590,16 +620,13 @@ const styles = StyleSheet.create({
   codeSpan: {
     fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
     fontSize: 12,
-    paddingHorizontal: 4,
-    borderRadius: 4,
   },
   userCodeSpan: {
-    backgroundColor: 'rgba(255,255,255,0.2)',
     color: '#FFFFFF',
   },
   assistantCodeSpan: {
-    backgroundColor: '#F4EBFF',
     color: '#6941C6',
+    fontWeight: '600',
   },
 
   // Bubble Footer (Copy)

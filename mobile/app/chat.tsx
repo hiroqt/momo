@@ -405,8 +405,13 @@ export default function ChatScreen() {
         }
       }
 
+      const msgsToAdd = [assistantMsg];
+      if (assistantMsg.follow_up_message) {
+        msgsToAdd.push(assistantMsg.follow_up_message);
+      }
+
       setMessages((prev) => {
-        const updated = [...prev.filter((m) => m.id !== tempUserMsg.id), tempUserMsg, assistantMsg];
+        const updated = [...prev.filter((m) => m.id !== tempUserMsg.id), tempUserMsg, ...msgsToAdd];
         if (currentSession) {
           localDb.saveChatMessages(currentSession.id, updated);
         }
@@ -420,7 +425,7 @@ export default function ChatScreen() {
             return {
               ...s,
               title: s.title === 'Chat with Momo' ? text.slice(0, 30) : s.title,
-              message_count: (s.message_count || 0) + 2,
+              message_count: (s.message_count || 0) + 1 + msgsToAdd.length,
               updated_at: new Date().toISOString(),
             };
           }
@@ -538,6 +543,45 @@ export default function ChatScreen() {
     </View>
   );
 
+  const renderThinkingFooter = useCallback(() => {
+    if (!sending) return null;
+    return (
+      <View style={styles.thinkingAssistantRow}>
+        <View style={styles.thinkingAvatarColumn}>
+          <View style={styles.thinkingAvatarRing}>
+            <Image
+              source={MOMO_THINKING_IMG}
+              style={styles.thinkingAvatar}
+              resizeMode="contain"
+              fadeDuration={0}
+            />
+          </View>
+        </View>
+
+        <View style={styles.thinkingContentColumn}>
+          <View style={styles.thinkingMetaRow}>
+            <View style={styles.thinkingNameRow}>
+              <Text style={styles.thinkingAssistantName}>Momo</Text>
+              <View style={styles.thinkingAiTag}>
+                <Text style={styles.thinkingAiTagText}>Thinking</Text>
+              </View>
+            </View>
+          </View>
+
+          <View style={styles.thinkingBubble}>
+            <View style={styles.thinkingPulseRow}>
+              <ActivityIndicator size="small" color={colors.primary} />
+              <View style={styles.thinkingTextGroup}>
+                <Text style={styles.thinkingTitle}>Momo is formulating your answer...</Text>
+                <Text style={styles.thinkingSubtitle}>Analyzing notes and key concepts</Text>
+              </View>
+            </View>
+          </View>
+        </View>
+      </View>
+    );
+  }, [sending]);
+
   return (
     <View style={styles.container}>
       <ChatHeader
@@ -582,46 +626,10 @@ export default function ChatScreen() {
               },
             ]}
             ListEmptyComponent={renderEmptyState}
+            ListFooterComponent={renderThinkingFooter}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
           />
-        )}
-
-        {/* Momo Formulating / Thinking State */}
-        {sending && (
-          <View style={styles.thinkingAssistantRow}>
-            <View style={styles.thinkingAvatarColumn}>
-              <View style={styles.thinkingAvatarRing}>
-                <Image
-                  source={MOMO_THINKING_IMG}
-                  style={styles.thinkingAvatar}
-                  resizeMode="contain"
-                  fadeDuration={0}
-                />
-              </View>
-            </View>
-
-            <View style={styles.thinkingContentColumn}>
-              <View style={styles.thinkingMetaRow}>
-                <View style={styles.thinkingNameRow}>
-                  <Text style={styles.thinkingAssistantName}>Momo</Text>
-                  <View style={styles.thinkingAiTag}>
-                    <Text style={styles.thinkingAiTagText}>Thinking</Text>
-                  </View>
-                </View>
-              </View>
-
-              <View style={styles.thinkingBubble}>
-                <View style={styles.thinkingPulseRow}>
-                  <ActivityIndicator size="small" color={colors.primary} />
-                  <View style={styles.thinkingTextGroup}>
-                    <Text style={styles.thinkingTitle}>Momo is formulating your answer...</Text>
-                    <Text style={styles.thinkingSubtitle}>Analyzing notes and key concepts</Text>
-                  </View>
-                </View>
-              </View>
-            </View>
-          </View>
         )}
 
         {/* Enhanced Floating "Ask Momo" Input Field Layout */}
@@ -983,7 +991,7 @@ const styles = StyleSheet.create({
   thinkingAssistantRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    paddingHorizontal: 16,
+    marginTop: 2,
     marginBottom: 12,
   },
   thinkingAvatarColumn: {

@@ -1,3 +1,4 @@
+from __future__ import annotations
 from pydantic import BaseModel, Field
 from typing import Optional, List, Dict, Any
 
@@ -69,8 +70,10 @@ class ChatMessageResponse(BaseModel):
     citations: Optional[List[CitationItem]] = None
     created_deck: Optional[CreatedDeckMetadata] = None
     study_card: Optional[StudyCardMetadata] = None
+    image_base64: Optional[str] = None
     quick_replies: Optional[List[str]] = None
     tool_calls: Optional[List[ToolCallRecord]] = None
+    follow_up_message: Optional[ChatMessageResponse] = None
     created_at: str
 
 class ChatSessionDetailResponse(BaseModel):

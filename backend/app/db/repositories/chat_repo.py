@@ -102,6 +102,7 @@ class ChatRepository:
         citations: Optional[List[Dict[str, Any]]] = None,
         created_deck: Optional[Dict[str, Any]] = None,
         study_card: Optional[Dict[str, Any]] = None,
+        image_base64: Optional[str] = None,
         quick_replies: Optional[List[str]] = None,
         tool_calls: Optional[List[Dict[str, Any]]] = None
     ) -> Dict[str, Any]:
@@ -116,6 +117,7 @@ class ChatRepository:
             "citations": citations,
             "created_deck": created_deck,
             "study_card": study_card,
+            "image_base64": image_base64,
             "quick_replies": quick_replies,
             "tool_calls": tool_calls,
             "created_at": now

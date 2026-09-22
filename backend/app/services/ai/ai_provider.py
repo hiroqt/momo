@@ -671,8 +671,13 @@ class MockNemotronProvider(AIProvider):
             elif tool_name == "generate_diagram":
                 topic = data.get("topic", "Study Diagram") if isinstance(data, dict) else "Study Diagram"
                 return {
-                    "content": f"Here is your visual educational diagram on **{topic}**! You can tap the diagram to inspect it full screen or tap **Import to Library** to save it to your study cards.",
-                    "tool_calls": None
+                    "content": f"Visual concept diagram: **{topic}**",
+                    "tool_calls": None,
+                    "quick_replies": [
+                        f"Explain this {topic} diagram in detail",
+                        f"Break down the key steps",
+                        f"Quiz me on {topic}"
+                    ]
                 }
             elif tool_name == "get_learning_profile":
                 prof = data.get("learning_profile", {}) if isinstance(data, dict) else {}
@@ -759,33 +764,142 @@ class MockNemotronProvider(AIProvider):
                         }
                     }]
                 }
-            # 0a. Diagram Intent (e.g., "generate me a image diagram of...", "can you draw a diagram", "diagram of X", or just "diagram")
+            # 0a. Follow-up intent: Explain previously generated diagram in detail
+            explain_diagram_keywords = [
+                "explain this diagram", "explain the diagram", "break down the diagram",
+                "break down this diagram", "tell me about this diagram", "walk me through this diagram",
+                "what does this diagram show", "explain the steps", "diagram in detail",
+                "explain in detail", "break down the key steps"
+            ]
+            if any(k in u_lower for k in explain_diagram_keywords):
+                from app.services.ai.diagram_synthesizer import diagram_synthesizer
+                prev_topic = None
+                for prev_m in reversed(messages):
+                    # Check tool call data first
+                    if prev_m.get("name") == "generate_diagram":
+                        try:
+                            t_data = json.loads(prev_m.get("content", "{}"))
+                            if t_data.get("topic"):
+                                prev_topic = t_data.get("topic")
+                                break
+                        except Exception:
+                            pass
+
+                    content = prev_m.get("content", "")
+                    diag_m = re.search(r"Visual concept diagram:\s*\*\*([^*]+)\*\*", content, re.IGNORECASE)
+                    if diag_m:
+                        prev_topic = diag_m.group(1).strip()
+                        break
+                    header_m = re.search(r"###\s*([^-\n]+?)(?:\s*-|\n)", content)
+                    if header_m:
+                        prev_topic = header_m.group(1).strip()
+                        break
+
+                exp_topic = prev_topic or "the Illustrated Concept"
+                curated_spec = diagram_synthesizer.find_curated_spec(exp_topic, "")
+                if curated_spec:
+                    elem_lines = []
+                    for el in curated_spec.elements:
+                        badge_str = f" `[{el.badge}]`" if el.badge else ""
+                        elem_lines.append(f"- **{el.label}**{badge_str}: {el.subtext}")
+                    takeaway_str = "\n".join(f"- {t}" for t in curated_spec.key_takeaways)
+                    content_str = (
+                        f"### In-Depth Breakdown: {curated_spec.title}\n\n"
+                        f"**Core Mechanism & Architecture:**\n{curated_spec.subtitle}\n\n"
+                        f"**Key Structural Components:**\n" + "\n".join(elem_lines) + "\n\n"
+                        f"**High-Yield Exam Takeaways:**\n{takeaway_str}\n\n"
+                        f"Would you like me to quiz you on this diagram or build a practice flashcard set?"
+                    )
+                else:
+                    content_str = (
+                        f"### In-Depth Breakdown: {exp_topic}\n\n"
+                        f"**1. Core Mechanism & Architecture:**\n"
+                        f"{exp_topic} operates as a foundational mechanism within the system, ensuring stability, high throughput, and error-free execution.\n\n"
+                        f"**2. Key Structural Components & Flow:**\n"
+                        f"The process initiates at the primary input stage, undergoes intermediate transformation, and yields a stabilized output governed by feedback controls.\n\n"
+                        f"**3. High-Yield Exam Takeaways:**\n"
+                        f"Questions on {exp_topic} typically focus on causal relationships and the rate-limiting step in the pathway.\n\n"
+                        f"Would you like to practice 5 questions on {exp_topic}?"
+                    )
+
+                return {
+                    "content": content_str,
+                    "tool_calls": None,
+                    "quick_replies": [f"Quiz me on {exp_topic}", "Create a 10-card deck", "Show study sets"]
+                }
+
+            # 0b. Diagram & Visual Image Intent (e.g., "generate me a image diagram of...", "can you draw a diagram", "can you generate an image", "create a image", "provide an image", "cant create an image")
             diagram_keywords = [
                 "image diagram", "diagram", "draw a diagram", "generate a diagram", "make a diagram",
                 "create a diagram", "visual diagram", "concept diagram", "scientific diagram",
-                "illustration of", "draw me a", "show me a diagram"
+                "illustration of", "draw me a", "show me a diagram", "generate an image", "create an image",
+                "generate a image", "create a image", "provide an image", "provide the image",
+                "show me an image", "draw an image", "make an image", "cant provide the image",
+                "cant create a image", "cant create an image", "cant provide image", "cant create image",
+                "can you generate an image", "can you provide an image", "can you create an image"
             ]
-            if any(k in u_lower for k in diagram_keywords):
-                topic_match = re.search(r"(?:of|on|about|for)\s+([a-zA-Z0-9\s]+?)(?:from|\.|\?|$)", user_text, re.IGNORECASE)
+            has_visual_word = any(w in u_lower for w in [
+                "image", "diagram", "picture", "illustration", "visual", "chart", "figure"
+            ])
+            has_action_word = any(w in u_lower for w in [
+                "generate", "create", "make", "draw", "show", "provide", "give", "display",
+                "render", "cant", "can't", "can", "need", "want", "ask", "produce"
+            ])
+            is_visual_query = (
+                any(k in u_lower for k in diagram_keywords) or
+                (has_visual_word and has_action_word) or
+                ("image" in u_lower and ("cant" in u_lower or "can't" in u_lower or "unable" in u_lower or "can" in u_lower or "provide" in u_lower or "create" in u_lower))
+            )
+            if is_visual_query:
+                GENERIC_DIAGRAM_FILLERS = {
+                    "me", "us", "this", "it", "a", "an", "the", "image", "diagram", "image diagram",
+                    "generate", "make", "draw", "show", "just", "visual", "concept", "scientific",
+                    "educational", "an educational", "a diagram", "scientific diagram", "concept diagram",
+                    "illustration", "photo", "drawing", "picture", "detailed", "vector", "can", "you",
+                    "please", "could", "would", "i", "ask", "ai", "to", "or", "and", "but", "if", "so",
+                    "something", "anything", "study", "educational diagram", "an educational diagram", "study diagram",
+                    "chat", "agent", "cant", "can't", "provide", "give", "create", "want", "need",
+                    "know", "test", "example", "now", "here", "still", "not", "working", "unable",
+                    "create a image", "create an image", "provide the image", "provide an image",
+                    "with", "without", "in", "at", "by", "from", "on", "of", "about", "for", "as", "is", "are", "was", "were"
+                }
+
                 diag_topic = None
+
+                # 1. Try explicit prepositional phrase e.g. "diagram of X", "illustration about Y"
+                topic_match = re.search(r"(?:of|on|about|for|illustrating|depicting|showing)\s+([a-zA-Z0-9\s,\-]+?)(?:from|\.|\?|$)", user_text, re.IGNORECASE)
                 if topic_match:
                     cand_diag = topic_match.group(1).strip()
-                    if cand_diag.lower() not in {"me", "us", "this", "it", "a diagram", "diagram"}:
+                    # Strip leading articles or filler words from candidate topic
+                    cand_diag = re.sub(r"^(?:an?\s+|the\s+|educational\s+|scientific\s+)+", "", cand_diag, flags=re.IGNORECASE).strip()
+                    if cand_diag.lower() not in GENERIC_DIAGRAM_FILLERS and len(cand_diag) >= 3:
                         diag_topic = cand_diag.title()
+
+                # 2. Try removing all diagram/request noise words from user query
                 if not diag_topic:
-                    clean_top = re.sub(r"\b(image|diagram|generate|make|draw|show|me|a|just|visual|concept|please|can|you|of|on|about|for)\b", "", u_lower).strip()
-                    if clean_top and len(clean_top) > 1:
+                    clean_top = re.sub(
+                        r"\b(image|diagram|generate|make|draw|show|me|us|a|an|the|just|visual|concept|scientific|educational|detailed|illustration|photo|picture|drawing|please|can|could|you|would|i|ask|ai|to|or|and|but|if|so|of|on|about|for|cant|can't|provide|agent|chat|create|give|want|need|is|are|was|were|as|in|at|by|from|with|without|not|unable)\b",
+                        "",
+                        u_lower
+                    ).strip()
+                    # Strip residual punctuation
+                    clean_top = re.sub(r"[^\w\s]", " ", clean_top).strip()
+                    clean_top = re.sub(r"\s+", " ", clean_top)
+                    if clean_top and clean_top.lower() not in GENERIC_DIAGRAM_FILLERS and len(clean_top) >= 3:
                         diag_topic = clean_top.title()
-                    else:
-                        # Check previous assistant messages for mentioned topic
-                        prev_topic = None
-                        for prev_m in reversed(messages):
-                            if prev_m.get("role") == "assistant":
-                                bold_m = re.search(r"\*\*([a-zA-Z0-9\s]+?)\*\*", prev_m.get("content", ""))
-                                if bold_m:
-                                    prev_topic = bold_m.group(1).strip()
-                                    break
-                        diag_topic = prev_topic or "Binary Search Tree"
+
+                # 3. Check previous conversation messages for an academic topic
+                if not diag_topic:
+                    prev_topic = None
+                    for prev_m in reversed(messages):
+                        c = prev_m.get("content", "")
+                        bold_m = re.search(r"\*\*([a-zA-Z0-9\s]{3,35}?)\*\*", c)
+                        if bold_m:
+                            cand_prev = bold_m.group(1).strip()
+                            if cand_prev.lower() not in GENERIC_DIAGRAM_FILLERS and len(cand_prev) >= 3:
+                                prev_topic = cand_prev.title()
+                                break
+                    diag_topic = prev_topic or "Binary Search Tree"
 
                 return {
                     "content": "",
@@ -1593,20 +1707,30 @@ class OpenRouterNemotronProvider(AIProvider):
             payload["tools"] = tools
             payload["tool_choice"] = "auto"
 
-        for model_id in [self.model]:
+        candidate_models = [
+            self.model,
+            "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free"
+        ]
+        for model_id in candidate_models:
             payload["model"] = model_id
             try:
-                async with httpx.AsyncClient(timeout=15.0) as client:
+                async with httpx.AsyncClient(timeout=25.0) as client:
                     resp = await client.post(self.url, headers=headers, json=payload)
                     if resp.status_code == 200:
                         res_json = resp.json()
-                        choice = res_json.get("choices", [{}])[0]
+                        if "error" in res_json:
+                            logger.warning(f"OpenRouter model {model_id} returned error payload: {res_json.get('error')}. Trying next candidate.")
+                            continue
+                        choices = res_json.get("choices", [])
+                        if not choices:
+                            continue
+                        choice = choices[0]
                         msg = choice.get("message", {})
                         content = msg.get("content") or ""
                         tool_calls = msg.get("tool_calls")
                         # If tools were not requested or none returned, but content is empty, try fallback
                         if not tool_calls and not content.strip():
-                            logger.warning(f"Nemotron model {model_id} returned empty content with no tools. Trying fallback.")
+                            logger.warning(f"Nemotron model {model_id} returned empty content with no tools. Trying next candidate.")
                             continue
                         return {
                             "content": content,

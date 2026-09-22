@@ -1,5 +1,6 @@
 import json
 import logging
+import re
 from typing import List, Dict, Any, Optional
 import uuid
 
@@ -11,6 +12,7 @@ from app.services.synthesis.synthesis_service import synthesis_service
 from app.services.validation.grounding_validator import grounding_validator
 from app.services.ai.ai_provider import ai_provider
 from app.services.ai.image_service import image_service
+from app.services.ai.diagram_synthesizer import diagram_synthesizer
 from app.services.security.guardrails_service import guardrails_service
 from app.db.repositories.learning_repo import learning_repo
 from app.schemas.chat import (
@@ -49,11 +51,18 @@ CORE REASONING & INTERACTION RULES:
    - `generate_diagram`: Generate an educational 2D scientific concept diagram or visual study illustration for a topic (e.g. when the user asks for a diagram, image diagram, illustration, or visual study card).
    - `get_learning_profile`: Inspect student's personal mastery score, weak topics, strong topics, and study progress.
    - `generate_weakness_review`: Generate an adaptive remedial study deck focused specifically on topics and questions the student struggled with or missed.
-3. VISUAL DIAGRAMS & ILLUSTRATIONS:
-   - When the user asks for a diagram, image diagram, illustration, or visual explanation (e.g. "generate me an image diagram of...", "can you generate a diagram of X", "diagram of Y", or just "diagram"):
-   - Identify the primary topic AND any specific sub-topics, custom values, or user requirements (e.g. "electrical conduction system", "heart valves only", "BST with values 50, 30, 70", "array slicing with step").
-   - Immediately call `generate_diagram` with `topic=<topic>`, `requirements=<specific sub-topic or user requirements>`, `diagram_prompt=<detailed visual description of the clean 2D educational diagram>`, and `explanation=<concept summary>`.
-   - If the user says "diagram" without specifying a topic, use the previous concept discussed or choose a high-yield computer science or biological topic (e.g. Binary Search Tree or Photosynthesis).
+3. VISUAL IMAGES, DIAGRAMS & ILLUSTRATIONS:
+   - Momo CAN and MUST generate educational images, concept diagrams, and visual illustrations!
+   - Whenever the user asks to generate, create, provide, show, draw, or make an image, diagram, picture, or visual study aid (e.g. "generate an image of...", "create an image", "create a image", "provide an image", "can you provide the image", "draw me a diagram", "show an image of X", "can you create an image"):
+     * NEVER say you cannot create images or cannot provide images! You have the `generate_diagram` tool specifically to produce educational visual images and diagrams!
+     * Immediately call `generate_diagram` with `topic=<topic>`, `requirements=<specific sub-topic or user requirements>`, `diagram_prompt=<detailed visual description of the clean 2D educational diagram>`, and `explanation=<concept summary>`.
+     * In the message with the generated image, DO NOT include lengthy lecture paragraphs or full explanations. Keep the accompanying message concise (e.g. "Visual concept diagram: **Topic**").
+     * Keep in-depth details, step-by-step breakdowns, and deep dives for follow-up chats or when the user asks for details.
+     * Provide helpful follow-up quick replies so the user can easily ask for details on the next turn.
+   - When the user asks a follow-up about the diagram (e.g. "Explain this diagram in detail", "Break down the steps of this diagram", "Tell me more about this diagram"):
+     * Do NOT generate another diagram!
+     * Synthesize a comprehensive, high-yield explanation breaking down the structures, mechanism, flow, and exam takeaways in that follow-up response.
+   - If the user asks for an image or diagram without specifying a topic (e.g. "generate an image", "create a image", "can you provide an image"), use the previous concept discussed or choose a high-yield computer science or biological topic (e.g. Binary Search Tree or Human Heart Anatomy).
 4. SELF-LEARNING & ADAPTIVE STUDY COMPANION:
    - Momo autonomously tracks student accuracy, mastery score, and weak spots.
    - When the user asks "how am I doing?", "what should I study?", "what are my weak spots?", or "how is my progress?", call `get_learning_profile`.
@@ -206,13 +215,13 @@ CHAT_TOOLS = [
         "type": "function",
         "function": {
             "name": "generate_diagram",
-            "description": "Generate an educational 2D scientific concept diagram or visual study illustration for a topic.",
+            "description": "Generate an educational image, visual concept diagram, scientific illustration, or concept chart for any topic or concept. Always call this tool whenever the user asks to see, generate, draw, create, or provide an image, diagram, picture, visual aid, or illustration (e.g. 'generate an image', 'create an image', 'provide an image', 'draw a diagram', 'show me an image', 'cant create an image').",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "topic": {
                         "type": "string",
-                        "description": "The topic or concept to illustrate (e.g. 'Photosynthesis', 'Binary Search Tree', 'Neuron Structure', 'Arrays in Memory')."
+                        "description": "The topic or concept to illustrate (e.g. 'Photosynthesis', 'Binary Search Tree', 'Neuron Structure', 'Arrays in Memory'). If the user does not specify a topic, select the previous topic discussed or choose a foundational science/computing topic like 'Binary Search Tree' or 'Human Heart Anatomy'."
                     },
                     "requirements": {
                         "type": "string",
@@ -268,10 +277,18 @@ class ChatService:
     async def execute_tool(
         self,
         tool_name: str,
-        arguments: Dict[str, Any],
+        arguments: Any,
         user_id: str,
         context_document_id: Optional[str] = None
     ) -> Dict[str, Any]:
+        if isinstance(arguments, str):
+            try:
+                arguments = json.loads(arguments)
+            except Exception:
+                arguments = {}
+        elif not isinstance(arguments, dict):
+            arguments = {}
+
         logger.info(f"Executing chat tool: {tool_name} with args: {arguments}")
 
         if tool_name == "list_user_documents":
@@ -517,6 +534,12 @@ High-yield exam principles in {topic_title} prioritize foundational terminology,
                 requirements=requirements
             )
             img_b64 = img_result.get("image_base64")
+            spec = diagram_synthesizer.get_diagram_spec(
+                topic=topic,
+                prompt=diag_prompt,
+                requirements=requirements,
+                context=doc_context
+            )
 
             return {
                 "topic": topic,
@@ -527,6 +550,8 @@ High-yield exam principles in {topic_title} prioritize foundational terminology,
                 "difficulty": "medium",
                 "diagram_prompt": diag_prompt,
                 "image_base64": img_b64,
+                "elements": [{"label": e.label, "subtext": e.subtext, "badge": e.badge} for e in spec.elements],
+                "key_takeaways": spec.key_takeaways,
                 "status": "READY_TO_IMPORT"
             }
 
@@ -629,6 +654,51 @@ High-yield exam principles in {topic_title} prioritize foundational terminology,
 
         return {"error": "UNKNOWN_TOOL", "message": f"Tool '{tool_name}' is not supported."}
 
+    def _extract_diagram_topic(self, user_text: str, messages: List[Dict[str, Any]]) -> str:
+        u_lower = user_text.lower()
+        GENERIC_DIAGRAM_FILLERS = {
+            "me", "us", "this", "it", "a", "an", "the", "image", "diagram", "image diagram",
+            "generate", "make", "draw", "show", "just", "visual", "concept", "scientific",
+            "educational", "an educational", "a diagram", "scientific diagram", "concept diagram",
+            "illustration", "photo", "drawing", "picture", "detailed", "vector", "can", "you",
+            "please", "could", "would", "i", "ask", "ai", "to", "or", "and", "but", "if", "so",
+            "something", "anything", "study", "educational diagram", "an educational diagram", "study diagram",
+            "chat", "agent", "cant", "can't", "provide", "give", "create", "want", "need",
+            "know", "test", "example", "now", "here", "still", "not", "working", "unable",
+            "create a image", "create an image", "provide the image", "provide an image",
+            "with", "without", "in", "at", "by", "from", "on", "of", "about", "for", "as", "is", "are", "was", "were"
+        }
+        # 1. Prepositional match: "diagram of X", "image on Y"
+        match = re.search(r"(?:of|on|about|for|illustrating|depicting|showing)\s+([a-zA-Z0-9\s,\-]+?)(?:from|\.|\?|$)", user_text, re.IGNORECASE)
+        if match:
+            cand = match.group(1).strip()
+            # Strip leading articles or filler words from candidate topic
+            cand = re.sub(r"^(?:an?\s+|the\s+|educational\s+|scientific\s+)+", "", cand, flags=re.IGNORECASE).strip()
+            if cand.lower() not in GENERIC_DIAGRAM_FILLERS and len(cand) >= 3:
+                return cand.title()
+
+        # 2. Noise removal
+        clean = re.sub(
+            r"\b(image|diagram|generate|make|draw|show|me|us|a|an|the|just|visual|concept|scientific|educational|detailed|detail|illustration|photo|picture|drawing|please|can|could|you|would|i|ask|ai|to|or|and|but|if|so|of|on|about|for|cant|can't|provide|agent|chat|create|give|want|need|is|are|was|were|as|in|at|by|from|with|without|not|unable|explain|explaining|break|down|tell|walk|through|step|steps|more|key)\b",
+            "",
+            u_lower
+        ).strip()
+        clean = re.sub(r"[^\w\s]", " ", clean).strip()
+        clean = re.sub(r"\s+", " ", clean)
+        if clean and clean.lower() not in GENERIC_DIAGRAM_FILLERS and len(clean) >= 3:
+            return clean.title()
+
+        # 3. Check conversation history
+        for prev_m in reversed(messages):
+            c = prev_m.get("content", "")
+            bold_m = re.search(r"\*\*([a-zA-Z0-9\s]{3,35}?)\*\*", c)
+            if bold_m:
+                cand_prev = bold_m.group(1).strip()
+                if cand_prev.lower() not in GENERIC_DIAGRAM_FILLERS and len(cand_prev) >= 3:
+                    return cand_prev.title()
+
+        return "Binary Search Tree"
+
     async def send_message(
         self,
         session_id: str,
@@ -681,7 +751,68 @@ High-yield exam principles in {topic_title} prioritize foundational terminology,
         raw_msgs = await chat_repo.get_messages(session_id, user_id, limit=12)
         api_messages = [{"role": m["role"], "content": m["content"]} for m in raw_msgs]
 
-        # 3. First AI Provider Turn
+        # 4. Check if user is asking to explain or break down an existing diagram
+        user_lower = guardrail_check.sanitized_text.lower()
+        explain_diagram_keywords = [
+            "explain this diagram", "explain the diagram", "break down the diagram",
+            "break down this diagram", "tell me about this diagram", "walk me through this diagram",
+            "what does this diagram show", "explain the steps", "diagram in detail",
+            "explain in detail", "break down the key steps", "tell me more about this diagram",
+            "explain this", "explain the image", "break down the image"
+        ]
+        is_explain_request = any(k in user_lower for k in explain_diagram_keywords)
+
+        if is_explain_request:
+            exp_topic = self._extract_diagram_topic(guardrail_check.sanitized_text, api_messages)
+            curated_spec = diagram_synthesizer.find_curated_spec(exp_topic, "")
+            topic_label = curated_spec.title if curated_spec else exp_topic
+            if curated_spec:
+                elem_lines = []
+                for el in curated_spec.elements:
+                    badge_str = f" `[{el.badge}]`" if el.badge else ""
+                    elem_lines.append(f"- **{el.label}**{badge_str}: {el.subtext}")
+                takeaway_str = "\n".join(f"- {t}" for t in curated_spec.key_takeaways)
+                exp_content = (
+                    f"### In-Depth Breakdown: {curated_spec.title}\n\n"
+                    f"**Core Mechanism & Architecture:**\n{curated_spec.subtitle}\n\n"
+                    f"**Key Structural Components:**\n" + "\n".join(elem_lines) + "\n\n"
+                    f"**High-Yield Exam Takeaways:**\n{takeaway_str}\n\n"
+                    f"Would you like me to quiz you on this diagram or build a practice flashcard set?"
+                )
+            else:
+                exp_content = (
+                    f"### In-Depth Breakdown: {exp_topic}\n\n"
+                    f"**1. Core Mechanism & Architecture:**\n"
+                    f"{exp_topic} operates as a foundational mechanism, ensuring structural stability, high throughput, and reliable execution.\n\n"
+                    f"**2. Key Structural Components & Flow:**\n"
+                    f"The process initiates at the primary input stage, undergoes intermediate transformation, and yields a stabilized output governed by feedback controls.\n\n"
+                    f"**3. High-Yield Exam Takeaways:**\n"
+                    f"Questions on {exp_topic} typically focus on causal relationships and key algorithmic/physiological properties.\n\n"
+                    f"Would you like to practice 5 questions on {exp_topic}?"
+                )
+            exp_content = guardrails_service.sanitize_model_output(exp_content)
+            saved_msg = await chat_repo.add_message(
+                session_id=session_id,
+                user_id=user_id,
+                role="assistant",
+                content=exp_content,
+                quick_replies=[f"Quiz me on {topic_label}", f"Create 10-card {topic_label} deck", "Show study sets"]
+            )
+            return ChatMessageResponse(
+                id=saved_msg["id"],
+                session_id=session_id,
+                user_id=user_id,
+                role="assistant",
+                content=exp_content,
+                citations=None,
+                created_deck=None,
+                study_card=None,
+                quick_replies=[f"Quiz me on {topic_label}", f"Create 10-card {topic_label} deck", "Show study sets"],
+                tool_calls=None,
+                created_at=saved_msg["created_at"]
+            )
+
+        # 5. First AI Provider Turn
         ai_resp = await ai_provider.chat_agent(
             system_instruction=MOMO_SYSTEM_PROMPT,
             messages=api_messages,
@@ -690,10 +821,52 @@ High-yield exam principles in {topic_title} prioritize foundational terminology,
 
         assistant_content = ai_resp.get("content") or ""
         tool_calls = ai_resp.get("tool_calls")
+
+        # Guard: Check if user requests an image/diagram or if model replied with refusal to produce images
+        has_visual_word = any(w in user_lower for w in ["image", "diagram", "picture", "illustration", "visual", "chart", "figure", "drawing"])
+        has_action_word = any(w in user_lower for w in [
+            "generate", "create", "make", "draw", "show", "provide", "give", "display",
+            "render", "cant", "can't", "can", "need", "want", "ask", "produce"
+        ])
+        is_visual_request = (
+            (has_visual_word and has_action_word) or
+            ("generate a diagram" in user_lower or "draw a diagram" in user_lower or "make a diagram" in user_lower or "create a diagram" in user_lower or "diagram of" in user_lower or user_lower.strip() in {"diagram", "image diagram"}) or
+            ("image" in user_lower and any(w in user_lower for w in ["can", "cant", "can't", "provide", "create", "generate", "show", "make", "need", "want", "draw"]))
+        )
+        has_image_refusal = any(p in assistant_content.lower() for p in [
+            "cannot generate image", "cannot create image", "unable to create image",
+            "cannot provide image", "unable to generate image", "cannot draw",
+            "as an ai text", "i am an ai text", "don't have the ability to create image",
+            "can't create image", "can't generate image", "can't provide image",
+            "cannot produce image", "unable to produce image", "can't make image", "cannot make image",
+            "don't have the capability to create image", "unable to generate diagram", "cannot create diagram"
+        ])
+
+        if (is_visual_request and not tool_calls) or has_image_refusal:
+            logger.info("Enforcing visual diagram generation for visual request or model refusal")
+            diag_topic = self._extract_diagram_topic(guardrail_check.sanitized_text, api_messages)
+            tool_calls = [{
+                "id": f"call-{uuid.uuid4()}",
+                "type": "function",
+                "function": {
+                    "name": "generate_diagram",
+                    "arguments": json.dumps({
+                        "topic": diag_topic,
+                        "requirements": guardrail_check.sanitized_text,
+                        "diagram_prompt": f"2D educational scientific diagram of {diag_topic} with clear annotations and high clarity",
+                        "explanation": f"Visual concept diagram illustrating key structural principles and mechanisms of {diag_topic}."
+                    })
+                }
+            }]
+            assistant_content = ""
+
         executed_tool_records: List[ToolCallRecord] = []
         collected_citations: List[CitationItem] = []
         created_deck_meta: Optional[CreatedDeckMetadata] = None
         study_card_meta: Optional[StudyCardMetadata] = None
+        generated_image_b64: Optional[str] = None
+        diagram_elements: Optional[List[Dict[str, Any]]] = None
+        diagram_takeaways: Optional[List[str]] = None
 
         # 4. Agentic Tool Execution Loop if tools were requested
         if tool_calls:
@@ -741,7 +914,7 @@ High-yield exam principles in {topic_title} prioritize foundational terminology,
                         status="COMPLETED"
                     )
 
-                # Extract study card if generate_study_card or generate_diagram was executed
+                # Extract study card or diagram if generate_study_card or generate_diagram was executed
                 if tool_name in ("generate_study_card", "generate_diagram") and "question" in tool_result:
                     study_card_meta = StudyCardMetadata(
                         question=tool_result["question"],
@@ -755,6 +928,15 @@ High-yield exam principles in {topic_title} prioritize foundational terminology,
                         diagram_prompt=tool_result.get("diagram_prompt"),
                         imported=False
                     )
+                if tool_name == "generate_diagram" and "image_base64" in tool_result:
+                    generated_image_b64 = tool_result.get("image_base64")
+                    diagram_elements = tool_result.get("elements")
+                    diagram_takeaways = tool_result.get("key_takeaways")
+
+                # Sanitize tool result for LLM (never send massive base64 image strings to OpenRouter)
+                tool_result_for_llm = dict(tool_result) if isinstance(tool_result, dict) else tool_result
+                if isinstance(tool_result_for_llm, dict) and "image_base64" in tool_result_for_llm:
+                    tool_result_for_llm = {k: ("<rendered_image_b64>" if k == "image_base64" else v) for k, v in tool_result_for_llm.items()}
 
                 # Append tool result to dialogue
                 api_messages.append({
@@ -766,18 +948,28 @@ High-yield exam principles in {topic_title} prioritize foundational terminology,
                     "role": "tool",
                     "tool_call_id": tc.get("id", str(uuid.uuid4())),
                     "name": tool_name,
-                    "content": json.dumps(tool_result)
+                    "content": json.dumps(tool_result_for_llm)
                 })
 
             # Second AI Provider Turn (synthesize tool result into final friendly answer)
-            final_turn = await ai_provider.chat_agent(
-                system_instruction=MOMO_SYSTEM_PROMPT,
-                messages=api_messages,
-                tools=None
-            )
-            assistant_content = final_turn.get("content") or assistant_content
-            if final_turn.get("quick_replies"):
-                ai_resp["quick_replies"] = final_turn.get("quick_replies")
+            # If a diagram was generated, keep accompanying message concise and avoid redundant LLM latency.
+            if generated_image_b64:
+                top_name = study_card_meta.topic if study_card_meta else "Educational Diagram"
+                assistant_content = f"Visual concept diagram: **{top_name}**"
+                ai_resp["quick_replies"] = [
+                    f"Explain this {top_name} diagram in detail",
+                    f"Break down the key steps",
+                    f"Quiz me on {top_name}"
+                ]
+            else:
+                final_turn = await ai_provider.chat_agent(
+                    system_instruction=MOMO_SYSTEM_PROMPT,
+                    messages=api_messages,
+                    tools=None
+                )
+                assistant_content = final_turn.get("content") or assistant_content
+                if final_turn.get("quick_replies"):
+                    ai_resp["quick_replies"] = final_turn.get("quick_replies")
 
         # 5. Extract quick replies and guarantee assistant_content is friendly and never empty
         collected_quick_replies: Optional[List[str]] = ai_resp.get("quick_replies")
@@ -800,12 +992,27 @@ High-yield exam principles in {topic_title} prioritize foundational terminology,
                 f"- **Upload course material:** If you have class slides or textbook notes you want me to ground this on, you can upload them first.\n\n"
                 f"Should I go ahead and build it with Momo AI now?"
             )
-        elif not assistant_content or not assistant_content.strip():
-            if created_deck_meta:
+        elif not assistant_content or not assistant_content.strip() or (generated_image_b64 and len(assistant_content) > 120):
+            if generated_image_b64:
+                top_name = study_card_meta.topic if study_card_meta else "Educational Diagram"
+                assistant_content = f"Visual concept diagram: **{top_name}**"
+                if not collected_quick_replies:
+                    collected_quick_replies = [
+                        f"Explain this {top_name} diagram in detail",
+                        f"Break down the key steps",
+                        f"Quiz me on {top_name}"
+                    ]
+            elif created_deck_meta:
                 assistant_content = f"I've created your study deck **{created_deck_meta.title}** with {created_deck_meta.item_count} items! You can review the cards below or jump straight into studying."
             elif study_card_meta:
                 if study_card_meta.image_base64:
-                    assistant_content = f"Here is your visual educational diagram on **{study_card_meta.topic or 'your topic'}**! You can tap the diagram to inspect it full screen or tap **Import to Library** to save it to your study cards."
+                    assistant_content = f"Visual concept diagram: **{study_card_meta.topic or 'Educational Diagram'}**"
+                    if not collected_quick_replies:
+                        collected_quick_replies = [
+                            f"Explain this {study_card_meta.topic or 'diagram'} in detail",
+                            f"Break down the key steps",
+                            f"Quiz me on {study_card_meta.topic or 'this diagram'}"
+                        ]
                 else:
                     assistant_content = f"Here is a study card on **{study_card_meta.topic or 'your topic'}**! You can review the prompt and tap **Import to Library** to save it to your study sets."
             elif collected_citations:
@@ -854,6 +1061,7 @@ High-yield exam principles in {topic_title} prioritize foundational terminology,
         created_deck_data = created_deck_meta.model_dump() if created_deck_meta else None
         study_card_data = study_card_meta.model_dump() if study_card_meta else None
         tool_records_data = [t.model_dump() for t in executed_tool_records] if executed_tool_records else None
+        final_image_b64 = generated_image_b64 or (study_card_meta.image_base64 if study_card_meta else None)
 
         saved_msg = await chat_repo.add_message(
             session_id=session_id,
@@ -863,9 +1071,58 @@ High-yield exam principles in {topic_title} prioritize foundational terminology,
             citations=citations_data,
             created_deck=created_deck_data,
             study_card=study_card_data,
+            image_base64=final_image_b64,
             quick_replies=collected_quick_replies,
             tool_calls=tool_records_data
         )
+
+        follow_up_response: Optional[ChatMessageResponse] = None
+        if final_image_b64 and diagram_elements:
+            raw_title = (study_card_meta.topic if study_card_meta else "Topic").title()
+            if raw_title.lower() in {"an educational", "educational", "diagram", "concept", "something", "topic"}:
+                top_title = "Educational Concept"
+            else:
+                top_title = raw_title
+
+            detail_lines = [f"### {top_title} - Key Concepts & Details\n", "**Core Structural Breakdown:**"]
+            for el in diagram_elements:
+                lbl = el.get("label", "")
+                clean_lbl = re.sub(r"^\d+\.\s*", "", lbl)
+                sub = el.get("subtext", "")
+                bdg = el.get("badge", "")
+                bdg_tag = f" [{bdg}]" if bdg else ""
+                detail_lines.append(f"- **{clean_lbl}**{bdg_tag}: {sub}")
+
+            if diagram_takeaways:
+                detail_lines.append("\n**High-Yield Exam Takeaways:**")
+                for tk in diagram_takeaways:
+                    detail_lines.append(f"- {tk}")
+
+            follow_up_content = "\n".join(detail_lines)
+            follow_up_content = guardrails_service.sanitize_model_output(follow_up_content)
+
+            follow_up_saved = await chat_repo.add_message(
+                session_id=session_id,
+                user_id=user_id,
+                role="assistant",
+                content=follow_up_content,
+                quick_replies=[
+                    f"Build practice deck on {top_title}",
+                    f"Quiz me on {top_title}"
+                ]
+            )
+            follow_up_response = ChatMessageResponse(
+                id=follow_up_saved["id"],
+                session_id=session_id,
+                user_id=user_id,
+                role="assistant",
+                content=follow_up_content,
+                quick_replies=[
+                    f"Build practice deck on {top_title}",
+                    f"Quiz me on {top_title}"
+                ],
+                created_at=follow_up_saved["created_at"]
+            )
 
         return ChatMessageResponse(
             id=saved_msg["id"],
@@ -876,8 +1133,10 @@ High-yield exam principles in {topic_title} prioritize foundational terminology,
             citations=collected_citations if collected_citations else None,
             created_deck=created_deck_meta,
             study_card=study_card_meta,
+            image_base64=final_image_b64,
             quick_replies=collected_quick_replies,
             tool_calls=executed_tool_records if executed_tool_records else None,
+            follow_up_message=follow_up_response,
             created_at=saved_msg["created_at"]
         )
 

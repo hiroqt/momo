@@ -48,7 +48,7 @@ export async function apiFetch<T>(endpoint: string, options: RequestInit = {}): 
   }
 
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 20000);
+  const timeoutId = setTimeout(() => controller.abort(), 60000);
 
   try {
     const response = await fetch(url, {
@@ -70,8 +70,8 @@ export async function apiFetch<T>(endpoint: string, options: RequestInit = {}): 
 
     return response.json();
   } catch (error: any) {
-    if (error?.name === 'AbortError') {
-      throw new Error(`[TIMEOUT] Request to ${url} timed out. Check backend connection.`);
+    if (error?.name === 'AbortError' || error?.message?.includes('FetchRequestCanceledException')) {
+      throw new Error(`[TIMEOUT] Request to ${url} timed out or was canceled. Check backend connection.`);
     }
     throw error;
   } finally {

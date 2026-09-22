@@ -30,6 +30,12 @@ class Settings(BaseSettings):
     MAX_FILE_SIZE_MB: int = 15
     MAX_PAGE_COUNT: int = 50
 
+    # Rate Limiting (Requests per minute per user/IP)
+    RATE_LIMIT_CHAT_PER_MINUTE: int = 20
+    RATE_LIMIT_GENERATION_PER_MINUTE: int = 5
+    RATE_LIMIT_MATH_PER_MINUTE: int = 10
+    RATE_LIMIT_GLOBAL_PER_MINUTE: int = 60
+
     # Environment
     ENVIRONMENT: str = "development"
 

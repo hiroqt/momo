@@ -116,6 +116,20 @@ class LocalDatabase {
     const idSet = new Set(eventIds);
     this.syncQueue = this.syncQueue.filter((e) => !idSet.has(e.event_id));
   }
+
+  private chatMessages: Map<string, any[]> = new Map();
+
+  async saveChatMessages(sessionId: string, messages: any[]): Promise<void> {
+    this.chatMessages.set(sessionId, messages);
+  }
+
+  async getChatMessages(sessionId: string): Promise<any[]> {
+    return this.chatMessages.get(sessionId) || [];
+  }
+
+  async deleteChatMessages(sessionId: string): Promise<void> {
+    this.chatMessages.delete(sessionId);
+  }
 }
 
 export const localDb = new LocalDatabase();

@@ -68,7 +68,7 @@ class ChunksRepository:
         scored_chunks = []
         for c in chunks:
             emb = c.get("embedding")
-            if not emb:
+            if not emb or len(emb) != len(query_vec):
                 score = 0.0
             else:
                 chunk_vec = np.array(emb, dtype=np.float32)
@@ -81,6 +81,56 @@ class ChunksRepository:
 
         scored_chunks.sort(key=lambda x: x[0], reverse=True)
         return [c for score, c in scored_chunks[:top_k]]
+
+    async def search_similar_for_user(
+        self,
+        user_id: str,
+        query_embedding: List[float],
+        top_k: int = 10,
+        document_id: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
+        if document_id:
+            return await self.search_similar(
+                document_id=document_id,
+                query_embedding=query_embedding,
+                top_k=top_k
+            )
+
+        all_chunks: List[Dict[str, Any]] = []
+        if supabase_session.is_configured and supabase_session.client:
+            try:
+                resp = supabase_session.client.table("document_chunks").select("*").eq("user_id", user_id).execute()
+                all_chunks = resp.data or []
+            except Exception as e:
+                logger.warning(f"Supabase error searching chunks for user: {e}")
+
+        if not all_chunks:
+            for doc_chunks in self._store.values():
+                for c in doc_chunks:
+                    if c.get("user_id") == user_id:
+                        all_chunks.append(c)
+
+        if not all_chunks:
+            return []
+
+        query_vec = np.array(query_embedding, dtype=np.float32)
+        q_norm = np.linalg.norm(query_vec)
+        if q_norm == 0:
+            return all_chunks[:top_k]
+
+        scored = []
+        for c in all_chunks:
+            emb = c.get("embedding")
+            if not emb or len(emb) != len(query_vec):
+                score = 0.0
+            else:
+                c_vec = np.array(emb, dtype=np.float32)
+                c_norm = np.linalg.norm(c_vec)
+                score = float(np.dot(query_vec, c_vec) / (q_norm * c_norm)) if c_norm > 0 else 0.0
+            scored.append((score, c))
+
+        scored.sort(key=lambda x: x[0], reverse=True)
+        return [c for _, c in scored[:top_k]]
 
     async def delete_by_document_id(self, document_id: str, user_id: Optional[str] = None):
         if supabase_session.is_configured and supabase_session.client:

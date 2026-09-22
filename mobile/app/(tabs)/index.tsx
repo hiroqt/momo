@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import {
-  colors, spacing, typography } from '@/constants/theme';
+import { colors, spacing, typography } from '@/constants/theme';
 import {
   View,
   StyleSheet,
@@ -25,6 +24,9 @@ import {
   Upload01Icon,
   Coins01Icon,
   Share01Icon,
+  AiChat02Icon,
+  Camera01Icon,
+  Add01Icon,
 } from '@hugeicons/core-free-icons';
 import { listStudySets, deleteStudySet, updateStudySet } from '../../lib/api/studySets';
 import { getStreak } from '../../lib/api/stats';
@@ -33,7 +35,6 @@ import { PlatformPressable } from '../../components/common/PlatformPressable';
 import { ConfirmationModal } from '../../components/common/ConfirmationModal';
 import { RenameModal } from '../../components/common/RenameModal';
 import { AcademicWeaponShareModal } from '../../components/social/AcademicWeaponShareModal';
-import { DashboardFAB } from '../../components/common/DashboardFAB';
 import { SmoothScrollView } from '../../components/common/SmoothScrollView';
 import { TabTransitionView } from '../../components/common/TabTransitionView';
 import { StudySet } from '../../types';
@@ -58,6 +59,13 @@ function getFormattedDate(): string {
     day: 'numeric',
   });
 }
+
+const PROMPT_SHORTCUTS = [
+  { label: 'Quiz me on notes', prompt: 'Quiz me on my uploaded notes with multiple choice questions', emoji: '🎯' },
+  { label: 'Explain key concepts', prompt: 'Explain the core concepts from my study materials simply', emoji: '💡' },
+  { label: 'Solve math problem', prompt: 'Help me solve and understand a math problem step-by-step', emoji: '📐' },
+  { label: 'Make 10 flashcards', prompt: 'Build a quick 10-card study deck from my notes', emoji: '⚡' },
+];
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -140,6 +148,8 @@ export default function HomeScreen() {
   };
 
   const featured = sets.length > 0 ? sets[0] : null;
+  // Eliminate card redundancy: Library carousel only renders non-featured sets
+  const otherSets = sets.slice(1);
   const totalCards = sets.reduce((sum, s) => sum + (s.item_count || 0), 0);
 
   const isTablet = isIpad();
@@ -186,99 +196,219 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        {/* Interactive Momo with Chat Bubble */}
-        <View style={styles.momoBannerContainer}>
-          <TouchableOpacity
-            style={styles.momoAvatarBtn}
-            activeOpacity={0.7}
-            onPress={() => {
-              setMomoQuote(getRandomStudyQuote(momoQuote.id));
-              setMomoVisible(true);
-            }}
-          >
-            <DynamicMomoHead quote={momoQuote} size={isTablet ? 160 : 120} />
-          </TouchableOpacity>
+        {/* Day Streak Section - Momo Mascot Caps the Top of the Streak Card */}
+        <View style={styles.streakSection}>
+          {/* Momo Mascot Header Anchor (Capping the Streak Card, Zero Gap, Non-Overlapping) */}
+          <View style={styles.momoMascotAnchorRow}>
+            <TouchableOpacity
+              style={styles.momoAvatarBtn}
+              activeOpacity={0.75}
+              onPress={() => {
+                setMomoQuote(getRandomStudyQuote(momoQuote.id));
+                setMomoVisible(true);
+              }}
+              accessibilityLabel="Tap Momo for study tip"
+            >
+              <DynamicMomoHead quote={momoQuote} size={isTablet ? 140 : 105} />
+            </TouchableOpacity>
 
-          {momoVisible && (
-            <View style={styles.chatBubble}>
-              <View style={styles.chatBubbleTailOuter} />
-              <View style={styles.chatBubbleTail} />
+            {momoVisible && (
+              <View style={styles.chatBubble}>
+                <View style={styles.chatBubbleTailOuter} />
+                <View style={styles.chatBubbleTail} />
+                <TouchableOpacity
+                  style={styles.chatBubbleContent}
+                  activeOpacity={0.7}
+                  onPress={() => setMomoQuote(getRandomStudyQuote(momoQuote.id))}
+                >
+                  <Text style={styles.momoTipTitle} numberOfLines={1}>{momoQuote.categoryLabel}</Text>
+                  <Text style={styles.momoTipDesc} numberOfLines={2}>{momoQuote.quote}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.momoCloseBtn} onPress={() => setMomoVisible(false)}>
+                  <Text style={styles.momoCloseText}>✕</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
+
+          {/* Horizontal Streak Timeline */}
+          <View style={styles.streakTimelineContainer}>
+            <View style={styles.streakHeader}>
+              <View>
+                <Text style={styles.streakTitle}>
+                  🔥 {streakData.current_streak} {streakData.current_streak === 1 ? 'Day' : 'Days'} Streak
+                </Text>
+                <Text style={styles.streakSub}>You're on a roll!</Text>
+              </View>
               <TouchableOpacity
-                style={styles.chatBubbleContent}
-                activeOpacity={0.7}
-                onPress={() => setMomoQuote(getRandomStudyQuote(momoQuote.id))}
+                style={styles.streakShareBtn}
+                onPress={() => setShowStreakStoryModal(true)}
+                activeOpacity={0.75}
               >
-                <Text style={styles.momoTipTitle} numberOfLines={1}>{momoQuote.categoryLabel}</Text>
-                <Text style={styles.momoTipDesc} numberOfLines={2}>{momoQuote.quote}</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.momoCloseBtn} onPress={() => setMomoVisible(false)}>
-                <Text style={styles.momoCloseText}>✕</Text>
+                <HugeiconsIcon icon={Share01Icon} size={14} color="#EF4444" strokeWidth={2.4} />
+                <Text style={styles.streakShareText}>Share</Text>
               </TouchableOpacity>
             </View>
-          )}
+            <View style={styles.streakDays}>
+              {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((day, idx) => {
+                const today = new Date();
+                const currentDayOfWeek = today.getDay() === 0 ? 6 : today.getDay() - 1;
+                const dateForDay = new Date(today);
+                dateForDay.setDate(today.getDate() - currentDayOfWeek + idx);
+                
+                const yyyy = dateForDay.getFullYear();
+                const mm = String(dateForDay.getMonth() + 1).padStart(2, '0');
+                const dd = String(dateForDay.getDate()).padStart(2, '0');
+                const dateStr = `${yyyy}-${mm}-${dd}`;
+                
+                const isActive = streakData.active_dates.includes(dateStr);
+                const isToday = idx === currentDayOfWeek;
+                
+                return (
+                  <View key={idx} style={styles.streakDayWrapper}>
+                    <View style={[
+                      styles.streakDayCircle,
+                      isActive && !isToday && { backgroundColor: colors.warningSoft },
+                      isToday && { backgroundColor: isActive ? colors.warningAccent : colors.surfaceMuted },
+                      isToday && !isActive && { borderWidth: 1, borderColor: colors.borderStrong }
+                    ]}>
+                      {isActive ? (
+                        <HugeiconsIcon
+                          icon={CheckmarkCircle02Icon}
+                          size={isTablet ? 22 : 16}
+                          color={isToday ? colors.onPrimary : colors.warningAccent}
+                        />
+                      ) : (
+                        <Text style={[
+                          styles.streakDayText,
+                          isToday && { color: colors.text, fontWeight: typography.fontWeight.black }
+                        ]}>{day}</Text>
+                      )}
+                    </View>
+                    <Text style={[
+                      styles.streakDayLabel,
+                      isActive && { color: colors.warningAccent, fontWeight: typography.fontWeight.bold }
+                    ]}>{day}</Text>
+                  </View>
+                );
+              })}
+            </View>
+          </View>
         </View>
 
-        {/* Horizontal Streak Timeline */}
-        <View style={styles.streakTimelineContainer}>
-          <View style={styles.streakHeader}>
-            <View>
-              <Text style={styles.streakTitle}>
-                🔥 {streakData.current_streak} {streakData.current_streak === 1 ? 'Day' : 'Days'} Streak
-              </Text>
-              <Text style={styles.streakSub}>You're on a roll!</Text>
-            </View>
+        {/* Momo AI Tutor Suite */}
+        <View style={styles.momoTutorSection}>
+          {/* Momo AI Tutor Card */}
+          <View style={styles.momoAiWidgetCard}>
             <TouchableOpacity
-              style={styles.streakShareBtn}
-              onPress={() => setShowStreakStoryModal(true)}
-              activeOpacity={0.75}
+              style={styles.momoAiWidgetHeader}
+              onPress={() => router.push('/chat' as any)}
+              activeOpacity={0.85}
+              accessibilityLabel="Open Momo AI chat"
+              accessibilityRole="button"
             >
-              <HugeiconsIcon icon={Share01Icon} size={14} color="#EF4444" strokeWidth={2.4} />
-              <Text style={styles.streakShareText}>Share</Text>
+              <View style={styles.momoAiWidgetTextCol}>
+                <View style={styles.momoAiTagRow}>
+                  <Text style={styles.momoAiWidgetTitle}>Momo AI Tutor</Text>
+                  {/* Clean Grounded AI Badge WITHOUT Sparkle Icon */}
+                  <View style={styles.momoAiGroundedPill}>
+                    <Text style={styles.momoAiGroundedText}>Grounded AI</Text>
+                  </View>
+                </View>
+                <Text style={styles.momoAiWidgetDesc}>
+                  Ask questions from your study materials, generate diagrams, or get instant review help.
+                </Text>
+              </View>
+            </TouchableOpacity>
+
+            {/* Quick Prompt Shortcut Grid (Non-scrolling 2x2 grid) */}
+            <View style={styles.momoPromptGrid}>
+              {PROMPT_SHORTCUTS.map((chip, i) => (
+                <TouchableOpacity
+                  key={i}
+                  style={styles.momoPromptGridItem}
+                  onPress={() => router.push({ pathname: '/chat', params: { initialPrompt: chip.prompt } } as any)}
+                  activeOpacity={0.75}
+                >
+                  <Text style={styles.momoPromptChipEmoji}>{chip.emoji}</Text>
+                  <Text style={styles.momoPromptChipText} numberOfLines={1}>
+                    {chip.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            {/* Bottom Action Bar */}
+            <TouchableOpacity
+              style={styles.momoChatCtaBtn}
+              onPress={() => router.push('/chat' as any)}
+              activeOpacity={0.85}
+            >
+              <View style={styles.momoChatCtaLeft}>
+                <HugeiconsIcon icon={AiChat02Icon} size={18} color="#FFFFFF" strokeWidth={2.2} />
+                <Text style={styles.momoChatCtaText}>Start Chat with Momo</Text>
+              </View>
+              <View style={styles.momoChatCtaArrow}>
+                <HugeiconsIcon icon={ArrowRight01Icon} size={14} color={colors.primary} strokeWidth={2.4} />
+              </View>
             </TouchableOpacity>
           </View>
-          <View style={styles.streakDays}>
-            {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((day, idx) => {
-              const today = new Date();
-              const currentDayOfWeek = today.getDay() === 0 ? 6 : today.getDay() - 1;
-              const dateForDay = new Date(today);
-              dateForDay.setDate(today.getDate() - currentDayOfWeek + idx);
-              
-              const yyyy = dateForDay.getFullYear();
-              const mm = String(dateForDay.getMonth() + 1).padStart(2, '0');
-              const dd = String(dateForDay.getDate()).padStart(2, '0');
-              const dateStr = `${yyyy}-${mm}-${dd}`;
-              
-              const isActive = streakData.active_dates.includes(dateStr);
-              const isToday = idx === currentDayOfWeek;
-              
-              return (
-                <View key={idx} style={styles.streakDayWrapper}>
-                  <View style={[
-                    styles.streakDayCircle,
-                    isActive && !isToday && { backgroundColor: colors.warningSoft },
-                    isToday && { backgroundColor: isActive ? colors.warningAccent : colors.surfaceMuted },
-                    isToday && !isActive && { borderWidth: 1, borderColor: colors.borderStrong }
-                  ]}>
-                    {isActive ? (
-                      <HugeiconsIcon
-                        icon={CheckmarkCircle02Icon}
-                        size={isTablet ? 22 : 16}
-                        color={isToday ? colors.onPrimary : colors.warningAccent}
-                      />
-                    ) : (
-                      <Text style={[
-                        styles.streakDayText,
-                        isToday && { color: colors.text, fontWeight: typography.fontWeight.black }
-                      ]}>{day}</Text>
-                    )}
-                  </View>
-                  <Text style={[
-                    styles.streakDayLabel,
-                    isActive && { color: colors.warningAccent, fontWeight: typography.fontWeight.bold }
-                  ]}>{day}</Text>
+        </View>
+
+        {/* Prominent AI Study Tools Suite */}
+        <View style={styles.aiCardsSection}>
+          <View style={styles.aiCardsSectionHeader}>
+            <Text style={styles.sectionTitle}>AI Study Tools</Text>
+            {/* Clean AI Powered Badge WITHOUT Sparkle Icon */}
+            <View style={styles.aiSectionBadge}>
+              <Text style={styles.aiSectionBadgeText}>AI Powered</Text>
+            </View>
+          </View>
+
+          <View style={styles.aiCardsGrid}>
+            {/* Card 1: AI Math & Problem Solver */}
+            <TouchableOpacity
+              style={[styles.aiFeatureCard, styles.aiMathCard]}
+              onPress={() => router.push('/math/solve')}
+              activeOpacity={0.82}
+            >
+              <View style={styles.aiCardTopRow}>
+                <View style={styles.aiMathIconWrap}>
+                  <HugeiconsIcon icon={Camera01Icon} size={20} color="#D97706" strokeWidth={2.4} />
                 </View>
-              );
-            })}
+                <View style={[styles.aiPillBadge, { backgroundColor: '#FEF3C7' }]}>
+                  <Text style={[styles.aiPillText, { color: '#B45309' }]}>Vision AI</Text>
+                </View>
+              </View>
+              <Text style={styles.aiCardTitle}>Solve a Problem</Text>
+              <Text style={styles.aiCardSub}>Snap photo or enter equation for instant breakdown</Text>
+              <View style={styles.aiCardFooter}>
+                <Text style={[styles.aiCardActionText, { color: '#D97706' }]}>Scan now</Text>
+                <HugeiconsIcon icon={ArrowRight01Icon} size={14} color="#D97706" />
+              </View>
+            </TouchableOpacity>
+
+            {/* Card 2: AI Document Reviewer */}
+            <TouchableOpacity
+              style={[styles.aiFeatureCard, styles.aiUploadCard]}
+              onPress={() => router.push('/documents/upload')}
+              activeOpacity={0.82}
+            >
+              <View style={styles.aiCardTopRow}>
+                <View style={styles.aiUploadIconWrap}>
+                  <HugeiconsIcon icon={Upload01Icon} size={20} color="#059669" strokeWidth={2.4} />
+                </View>
+                <View style={[styles.aiPillBadge, { backgroundColor: '#D1FAE5' }]}>
+                  <Text style={[styles.aiPillText, { color: '#047857' }]}>Doc → Decks</Text>
+                </View>
+              </View>
+              <Text style={styles.aiCardTitle}>Generate Reviewer</Text>
+              <Text style={styles.aiCardSub}>Upload PDF, DOCX, PPTX for instant flashcards & quiz</Text>
+              <View style={styles.aiCardFooter}>
+                <Text style={[styles.aiCardActionText, { color: '#059669' }]}>Upload file</Text>
+                <HugeiconsIcon icon={ArrowRight01Icon} size={14} color="#059669" />
+              </View>
+            </TouchableOpacity>
           </View>
         </View>
 
@@ -294,7 +424,7 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        {/* Resume Study Widget */}
+        {/* Resume Study Widget - Active Deck */}
         {featured ? (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Resume Study</Text>
@@ -345,7 +475,7 @@ export default function HomeScreen() {
           </View>
         ) : null}
 
-        {/* Library Carousel Widget */}
+        {/* Library Carousel Widget - Non-Redundant (Shows other decks or invite card) */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Your Library</Text>
@@ -359,7 +489,7 @@ export default function HomeScreen() {
 
           {sets.length === 0 ? (
             <SampleDeckCard onDeckSeeded={loadData} />
-          ) : (
+          ) : otherSets.length > 0 ? (
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
@@ -367,7 +497,7 @@ export default function HomeScreen() {
               snapToInterval={(isTablet ? 420 : 280) + spacing[12]}
               decelerationRate="fast"
             >
-              {sets.map((s) => (
+              {otherSets.map((s) => (
                 <TouchableOpacity
                   key={s.id}
                   style={styles.carouselCard}
@@ -401,17 +531,30 @@ export default function HomeScreen() {
                 </TouchableOpacity>
               ))}
             </ScrollView>
+          ) : (
+            <TouchableOpacity
+              style={styles.createDeckPromptCard}
+              onPress={() => router.push('/documents/upload')}
+              activeOpacity={0.8}
+            >
+              <View style={styles.createDeckPromptLeft}>
+                <View style={styles.createDeckPromptIconCircle}>
+                  <HugeiconsIcon icon={Add01Icon} size={20} color={colors.primary} />
+                </View>
+                <View style={styles.createDeckPromptTextCol}>
+                  <Text style={styles.createDeckPromptTitle}>Add Another Reviewer</Text>
+                  <Text style={styles.createDeckPromptSub}>
+                    Upload more study notes to grow your revision library
+                  </Text>
+                </View>
+              </View>
+              <View style={styles.createDeckPromptArrow}>
+                <HugeiconsIcon icon={ArrowRight01Icon} size={16} color={colors.primary} />
+              </View>
+            </TouchableOpacity>
           )}
         </View>
       </SmoothScrollView>
-
-      {/* Floating Action Button */}
-      <DashboardFAB
-        onUpload={() => router.push('/documents/upload')}
-        onStudySets={() => router.push('/(tabs)/library')}
-        onMathSolve={() => router.push('/math/solve')}
-        studySetsCount={sets.length}
-      />
 
       {/* Modals */}
       <ConfirmationModal
@@ -462,7 +605,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: isPadDevice ? spacing[28] : spacing[20],
+    marginBottom: isPadDevice ? spacing[20] : spacing[14],
   },
   headerTextCol: {
     flex: 1,
@@ -503,45 +646,30 @@ const styles = StyleSheet.create({
     color: colors.text,
     letterSpacing: -0.5,
   },
-  profileBadge: {},
-  avatarMini: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: colors.primarySoft,
-    borderWidth: 2,
-    borderColor: colors.primaryBorder,
-    alignItems: 'center',
-    justifyContent: 'center',
+
+  // Momo AI Tutor Suite (Anchored by Momo Mascot at the top, non-overlapping)
+  momoTutorSection: {
+    marginBottom: 20,
   },
-  avatarMiniText: {
-    fontSize: typography.fontSize[15],
-    fontWeight: typography.fontWeight.bold,
-    color: colors.primary,
-  },
-  momoBannerContainer: {
+  momoMascotAnchorRow: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    height: isPadDevice ? 160 : 120,
-    marginBottom: 0,
-    paddingHorizontal: 2,
-    zIndex: 1,
-    elevation: 1,
+    marginBottom: -1,
+    paddingHorizontal: 6,
+    zIndex: 10,
   },
   momoAvatarBtn: {
-    marginRight: isPadDevice ? 12 : 8,
+    marginRight: isPadDevice ? 14 : 10,
     marginBottom: 0,
     position: 'relative',
     zIndex: 2,
-    elevation: 2,
   },
   chatBubble: {
     flex: 1,
-    height: isPadDevice ? 104 : 80,
-    marginBottom: isPadDevice ? 16 : 12,
+    minHeight: isPadDevice ? 90 : 72,
     backgroundColor: '#FEF3C7',
-    paddingHorizontal: isPadDevice ? 18 : 14,
-    paddingVertical: isPadDevice ? 14 : 10,
+    paddingHorizontal: isPadDevice ? 16 : 12,
+    paddingVertical: isPadDevice ? 12 : 8,
     borderRadius: isPadDevice ? 20 : 16,
     borderWidth: 1,
     borderColor: '#FDE68A',
@@ -549,8 +677,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    zIndex: 1,
-    elevation: 1,
+    marginBottom: 8,
     ...Platform.select({
       ios: {
         shadowColor: '#B45309',
@@ -599,11 +726,11 @@ const styles = StyleSheet.create({
   },
   chatBubbleContent: {
     flex: 1,
-    paddingRight: 8,
+    paddingRight: 6,
     justifyContent: 'center',
   },
   momoTipTitle: {
-    fontSize: isPadDevice ? 14 : 11.5,
+    fontSize: isPadDevice ? 13 : 11,
     fontWeight: '800',
     color: '#92400E',
     marginBottom: 2,
@@ -611,10 +738,10 @@ const styles = StyleSheet.create({
     letterSpacing: 0.3,
   },
   momoTipDesc: {
-    fontSize: isPadDevice ? 15.5 : 12.5,
+    fontSize: isPadDevice ? 14.5 : 12,
     fontWeight: '600',
     color: '#78350F',
-    lineHeight: isPadDevice ? 22 : 17,
+    lineHeight: isPadDevice ? 20 : 16,
   },
   momoCloseBtn: {
     padding: 6,
@@ -625,21 +752,254 @@ const styles = StyleSheet.create({
     color: '#B45309',
     fontWeight: 'bold',
   },
-  streakTimelineContainer: {
-    backgroundColor: colors.surface,
-    borderRadius: isPadDevice ? 22 : 16,
-    padding: isPadDevice ? spacing[22] : spacing[16],
-    marginBottom: isPadDevice ? spacing[20] : spacing[16],
-    borderWidth: 1,
-    borderColor: colors.border,
-    zIndex: 10,
-    elevation: 10,
+
+  // Momo AI Tutor Card (Sitting cleanly below the anchor, non-overlapping)
+  momoAiWidgetCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: isPadDevice ? 26 : 20,
+    paddingHorizontal: isPadDevice ? 22 : 16,
+    paddingTop: isPadDevice ? 20 : 18,
+    paddingBottom: isPadDevice ? 20 : 16,
+    borderWidth: 1.5,
+    borderColor: '#E9D7FE',
+    marginTop: 0,
     ...Platform.select({
       ios: {
-        shadowColor: colors.shadow,
+        shadowColor: colors.primary,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.08,
+        shadowRadius: 12,
+      },
+      android: {
+        elevation: 3,
+      },
+    }),
+  },
+  momoAiWidgetHeader: {
+    marginBottom: 12,
+  },
+  momoAiWidgetTextCol: {
+    width: '100%',
+  },
+  momoAiTagRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
+  momoAiWidgetTitle: {
+    fontSize: isPadDevice ? 19 : 16.5,
+    fontFamily: typography.fontFamily.bold,
+    color: colors.text,
+  },
+  momoAiGroundedPill: {
+    backgroundColor: '#F4EBFF',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+    borderWidth: 0.5,
+    borderColor: '#D6BBFB',
+  },
+  momoAiGroundedText: {
+    fontSize: 10.5,
+    fontFamily: typography.fontFamily.bold,
+    color: colors.primary,
+  },
+  momoAiWidgetDesc: {
+    fontSize: isPadDevice ? 13.5 : 12,
+    fontFamily: typography.fontFamily.regular,
+    color: colors.textSecondary,
+    lineHeight: 17,
+  },
+  momoPromptGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    gap: 8,
+    marginBottom: 14,
+  },
+  momoPromptGridItem: {
+    width: '48.5%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F9FAFB',
+    borderWidth: 1,
+    borderColor: '#EAECF0',
+    paddingHorizontal: 10,
+    paddingVertical: 9,
+    borderRadius: 12,
+    gap: 6,
+  },
+  momoPromptChipEmoji: {
+    fontSize: 13,
+  },
+  momoPromptChipText: {
+    fontSize: isPadDevice ? 13 : 11.5,
+    fontFamily: typography.fontFamily.medium,
+    color: colors.text,
+    flex: 1,
+  },
+  momoChatCtaBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: colors.primary,
+    borderRadius: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  momoChatCtaLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  momoChatCtaText: {
+    fontSize: 14,
+    fontFamily: typography.fontFamily.bold,
+    color: '#FFFFFF',
+  },
+  momoChatCtaArrow: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  // AI Study Tools Grid
+  aiCardsSection: {
+    marginBottom: 20,
+  },
+  aiCardsSectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+  },
+  aiSectionBadge: {
+    backgroundColor: '#F4EBFF',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+    borderWidth: 0.5,
+    borderColor: '#D6BBFB',
+  },
+  aiSectionBadgeText: {
+    fontSize: 11,
+    fontFamily: typography.fontFamily.bold,
+    color: colors.primary,
+  },
+  aiCardsGrid: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  aiFeatureCard: {
+    flex: 1,
+    borderRadius: 16,
+    padding: 14,
+    borderWidth: 1,
+    justifyContent: 'space-between',
+    minHeight: 136,
+    ...Platform.select({
+      ios: {
         shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 8,
+        shadowOpacity: 0.06,
+        shadowRadius: 6,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
+  },
+  aiMathCard: {
+    backgroundColor: '#FFFBEB',
+    borderColor: '#FDE68A',
+    ...Platform.select({
+      ios: { shadowColor: '#D97706' },
+    }),
+  },
+  aiUploadCard: {
+    backgroundColor: '#ECFDF5',
+    borderColor: '#A7F3D0',
+    ...Platform.select({
+      ios: { shadowColor: '#059669' },
+    }),
+  },
+  aiCardTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  aiMathIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#FEF3C7',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  aiUploadIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#D1FAE5',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  aiPillBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  aiPillText: {
+    fontSize: 10,
+    fontFamily: typography.fontFamily.bold,
+  },
+  aiCardTitle: {
+    fontSize: 14.5,
+    fontFamily: typography.fontFamily.bold,
+    color: colors.text,
+    marginBottom: 3,
+  },
+  aiCardSub: {
+    fontSize: 11,
+    fontFamily: typography.fontFamily.regular,
+    color: colors.textSecondary,
+    lineHeight: 15,
+    marginBottom: 8,
+  },
+  aiCardFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  aiCardActionText: {
+    fontSize: 11.5,
+    fontFamily: typography.fontFamily.bold,
+  },
+
+  // Streak Section with Momo Mascot Capping the Top
+  streakSection: {
+    marginBottom: 20,
+  },
+  streakTimelineContainer: {
+    backgroundColor: colors.surface,
+    borderRadius: isPadDevice ? 22 : 18,
+    paddingHorizontal: isPadDevice ? spacing[22] : spacing[16],
+    paddingTop: isPadDevice ? spacing[20] : 16,
+    paddingBottom: isPadDevice ? spacing[20] : 16,
+    marginBottom: 0,
+    marginTop: 0,
+    borderWidth: 1.5,
+    borderColor: '#FDE68A',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#D97706',
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.06,
+        shadowRadius: 10,
       },
       android: {
         elevation: 2,
@@ -694,12 +1054,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  streakDayActive: {
-    backgroundColor: colors.primarySoft,
-  },
-  streakDayToday: {
-    backgroundColor: colors.primary,
-  },
   streakDayText: {
     fontSize: isPadDevice ? typography.fontSize[15] : typography.fontSize[12],
     fontWeight: typography.fontWeight.bold,
@@ -710,19 +1064,17 @@ const styles = StyleSheet.create({
     fontWeight: typography.fontWeight.medium,
     color: colors.textMuted,
   },
-  streakDayLabelActive: {
-    color: colors.primary,
-    fontWeight: typography.fontWeight.bold,
-  },
+
+  // Stats Row
   statsRow: {
     flexDirection: 'row',
     gap: isPadDevice ? spacing[16] : spacing[12],
-    marginBottom: isPadDevice ? spacing[28] : spacing[24],
+    marginBottom: isPadDevice ? spacing[28] : spacing[20],
   },
   statCard: {
     flex: 1,
     backgroundColor: colors.surface,
-    paddingVertical: isPadDevice ? spacing[22] : spacing[16],
+    paddingVertical: isPadDevice ? spacing[20] : spacing[14],
     paddingHorizontal: isPadDevice ? spacing[18] : spacing[12],
     borderRadius: isPadDevice ? 20 : 16,
     alignItems: 'center',
@@ -752,8 +1104,10 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     textTransform: 'uppercase',
   },
+
+  // Section Styles
   section: {
-    marginBottom: isPadDevice ? spacing[32] : spacing[28],
+    marginBottom: isPadDevice ? spacing[32] : spacing[24],
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -766,13 +1120,14 @@ const styles = StyleSheet.create({
     fontWeight: typography.fontWeight.bold,
     color: colors.text,
     letterSpacing: -0.3,
-    marginBottom: spacing[12],
   },
   seeAllText: {
     fontSize: isPadDevice ? typography.fontSize[15] : typography.fontSize[13],
     color: colors.primary,
     fontWeight: typography.fontWeight.semiBold,
   },
+
+  // Resume Widget
   resumeWidget: {
     backgroundColor: colors.primaryDark,
     borderRadius: isPadDevice ? 24 : 20,
@@ -860,6 +1215,8 @@ const styles = StyleSheet.create({
     fontWeight: typography.fontWeight.bold,
     fontSize: isPadDevice ? typography.fontSize[16] : typography.fontSize[14],
   },
+
+  // Carousel
   carouselContainer: {
     gap: isPadDevice ? spacing[16] : spacing[12],
     paddingRight: isPadDevice ? spacing[36] : spacing[18],
@@ -914,34 +1271,55 @@ const styles = StyleSheet.create({
   iconBtn: {
     padding: spacing[2],
   },
-  emptyState: {
-    padding: spacing[32],
-    alignItems: 'center',
-    backgroundColor: colors.surface,
+
+  // Create another deck card (Non-redundant state when 1 deck exists)
+  createDeckPromptCard: {
+    backgroundColor: '#FFFFFF',
     borderRadius: 16,
-    borderWidth: 1,
-    borderColor: colors.border,
+    padding: 16,
+    borderWidth: 1.5,
+    borderColor: '#E9D7FE',
     borderStyle: 'dashed',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
-  emptyIconCircle: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+  createDeckPromptLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    marginRight: 12,
+  },
+  createDeckPromptIconCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: colors.primarySoft,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: spacing[16],
+    marginRight: 12,
   },
-  emptyTitle: {
-    fontSize: typography.fontSize[17],
-    fontWeight: typography.fontWeight.bold,
+  createDeckPromptTextCol: {
+    flex: 1,
+  },
+  createDeckPromptTitle: {
+    fontSize: 14.5,
+    fontFamily: typography.fontFamily.bold,
     color: colors.text,
+    marginBottom: 2,
   },
-  emptySubtitle: {
-    fontSize: typography.fontSize[14],
-    color: colors.textMuted,
-    textAlign: 'center',
-    marginTop: spacing[6],
-    lineHeight: typography.lineHeight[20],
+  createDeckPromptSub: {
+    fontSize: 11.5,
+    fontFamily: typography.fontFamily.regular,
+    color: colors.textSecondary,
+    lineHeight: 16,
+  },
+  createDeckPromptArrow: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: colors.primarySoft,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

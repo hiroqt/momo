@@ -20,7 +20,7 @@ export function DynamicMomoHead({ quote, size = 120 }: DynamicMomoHeadProps) {
     default: source = require('../../assets/animations/thinking_momo.png'); break;
   }
   return (
-    <View style={{ width: size, height: size, justifyContent: 'center', alignItems: 'center' }}>
+    <View style={{ width: size, height: size, justifyContent: 'flex-end', alignItems: 'center' }}>
       <Image source={source} style={{ width: size, height: size }} resizeMode="contain" />
     </View>
   );

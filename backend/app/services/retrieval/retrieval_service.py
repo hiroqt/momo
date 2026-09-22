@@ -65,5 +65,45 @@ class RetrievalService:
 
         return selected_chunks
 
+    async def retrieve_evidence_for_chat(
+        self,
+        user_id: str,
+        query: str,
+        document_id: Optional[str] = None,
+        top_k: int = 8
+    ) -> List[Dict[str, Any]]:
+        from app.db.repositories.documents_repo import documents_repo
+
+        # 1. Embed query
+        query_embedding = await embedding_service.embed_query(query)
+
+        # 2. Vector search for user
+        chunks = await chunks_repo.search_similar_for_user(
+            user_id=user_id,
+            query_embedding=query_embedding,
+            top_k=top_k,
+            document_id=document_id
+        )
+
+        doc_name_cache: Dict[str, str] = {}
+        enriched_results: List[Dict[str, Any]] = []
+
+        for c in chunks:
+            doc_id = c.get("document_id", "")
+            if doc_id and doc_id not in doc_name_cache:
+                doc = await documents_repo.get_by_id(doc_id, user_id)
+                doc_name_cache[doc_id] = doc.get("original_filename") if doc else "Document"
+
+            enriched_results.append({
+                "document_id": doc_id,
+                "document_name": doc_name_cache.get(doc_id, "Document"),
+                "page_start": c.get("page_start"),
+                "page_end": c.get("page_end"),
+                "section": c.get("section") or "General",
+                "content": c.get("content", "")
+            })
+
+        return enriched_results
+
 retrieval_service = RetrievalService()
 

@@ -25,6 +25,7 @@ class StudyItemResponse(BaseModel):
     hint: Optional[str] = None
     options: Optional[List[str]] = None
     difficulty: str = "medium"
+    image_base64: Optional[str] = None
     source_metadata: SourceMetadata
     order_index: int = 0
     created_at: datetime

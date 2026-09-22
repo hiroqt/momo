@@ -26,6 +26,15 @@ class AIProvider(ABC):
     async def solve_math(self, base64_image: str) -> Dict[str, Any]:
         pass
 
+    @abstractmethod
+    async def chat_agent(
+        self,
+        system_instruction: str,
+        messages: List[Dict[str, Any]],
+        tools: Optional[List[Dict[str, Any]]] = None
+    ) -> Dict[str, Any]:
+        pass
+
 def _clean_concept_entity(raw: str, default_topic: str = "Concept") -> str:
     cleaned = raw.strip(" ,;:()[]{}\"'")
     import re
@@ -70,7 +79,10 @@ def _parse_fact_clause(fact: str, default_topic: str):
         " transports ", " enables ", " facilitates ", " stimulates ", " inhibits ",
         " includes ", " requires ", " prevents ", " carries ", " maintains ",
         " synthesizes ", " transmits ", " binds ", " executes ", " manages ",
-        " stores ", " is ", " are "
+        " stores ", " establishes ", " organizes ", " dictates ", " categorizes ",
+        " analyzes ", " contrasts ", " enhances ", " prioritizes ", " governs ",
+        " determines ", " allocates ", " extracts ", " evaluates ", " represents ",
+        " optimizes ", " divides ", " implements ", " allows ", " is ", " are "
     ]
     fact_clean = fact.strip().rstrip(".")
     for v in verbs:
@@ -568,6 +580,572 @@ class MockNemotronProvider(AIProvider):
             "explanation": f"Successfully parsed '{s[:80]}' from your camera."
         }
 
+    async def chat_agent(
+        self,
+        system_instruction: str,
+        messages: List[Dict[str, Any]],
+        tools: Optional[List[Dict[str, Any]]] = None
+    ) -> Dict[str, Any]:
+        import uuid
+
+        last_msg = messages[-1] if messages else {}
+        if last_msg.get("role") == "tool":
+            tool_name = last_msg.get("name", "")
+            raw_content = last_msg.get("content", "")
+            try:
+                data = json.loads(raw_content)
+            except Exception:
+                data = raw_content
+
+            if tool_name == "create_study_deck":
+                if isinstance(data, dict) and data.get("status") == "AWAITING_SOURCE_CHOICE":
+                    t_val = data.get("topic", "this topic")
+                    return {
+                        "content": (
+                            f"I can definitely create a study deck on **{t_val}** for you!\n\n"
+                            f"You don't have an uploaded document for {t_val} in your Library yet.\n\n"
+                            f"**Would you like me to:**\n"
+                            f"- **Build it with Momo AI:** I'll generate a complete, high-yield practice deck covering {t_val} right away.\n"
+                            f"- **Upload course material:** If you have class slides or textbook notes you want me to ground this on, you can upload them first.\n\n"
+                            f"Should I go ahead and build it with Momo AI now?"
+                        ),
+                        "tool_calls": None,
+                        "quick_replies": [f"Let Momo build {t_val} deck", "I'll upload notes"]
+                    }
+                if isinstance(data, dict) and "error" in data:
+                    err_msg = data.get("message", "Could not generate study deck.")
+                    return {
+                        "content": f"I'd love to make that deck for you! However, {err_msg}\n\nOnce you upload notes on this topic in your Library, ask me again and I'll whip up the deck instantly!",
+                        "tool_calls": None
+                    }
+                title = data.get("title", "Study Deck") if isinstance(data, dict) else "Study Deck"
+                count = data.get("item_count", 10) if isinstance(data, dict) else 10
+                return {
+                    "content": f"Your study deck **{title}** with {count} items is ready! You can review the cards below or jump straight into studying.",
+                    "tool_calls": None
+                }
+            elif tool_name == "list_user_documents":
+                docs = data.get("documents", []) if isinstance(data, dict) else (data if isinstance(data, list) else [])
+                if not docs:
+                    return {
+                        "content": "You haven't uploaded any study documents yet. You can upload a PDF, DOCX, or PPTX to get started!",
+                        "tool_calls": None
+                    }
+                doc_lines = [f"- **{d.get('original_filename', 'Document')}** ({d.get('page_count', 0)} pages)" for d in docs]
+                return {
+                    "content": "Here are the study documents you have uploaded:\n\n" + "\n".join(doc_lines) + "\n\nWould you like me to build a study deck from any of these?",
+                    "tool_calls": None
+                }
+            elif tool_name == "search_documents":
+                chunks = data.get("evidence_chunks", []) if isinstance(data, dict) else (data if isinstance(data, list) else [])
+                if not chunks:
+                    return {
+                        "content": "I searched through your notes, but couldn't find specific mention of that topic. Could you check if that concept is in another uploaded document?",
+                        "tool_calls": None
+                    }
+                top_text = chunks[0].get("content", "")
+                doc_title = chunks[0].get("document_name", "your notes")
+                page = chunks[0].get("page_start", 1)
+                return {
+                    "content": f"Based on **{doc_title}** (Page {page}):\n\n{top_text}\n\nLet me know if you'd like me to build a quick quiz or flashcard set on this!",
+                    "tool_calls": None
+                }
+            elif tool_name == "list_study_decks":
+                decks = data.get("study_decks", []) if isinstance(data, dict) else (data if isinstance(data, list) else [])
+                if not decks:
+                    return {
+                        "content": "You don't have any study decks yet. Ask me to make one from your uploaded documents!",
+                        "tool_calls": None
+                    }
+                deck_lines = [f"- **{d.get('title', 'Deck')}** ({d.get('item_count', 0)} items)" for d in decks]
+                return {
+                    "content": "Here are your current study sets:\n\n" + "\n".join(deck_lines),
+                    "tool_calls": None
+                }
+            elif tool_name == "generate_study_card":
+                topic = data.get("topic", "Study Concept") if isinstance(data, dict) else "Study Concept"
+                return {
+                    "content": f"Here is a study card on **{topic}**! You can flip through the front and back below, and tap **Import to Library** to save it to your decks.",
+                    "tool_calls": None
+                }
+            elif tool_name == "generate_diagram":
+                topic = data.get("topic", "Study Diagram") if isinstance(data, dict) else "Study Diagram"
+                return {
+                    "content": f"Here is your visual educational diagram on **{topic}**! You can tap the diagram to inspect it full screen or tap **Import to Library** to save it to your study cards.",
+                    "tool_calls": None
+                }
+            elif tool_name == "get_learning_profile":
+                prof = data.get("learning_profile", {}) if isinstance(data, dict) else {}
+                mastery = prof.get("mastery_score", 0)
+                total = prof.get("total_reviews", 0)
+                weak = prof.get("weak_topics", [])
+                strong = prof.get("strong_topics", [])
+                rec = prof.get("recommended_focus", [])
+
+                lines = [f"### Your Learning Profile\n\n- **Overall Mastery:** {mastery}% across {total} review questions."]
+                if strong:
+                    lines.append(f"- **Strong Concepts:** {', '.join(strong)}")
+                if weak:
+                    lines.append(f"- **Areas to Reinforce:** {', '.join(weak)}")
+                if rec:
+                    lines.append(f"\n**Recommended Next Step:**\n- {rec[0]}")
+                lines.append("\nWould you like me to generate an adaptive review deck targeting your weak areas?")
+                return {
+                    "content": "\n".join(lines),
+                    "tool_calls": None,
+                    "quick_replies": [f"Review {weak[0]}" if weak else "Practice 5 questions", "Show study sets"]
+                }
+            elif tool_name == "generate_weakness_review":
+                title = data.get("title", "Weakness Review Deck") if isinstance(data, dict) else "Weakness Review Deck"
+                count = data.get("item_count", 5) if isinstance(data, dict) else 5
+                topic = data.get("topic", "Targeted Review") if isinstance(data, dict) else "Targeted Review"
+                return {
+                    "content": (
+                        f"I've generated your adaptive remedial deck **{title}** with {count} questions targeting **{topic}**!\n\n"
+                        f"Every question is tailored to solidify the concepts you found challenging. You can jump into studying below."
+                    ),
+                    "tool_calls": None
+                }
+
+        # Otherwise inspect the last user query
+        user_text = ""
+        for m in reversed(messages):
+            if m.get("role") == "user":
+                user_text = m.get("content", "")
+                break
+
+        u_lower = user_text.lower()
+
+        if tools:
+            # 0. Self-Learning Profile Intent (e.g. "how am I doing", "my weak spots", "weak topics", "learning progress", "what should I study")
+            profile_keywords = [
+                "how am i doing", "my progress", "learning profile", "weak spots", "weak topics",
+                "weaknesses", "what are my weaknesses", "what should i study", "study analytics",
+                "mastery score", "my stats", "how am i performing"
+            ]
+            if any(k in u_lower for k in profile_keywords):
+                return {
+                    "content": "",
+                    "tool_calls": [{
+                        "id": f"call-{uuid.uuid4()}",
+                        "type": "function",
+                        "function": {
+                            "name": "get_learning_profile",
+                            "arguments": "{}"
+                        }
+                    }]
+                }
+
+            # 0. Targeted Weakness Review Intent (e.g. "review what I missed", "quiz me on my mistakes", "practice my weak spots")
+            weakness_review_keywords = [
+                "review what i missed", "review what i got wrong", "quiz me on my mistakes",
+                "practice my weaknesses", "review weak spots", "remedial deck", "remedial quiz",
+                "review mistakes", "study what i missed"
+            ]
+            if any(k in u_lower for k in weakness_review_keywords):
+                topic_match = re.search(r"(?:on|about|for)\s+([a-zA-Z0-9\s]+?)(?:from|\.|\?|$)", user_text, re.IGNORECASE)
+                spec_topic = topic_match.group(1).strip().title() if topic_match else None
+                args_dict = {"count": 5}
+                if spec_topic:
+                    args_dict["topic"] = spec_topic
+                return {
+                    "content": "",
+                    "tool_calls": [{
+                        "id": f"call-{uuid.uuid4()}",
+                        "type": "function",
+                        "function": {
+                            "name": "generate_weakness_review",
+                            "arguments": json.dumps(args_dict)
+                        }
+                    }]
+                }
+            # 0a. Diagram Intent (e.g., "generate me a image diagram of...", "can you draw a diagram", "diagram of X", or just "diagram")
+            diagram_keywords = [
+                "image diagram", "diagram", "draw a diagram", "generate a diagram", "make a diagram",
+                "create a diagram", "visual diagram", "concept diagram", "scientific diagram",
+                "illustration of", "draw me a", "show me a diagram"
+            ]
+            if any(k in u_lower for k in diagram_keywords):
+                topic_match = re.search(r"(?:of|on|about|for)\s+([a-zA-Z0-9\s]+?)(?:from|\.|\?|$)", user_text, re.IGNORECASE)
+                diag_topic = None
+                if topic_match:
+                    cand_diag = topic_match.group(1).strip()
+                    if cand_diag.lower() not in {"me", "us", "this", "it", "a diagram", "diagram"}:
+                        diag_topic = cand_diag.title()
+                if not diag_topic:
+                    clean_top = re.sub(r"\b(image|diagram|generate|make|draw|show|me|a|just|visual|concept|please|can|you|of|on|about|for)\b", "", u_lower).strip()
+                    if clean_top and len(clean_top) > 1:
+                        diag_topic = clean_top.title()
+                    else:
+                        # Check previous assistant messages for mentioned topic
+                        prev_topic = None
+                        for prev_m in reversed(messages):
+                            if prev_m.get("role") == "assistant":
+                                bold_m = re.search(r"\*\*([a-zA-Z0-9\s]+?)\*\*", prev_m.get("content", ""))
+                                if bold_m:
+                                    prev_topic = bold_m.group(1).strip()
+                                    break
+                        diag_topic = prev_topic or "Binary Search Tree"
+
+                return {
+                    "content": "",
+                    "tool_calls": [{
+                        "id": f"call-{uuid.uuid4()}",
+                        "type": "function",
+                        "function": {
+                            "name": "generate_diagram",
+                            "arguments": json.dumps({
+                                "topic": diag_topic,
+                                "requirements": user_text,
+                                "diagram_prompt": f"2D educational scientific diagram of {diag_topic} with clear annotations and high clarity",
+                                "explanation": f"Visual concept diagram illustrating key structural components, mechanisms, and flow of {diag_topic}."
+                            })
+                        }
+                    }]
+                }
+
+            # 0b. Single Card / Question Import Intent
+            single_card_keywords = [
+                "a card to import", "card to import", "give me a card", "make a card", "make me a card",
+                "create a card", "single card", "study card", "flashcard to import", "generate a card",
+                "a flashcard", "make a flashcard", "make me a flashcard", "give me a flashcard",
+                "generate a flashcard", "create a flashcard", "one flashcard", "single flashcard",
+                "quiz me", "ask me a question", "give me a question", "single question", "a question on"
+            ]
+            has_count = bool(re.search(r"\b([2-9]|\d{2,})\b", u_lower))
+            is_deck_explicit = any(w in u_lower for w in ["deck", "study set", "reviewer", "practice test", "all cards"])
+            if any(k in u_lower for k in single_card_keywords) and not (has_count or is_deck_explicit):
+                topic_match = re.search(r"(?:on|about|for)\s+([a-zA-Z0-9\s]+?)(?:from|\.|\?|$)", user_text, re.IGNORECASE)
+                if topic_match:
+                    topic_name = topic_match.group(1).strip().title()
+                else:
+                    clean_top = re.sub(r"\b(import|card|give|me|a|to|for|make|generate|flashcard|study|please|can|you|quiz|on|about)\b", "", u_lower).strip()
+                    topic_name = clean_top.title() if clean_top else "Core Study Concept"
+
+                is_mcq = "quiz" in u_lower or "multiple choice" in u_lower
+                if is_mcq:
+                    q_type = "multiple_choice"
+                    correct_ans = f"Regulating and optimizing {topic_name}"
+                    options = [
+                        correct_ans,
+                        f"Inhibiting all active {topic_name} pathways",
+                        f"Passive transport without {topic_name} mediation",
+                        f"Completely degrading {topic_name} precursors"
+                    ]
+                    random.shuffle(options)
+                    q_text = f"Which of the following best describes the key mechanism or primary function of {topic_name}?"
+                    ans_text = correct_ans
+                    exp_text = f"{topic_name} plays a direct and vital role in regulating and driving system efficiency."
+                else:
+                    q_type = "flashcard"
+                    options = None
+                    q_text = f"What is the foundational role and function of {topic_name}?"
+                    ans_text = f"{topic_name} is essential for regulating system dynamics and ensuring high-efficiency operations."
+                    exp_text = f"Source evidence establishes that mastering {topic_name} enables direct application across exam and practical scenarios."
+
+                return {
+                    "content": "",
+                    "tool_calls": [{
+                        "id": f"call-{uuid.uuid4()}",
+                        "type": "function",
+                        "function": {
+                            "name": "generate_study_card",
+                            "arguments": json.dumps({
+                                "topic": topic_name,
+                                "question": q_text,
+                                "answer": ans_text,
+                                "explanation": exp_text,
+                                "question_type": q_type,
+                                "options": options,
+                                "difficulty": "medium"
+                            })
+                        }
+                    }]
+                }
+
+            # 1. Direct "Upload Document" intent
+            if any(k in u_lower for k in ["upload a document", "upload document", "i'll upload", "i will upload", "upload notes", "upload course"]):
+                return {
+                    "content": "Sounds like a great plan! Head over to the **Library** tab to upload your lecture slides, notes, or syllabus (PDF, DOCX, or PPTX). Once uploaded, come right back here and I'll build questions grounded 100% in your notes!",
+                    "tool_calls": None
+                }
+
+            # Parse previous context for deck requirements
+            prior_assistant_msgs = [m for m in messages[:-1] if m.get("role") == "assistant"]
+            is_awaiting_topic = False
+            prev_requested_count = 10
+            prev_requested_types = ["flashcard"]
+
+            if prior_assistant_msgs:
+                last_ast_content = (prior_assistant_msgs[-1].get("content") or "").lower()
+                is_awaiting_topic = any(p in last_ast_content for p in [
+                    "what topic would you like",
+                    "what topic would you like to study",
+                    "how would you like to build it",
+                    "let momo create a topic",
+                    "tell me any topic",
+                    "what would you like to study",
+                    "choose from popular subjects",
+                    "what topic would you like to focus on",
+                    "which topic",
+                    "should i go ahead and build",
+                    "would you like me to:",
+                    "build it with momo ai",
+                    "upload course material",
+                    "you don't have any uploaded documents"
+                ])
+                prior_user_msgs = [m for m in messages[:-1] if m.get("role") == "user"]
+                for pu in reversed(prior_user_msgs):
+                    pu_text = (pu.get("content") or "").lower()
+                    c_match = re.search(r"\b(\d+)\b", pu_text)
+                    if c_match:
+                        prev_requested_count = int(c_match.group(1))
+                        break
+                for pu in reversed(prior_user_msgs):
+                    pu_text = (pu.get("content") or "").lower()
+                    if "flashcard" in pu_text:
+                        prev_requested_types = ["flashcard"]
+                    elif "multiple choice" in pu_text or "mcq" in pu_text:
+                        prev_requested_types = ["multiple_choice"]
+                    elif "true or false" in pu_text or "true/false" in pu_text:
+                        prev_requested_types = ["true_false"]
+                    elif "quiz" in pu_text:
+                        prev_requested_types = ["flashcard", "multiple_choice"]
+
+            # 2. AI Build Confirmation intent ("Let Momo build", "Let the AI build", "Build with AI", "Yes build")
+            ai_build_confirm_keywords = [
+                "let momo build", "let the ai build", "build with ai", "build with momo ai",
+                "yes, build with momo ai", "yes build with momo ai", "yes, build", "yes build",
+                "let ai build", "let momo create", "let ai create", "build it", "create it",
+                "go ahead and build", "build the deck"
+            ]
+            if any(k in u_lower for k in ai_build_confirm_keywords):
+                extracted_topic = None
+                deck_top_match = re.search(r"build\s+(?:the\s+)?([a-zA-Z0-9\s]+?)\s+(?:deck|cards|flashcard)", user_text, re.IGNORECASE)
+                if deck_top_match:
+                    extracted_topic = deck_top_match.group(1).strip()
+                else:
+                    # Scan previous assistant messages for mentioned topic
+                    for prev_m in reversed(messages):
+                        if prev_m.get("role") == "assistant":
+                            bold_m = re.search(r"\*\*([a-zA-Z0-9\s]+?)\*\*", prev_m.get("content", ""))
+                            if bold_m:
+                                extracted_topic = bold_m.group(1).strip()
+                                break
+
+                final_topic = extracted_topic or "Arrays using Python"
+                return {
+                    "content": f"I'm on it! Building your {prev_requested_count}-card study deck on **{final_topic}** with Momo AI now...",
+                    "tool_calls": [
+                        {
+                            "id": f"call_{uuid.uuid4().hex[:8]}",
+                            "type": "function",
+                            "function": {
+                                "name": "create_study_deck",
+                                "arguments": json.dumps({
+                                    "topic": final_topic,
+                                    "count": prev_requested_count,
+                                    "question_types": prev_requested_types,
+                                    "difficulty": "medium",
+                                    "allow_ai_generation": True
+                                })
+                            }
+                        }
+                    ]
+                }
+
+            # 3. Topic response when Momo previously asked what topic to study
+            if is_awaiting_topic and not any(k in u_lower for k in ["upload", "cancel", "nevermind", "stop"]):
+                clean_topic = re.sub(r"^(?:how about|what about|let's do|lets do|topic is|i want|create|generate|on|about|for)\s+", "", user_text, flags=re.IGNORECASE).strip()
+                clean_topic = re.sub(r"[\.!\?]+$", "", clean_topic).strip().title()
+                if not clean_topic:
+                    clean_topic = user_text.strip().title()
+
+                return {
+                    "content": f"I'm on it! Building your {prev_requested_count}-card study deck on **{clean_topic}** with Momo AI now...",
+                    "tool_calls": [
+                        {
+                            "id": f"call_{uuid.uuid4().hex[:8]}",
+                            "type": "function",
+                            "function": {
+                                "name": "create_study_deck",
+                                "arguments": json.dumps({
+                                    "topic": clean_topic,
+                                    "count": prev_requested_count,
+                                    "question_types": prev_requested_types,
+                                    "difficulty": "medium",
+                                    "allow_ai_generation": True
+                                })
+                            }
+                        }
+                    ]
+                }
+
+            # 4. "Let Momo pick a topic" intent
+            if "pick a topic" in u_lower or "choose a topic" in u_lower or "surprise me" in u_lower:
+                return {
+                    "content": (
+                        "I've got a fantastic topic for you! How about **Python Arrays & Lists**?\n\n"
+                        "It covers high-yield exam concepts like zero-based indexing, negative indexing, slice intervals `array[start:stop:step]`, append amortized O(1) complexity, and contiguous memory layout.\n\n"
+                        "Would you like me to generate a 10-card flashcard deck on this?"
+                    ),
+                    "tool_calls": None,
+                    "quick_replies": [
+                        "Let Momo build Python Arrays deck",
+                        "I'll choose another topic"
+                    ]
+                }
+
+            # 5. Deck creation intent
+            deck_keywords = [
+                "deck", "flashcard", "flashcards", "quiz", "exam", "reviewer",
+                "practice test", "generate deck", "build a deck", "create a deck",
+                "make a deck", "make questions", "create questions", "make a quiz", "build a quiz"
+            ]
+            if any(k in u_lower for k in deck_keywords):
+                count_match = re.search(r"\b(\d+)\b", u_lower)
+                count = int(count_match.group(1)) if count_match else 10
+
+                types = []
+                if "flashcard" in u_lower:
+                    types.append("flashcard")
+                if "multiple choice" in u_lower or "mcq" in u_lower:
+                    types.append("multiple_choice")
+                if "true or false" in u_lower or "true/false" in u_lower:
+                    types.append("true_false")
+                if "identification" in u_lower:
+                    types.append("identification")
+                if not types:
+                    types = ["flashcard", "multiple_choice"]
+
+                topic_match = re.search(r"(?:on|about|for)\s+([a-zA-Z0-9\s]+?)(?:from|\.|\?|$)", user_text, re.IGNORECASE)
+                if not topic_match:
+                    topic_match = re.search(r"\b\d+\s+(?:cards?\s+(?:of|on)\s+)?([a-zA-Z0-9\s\+\#\.]+?)\s+(?:flashcards?|deck|quiz|cards?)\b", user_text, re.IGNORECASE)
+
+                if topic_match:
+                    cand_topic = topic_match.group(1).strip().lower()
+                    if cand_topic in {"me", "us", "myself", "now", "free", "today", "tomorrow", "this", "them", "it", "here", "a deck", "deck", "cards", "questions", "quiz", "something", "flashcards"}:
+                        topic_match = None
+
+                # If no topic specified (e.g. "Build a 10-card flashcard deck"), ask user interactively!
+                if not topic_match:
+                    return {
+                        "content": (
+                            f"I'd love to build a {count}-card flashcard deck for you!\n\n"
+                            "**How would you like to build it?**\n"
+                            "- **Let Momo create a topic:** Choose from popular subjects below or tell me any topic you're studying (e.g. Python Arrays, Cell Biology, Calculus)!\n"
+                            "- **Use uploaded notes:** Upload your syllabus or lecture slides to ground all questions strictly in your course materials.\n\n"
+                            "What topic would you like to study?"
+                        ),
+                        "tool_calls": None,
+                        "quick_replies": [
+                            "Python Arrays",
+                            "Cell Biology",
+                            "Let Momo pick a topic",
+                            "Upload a document"
+                        ]
+                    }
+
+                topic = topic_match.group(1).strip().title()
+                is_ai_explicit = any(w in u_lower for w in ["let the ai build", "build with ai", "momo build", "ai build", "without document"])
+
+                return {
+                    "content": f"I'm on it! Building your study set on {topic}...",
+                    "tool_calls": [
+                        {
+                            "id": f"call_{uuid.uuid4().hex[:8]}",
+                            "type": "function",
+                            "function": {
+                                "name": "create_study_deck",
+                                "arguments": json.dumps({
+                                    "topic": topic,
+                                    "count": count,
+                                    "question_types": types,
+                                    "difficulty": "medium",
+                                    "allow_ai_generation": is_ai_explicit
+                                })
+                            }
+                        }
+                    ]
+                }
+
+            # 2. Search notes / study questions intent
+            search_keywords = ["explain", "what is", "what are", "how does", "why do", "define", "summarize", "search", "where does", "tell me about", "does the", "can you find"]
+            if any(k in u_lower for k in search_keywords):
+                return {
+                    "content": f"Looking through your documents for '{user_text}'...",
+                    "tool_calls": [
+                        {
+                            "id": f"call_{uuid.uuid4().hex[:8]}",
+                            "type": "function",
+                            "function": {
+                                "name": "search_documents",
+                                "arguments": json.dumps({"query": user_text})
+                            }
+                        }
+                    ]
+                }
+
+            # 3. Document listing intent
+            doc_keywords = ["what document", "list document", "show document", "what notes do i have", "list notes", "show notes", "what files", "show files", "list files", "which document", "which files"]
+            if any(k in u_lower for k in doc_keywords) or u_lower.strip() in ["documents", "my documents", "my notes", "notes", "files"]:
+                return {
+                    "content": "Checking your uploaded study documents...",
+                    "tool_calls": [
+                        {
+                            "id": f"call_{uuid.uuid4().hex[:8]}",
+                            "type": "function",
+                            "function": {
+                                "name": "list_user_documents",
+                                "arguments": "{}"
+                            }
+                        }
+                    ]
+                }
+
+            # 4. Decks listing intent
+            my_deck_keywords = ["what decks", "my decks", "list decks", "my study sets", "what study sets"]
+            if any(k in u_lower for k in my_deck_keywords):
+                return {
+                    "content": "Checking your study decks...",
+                    "tool_calls": [
+                        {
+                            "id": f"call_{uuid.uuid4().hex[:8]}",
+                            "type": "function",
+                            "function": {
+                                "name": "list_study_decks",
+                                "arguments": "{}"
+                            }
+                        }
+                    ]
+                }
+
+        # Standalone topic detection (e.g. user typed "Java arrays", "Binary search", "Cell Biology")
+        words = user_text.strip().split()
+        if 1 <= len(words) <= 5 and not any(w in u_lower for w in ["hi", "hello", "hey", "sup", "yo", "momo", "bye", "thanks", "thank", "help", "?", "!"]):
+            clean_suggested = user_text.strip().title()
+            return {
+                "content": f"I can definitely help you master **{clean_suggested}**! Would you like me to build a 10-card flashcard deck or a practice quiz for you?",
+                "tool_calls": None,
+                "quick_replies": [
+                    f"Build a 10-card flashcard deck on {clean_suggested}",
+                    f"Create a practice quiz on {clean_suggested}",
+                    f"Explain {clean_suggested}"
+                ]
+            }
+
+        # Conversational fallback
+        if any(w in u_lower for w in ["hi", "hello", "hey", "sup", "yo", "momo"]):
+            return {
+                "content": "Hey there! I'm Momo, your personal AI study buddy. You can ask me questions about your uploaded documents, ask me to summarize topics, or tell me to build flashcard decks and practice quizzes for you. What would you like to study today?",
+                "tool_calls": None
+            }
+
+        return {
+            "content": "I'm here to help you lock in and ace your exams! Ask me any question about your uploaded materials, or say 'Build me a 10-question flashcard deck' to start studying.",
+            "tool_calls": None
+        }
+
 class OpenRouterNemotronProvider(AIProvider):
     """
     OpenRouter implementation calling NVIDIA Nemotron.
@@ -834,6 +1412,14 @@ class OpenRouterNemotronProvider(AIProvider):
                     item["options"].append(ans)
                 random.shuffle(item["options"])
 
+            # Sanitize question, answer, explanation against any leaked secrets
+            from app.services.security.guardrails_service import guardrails_service
+            for k in ["question", "answer", "explanation"]:
+                if isinstance(item.get(k), str):
+                    item[k] = guardrails_service.sanitize_model_output(item[k])
+            if isinstance(item.get("options"), list):
+                item["options"] = [guardrails_service.sanitize_model_output(o) if isinstance(o, str) else o for o in item["options"]]
+
             enriched_items.append(item)
 
         return enriched_items
@@ -975,6 +1561,64 @@ class OpenRouterNemotronProvider(AIProvider):
 
         # Fallback to dynamic solver
         return await self._mock_fallback.solve_math(base64_image)
+
+    async def chat_agent(
+        self,
+        system_instruction: str,
+        messages: List[Dict[str, Any]],
+        tools: Optional[List[Dict[str, Any]]] = None
+    ) -> Dict[str, Any]:
+        headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json",
+            "HTTP-Referer": "https://studyplatform.ai",
+            "X-Title": "AI Study Platform"
+        }
+
+        api_messages = [{"role": "system", "content": system_instruction}]
+        for m in messages:
+            item: Dict[str, Any] = {"role": m.get("role", "user"), "content": m.get("content") or ""}
+            if m.get("role") == "tool":
+                item["tool_call_id"] = m.get("tool_call_id", "")
+                item["name"] = m.get("name", "")
+            elif m.get("tool_calls"):
+                item["tool_calls"] = m["tool_calls"]
+            api_messages.append(item)
+
+        payload: Dict[str, Any] = {
+            "messages": api_messages,
+            "temperature": 0.2
+        }
+        if tools:
+            payload["tools"] = tools
+            payload["tool_choice"] = "auto"
+
+        for model_id in [self.model]:
+            payload["model"] = model_id
+            try:
+                async with httpx.AsyncClient(timeout=15.0) as client:
+                    resp = await client.post(self.url, headers=headers, json=payload)
+                    if resp.status_code == 200:
+                        res_json = resp.json()
+                        choice = res_json.get("choices", [{}])[0]
+                        msg = choice.get("message", {})
+                        content = msg.get("content") or ""
+                        tool_calls = msg.get("tool_calls")
+                        # If tools were not requested or none returned, but content is empty, try fallback
+                        if not tool_calls and not content.strip():
+                            logger.warning(f"Nemotron model {model_id} returned empty content with no tools. Trying fallback.")
+                            continue
+                        return {
+                            "content": content,
+                            "tool_calls": tool_calls
+                        }
+                    else:
+                        logger.warning(f"Nemotron chat model {model_id} returned {resp.status_code}: {resp.text}")
+            except Exception as e:
+                logger.error(f"Failed to call {model_id} in chat_agent: {e}")
+
+        # Fallback to mock provider
+        return await self._mock_fallback.chat_agent(system_instruction, messages, tools)
 
 def get_ai_provider() -> AIProvider:
     key = settings.OPENROUTER_API_KEY

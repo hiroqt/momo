@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef, useCallback } from "react";
 import { colors, spacing, typography } from '@/constants/theme';
 import {
   View,
@@ -8,6 +8,10 @@ import {
   Platform,
   Keyboard,
   useWindowDimensions,
+  TouchableOpacity,
+  TouchableWithoutFeedback,
+  Modal,
+  Easing,
 } from "react-native";
 import Reanimated, {
   useAnimatedStyle,
@@ -25,6 +29,10 @@ import {
   BookOpen01Icon,
   UserCircleIcon,
   Store01Icon,
+  Add01Icon,
+  Upload01Icon,
+  Camera01Icon,
+  ArrowRight01Icon,
 } from "@hugeicons/core-free-icons";
 
 export interface TabConfig {
@@ -54,6 +62,7 @@ export interface FloatingNavBarProps {
   activeIndex?: number;
   progressAnim?: SharedValue<number>;
   onTabPress?: (index: number) => void;
+  onFabAction?: (action: 'upload' | 'solve' | 'studysets') => void;
 }
 
 export const FloatingNavBar: React.FC<FloatingNavBarProps> = ({
@@ -62,14 +71,16 @@ export const FloatingNavBar: React.FC<FloatingNavBarProps> = ({
   activeIndex: customActiveIndex,
   progressAnim,
   onTabPress,
+  onFabAction,
 }) => {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { width: windowWidth } = useWindowDimensions();
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+  const [isFabOpen, setIsFabOpen] = useState(false);
 
   const isTablet = isIpad();
-  const defaultDockWidth = Math.min(windowWidth * 0.9, isTablet ? 620 : 360);
+  const defaultDockWidth = Math.min(windowWidth * 0.92, isTablet ? 620 : 368);
   const [dockWidth, setDockWidth] = useState(defaultDockWidth);
 
   const activeIndex = customActiveIndex !== undefined ? customActiveIndex : (state?.index ?? 0);
@@ -85,6 +96,9 @@ export const FloatingNavBar: React.FC<FloatingNavBarProps> = ({
 
   // Native-driven sliding indicator for standard React Navigation fallback
   const indicatorAnim = useRef(new RNAnimated.Value(effectiveActiveIndex)).current;
+
+  // Drawer slide-up animation value (0 = closed, 1 = open)
+  const fabAnim = useRef(new RNAnimated.Value(0)).current;
 
   // Keyboard show/hide listener to prevent covering input fields
   useEffect(() => {
@@ -103,6 +117,35 @@ export const FloatingNavBar: React.FC<FloatingNavBarProps> = ({
     };
   }, []);
 
+  const openFabMenu = useCallback(() => {
+    setIsFabOpen(true);
+    RNAnimated.spring(fabAnim, {
+      toValue: 1,
+      friction: 8,
+      tension: 50,
+      useNativeDriver: true,
+    }).start();
+  }, [fabAnim]);
+
+  const closeFabMenu = useCallback(() => {
+    RNAnimated.timing(fabAnim, {
+      toValue: 0,
+      duration: 220,
+      easing: Easing.out(Easing.ease),
+      useNativeDriver: true,
+    }).start(() => {
+      setIsFabOpen(false);
+    });
+  }, [fabAnim]);
+
+  const toggleFabMenu = useCallback(() => {
+    if (isFabOpen) {
+      closeFabMenu();
+    } else {
+      openFabMenu();
+    }
+  }, [isFabOpen, openFabMenu, closeFabMenu]);
+
   // Animate fallback indicator smoothly on native driver when active tab changes
   useEffect(() => {
     if (!progressAnim) {
@@ -113,7 +156,7 @@ export const FloatingNavBar: React.FC<FloatingNavBarProps> = ({
         bounciness: 2,
       }).start();
     }
-  }, [effectiveActiveIndex, progressAnim]);
+  }, [effectiveActiveIndex, progressAnim, indicatorAnim]);
 
   if (isKeyboardVisible) {
     return null;
@@ -122,106 +165,320 @@ export const FloatingNavBar: React.FC<FloatingNavBarProps> = ({
   const bottomOffset = isTablet ? insets.bottom + spacing[16] : Math.max(insets.bottom, spacing[12]) + spacing[4];
   const horizontalPadding = isTablet ? spacing[12] : spacing[6];
   const innerWidth = Math.max(dockWidth - horizontalPadding * 2, 60);
-  const tabWidth = innerWidth / TABS.length;
+
+  // 5 slots: Tab 0, Tab 1, Center FAB, Tab 2, Tab 3
+  const slotWidth = innerWidth / 5;
 
   const fallbackTranslateX = indicatorAnim.interpolate({
     inputRange: [0, 1, 2, 3],
     outputRange: [
       horizontalPadding,
-      horizontalPadding + tabWidth,
-      horizontalPadding + tabWidth * 2,
-      horizontalPadding + tabWidth * 3,
+      horizontalPadding + slotWidth,
+      horizontalPadding + slotWidth * 3,
+      horizontalPadding + slotWidth * 4,
     ],
     extrapolate: 'clamp',
   });
 
+  const handleUploadPress = () => {
+    closeFabMenu();
+    if (onFabAction) {
+      onFabAction('upload');
+    } else {
+      router.push('/documents/upload');
+    }
+  };
+
+  const handleMathSolvePress = () => {
+    closeFabMenu();
+    if (onFabAction) {
+      onFabAction('solve');
+    } else {
+      router.push('/math/solve');
+    }
+  };
+
+  const handleStudySetsPress = () => {
+    closeFabMenu();
+    if (onFabAction) {
+      onFabAction('studysets');
+    } else if (onTabPress) {
+      onTabPress(1);
+    } else {
+      router.push('/(tabs)/library');
+    }
+  };
+
+  const handleTabSelect = (tabName: string, targetIndex: number) => {
+    setOptimisticIndex(targetIndex);
+    if (onTabPress) {
+      onTabPress(targetIndex);
+    } else if (navigation && state) {
+      const routeIndex = state?.routes?.findIndex((r: any) => r.name === tabName) ?? targetIndex;
+      const event = navigation.emit({
+        type: "tabPress",
+        target: state.routes[routeIndex]?.key,
+        canPreventDefault: true,
+      });
+
+      if (effectiveActiveIndex !== targetIndex && !event.defaultPrevented) {
+        navigation.navigate(tabName);
+      }
+    }
+  };
+
   return (
-    <View
-      style={[
-        styles.dockWrapper,
-        {
-          bottom: bottomOffset,
-        },
-      ]}
-      pointerEvents="box-none"
-    >
+    <>
       <View
-        style={styles.dockCard}
-        onLayout={(e) => {
-          const width = e.nativeEvent.layout.width;
-          if (width > 0 && Math.abs(width - dockWidth) > 1) {
-            setDockWidth(width);
-          }
-        }}
+        style={[
+          styles.dockWrapper,
+          {
+            bottom: bottomOffset,
+          },
+        ]}
+        pointerEvents="box-none"
       >
-        {/* Hardware-Accelerated Sliding Indicator Pill */}
-        {progressAnim ? (
-          <ReanimatedIndicator
-            progressAnim={progressAnim}
-            tabWidth={tabWidth}
-            horizontalPadding={horizontalPadding}
-          />
-        ) : (
-          <RNAnimated.View
-            pointerEvents="none"
-            style={[
-              styles.slidingIndicator,
-              {
-                width: tabWidth,
-                transform: [{ translateX: fallbackTranslateX }],
-              },
-            ]}
-          />
-        )}
+        <View
+          style={styles.dockCard}
+          onLayout={(e) => {
+            const width = e.nativeEvent.layout.width;
+            if (width > 0 && Math.abs(width - dockWidth) > 1) {
+              setDockWidth(width);
+            }
+          }}
+        >
+          {/* Hardware-Accelerated Sliding Indicator Pill */}
+          {progressAnim ? (
+            <ReanimatedIndicator
+              progressAnim={progressAnim}
+              slotWidth={slotWidth}
+              horizontalPadding={horizontalPadding}
+            />
+          ) : (
+            <RNAnimated.View
+              pointerEvents="none"
+              style={[
+                styles.slidingIndicator,
+                {
+                  width: slotWidth,
+                  transform: [{ translateX: fallbackTranslateX }],
+                },
+              ]}
+            />
+          )}
 
-        {/* Tab Items Row */}
-        <View style={styles.tabsRow}>
-          {TABS.map((tab, idx) => {
-            const pageIndex = TAB_NAME_TO_PAGE_INDEX[tab.name];
-            const isFocused = pageIndex !== undefined && effectiveActiveIndex === pageIndex;
-            return (
-              <TabItem
-                key={tab.name}
-                tab={tab}
-                pageIndex={pageIndex ?? idx}
-                isFocused={isFocused}
-                progressAnim={progressAnim}
-                onPress={() => {
-                  const targetIndex = pageIndex ?? idx;
-                  setOptimisticIndex(targetIndex);
-                  if (onTabPress) {
-                    onTabPress(targetIndex);
-                  } else if (navigation && state) {
-                    const routeIndex = state?.routes?.findIndex((r: any) => r.name === tab.name) ?? idx;
-                    const event = navigation.emit({
-                      type: "tabPress",
-                      target: state.routes[routeIndex]?.key,
-                      canPreventDefault: true,
-                    });
+          {/* 5-Slot Navigation Row */}
+          <View style={styles.tabsRow}>
+            {/* Slot 0: Home (Tab 0) */}
+            <TabItem
+              tab={TABS[0]}
+              pageIndex={0}
+              isFocused={effectiveActiveIndex === 0}
+              progressAnim={progressAnim}
+              onPress={() => handleTabSelect(TABS[0].name, 0)}
+            />
 
-                    if (!isFocused && !event.defaultPrevented) {
-                      navigation.navigate(tab.name);
-                    }
-                  }
-                }}
-              />
-            );
-          })}
+            {/* Slot 1: Library (Tab 1) */}
+            <TabItem
+              tab={TABS[1]}
+              pageIndex={1}
+              isFocused={effectiveActiveIndex === 1}
+              progressAnim={progressAnim}
+              onPress={() => handleTabSelect(TABS[1].name, 1)}
+            />
+
+            {/* Slot 2: CENTER ENHANCED FAB BUTTON */}
+            <CenterFabButton
+              isTablet={isTablet}
+              isOpen={isFabOpen}
+              onPress={toggleFabMenu}
+            />
+
+            {/* Slot 3: Shop (Tab 2) */}
+            <TabItem
+              tab={TABS[2]}
+              pageIndex={2}
+              isFocused={effectiveActiveIndex === 2}
+              progressAnim={progressAnim}
+              onPress={() => handleTabSelect(TABS[2].name, 2)}
+            />
+
+            {/* Slot 4: Profile (Tab 3) */}
+            <TabItem
+              tab={TABS[3]}
+              pageIndex={3}
+              isFocused={effectiveActiveIndex === 3}
+              progressAnim={progressAnim}
+              onPress={() => handleTabSelect(TABS[3].name, 3)}
+            />
+          </View>
         </View>
       </View>
-    </View>
+
+      {/* Action Drawer Sliding Up from Bottom */}
+      <Modal
+        visible={isFabOpen}
+        transparent
+        animationType="none"
+        onRequestClose={closeFabMenu}
+      >
+        <View style={styles.modalRoot}>
+          {/* Dimmed backdrop */}
+          <TouchableWithoutFeedback onPress={closeFabMenu}>
+            <RNAnimated.View
+              style={[
+                styles.modalBackdrop,
+                {
+                  opacity: fabAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [0, 1],
+                  }),
+                },
+              ]}
+            />
+          </TouchableWithoutFeedback>
+
+          {/* Drawer Container Going Up */}
+          <RNAnimated.View
+            style={[
+              styles.drawerCard,
+              {
+                paddingBottom: Math.max(insets.bottom, 20) + 12,
+                transform: [
+                  {
+                    translateY: fabAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [520, 0],
+                    }),
+                  },
+                ],
+              },
+            ]}
+          >
+            {/* Drawer Handle Bar */}
+            <View style={styles.drawerHandleWrap}>
+              <View style={styles.drawerHandleBar} />
+            </View>
+
+            {/* Drawer Header */}
+            <View style={styles.drawerHeader}>
+              <View style={styles.drawerHeaderLeft}>
+                <Text style={styles.drawerTitle}>Create & Study</Text>
+                <Text style={styles.drawerSubtitle}>Choose an action to start learning</Text>
+              </View>
+              <TouchableOpacity
+                style={styles.drawerCloseBtn}
+                onPress={closeFabMenu}
+                activeOpacity={0.7}
+                accessibilityLabel="Close drawer"
+              >
+                <Text style={styles.drawerCloseText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Action Tiles List */}
+            <View style={styles.drawerActionsList}>
+              {/* Tile 1: Upload Document */}
+              <TouchableOpacity
+                style={styles.drawerActionTile}
+                onPress={handleUploadPress}
+                activeOpacity={0.78}
+              >
+                <View style={[styles.drawerActionIconWrap, styles.uploadIconWrap]}>
+                  <HugeiconsIcon icon={Upload01Icon} size={22} color="#059669" strokeWidth={2.4} />
+                </View>
+                <View style={styles.drawerActionTextCol}>
+                  <View style={styles.drawerActionTitleRow}>
+                    <Text style={styles.drawerActionTitle}>Upload Document</Text>
+                    <View style={[styles.drawerBadge, { backgroundColor: '#D1FAE5' }]}>
+                      <Text style={[styles.drawerBadgeText, { color: '#047857' }]}>PDF, DOCX, PPTX</Text>
+                    </View>
+                  </View>
+                  <Text style={styles.drawerActionDesc}>
+                    Turn notes and chapters into grounded flashcards & practice quiz
+                  </Text>
+                </View>
+                <View style={styles.drawerActionArrow}>
+                  <HugeiconsIcon icon={ArrowRight01Icon} size={18} color="#98A2B3" strokeWidth={2.2} />
+                </View>
+              </TouchableOpacity>
+
+              {/* Tile 2: Solve a Problem */}
+              <TouchableOpacity
+                style={styles.drawerActionTile}
+                onPress={handleMathSolvePress}
+                activeOpacity={0.78}
+              >
+                <View style={[styles.drawerActionIconWrap, styles.mathIconWrap]}>
+                  <HugeiconsIcon icon={Camera01Icon} size={22} color="#D97706" strokeWidth={2.4} />
+                </View>
+                <View style={styles.drawerActionTextCol}>
+                  <View style={styles.drawerActionTitleRow}>
+                    <Text style={styles.drawerActionTitle}>Solve a Problem</Text>
+                    <View style={[styles.drawerBadge, { backgroundColor: '#FEF3C7' }]}>
+                      <Text style={[styles.drawerBadgeText, { color: '#B45309' }]}>Vision AI</Text>
+                    </View>
+                  </View>
+                  <Text style={styles.drawerActionDesc}>
+                    Scan an equation or tricky problem for instant step-by-step guidance
+                  </Text>
+                </View>
+                <View style={styles.drawerActionArrow}>
+                  <HugeiconsIcon icon={ArrowRight01Icon} size={18} color="#98A2B3" strokeWidth={2.2} />
+                </View>
+              </TouchableOpacity>
+
+              {/* Tile 3: Study Sets */}
+              <TouchableOpacity
+                style={styles.drawerActionTile}
+                onPress={handleStudySetsPress}
+                activeOpacity={0.78}
+              >
+                <View style={[styles.drawerActionIconWrap, styles.studySetsIconWrap]}>
+                  <HugeiconsIcon icon={BookOpen01Icon} size={22} color={colors.primary} strokeWidth={2.4} />
+                </View>
+                <View style={styles.drawerActionTextCol}>
+                  <View style={styles.drawerActionTitleRow}>
+                    <Text style={styles.drawerActionTitle}>View Study Sets</Text>
+                    <View style={[styles.drawerBadge, { backgroundColor: colors.primarySoft }]}>
+                      <Text style={[styles.drawerBadgeText, { color: colors.primary }]}>Your Library</Text>
+                    </View>
+                  </View>
+                  <Text style={styles.drawerActionDesc}>
+                    Review generated decks, study flashcards, and track quiz streaks
+                  </Text>
+                </View>
+                <View style={styles.drawerActionArrow}>
+                  <HugeiconsIcon icon={ArrowRight01Icon} size={18} color="#98A2B3" strokeWidth={2.2} />
+                </View>
+              </TouchableOpacity>
+            </View>
+          </RNAnimated.View>
+        </View>
+      </Modal>
+    </>
   );
 };
 
 const ReanimatedIndicator: React.FC<{
   progressAnim: SharedValue<number>;
-  tabWidth: number;
+  slotWidth: number;
   horizontalPadding: number;
-}> = ({ progressAnim, tabWidth, horizontalPadding }) => {
+}> = ({ progressAnim, slotWidth, horizontalPadding }) => {
   const animatedStyle = useAnimatedStyle(() => {
     'worklet';
-    const clampedProgress = Math.max(0, Math.min(TABS.length - 1, progressAnim.value));
-    const tx = horizontalPadding + clampedProgress * tabWidth;
+    const clampedProgress = Math.max(0, Math.min(3, progressAnim.value));
+    const tx = interpolate(
+      clampedProgress,
+      [0, 1, 2, 3],
+      [
+        horizontalPadding,
+        horizontalPadding + slotWidth,
+        horizontalPadding + slotWidth * 3,
+        horizontalPadding + slotWidth * 4,
+      ],
+      Extrapolation.CLAMP
+    );
     return {
       transform: [{ translateX: tx }],
     };
@@ -233,11 +490,77 @@ const ReanimatedIndicator: React.FC<{
       style={[
         styles.slidingIndicator,
         {
-          width: tabWidth,
+          width: slotWidth,
         },
         animatedStyle,
       ]}
     />
+  );
+};
+
+interface CenterFabButtonProps {
+  isTablet: boolean;
+  isOpen: boolean;
+  onPress: () => void;
+}
+
+const CenterFabButton: React.FC<CenterFabButtonProps> = ({
+  isTablet,
+  isOpen,
+  onPress,
+}) => {
+  const scaleAnim = useRef(new RNAnimated.Value(1)).current;
+
+  const handlePressIn = () => {
+    RNAnimated.spring(scaleAnim, {
+      toValue: 0.88,
+      useNativeDriver: true,
+      speed: 40,
+      bounciness: 4,
+    }).start();
+  };
+
+  const handlePressOut = () => {
+    RNAnimated.spring(scaleAnim, {
+      toValue: 1,
+      useNativeDriver: true,
+      speed: 30,
+      bounciness: 6,
+    }).start();
+  };
+
+  return (
+    <View style={styles.centerFabSlot}>
+      <RNAnimated.View
+        style={[
+          styles.centerFabWrap,
+          {
+            transform: [{ scale: scaleAnim }],
+          },
+        ]}
+      >
+        <TouchableOpacity
+          style={[
+            styles.centerFabBtn,
+            isTablet && styles.centerFabBtnTablet,
+            isOpen && styles.centerFabBtnOpen,
+          ]}
+          onPress={onPress}
+          onPressIn={handlePressIn}
+          onPressOut={handlePressOut}
+          activeOpacity={0.9}
+          accessibilityLabel="Open creation drawer"
+          accessibilityRole="button"
+        >
+          <HugeiconsIcon
+            icon={Add01Icon}
+            size={isTablet ? 28 : 22}
+            color="#FFFFFF"
+            strokeWidth={2.8}
+          />
+        </TouchableOpacity>
+      </RNAnimated.View>
+    </View>
   );
 };
 
@@ -258,7 +581,7 @@ const TabItem: React.FC<TabItemProps> = ({
 }) => {
   const scaleAnim = useRef(new RNAnimated.Value(1)).current;
   const isTablet = isIpad();
-  const iconSize = isTablet ? 26 : 20;
+  const iconSize = isTablet ? 26 : 19.5;
 
   const handlePressIn = () => {
     RNAnimated.spring(scaleAnim, {
@@ -282,7 +605,10 @@ const TabItem: React.FC<TabItemProps> = ({
   const activeAnimatedStyle = useAnimatedStyle(() => {
     'worklet';
     if (!progressAnim) {
-      return { opacity: isFocused ? 1 : 0 };
+      return {
+        opacity: isFocused ? 1 : 0,
+        transform: [{ scale: isFocused ? 1 : 0.88 }],
+      };
     }
     const dist = Math.abs(progressAnim.value - pageIndex);
     const active = interpolate(
@@ -291,13 +617,25 @@ const TabItem: React.FC<TabItemProps> = ({
       [1, 0],
       Extrapolation.CLAMP
     );
-    return { opacity: active };
+    const scale = interpolate(
+      dist,
+      [0, 0.65],
+      [1, 0.88],
+      Extrapolation.CLAMP
+    );
+    return {
+      opacity: active,
+      transform: [{ scale }],
+    };
   });
 
   const inactiveAnimatedStyle = useAnimatedStyle(() => {
     'worklet';
     if (!progressAnim) {
-      return { opacity: isFocused ? 0 : 1 };
+      return {
+        opacity: isFocused ? 0 : 1,
+        transform: [{ scale: isFocused ? 0.88 : 1 }],
+      };
     }
     const dist = Math.abs(progressAnim.value - pageIndex);
     const active = interpolate(
@@ -306,7 +644,16 @@ const TabItem: React.FC<TabItemProps> = ({
       [1, 0],
       Extrapolation.CLAMP
     );
-    return { opacity: 1 - active };
+    const scale = interpolate(
+      dist,
+      [0, 0.65],
+      [0.88, 1],
+      Extrapolation.CLAMP
+    );
+    return {
+      opacity: 1 - active,
+      transform: [{ scale }],
+    };
   });
 
   return (
@@ -323,10 +670,10 @@ const TabItem: React.FC<TabItemProps> = ({
         accessibilityState={{ selected: isFocused }}
         accessibilityLabel={tab.label}
       >
-        {/* Inactive state (grey icon, muted label) */}
+        {/* Inactive state (grey icon only, centered) */}
         <Reanimated.View
           pointerEvents="none"
-          style={[styles.tabItemInner, inactiveAnimatedStyle]}
+          style={[styles.tabItemInactive, inactiveAnimatedStyle]}
         >
           <HugeiconsIcon
             icon={tab.icon}
@@ -334,15 +681,9 @@ const TabItem: React.FC<TabItemProps> = ({
             color={colors.textMuted}
             strokeWidth={1.8}
           />
-          <Text
-            style={[styles.tabLabel, styles.inactiveTabLabel]}
-            numberOfLines={1}
-          >
-            {tab.label}
-          </Text>
         </Reanimated.View>
 
-        {/* Active state (violet icon, bold primary label) */}
+        {/* Active state (primary icon + full name label) */}
         <Reanimated.View
           pointerEvents="none"
           style={[styles.tabItemInner, styles.tabItemActiveOverlay, activeAnimatedStyle]}
@@ -377,8 +718,8 @@ const styles = StyleSheet.create({
     zIndex: 999,
   },
   dockCard: {
-    width: "90%",
-    maxWidth: isPadDevice ? 620 : 360,
+    width: "92%",
+    maxWidth: isPadDevice ? 620 : 368,
     height: isPadDevice ? 72 : 58,
     backgroundColor: colors.surface,
     borderRadius: isPadDevice ? 36 : 30,
@@ -429,11 +770,15 @@ const styles = StyleSheet.create({
     position: "relative",
     borderRadius: isPadDevice ? 30 : 24,
   },
+  tabItemInactive: {
+    alignItems: "center",
+    justifyContent: "center",
+  },
   tabItemInner: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: isPadDevice ? spacing[8] : spacing[4],
+    gap: isPadDevice ? spacing[8] : spacing[3.5],
   },
   tabItemActiveOverlay: {
     position: "absolute",
@@ -443,15 +788,200 @@ const styles = StyleSheet.create({
     right: 0,
   },
   tabLabel: {
-    fontSize: isPadDevice ? typography.fontSize[15] : typography.fontSize[12],
+    fontSize: isPadDevice ? typography.fontSize[15] : typography.fontSize[11.5],
     letterSpacing: typography.letterSpacing[-0.2],
   },
   activeTabLabel: {
     fontWeight: typography.fontWeight.extraBold,
     color: colors.primary,
   },
-  inactiveTabLabel: {
-    fontWeight: typography.fontWeight.semiBold,
-    color: colors.textMuted,
+
+  // Enhanced Center FAB Button
+  centerFabSlot: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    height: "100%",
+    zIndex: 10,
+  },
+  centerFabWrap: {
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: isPadDevice ? -16 : -12,
+  },
+  centerFabBtn: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: colors.primary,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 2.5,
+    borderColor: "#FFFFFF",
+    ...Platform.select({
+      ios: {
+        shadowColor: colors.primary,
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.4,
+        shadowRadius: 10,
+      },
+      android: {
+        elevation: 10,
+      },
+    }),
+  },
+  centerFabBtnTablet: {
+    width: 62,
+    height: 62,
+    borderRadius: 31,
+  },
+  centerFabBtnOpen: {
+    backgroundColor: colors.text,
+  },
+
+  // Drawer modal styling
+  modalRoot: {
+    flex: 1,
+    justifyContent: "flex-end",
+    position: "relative",
+  },
+  modalBackdrop: {
+    ...StyleSheet.absoluteFill,
+    backgroundColor: 'rgba(15, 23, 42, 0.45)',
+  },
+  drawerCard: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    paddingTop: 10,
+    paddingHorizontal: 20,
+    borderTopWidth: 1,
+    borderColor: '#EAECF0',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#101828',
+        shadowOffset: { width: 0, height: -8 },
+        shadowOpacity: 0.14,
+        shadowRadius: 24,
+      },
+      android: {
+        elevation: 16,
+      },
+    }),
+  },
+  drawerHandleWrap: {
+    alignItems: "center",
+    paddingVertical: 6,
+  },
+  drawerHandleBar: {
+    width: 40,
+    height: 4.5,
+    borderRadius: 2.5,
+    backgroundColor: '#D0D5DD',
+  },
+  drawerHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: 6,
+    marginBottom: 18,
+    paddingHorizontal: 4,
+  },
+  drawerHeaderLeft: {
+    flex: 1,
+  },
+  drawerTitle: {
+    fontSize: 19,
+    fontFamily: typography.fontFamily.bold,
+    color: colors.text,
+    letterSpacing: -0.3,
+  },
+  drawerSubtitle: {
+    fontSize: 12.5,
+    fontFamily: typography.fontFamily.regular,
+    color: colors.textSecondary,
+    marginTop: 2,
+  },
+  drawerCloseBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#F2F4F7',
+    alignItems: "center",
+    justifyContent: "center",
+    marginLeft: 12,
+  },
+  drawerCloseText: {
+    fontSize: 14,
+    fontWeight: "bold",
+    color: '#667085',
+  },
+  drawerActionsList: {
+    gap: 12,
+  },
+  drawerActionTile: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: '#F9FAFB',
+    borderRadius: 18,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#EAECF0',
+  },
+  drawerActionIconWrap: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 14,
+  },
+  uploadIconWrap: {
+    backgroundColor: '#ECFDF5',
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
+  },
+  mathIconWrap: {
+    backgroundColor: '#FFFBEB',
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+  },
+  studySetsIconWrap: {
+    backgroundColor: '#F4EBFF',
+    borderWidth: 1,
+    borderColor: '#D6BBFB',
+  },
+  drawerActionTextCol: {
+    flex: 1,
+  },
+  drawerActionTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 3,
+  },
+  drawerActionTitle: {
+    fontSize: 15,
+    fontFamily: typography.fontFamily.bold,
+    color: colors.text,
+  },
+  drawerBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 1.5,
+    borderRadius: 6,
+  },
+  drawerBadgeText: {
+    fontSize: 10,
+    fontFamily: typography.fontFamily.bold,
+  },
+  drawerActionDesc: {
+    fontSize: 12,
+    fontFamily: typography.fontFamily.regular,
+    color: colors.textSecondary,
+    lineHeight: 16,
+  },
+  drawerActionArrow: {
+    marginLeft: 8,
+    padding: 4,
   },
 });

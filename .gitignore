@@ -30,7 +30,7 @@ wheels/
 serviceAccountKey*.json
 
 # ==============================================================================
-# Python Build, Cache & Testing
+# Tests, Build & Cache
 # ==============================================================================
 __pycache__/
 *.py[cod]
@@ -45,6 +45,19 @@ htmlcov/
 .ruff_cache/
 .dmypy.json
 dmypy.json
+
+# Test folders and files
+tests/
+test/
+__tests__/
+test_*.py
+*_test.py
+*.test.[jt]s
+*.test.[jt]sx
+*.spec.[jt]s
+*.spec.[jt]sx
+*.test.*
+*.spec.*
 
 # ==============================================================================
 # JavaScript, React Native & Expo

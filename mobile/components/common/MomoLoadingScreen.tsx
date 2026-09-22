@@ -11,10 +11,16 @@ import {
 import { AppText as Text } from '@/components/common/app-text';
 import { colors, spacing, typography } from '@/constants/theme';
 
+const MASCOT_SOURCES = {
+  loading: require('@/assets/animations/momo_loading.png'),
+  icon: require('@/assets/momo_logo.png'),
+};
+
 interface MomoLoadingScreenProps {
   title?: string;
   subtitle?: string;
   mascotSize?: number;
+  mascotType?: 'loading' | 'icon';
   showSpinner?: boolean;
   fullScreen?: boolean;
   style?: StyleProp<ViewStyle>;
@@ -24,6 +30,7 @@ export function MomoLoadingScreen({
   title = 'momo',
   subtitle,
   mascotSize = 250,
+  mascotType = 'loading',
   showSpinner = true,
   fullScreen = true,
   style,
@@ -166,7 +173,7 @@ export function MomoLoadingScreen({
 
         {/* Mascot Image */}
         <Animated.Image
-          source={require('@/assets/animations/momo_loading.png')}
+          source={MASCOT_SOURCES[mascotType] || MASCOT_SOURCES.loading}
           style={[
             styles.mascotImage,
             {

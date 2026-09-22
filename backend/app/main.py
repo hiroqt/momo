@@ -39,7 +39,8 @@ async def http_exception_handler(request: Request, exc: StarletteHTTPException):
         }
     return JSONResponse(
         status_code=exc.status_code,
-        content={"error": err}
+        content={"error": err},
+        headers=exc.headers
     )
 
 @app.exception_handler(RequestValidationError)
@@ -68,7 +69,7 @@ async def generic_exception_handler(request: Request, exc: Exception):
         }
     )
 
-from app.api.routes import auth, documents, generations, study_sets, sync, math, folders, stats
+from app.api.routes import auth, documents, generations, study_sets, sync, math, folders, stats, chat, images
 
 # Include API routes
 app.include_router(auth.router)
@@ -79,6 +80,8 @@ app.include_router(sync.router)
 app.include_router(math.router)
 app.include_router(folders.router)
 app.include_router(stats.router)
+app.include_router(chat.router)
+app.include_router(images.router)
 
 @app.get("/health")
 async def health_check():

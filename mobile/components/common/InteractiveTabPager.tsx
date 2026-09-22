@@ -187,6 +187,7 @@ export const InteractiveTabPager: React.FC<InteractiveTabPagerProps> = ({
             <TabScene
               key={page.key}
               index={index}
+              isActive={activeIndex === index}
               progress={progress}
               startProgress={startProgress}
               screenWidth={screenWidth}
@@ -209,6 +210,7 @@ export const InteractiveTabPager: React.FC<InteractiveTabPagerProps> = ({
 
 interface TabSceneProps {
   index: number;
+  isActive: boolean;
   progress: SharedValue<number>;
   startProgress: SharedValue<number>;
   screenWidth: number;
@@ -217,15 +219,17 @@ interface TabSceneProps {
 }
 
 const TabScene: React.FC<TabSceneProps> = React.memo(
-  ({ index, progress, startProgress, screenWidth, isDragging, Component }) => {
+  ({ index, isActive, progress, startProgress, screenWidth, isDragging, Component }) => {
     // Pure 1:1 hardware-accelerated translation with solid opacity
     const animatedStyle = useAnimatedStyle(() => {
       'worklet';
       const offset = (index - progress.value) * screenWidth;
+      const dist = Math.abs(index - progress.value);
 
       return {
         transform: [{ translateX: offset }],
         opacity: 1,
+        display: dist > 1.1 ? 'none' : 'flex',
       };
     });
 
@@ -258,6 +262,7 @@ const TabScene: React.FC<TabSceneProps> = React.memo(
 
     return (
       <Animated.View
+        pointerEvents={isActive ? 'auto' : 'none'}
         style={[
           styles.pageScene,
           { width: screenWidth },

@@ -53,8 +53,6 @@ export default function TabsLayout() {
 
   // Handle tab change from internal swipe or floating navbar press:
   // All 4 tabs are rendered internally inside InteractiveTabPager.
-  // We do NOT call router.replace() here because calling router.replace() triggers
-  // react-native-screens fragment replacement on Android, which detaches views and causes a screen flicker.
   const handleTabChange = useCallback((newIndex: number) => {
     setActiveTab(newIndex);
   }, []);
@@ -81,4 +79,3 @@ export default function TabsLayout() {
     />
   );
 }
-

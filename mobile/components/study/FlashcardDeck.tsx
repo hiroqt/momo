@@ -7,6 +7,8 @@ import {
   ScrollView,
   Animated,
   Platform,
+  Image,
+  ActivityIndicator,
 } from 'react-native';
 import { AppText as Text } from '@/components/common/app-text';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -17,6 +19,7 @@ import {
   Cancel01Icon,
   EyeIcon,
   BookOpen01Icon,
+  SparklesIcon,
 } from '@hugeicons/core-free-icons';
 import { StudyItem } from '../../types';
 import { SourceAttribution } from './SourceAttribution';
@@ -26,6 +29,8 @@ import { isMeaningfulSection, sanitizeQuestionText } from '../../utils/formatter
 import { useOnboarding } from '../../context/OnboardingContext';
 import { CoachmarkTooltip } from '../onboarding/CoachmarkTooltip';
 import { isIpad } from '../../utils/device';
+import { generateStudyImage } from '../../lib/api/images';
+import { ImageZoomModal } from '../common/ImageZoomModal';
 
 interface Props {
   items: StudyItem[];
@@ -43,6 +48,15 @@ export const FlashcardDeck: React.FC<Props> = ({ items, onFinish }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
   const [masteredCount, setMasteredCount] = useState(0);
+
+  // Deck items with visual diagram support
+  const [deckItems, setDeckItems] = useState<StudyItem[]>(items);
+  const [generatingImageId, setGeneratingImageId] = useState<string | null>(null);
+  const [zoomDiagram, setZoomDiagram] = useState<{ visible: boolean; uri: string; caption?: string } | null>(null);
+
+  useEffect(() => {
+    setDeckItems(items);
+  }, [items]);
 
   // 3D Flip animation
   const animatedValue = useRef(new Animated.Value(0)).current;
@@ -92,7 +106,7 @@ export const FlashcardDeck: React.FC<Props> = ({ items, onFinish }) => {
     setIsFlipped(false);
   };
 
-  if (!items || items.length === 0) {
+  if (!deckItems || deckItems.length === 0) {
     return (
       <View style={styles.emptyContainer}>
         <Text style={styles.emptyText}>No flashcards in this set.</Text>
@@ -100,8 +114,30 @@ export const FlashcardDeck: React.FC<Props> = ({ items, onFinish }) => {
     );
   }
 
-  const currentItem = items[currentIndex];
-  const isLast = currentIndex === items.length - 1;
+  const currentItem = deckItems[currentIndex];
+  const isLast = currentIndex === deckItems.length - 1;
+
+  const handleGenerateDiagram = async () => {
+    if (!currentItem || generatingImageId || currentItem.image_base64) return;
+    setGeneratingImageId(currentItem.id);
+    try {
+      const prompt =
+        currentItem.diagram_prompt ||
+        (currentItem.source_metadata?.section
+          ? `${currentItem.source_metadata.section}: ${currentItem.question}`
+          : currentItem.question);
+      const res = await generateStudyImage(prompt);
+      if (res && res.image_base64) {
+        setDeckItems((prev) =>
+          prev.map((it) => (it.id === currentItem.id ? { ...it, image_base64: res.image_base64 } : it))
+        );
+      }
+    } catch (err) {
+      console.warn('Failed to generate diagram for flashcard:', err);
+    } finally {
+      setGeneratingImageId(null);
+    }
+  };
 
   const handleNext = (mastered: boolean) => {
     const result = mastered ? 'correct' : 'review_again';
@@ -306,6 +342,67 @@ export const FlashcardDeck: React.FC<Props> = ({ items, onFinish }) => {
               ) : null}
               <Text style={styles.questionText}>{sanitizeQuestionText(currentItem.question)}</Text>
             </TouchableOpacity>
+
+            {/* Front Diagram or Generate Button */}
+            {currentItem.image_base64 ? (
+              <TouchableOpacity
+                style={styles.fcDiagramContainer}
+                onPress={() =>
+                  setZoomDiagram({
+                    visible: true,
+                    uri: currentItem.image_base64!,
+                    caption: sanitizeQuestionText(currentItem.question),
+                  })
+                }
+                activeOpacity={0.88}
+              >
+                <View style={styles.fcDiagramHeader}>
+                  <View style={styles.fcDiagramBadge}>
+                    <HugeiconsIcon icon={SparklesIcon} size={11} color={colors.primary} />
+                    <Text style={styles.fcDiagramBadgeText}>EDUCATIONAL DIAGRAM</Text>
+                  </View>
+                  <View style={styles.fcExpandTag}>
+                    <HugeiconsIcon icon={EyeIcon} size={11} color={colors.primary} />
+                    <Text style={styles.fcExpandTagText}>Tap to zoom</Text>
+                  </View>
+                </View>
+                <View style={styles.fcDiagramImageCard}>
+                  <Image
+                    source={{
+                      uri:
+                        currentItem.image_base64.startsWith('data:') ||
+                        currentItem.image_base64.startsWith('http')
+                          ? currentItem.image_base64
+                          : `data:image/png;base64,${currentItem.image_base64}`,
+                    }}
+                    style={styles.fcDiagramImage}
+                    resizeMode="contain"
+                  />
+                </View>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity
+                style={[
+                  styles.fcGenerateButton,
+                  generatingImageId === currentItem.id && styles.fcGenerateButtonLoading,
+                ]}
+                onPress={handleGenerateDiagram}
+                disabled={generatingImageId === currentItem.id}
+                activeOpacity={0.8}
+              >
+                {generatingImageId === currentItem.id ? (
+                  <>
+                    <ActivityIndicator size="small" color={colors.primary} />
+                    <Text style={styles.fcGenerateText}>Creating 2D diagram...</Text>
+                  </>
+                ) : (
+                  <>
+                    <HugeiconsIcon icon={SparklesIcon} size={13} color={colors.primary} />
+                    <Text style={styles.fcGenerateText}>Generate Visual Diagram</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            )}
           </ScrollView>
 
           <TouchableOpacity
@@ -373,6 +470,45 @@ export const FlashcardDeck: React.FC<Props> = ({ items, onFinish }) => {
               </View>
             ) : null}
 
+            {/* Back Face Diagram */}
+            {currentItem.image_base64 ? (
+              <TouchableOpacity
+                style={styles.fcDiagramContainer}
+                onPress={() =>
+                  setZoomDiagram({
+                    visible: true,
+                    uri: currentItem.image_base64!,
+                    caption: currentItem.answer,
+                  })
+                }
+                activeOpacity={0.88}
+              >
+                <View style={styles.fcDiagramHeader}>
+                  <View style={styles.fcDiagramBadge}>
+                    <HugeiconsIcon icon={SparklesIcon} size={11} color={colors.primary} />
+                    <Text style={styles.fcDiagramBadgeText}>VISUAL CONCEPT AID</Text>
+                  </View>
+                  <View style={styles.fcExpandTag}>
+                    <HugeiconsIcon icon={EyeIcon} size={11} color={colors.primary} />
+                    <Text style={styles.fcExpandTagText}>Tap to zoom</Text>
+                  </View>
+                </View>
+                <View style={styles.fcDiagramImageCard}>
+                  <Image
+                    source={{
+                      uri:
+                        currentItem.image_base64.startsWith('data:') ||
+                        currentItem.image_base64.startsWith('http')
+                          ? currentItem.image_base64
+                          : `data:image/png;base64,${currentItem.image_base64}`,
+                    }}
+                    style={styles.fcDiagramImage}
+                    resizeMode="contain"
+                  />
+                </View>
+              </TouchableOpacity>
+            ) : null}
+
             {/* Source Reference Bar */}
             <SourceAttribution source={currentItem.source_metadata} />
           </ScrollView>
@@ -435,6 +571,14 @@ export const FlashcardDeck: React.FC<Props> = ({ items, onFinish }) => {
           </View>
         </Animated.View>
       </View>
+
+      <ImageZoomModal
+        visible={Boolean(zoomDiagram?.visible)}
+        onClose={() => setZoomDiagram(null)}
+        imageBase64={zoomDiagram?.uri}
+        title={currentItem.source_metadata?.section || 'Visual Study Diagram'}
+        caption={zoomDiagram?.caption}
+      />
     </View>
   );
 };
@@ -807,5 +951,82 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: isPadDevice ? typography.fontSize[18] : typography.fontSize[15],
     color: colors.textMuted,
+  },
+  fcDiagramContainer: {
+    backgroundColor: '#FAFAFD',
+    borderRadius: 12,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: '#E9D7FE',
+    marginTop: spacing[12],
+    marginBottom: spacing[10],
+    width: '100%',
+  },
+  fcDiagramHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  fcDiagramBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#F4EBFF',
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  fcDiagramBadgeText: {
+    fontSize: 9,
+    fontWeight: typography.fontWeight.bold,
+    color: colors.primary,
+    letterSpacing: 0.5,
+  },
+  fcExpandTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+  },
+  fcExpandTagText: {
+    fontSize: 10,
+    fontWeight: typography.fontWeight.medium,
+    color: colors.primary,
+  },
+  fcDiagramImageCard: {
+    width: '100%',
+    height: isPadDevice ? 240 : 160,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 8,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#EAECF0',
+  },
+  fcDiagramImage: {
+    width: '100%',
+    height: '100%',
+  },
+  fcGenerateButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F4EBFF',
+    borderWidth: 1,
+    borderColor: '#D6BBFB',
+    borderStyle: 'dashed',
+    borderRadius: 10,
+    paddingVertical: 8,
+    gap: 6,
+    marginTop: spacing[12],
+    marginBottom: spacing[6],
+    width: '100%',
+  },
+  fcGenerateButtonLoading: {
+    opacity: 0.8,
+  },
+  fcGenerateText: {
+    fontSize: 11,
+    fontWeight: typography.fontWeight.semiBold,
+    color: colors.primary,
   },
 });

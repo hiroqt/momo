@@ -5,19 +5,44 @@ from app.schemas.generation import GenerationCreateRequest, GenerationJobRespons
 from app.db.repositories.documents_repo import documents_repo
 from app.db.repositories.generation_repo import generation_repo
 from app.workers.generation_worker import generation_worker
+from app.services.security.rate_limiter import require_rate_limit
+from app.services.security.guardrails_service import guardrails_service
 import logging
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/generations", tags=["Generations"])
 
-@router.post("", response_model=GenerationJobResponse)
+@router.post(
+    "",
+    response_model=GenerationJobResponse,
+    dependencies=[Depends(require_rate_limit(category="generation"))]
+)
 async def create_generation(
     req: GenerationCreateRequest,
     background_tasks: BackgroundTasks,
     user: AuthenticatedUser = Depends(get_current_user)
 ):
-    # 1. Verify document exists & owned by user
+    # 1. Guardrail validation on custom instructions and topic
+    if req.custom_instruction:
+        g_check = guardrails_service.validate_user_input(req.custom_instruction)
+        if not g_check.passed:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={"code": "UNSAFE_INSTRUCTION", "message": g_check.refusal_response}
+            )
+        req.custom_instruction = g_check.sanitized_text
+
+    if req.topic:
+        g_check = guardrails_service.validate_user_input(req.topic)
+        if not g_check.passed:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={"code": "UNSAFE_TOPIC", "message": g_check.refusal_response}
+            )
+        req.topic = g_check.sanitized_text
+
+    # 2. Verify document exists & owned by user
     doc = await documents_repo.get_by_id(req.document_id, user.id)
     if not doc:
         raise HTTPException(
@@ -25,7 +50,7 @@ async def create_generation(
             detail={"code": "DOCUMENT_NOT_FOUND", "message": "Document not found."}
         )
 
-    # 2. Verify document is READY for generation
+    # 3. Verify document is READY for generation
     if doc.get("processing_status") != "READY":
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -100,7 +125,11 @@ async def get_generation_status(
         updated_at=job["updated_at"]
     )
 
-@router.post("/{generation_id}/retry", response_model=GenerationJobResponse)
+@router.post(
+    "/{generation_id}/retry",
+    response_model=GenerationJobResponse,
+    dependencies=[Depends(require_rate_limit(category="generation"))]
+)
 async def retry_generation(
     generation_id: str,
     background_tasks: BackgroundTasks,

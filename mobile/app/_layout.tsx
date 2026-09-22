@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { Platform } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { Stack } from "expo-router";
@@ -18,25 +18,46 @@ import { OnboardingProvider, useOnboarding } from '../context/OnboardingContext'
 import { useRouter, useSegments } from 'expo-router';
 import { MomoLoadingScreen } from '@/components/common/MomoLoadingScreen';
 
-function AuthGate({ children }: { children: React.ReactNode }) {
+function InitialGate({
+  fontsReady,
+  children,
+}: {
+  fontsReady: boolean;
+  children: React.ReactNode;
+}) {
   const { isLoaded, hasCompletedWelcome } = useOnboarding();
   const segments = useSegments();
   const router = useRouter();
+  const [minTimeElapsed, setMinTimeElapsed] = useState(false);
 
   useEffect(() => {
-    if (!isLoaded) return;
+    // Hide the native splash screen immediately so the animated Momo loading begins
+    SplashScreen.hideAsync().catch(() => {});
+
+    // Single duration for the MOMO bounce-in animation at the opening of the app
+    const timer = setTimeout(() => {
+      setMinTimeElapsed(true);
+    }, 1200);
+    return () => clearTimeout(timer);
+  }, []);
+
+  const isReady = fontsReady && isLoaded && minTimeElapsed;
+
+  useEffect(() => {
+    if (!isReady) return;
     const inAuth = segments[0] === '(auth)';
     if (!hasCompletedWelcome && !inAuth) {
       router.replace('/(auth)/welcome');
     }
-  }, [isLoaded, hasCompletedWelcome, segments]);
+  }, [isReady, hasCompletedWelcome, segments]);
 
-  if (!isLoaded) {
+  if (!isReady) {
     return (
       <MomoLoadingScreen
         title="momo"
         subtitle="Your AI Study Buddy"
         mascotSize={250}
+        mascotType="loading"
       />
     );
   }
@@ -54,27 +75,13 @@ export default function RootLayout() {
     [typography.fontFamily.bold]: require("@/assets/fonts/Poppins-Bold.ttf"),
   });
 
-  useEffect(() => {
-    if (loaded || error) {
-      SplashScreen.hideAsync();
-    }
-  }, [loaded, error]);
-
-  if (!loaded && !error) {
-    return (
-      <MomoLoadingScreen
-        title="momo"
-        subtitle="Your AI Study Buddy"
-        mascotSize={250}
-      />
-    );
-  }
+  const fontsReady = loaded || !!error;
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <CreditsProvider>
         <OnboardingProvider>
-          <AuthGate>
+          <InitialGate fontsReady={fontsReady}>
             <SafeAreaProvider>
               <StatusBar style="dark" />
               <Stack
@@ -144,9 +151,17 @@ export default function RootLayout() {
                     animationDuration: 350,
                   }}
                 />
+                <Stack.Screen
+                  name="chat"
+                  options={{
+                    headerShown: false,
+                    animation: isIOS ? "slide_from_right" : "default",
+                    animationDuration: 300,
+                  }}
+                />
               </Stack>
             </SafeAreaProvider>
-          </AuthGate>
+          </InitialGate>
         </OnboardingProvider>
       </CreditsProvider>
     </GestureHandlerRootView>

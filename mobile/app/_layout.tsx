@@ -35,10 +35,10 @@ function InitialGate({
     // Hide the native splash screen immediately so the animated Momo loading begins
     SplashScreen.hideAsync().catch(() => {});
 
-    // Single duration for the MOMO bounce-in animation at the opening of the app
+    // Duration for the 3D jungle leaves slide-in and Momo bounce-in animation at the opening of the app
     const timer = setTimeout(() => {
       setMinTimeElapsed(true);
-    }, 1200);
+    }, 2000);
     return () => clearTimeout(timer);
   }, []);
 
@@ -56,7 +56,6 @@ function InitialGate({
     return (
       <MomoLoadingScreen
         title="momo"
-        subtitle="Your AI Study Buddy"
         mascotSize={250}
         mascotType="loading"
       />

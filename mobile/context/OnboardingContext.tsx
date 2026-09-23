@@ -17,6 +17,7 @@ export interface UserOnboardingProfile {
 export interface OnboardingState {
   isLoaded: boolean;
   hasCompletedWelcome: boolean;
+  hasSeenMomoIntro: boolean;
   isGuestMode: boolean;
   studyTrack: StudyTrack;
   preferredFormat: PreferredFormat;
@@ -53,12 +54,14 @@ interface OnboardingContextType extends OnboardingState {
   markTipSeen: (tip: 'flashcardGesture' | 'sourceProvenance' | 'quizXp') => Promise<void>;
   markSessionCompleted: () => Promise<void>;
   dismissCelebration: () => Promise<void>;
+  finishMomoIntro: () => Promise<void>;
   resetOnboarding: () => Promise<void>;
   setDailyGoal: (minutes: number) => Promise<void>;
 }
 
 const STORAGE_KEYS = {
   COMPLETED_WELCOME: '@momo_onboarding_completed',
+  MOMO_INTRO_SEEN: '@momo_intro_seen',
   IS_GUEST_MODE: '@momo_is_guest_mode',
   STUDY_TRACK: '@momo_study_track',
   PREFERRED_FORMAT: '@momo_preferred_format',
@@ -81,6 +84,7 @@ const STORAGE_KEYS = {
 const defaultState: OnboardingState = {
   isLoaded: false,
   hasCompletedWelcome: false,
+  hasSeenMomoIntro: false,
   isGuestMode: false,
   studyTrack: 'college',
   preferredFormat: 'all',
@@ -110,6 +114,7 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       try {
         const [
           completedWelcome,
+          momoIntroSeen,
           isGuest,
           track,
           format,
@@ -129,6 +134,7 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           celebrationSeen,
         ] = await AsyncStorage.multiGet([
           STORAGE_KEYS.COMPLETED_WELCOME,
+          STORAGE_KEYS.MOMO_INTRO_SEEN,
           STORAGE_KEYS.IS_GUEST_MODE,
           STORAGE_KEYS.STUDY_TRACK,
           STORAGE_KEYS.PREFERRED_FORMAT,
@@ -160,6 +166,7 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         setState({
           isLoaded: true,
           hasCompletedWelcome: completedWelcome[1] === 'true',
+          hasSeenMomoIntro: momoIntroSeen[1] === 'true' || (completedWelcome[1] === 'true' && momoIntroSeen[1] === null),
           isGuestMode: isGuest[1] === 'true',
           studyTrack: (track[1] as StudyTrack) || 'college',
           preferredFormat: (format[1] as PreferredFormat) || 'all',
@@ -210,6 +217,7 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
       const pairs: [string, string][] = [
         [STORAGE_KEYS.COMPLETED_WELCOME, 'true'],
+        [STORAGE_KEYS.MOMO_INTRO_SEEN, 'false'],
         [STORAGE_KEYS.IS_GUEST_MODE, guest ? 'true' : 'false'],
         [STORAGE_KEYS.STUDY_TRACK, track],
         [STORAGE_KEYS.PREFERRED_FORMAT, primaryFormat],
@@ -229,6 +237,7 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       setState((prev) => ({
         ...prev,
         hasCompletedWelcome: true,
+        hasSeenMomoIntro: false,
         isGuestMode: guest,
         studyTrack: track,
         preferredFormat: primaryFormat,
@@ -288,6 +297,11 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     }
   };
 
+  const finishMomoIntro = async () => {
+    await AsyncStorage.setItem(STORAGE_KEYS.MOMO_INTRO_SEEN, 'true');
+    setState((prev) => ({ ...prev, hasSeenMomoIntro: true }));
+  };
+
   const setDailyGoal = async (minutes: number) => {
     try {
       await AsyncStorage.setItem(STORAGE_KEYS.DAILY_GOAL, minutes.toString());
@@ -301,6 +315,7 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     try {
       await AsyncStorage.multiRemove([
         STORAGE_KEYS.COMPLETED_WELCOME,
+        STORAGE_KEYS.MOMO_INTRO_SEEN,
         STORAGE_KEYS.IS_GUEST_MODE,
         STORAGE_KEYS.STUDY_TRACK,
         STORAGE_KEYS.PREFERRED_FORMAT,
@@ -337,6 +352,7 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         markTipSeen,
         markSessionCompleted,
         dismissCelebration,
+        finishMomoIntro,
         resetOnboarding,
         setDailyGoal,
       }}

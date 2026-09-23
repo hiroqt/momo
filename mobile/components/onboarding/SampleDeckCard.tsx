@@ -15,7 +15,8 @@ import {
   BookOpen01Icon,
 } from '@hugeicons/core-free-icons';
 import { colors, spacing, typography } from '@/constants/theme';
-import { seedSampleDeck, SAMPLE_STUDY_SET_ID } from '../../lib/data/sampleDeck';
+import { seedSampleDeck, buildSampleDeck } from '../../lib/data/sampleDeck';
+import { useOnboarding } from '../../context/OnboardingContext';
 
 interface SampleDeckCardProps {
   onDeckSeeded?: () => void;
@@ -23,16 +24,19 @@ interface SampleDeckCardProps {
 
 export const SampleDeckCard: React.FC<SampleDeckCardProps> = ({ onDeckSeeded }) => {
   const router = useRouter();
+  const { studyTrack, highSchoolGrade, collegeYear, collegeCourse } = useOnboarding();
+  const profile = { studyTrack, highSchoolGrade, collegeYear, collegeCourse };
+  const preview = buildSampleDeck(profile).set;
   const [loading, setLoading] = useState(false);
 
   const handleStartSample = async () => {
     setLoading(true);
     try {
-      await seedSampleDeck();
+      const set = await seedSampleDeck(profile);
       if (onDeckSeeded) {
         onDeckSeeded();
       }
-      router.push(`/study/${SAMPLE_STUDY_SET_ID}`);
+      router.push(`/study/${set.id}`);
     } catch (err) {
       console.error('Failed to seed sample deck:', err);
     } finally {
@@ -56,16 +60,16 @@ export const SampleDeckCard: React.FC<SampleDeckCardProps> = ({ onDeckSeeded }) 
 
       <View style={styles.bodyRow}>
         <View style={styles.textColumn}>
-          <Text style={styles.title}>Biology 101: Cellular Respiration</Text>
+          <Text style={styles.title}>{preview.title}</Text>
           <Text style={styles.description}>
-            Take Momo for a quick spin! Flip cards and test your recall right away — no uploads needed.
+            Try cards matched to your study path. Upload notes when you want cards grounded in your material.
           </Text>
           <View style={styles.tagRow}>
             <View style={styles.tag}>
-              <Text style={styles.tagText}>6 Cards & Quizzes</Text>
+              <Text style={styles.tagText}>{preview.item_count} Flashcards</Text>
             </View>
             <View style={styles.tag}>
-              <Text style={styles.tagText}>100% From Notes</Text>
+              <Text style={styles.tagText}>Curated Preview</Text>
             </View>
           </View>
         </View>
@@ -83,7 +87,7 @@ export const SampleDeckCard: React.FC<SampleDeckCardProps> = ({ onDeckSeeded }) 
           onPress={handleStartSample}
           disabled={loading}
           accessibilityRole="button"
-          accessibilityLabel="Study Sample Deck, Biology 101 Cellular Respiration"
+          accessibilityLabel={`Study sample deck, ${preview.title}`}
         >
           {loading ? (
             <ActivityIndicator size="small" color={colors.onPrimary} />

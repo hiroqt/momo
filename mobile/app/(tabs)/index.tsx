@@ -101,11 +101,13 @@ export default function HomeScreen() {
 
   const loadData = async () => {
     try {
-      const [setsData, streakRes] = await Promise.all([
+      const [setsData, streakRes, localSets] = await Promise.all([
         listStudySets().catch(() => localDb.listStudySets()),
-        getStreak().catch(() => ({ active_dates: [], current_streak: 0 }))
+        getStreak().catch(() => ({ active_dates: [], current_streak: 0 })),
+        localDb.listStudySets(),
       ]);
-      setSets(setsData || []);
+      const previews = localSets.filter((set) => set.generation_config?.preview === true);
+      setSets([...(setsData || []), ...previews.filter((set) => !setsData?.some((remote) => remote.id === set.id))]);
       if (streakRes) {
         setStreakData(streakRes);
       }

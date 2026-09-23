@@ -28,6 +28,8 @@ wheels/
 *.keystore
 *.jks
 serviceAccountKey*.json
+.scripts/
+scripts/
 
 # ==============================================================================
 # Tests, Build & Cache

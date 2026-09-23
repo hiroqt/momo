@@ -770,3 +770,22 @@ Generated knowledge/study material is persistent.
 
 Never create an implementation where deleting the S3 document also
 deletes the generated study set.
+
+------------------------------------------------------------------------
+
+# 34. TypeSafe Skill and Jev
+
+Read `.agents/skills/typesafe-ai/SKILL.md` when working on AI decisions in
+this project, and follow its links to current TypeSafe documentation.
+Jev can support typed judgments such as evidence relevance or validation
+where they fit the PRD. Preserve the PRD's Nemotron generation path.
+
+The local Jev API key is stored in macOS Keychain under the service
+`ai.typesafe.jev.api-key` for account `arnel`. Retrieve it only when
+making a server-side TypeSafe API call; never print it or commit it.
+
+For bounded semantic decisions during Codex work, send a JSON object with
+`state` and typed `questions` to `python3 scripts/jev_judge.py` on stdin.
+Codex interprets the returned judgments and writes its own response. Jev
+does not generate text or replace Codex's reasoning model. Use it only when
+a typed judgment adds value; avoid an extra call for simple deterministic work.

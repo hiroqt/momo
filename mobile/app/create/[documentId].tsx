@@ -34,6 +34,7 @@ import { PageHeader } from '../../components/common/PageHeader';
 import { PlatformPressable } from '../../components/common/PlatformPressable';
 import { SmoothScrollView } from '../../components/common/SmoothScrollView';
 import { isIpad } from '../../utils/device';
+import { useOnboarding } from '../../context/OnboardingContext';
 
 const TOTAL_STEPS = 6;
 
@@ -49,6 +50,7 @@ const STEP_TITLES = [
 export default function CreateReviewerScreen() {
   const { documentId } = useLocalSearchParams<{ documentId: string }>();
   const router = useRouter();
+  const { studyTrack, highSchoolGrade, collegeYear, collegeCourse } = useOnboarding();
   const insets = useSafeAreaInsets();
 
   // Step state (1 to 5)
@@ -181,6 +183,8 @@ export default function CreateReviewerScreen() {
         difficulty,
         question_types: selectedTypes,
         custom_instruction: instructions.trim() || undefined,
+        academic_level: studyTrack === 'high_school' ? highSchoolGrade || undefined : collegeYear || undefined,
+        learner_focus: studyTrack === 'high_school' ? undefined : collegeCourse?.trim() || undefined,
         source_only: true,
         time_limit_per_question: timerSeconds,
       });

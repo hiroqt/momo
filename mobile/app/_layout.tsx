@@ -26,7 +26,7 @@ function InitialGate({
   fontsReady: boolean;
   children: React.ReactNode;
 }) {
-  const { isLoaded, hasCompletedWelcome } = useOnboarding();
+  const { isLoaded, hasCompletedWelcome, hasSeenMomoIntro } = useOnboarding();
   const segments = useSegments();
   const router = useRouter();
   const [minTimeElapsed, setMinTimeElapsed] = useState(false);
@@ -49,8 +49,10 @@ function InitialGate({
     const inAuth = segments[0] === '(auth)';
     if (!hasCompletedWelcome && !inAuth) {
       router.replace('/(auth)/welcome');
+    } else if (hasCompletedWelcome && !hasSeenMomoIntro && !segments.join('/').includes('momo-intro')) {
+      router.replace('/(auth)/momo-intro');
     }
-  }, [isReady, hasCompletedWelcome, segments]);
+  }, [isReady, hasCompletedWelcome, hasSeenMomoIntro, segments, router]);
 
   if (!isReady) {
     return (
@@ -104,6 +106,7 @@ export default function RootLayout() {
                     animation: isIOS ? "fade" : "default",
                   }}
                 />
+                <Stack.Screen name="(auth)/momo-intro" options={{ animation: isIOS ? 'fade' : 'default' }} />
                 <Stack.Screen
                   name="(tabs)"
                   options={{

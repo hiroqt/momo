@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import Optional, List
+from typing import Optional, List, Literal
 from datetime import datetime
 
 class GenerationCreateRequest(BaseModel):
@@ -10,6 +10,8 @@ class GenerationCreateRequest(BaseModel):
     question_types: List[str] = Field(default=["flashcard", "multiple_choice"])
     source_only: bool = True
     custom_instruction: Optional[str] = None
+    academic_level: Optional[Literal["Grade 9", "Grade 10", "Grade 11", "Grade 12", "1st Year", "2nd Year", "3rd Year", "4th Year", "Grad"]] = None
+    learner_focus: Optional[str] = Field(default=None, max_length=80)
     title: Optional[str] = None
     focus_sections: Optional[List[str]] = None
     time_limit_per_question: Optional[int] = None

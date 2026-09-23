@@ -31,6 +31,7 @@ import {
   PreferredFormat,
 } from '../../context/OnboardingContext';
 import { seedSampleDeck } from '../../lib/data/sampleDeck';
+import { buildSampleDeck } from '../../lib/data/sampleDeck';
 import { JungleBackdrop } from '@/components/onboarding/JungleBackdrop';
 import { AnimatedMomo, MomoPose } from '@/components/onboarding/AnimatedMomo';
 import { AgeScrollPicker } from '@/components/onboarding/AgeScrollPicker';
@@ -341,9 +342,9 @@ export default function WelcomeScreen() {
     setCompletionError(null);
     triggerHaptic();
     try {
-      await seedSampleDeck();
+      await seedSampleDeck({ studyTrack: selectedTrack, highSchoolGrade, collegeYear, collegeCourse });
       await completeWelcome(selectedTrack, selectedFormats, selectedGoal, true, buildProfilePayload());
-      router.replace('/(tabs)');
+      router.replace('/(auth)/momo-intro');
     } catch (err) {
       console.error('Failed to complete guest welcome:', err);
       setCompletionError('We could not prepare your sample deck. Please try again.');
@@ -357,9 +358,11 @@ export default function WelcomeScreen() {
     setIsSeeding(true);
     setCompletionError(null);
     triggerHaptic();
+    setIsSeeding(true);
     try {
+      await seedSampleDeck({ studyTrack: selectedTrack, highSchoolGrade, collegeYear, collegeCourse });
       await completeWelcome(selectedTrack, selectedFormats, selectedGoal, false, buildProfilePayload());
-      router.replace('/(tabs)');
+      router.replace('/(auth)/momo-intro');
     } catch (err) {
       console.error('Failed to complete google welcome:', err);
       setCompletionError('We could not save your choices. Please try again.');
@@ -973,7 +976,7 @@ export default function WelcomeScreen() {
                       <HugeiconsIcon icon={SparklesIcon} size={12} color={colors.primary} strokeWidth={2.5} />
                       <Text style={styles.launchBadgeText}>No upload needed</Text>
                     </View>
-                    <Text style={styles.launchCardTitle}>Biology 101 Sample Deck</Text>
+                    <Text style={styles.launchCardTitle}>{preview.title}</Text>
                     <Text style={styles.launchCardDesc}>
                       Get a feel for flashcards and quizzes with a ready-made biology set.
                     </Text>

@@ -145,13 +145,13 @@ export const GlassButton: React.FC<GlassButtonProps> = ({
 
 const sizeStyles = StyleSheet.create({
   sm: {
-    height: 34,
+    minHeight: 48,
     paddingHorizontal: 12,
     alignItems: 'center',
     justifyContent: 'center',
   },
   md: {
-    height: 44,
+    minHeight: 48,
     paddingHorizontal: 16,
     alignItems: 'center',
     justifyContent: 'center',
@@ -163,13 +163,13 @@ const sizeStyles = StyleSheet.create({
     justifyContent: 'center',
   },
   icon: {
-    width: 42,
-    height: 42,
+    minWidth: 48,
+    minHeight: 48,
     alignItems: 'center',
     justifyContent: 'center',
   },
   pill: {
-    height: 38,
+    minHeight: 48,
     paddingHorizontal: 16,
     alignItems: 'center',
     justifyContent: 'center',

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useDeferredValue } from 'react';
 import { colors, spacing, typography } from '@/constants/theme';
 import {
   View,
@@ -235,21 +235,16 @@ export default function LibraryScreen() {
     }
   };
 
-  const filteredSets = sets.filter((s) => {
-    const matchesSearch = s.title.toLowerCase().includes(search.toLowerCase());
-    const matchesFolder =
-      selectedFolderId === null
-        ? true
-        : selectedFolderId === 'unorganized'
-        ? !s.folder_id
-        : s.folder_id === selectedFolderId;
-    return matchesSearch && matchesFolder;
-  });
-
-  const filteredDocs = docs.filter((d) => {
-    const matchesSearch = d.original_filename.toLowerCase().includes(search.toLowerCase());
-    return matchesSearch;
-  });
+  const deferredSearch = useDeferredValue(search.trim().toLocaleLowerCase());
+  const folderById = useMemo(() => new Map(folders.map((folder) => [folder.id, folder])), [folders]);
+  const filteredSets = useMemo(() => sets.filter((set) => {
+    const matchesFolder = selectedFolderId === null ||
+      (selectedFolderId === 'unorganized' ? !set.folder_id : set.folder_id === selectedFolderId);
+    return matchesFolder && set.title.toLocaleLowerCase().includes(deferredSearch);
+  }), [sets, selectedFolderId, deferredSearch]);
+  const filteredDocs = useMemo(() => docs.filter((doc) =>
+    doc.original_filename.toLocaleLowerCase().includes(deferredSearch)
+  ), [docs, deferredSearch]);
 
   const bottomListPadding = Math.max(insets.bottom, spacing[24]) + spacing[88]; // Floating nav clearance
 
@@ -268,7 +263,7 @@ export default function LibraryScreen() {
       {/* Screen Title Bar */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Study Library</Text>
-        <Text style={styles.headerSub}>Manage your AI reviewers & source files</Text>
+        <Text style={styles.headerSub}>Your reviewers, organized for the next study session</Text>
       </View>
 
       {/* Segmented Switcher */}
@@ -304,14 +299,21 @@ export default function LibraryScreen() {
           placeholderTextColor={colors.textDisabled}
           value={search}
           onChangeText={setSearch}
-          clearButtonMode="while-editing"
+          accessibilityLabel="Search your library"
+          returnKeyType="search"
         />
-        {search.length > 0 && Platform.OS === 'android' && (
-          <TouchableOpacity onPress={() => setSearch('')} style={styles.clearBtn}>
+        {search.length > 0 && (
+          <TouchableOpacity onPress={() => setSearch('')} style={styles.clearBtn} accessibilityRole="button" accessibilityLabel="Clear search">
             <HugeiconsIcon icon={Cancel01Icon} size={16} color={colors.textDisabled} strokeWidth={2} />
           </TouchableOpacity>
         )}
       </View>
+
+      <Text style={styles.resultsSummary} accessibilityRole="text">
+        {activeTab === 'reviewers'
+          ? `${filteredSets.length} ${filteredSets.length === 1 ? 'reviewer' : 'reviewers'}${selectedFolderId ? ' in this folder' : ' ready to study'}`
+          : `${filteredDocs.length} ${filteredDocs.length === 1 ? 'source document' : 'source documents'}`}
+      </Text>
 
       {/* Reviewers Tab Content */}
       {activeTab === 'reviewers' ? (
@@ -459,6 +461,9 @@ export default function LibraryScreen() {
           <FlatList
             data={filteredSets}
             keyExtractor={(item) => item.id}
+            initialNumToRender={8}
+            maxToRenderPerBatch={8}
+            windowSize={7}
             contentContainerStyle={[
               styles.listContent,
               { paddingBottom: bottomListPadding },
@@ -479,7 +484,7 @@ export default function LibraryScreen() {
               />
             }
             renderItem={({ item }) => {
-              const assignedFolder = folders.find((f) => f.id === item.folder_id);
+              const assignedFolder = item.folder_id ? folderById.get(item.folder_id) : undefined;
               return (
                 <View style={styles.card}>
                   {/* Card Header: Title & Badges on left, Items Count & 3-dots Menu on right */}
@@ -560,7 +565,7 @@ export default function LibraryScreen() {
             }}
             ListEmptyComponent={
               <View style={styles.emptyContainer}>
-                {selectedFolderId ? (
+                {selectedFolderId && !search ? (
                   // Empty Folder
                   <View style={styles.emptyBox}>
                     <View style={styles.emptyFolderIconCircle}>
@@ -677,6 +682,9 @@ export default function LibraryScreen() {
           <FlatList
             data={filteredDocs}
             keyExtractor={(item) => item.id}
+            initialNumToRender={8}
+            maxToRenderPerBatch={8}
+            windowSize={7}
             contentContainerStyle={[
               styles.listContent,
               { paddingBottom: bottomListPadding },
@@ -1127,7 +1135,16 @@ const styles = StyleSheet.create({
     color: colors.text,
   },
   clearBtn: {
-    padding: spacing[4],
+    minWidth: 44,
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  resultsSummary: {
+    fontSize: isPadDevice ? typography.fontSize[14] : typography.fontSize[12],
+    fontWeight: typography.fontWeight.semiBold,
+    color: colors.textSecondary,
+    marginBottom: spacing[10],
   },
   foldersSection: {
     marginBottom: isPadDevice ? spacing[16] : spacing[12],

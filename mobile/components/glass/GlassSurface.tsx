@@ -80,7 +80,7 @@ export const GlassSurface: React.FC<GlassSurfaceProps> = ({
     {
       borderRadius: radius,
     },
-    hasBorder && {
+    hasBorder && !canUseLiquidGlass && {
       borderWidth: token.borderWidth,
       borderColor: token.borderColor,
     },

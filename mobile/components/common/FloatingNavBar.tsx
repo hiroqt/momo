@@ -126,6 +126,7 @@ export const FloatingNavBar: React.FC<FloatingNavBarProps> = ({
   }, []);
 
   const openFabMenu = useCallback(() => {
+    fabAnim.stopAnimation();
     setIsFabOpen(true);
     RNAnimated.spring(fabAnim, {
       toValue: 1,
@@ -136,13 +137,14 @@ export const FloatingNavBar: React.FC<FloatingNavBarProps> = ({
   }, [fabAnim]);
 
   const closeFabMenu = useCallback(() => {
+    fabAnim.stopAnimation();
     RNAnimated.timing(fabAnim, {
       toValue: 0,
       duration: 220,
       easing: Easing.out(Easing.ease),
       useNativeDriver: true,
-    }).start(() => {
-      setIsFabOpen(false);
+    }).start(({ finished }) => {
+      if (finished) setIsFabOpen(false);
     });
   }, [fabAnim]);
 
@@ -339,9 +341,10 @@ export const FloatingNavBar: React.FC<FloatingNavBarProps> = ({
         visible={isFabOpen}
         transparent
         animationType="none"
+        statusBarTranslucent={Platform.OS === 'android'}
         onRequestClose={closeFabMenu}
       >
-        <View style={styles.modalRoot}>
+        <View style={styles.modalRoot} accessibilityViewIsModal>
           {/* Dimmed backdrop */}
           <TouchableWithoutFeedback onPress={closeFabMenu}>
             <RNAnimated.View
@@ -360,9 +363,7 @@ export const FloatingNavBar: React.FC<FloatingNavBarProps> = ({
           {/* Drawer Container Going Up */}
           <RNAnimated.View
             style={[
-              styles.drawerCard,
               {
-                paddingBottom: Math.max(insets.bottom, 20) + 12,
                 transform: [
                   {
                     translateY: fabAnim.interpolate({
@@ -374,6 +375,11 @@ export const FloatingNavBar: React.FC<FloatingNavBarProps> = ({
               },
             ]}
           >
+            <GlassSurface
+              variant="prominent"
+              radius={30}
+              style={[styles.drawerCard, { paddingBottom: Math.max(insets.bottom, 20) + 12 }]}
+            >
             {/* Drawer Handle Bar */}
             <View style={styles.drawerHandleWrap}>
               <View style={styles.drawerHandleBar} />
@@ -382,8 +388,8 @@ export const FloatingNavBar: React.FC<FloatingNavBarProps> = ({
             {/* Drawer Header */}
             <View style={styles.drawerHeader}>
               <View style={styles.drawerHeaderLeft}>
-                <Text style={styles.drawerTitle}>Create & Study</Text>
-                <Text style={styles.drawerSubtitle}>Choose an action to start learning</Text>
+                <Text style={styles.drawerTitle}>What would you like to do?</Text>
+                <Text style={styles.drawerSubtitle}>Start with notes, a question, or a saved reviewer.</Text>
               </View>
               <GlassButton
                 variant="subtle"
@@ -392,7 +398,7 @@ export const FloatingNavBar: React.FC<FloatingNavBarProps> = ({
                 onPress={closeFabMenu}
                 accessibilityLabel="Close drawer"
                 style={styles.drawerCloseBtn}
-                contentStyle={{ width: 32, height: 32 }}
+                contentStyle={{ width: 48, height: 48 }}
               >
                 <Text style={styles.drawerCloseText}>✕</Text>
               </GlassButton>
@@ -401,35 +407,39 @@ export const FloatingNavBar: React.FC<FloatingNavBarProps> = ({
             {/* Action Tiles List */}
             <View style={styles.drawerActionsList}>
               {/* Tile 1: Upload Document */}
-              <TouchableOpacity
-                style={styles.drawerActionTile}
+              <Pressable
+                style={[styles.drawerActionTile, styles.drawerPrimaryAction]}
                 onPress={handleUploadPress}
-                activeOpacity={0.78}
+                android_ripple={{ color: 'rgba(255,255,255,0.24)' }}
+                accessibilityRole="button"
+                accessibilityLabel="Create a reviewer from a document"
               >
-                <View style={[styles.drawerActionIconWrap, styles.uploadIconWrap]}>
-                  <HugeiconsIcon icon={Upload01Icon} size={22} color="#059669" strokeWidth={2.4} />
+                <View style={[styles.drawerActionIconWrap, styles.primaryIconWrap]}>
+                  <HugeiconsIcon icon={Upload01Icon} size={22} color={colors.onPrimary} strokeWidth={2.4} />
                 </View>
                 <View style={styles.drawerActionTextCol}>
                   <View style={styles.drawerActionTitleRow}>
-                    <Text style={styles.drawerActionTitle}>Upload Document</Text>
-                    <View style={[styles.drawerBadge, { backgroundColor: '#D1FAE5' }]}>
-                      <Text style={[styles.drawerBadgeText, { color: '#047857' }]}>PDF, DOCX, PPTX</Text>
+                    <Text style={[styles.drawerActionTitle, styles.primaryActionText]}>Create a reviewer</Text>
+                    <View style={[styles.drawerBadge, styles.primaryBadge]}>
+                      <Text style={[styles.drawerBadgeText, styles.primaryActionText]}>START HERE</Text>
                     </View>
                   </View>
-                  <Text style={styles.drawerActionDesc}>
-                    Turn notes and chapters into grounded flashcards & practice quiz
+                  <Text style={[styles.drawerActionDesc, styles.primaryActionDesc]}>
+                    Upload notes to make flashcards and practice questions
                   </Text>
                 </View>
                 <View style={styles.drawerActionArrow}>
-                  <HugeiconsIcon icon={ArrowRight01Icon} size={18} color="#98A2B3" strokeWidth={2.2} />
+                  <HugeiconsIcon icon={ArrowRight01Icon} size={18} color={colors.onPrimary} strokeWidth={2.2} />
                 </View>
-              </TouchableOpacity>
+              </Pressable>
 
               {/* Tile 2: Solve a Problem */}
-              <TouchableOpacity
+              <Pressable
                 style={styles.drawerActionTile}
                 onPress={handleMathSolvePress}
-                activeOpacity={0.78}
+                android_ripple={{ color: colors.primaryRipple }}
+                accessibilityRole="button"
+                accessibilityLabel="Solve a problem"
               >
                 <View style={[styles.drawerActionIconWrap, styles.mathIconWrap]}>
                   <HugeiconsIcon icon={Camera01Icon} size={22} color="#D97706" strokeWidth={2.4} />
@@ -448,13 +458,15 @@ export const FloatingNavBar: React.FC<FloatingNavBarProps> = ({
                 <View style={styles.drawerActionArrow}>
                   <HugeiconsIcon icon={ArrowRight01Icon} size={18} color="#98A2B3" strokeWidth={2.2} />
                 </View>
-              </TouchableOpacity>
+              </Pressable>
 
               {/* Tile 3: Study Sets */}
-              <TouchableOpacity
+              <Pressable
                 style={styles.drawerActionTile}
                 onPress={handleStudySetsPress}
-                activeOpacity={0.78}
+                android_ripple={{ color: colors.primaryRipple }}
+                accessibilityRole="button"
+                accessibilityLabel="Open study library"
               >
                 <View style={[styles.drawerActionIconWrap, styles.studySetsIconWrap]}>
                   <HugeiconsIcon icon={BookOpen01Icon} size={22} color={colors.primary} strokeWidth={2.4} />
@@ -473,8 +485,9 @@ export const FloatingNavBar: React.FC<FloatingNavBarProps> = ({
                 <View style={styles.drawerActionArrow}>
                   <HugeiconsIcon icon={ArrowRight01Icon} size={18} color="#98A2B3" strokeWidth={2.2} />
                 </View>
-              </TouchableOpacity>
+              </Pressable>
             </View>
+            </GlassSurface>
           </RNAnimated.View>
         </View>
       </Modal>
@@ -531,7 +544,7 @@ const CenterFabButton: React.FC<CenterFabButtonProps> = ({
   isOpen,
   onPress,
 }) => {
-  const btnDimension = isTablet ? 54 : 44;
+  const btnDimension = isTablet ? 54 : 48;
 
   return (
     <View style={styles.centerFabSlot}>
@@ -815,9 +828,9 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   centerFabBtn: {
-    width: isPadDevice ? 54 : 44,
-    height: isPadDevice ? 54 : 44,
-    borderRadius: (isPadDevice ? 54 : 44) / 2,
+    width: isPadDevice ? 54 : 48,
+    height: isPadDevice ? 54 : 48,
+    borderRadius: (isPadDevice ? 54 : 48) / 2,
     alignItems: "center",
     justifyContent: "center",
     ...Platform.select({
@@ -852,13 +865,12 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(15, 23, 42, 0.45)',
   },
   drawerCard: {
-    backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
+    backgroundColor: Platform.OS === 'ios' ? 'transparent' : '#FFFFFF',
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
     paddingTop: 10,
     paddingHorizontal: 20,
-    borderTopWidth: 1,
-    borderColor: '#EAECF0',
+    borderTopWidth: 0,
     ...Platform.select({
       ios: {
         shadowColor: '#101828',
@@ -893,7 +905,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   drawerTitle: {
-    fontSize: 19,
+    fontSize: 21,
     fontFamily: typography.fontFamily.bold,
     color: colors.text,
     letterSpacing: -0.3,
@@ -918,11 +930,28 @@ const styles = StyleSheet.create({
   drawerActionTile: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: '#F9FAFB',
+    backgroundColor: Platform.OS === 'ios' ? 'rgba(255,255,255,0.74)' : '#F5F7FB',
     borderRadius: 18,
     padding: 14,
     borderWidth: 1,
     borderColor: '#EAECF0',
+    overflow: 'hidden',
+  },
+  drawerPrimaryAction: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primaryDark,
+  },
+  primaryIconWrap: {
+    backgroundColor: 'rgba(255,255,255,0.18)',
+  },
+  primaryBadge: {
+    backgroundColor: 'rgba(255,255,255,0.18)',
+  },
+  primaryActionText: {
+    color: colors.onPrimary,
+  },
+  primaryActionDesc: {
+    color: 'rgba(255,255,255,0.86)',
   },
   drawerActionIconWrap: {
     width: 46,

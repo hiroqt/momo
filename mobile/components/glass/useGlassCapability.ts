@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useSyncExternalStore } from 'react';
 import { AccessibilityInfo, Platform } from 'react-native';
 import {
   isLiquidGlassAvailable,
@@ -27,6 +27,45 @@ export interface GlassCapability {
 }
 
 let cachedNativeAvailable: boolean | null = null;
+let reduceTransparency = false;
+let transparencyLoaded = false;
+const subscribers = new Set<() => void>();
+let systemSubscription: { remove: () => void } | null = null;
+
+function notifySubscribers() {
+  subscribers.forEach((subscriber) => subscriber());
+}
+
+function subscribeToTransparency(subscriber: () => void) {
+  subscribers.add(subscriber);
+  if (subscribers.size === 1 && Platform.OS !== 'web') {
+    if (!transparencyLoaded) {
+      AccessibilityInfo.isReduceTransparencyEnabled()
+        .then((enabled) => {
+          transparencyLoaded = true;
+          if (reduceTransparency !== enabled) {
+            reduceTransparency = enabled;
+            notifySubscribers();
+          }
+        })
+        .catch(() => {});
+    }
+    systemSubscription = AccessibilityInfo.addEventListener('reduceTransparencyChanged', (enabled) => {
+      transparencyLoaded = true;
+      if (reduceTransparency !== enabled) {
+        reduceTransparency = enabled;
+        notifySubscribers();
+      }
+    });
+  }
+  return () => {
+    subscribers.delete(subscriber);
+    if (subscribers.size === 0) {
+      systemSubscription?.remove();
+      systemSubscription = null;
+    }
+  };
+}
 
 function checkNativeGlassAvailable(): boolean {
   if (cachedNativeAvailable !== null) {
@@ -49,35 +88,11 @@ function checkNativeGlassAvailable(): boolean {
 
 export function useGlassCapability(): GlassCapability {
   const isNativeGlassAvailable = checkNativeGlassAvailable();
-  const [isReduceTransparencyEnabled, setIsReduceTransparencyEnabled] = useState(false);
-
-  useEffect(() => {
-    let isMounted = true;
-
-    // Check initial state
-    AccessibilityInfo.isReduceTransparencyEnabled()
-      .then((enabled) => {
-        if (isMounted) {
-          setIsReduceTransparencyEnabled(enabled);
-        }
-      })
-      .catch(() => {});
-
-    // Listen for live system changes
-    const subscription = AccessibilityInfo.addEventListener(
-      'reduceTransparencyChanged',
-      (enabled) => {
-        if (isMounted) {
-          setIsReduceTransparencyEnabled(enabled);
-        }
-      }
-    );
-
-    return () => {
-      isMounted = false;
-      subscription?.remove();
-    };
-  }, []);
+  const isReduceTransparencyEnabled = useSyncExternalStore(
+    subscribeToTransparency,
+    () => reduceTransparency,
+    () => false,
+  );
 
   const canUseLiquidGlass = isNativeGlassAvailable && !isReduceTransparencyEnabled;
   const canUseBlurFallback = !canUseLiquidGlass && !isReduceTransparencyEnabled && Platform.OS !== 'web';

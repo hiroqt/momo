@@ -133,6 +133,7 @@ local.properties
 .claude*
 skills-lock.json
 .obsidian/
+momo/
 
 # ==============================================================================
 # OS Files

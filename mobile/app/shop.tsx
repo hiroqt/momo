@@ -48,6 +48,12 @@ import {
 const EASE_OUT = Easing.bezier(0.23, 1, 0.32, 1);      // Strong ease-out for entering UI
 const EASE_IN_OUT = Easing.bezier(0.77, 0, 0.175, 1);  // Smooth ease-in-out for layout reflow and exit
 
+function formatBalance(value: number): string {
+  if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}m`;
+  if (value >= 10_000) return `${(value / 1_000).toFixed(1)}k`;
+  return value.toLocaleString();
+}
+
 // Fluid UI-thread rotating chevron adhering to expo-animation cubic-bezier curves
 function AnimatedChevron({ expanded, color }: { expanded: boolean; color: string }) {
   const rotation = useSharedValue(expanded ? 180 : 0);
@@ -328,7 +334,7 @@ export default function ShopScreen({ isTab = false }: { isTab?: boolean } = {}) 
               </TouchableOpacity>
             )}
             <Text style={styles.headerTitle} numberOfLines={1}>
-              Shop
+              Study shop
             </Text>
           </View>
 
@@ -337,20 +343,20 @@ export default function ShopScreen({ isTab = false }: { isTab?: boolean } = {}) 
             {/* Credits Pill */}
             <View style={[styles.headerPill, styles.headerPillGold]}>
               <HugeiconsIcon icon={Coins01Icon} size={isPadDevice ? 16 : 13} color="#D97706" />
-              <Text style={styles.headerPillText}>{credits.toLocaleString()}</Text>
+              <Text style={styles.headerPillText}>{formatBalance(credits)}</Text>
             </View>
 
             {/* Lives Pill */}
             <View style={[styles.headerPill, styles.headerPillCrimson]}>
               <HugeiconsIcon icon={HeartIcon} size={isPadDevice ? 16 : 13} color="#EF4444" />
-              <Text style={styles.headerPillText}>{hearts.toLocaleString()}</Text>
+              <Text style={styles.headerPillText}>{formatBalance(hearts)}</Text>
             </View>
 
             {/* Study XP Pill */}
             <View style={[styles.headerPill, styles.headerPillPurple]}>
               <HugeiconsIcon icon={StarIcon} size={isPadDevice ? 16 : 13} color="#8B5CF6" />
               <Text style={styles.headerPillText}>
-                {xp >= 10000 ? `${(xp / 1000).toFixed(1)}k` : xp.toLocaleString()}
+                {formatBalance(xp)}
               </Text>
             </View>
           </View>
@@ -370,14 +376,14 @@ export default function ShopScreen({ isTab = false }: { isTab?: boolean } = {}) 
           <View style={styles.featuredHeader}>
             <View style={styles.featuredBadge}>
               <HugeiconsIcon icon={SparklesIcon} size={13} color="#FFFFFF" />
-              <Text style={styles.featuredBadgeText}>FEATURED IN SHOP</Text>
+              <Text style={styles.featuredBadgeText}>STUDY BOOSTERS</Text>
             </View>
           </View>
           <View style={styles.featuredContent}>
             <View style={styles.featuredTextGroup}>
-              <Text style={styles.featuredTitle}>Power Up Your Learning</Text>
+              <Text style={styles.featuredTitle}>A little help when you need it</Text>
               <Text style={styles.featuredDesc}>
-                Unlock AI hints for tricky equations, keep quiz streaks protected with extra lives, and exchange earned XP for study boosters.
+                Use credits for hints, keep extra quiz lives on hand, or trade the XP you earned by studying.
               </Text>
             </View>
             <Image 
@@ -983,28 +989,29 @@ const styles = StyleSheet.create({
     zIndex: 10,
   },
   headerContentRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: isPadDevice ? 'row' : 'column',
+    alignItems: isPadDevice ? 'center' : 'stretch',
     justifyContent: 'space-between',
     minHeight: isPadDevice ? 48 : 38,
-    gap: 10,
+    gap: isPadDevice ? 10 : 12,
   },
   headerLeftCol: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
     flexShrink: 0,
+    minHeight: 44,
   },
   iconBtn: {
-    width: isPadDevice ? 42 : 34,
-    height: isPadDevice ? 42 : 34,
-    borderRadius: isPadDevice ? 21 : 17,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     backgroundColor: colors.surfaceMuted,
     alignItems: 'center',
     justifyContent: 'center',
   },
   headerTitle: {
-    fontSize: isPadDevice ? typography.fontSize[22] : typography.fontSize[18],
+    fontSize: isPadDevice ? typography.fontSize[22] : typography.fontSize[24],
     fontWeight: typography.fontWeight.bold,
     color: colors.text,
     letterSpacing: typography.letterSpacing[-0.3],
@@ -1014,15 +1021,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: isPadDevice ? 10 : 6,
     flexShrink: 1,
-    justifyContent: 'flex-end',
+    justifyContent: isPadDevice ? 'flex-end' : 'space-between',
   },
   headerPill: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
     backgroundColor: '#FFFFFF',
-    paddingVertical: isPadDevice ? 7 : 5,
+    paddingVertical: isPadDevice ? 7 : 9,
     paddingHorizontal: isPadDevice ? 12 : 8,
+    minHeight: 40,
+    flex: isPadDevice ? undefined : 1,
+    justifyContent: 'center',
     borderRadius: isPadDevice ? 14 : 10,
     borderWidth: 1,
     ...Platform.select({

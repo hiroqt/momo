@@ -319,21 +319,31 @@ export default function WelcomeScreen() {
     <SafeAreaView style={styles.safeArea}>
       {/* Top Header: Progress Bar Indicator + Direct Skip */}
       <View style={styles.topHeader}>
-        <View style={styles.progressContainer}>
-          {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
-            <View
-              key={i}
-              style={[
-                styles.progressDot,
-                step === i && styles.progressDotActive,
-                step > i && styles.progressDotCompleted,
-              ]}
-            />
-          ))}
+        <View style={styles.progressContent}>
+          <Text style={styles.progressLabel}>STEP {step} OF 8</Text>
+          <View
+            style={styles.progressContainer}
+            accessible
+            accessibilityRole="progressbar"
+            accessibilityValue={{ min: 1, max: 8, now: step }}
+            accessibilityLabel="Setup progress"
+          >
+            {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
+              <View
+                key={i}
+                style={[
+                  styles.progressDot,
+                  step === i && styles.progressDotActive,
+                  step > i && styles.progressDotCompleted,
+                ]}
+              />
+            ))}
+          </View>
         </View>
         <TouchableOpacity
           onPress={handleFinishGuest}
           style={styles.headerSkipBtn}
+          disabled={isSeeding}
           accessibilityRole="button"
           accessibilityLabel="Skip setup and jump to dashboard"
           activeOpacity={0.7}
@@ -1067,7 +1077,7 @@ export default function WelcomeScreen() {
                 </View>
               </View>
 
-              {/* Study Reminders Checkbox (Required to Continue) */}
+              {/* Reminders are an explicit, optional preference. */}
               <TouchableOpacity
                 style={[
                   styles.reminderCard,
@@ -1104,7 +1114,7 @@ export default function WelcomeScreen() {
                           studyRemindersEnabled && styles.reminderStatusBadgeTextActive,
                         ]}
                       >
-                        {studyRemindersEnabled ? 'Enabled' : 'Required'}
+                        {studyRemindersEnabled ? 'Enabled' : 'Optional'}
                       </Text>
                     </View>
                   </View>
@@ -1114,36 +1124,18 @@ export default function WelcomeScreen() {
                 </View>
               </TouchableOpacity>
 
-              {/* Continue Button: Disabled if Study Reminders is not checked */}
+              {/* Continue regardless of reminder preference. */}
               <TouchableOpacity
-                style={[
-                  styles.primaryButton,
-                  !studyRemindersEnabled && styles.primaryButtonDisabled,
-                  { marginTop: spacing[16] },
-                ]}
-                onPress={() => {
-                  if (studyRemindersEnabled) {
-                    goToStep(8, 'forward');
-                  }
-                }}
-                disabled={!studyRemindersEnabled}
+                style={[styles.primaryButton, { marginTop: spacing[16] }]}
+                onPress={() => goToStep(8, 'forward')}
                 accessibilityRole="button"
-                accessibilityLabel={
-                  studyRemindersEnabled ? "Next: Let's Jump In!" : 'Check study reminders above to continue'
-                }
+                accessibilityLabel="Continue to choose how to start"
               >
-                <Text
-                  style={[
-                    styles.primaryButtonText,
-                    !studyRemindersEnabled && styles.primaryButtonTextDisabled,
-                  ]}
-                >
-                  {studyRemindersEnabled ? "Next: Let's Jump In!" : 'Check Reminders to Continue'}
-                </Text>
+                <Text style={styles.primaryButtonText}>Continue</Text>
                 <HugeiconsIcon
                   icon={ArrowRight01Icon}
                   size={18}
-                  color={studyRemindersEnabled ? colors.onPrimary : colors.textMuted}
+                  color={colors.onPrimary}
                   strokeWidth={2.5}
                 />
               </TouchableOpacity>
@@ -1235,11 +1227,24 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: spacing[20],
     paddingTop: spacing[6],
-    paddingBottom: spacing[4],
+    paddingBottom: spacing[12],
+  },
+  progressContent: {
+    flex: 1,
+    marginRight: spacing[16],
+  },
+  progressLabel: {
+    color: colors.textSecondary,
+    fontSize: typography.fontSize[11],
+    fontWeight: typography.fontWeight.bold,
+    letterSpacing: 0.6,
+    marginBottom: spacing[6],
   },
   headerSkipBtn: {
-    paddingVertical: spacing[6],
-    paddingHorizontal: spacing[10],
+    minHeight: 44,
+    minWidth: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   headerSkipText: {
     fontSize: typography.fontSize[13],
@@ -1252,14 +1257,13 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   progressDot: {
-    width: 14,
-    height: 6,
+    flex: 1,
+    height: 5,
     borderRadius: 3,
     backgroundColor: colors.border,
   },
   progressDotActive: {
     backgroundColor: colors.primary,
-    width: 24,
   },
   progressDotCompleted: {
     backgroundColor: colors.primaryBorder,

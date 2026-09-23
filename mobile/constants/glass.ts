@@ -17,7 +17,7 @@ export interface GlassStyleConfig {
 export const glassTokens: Record<GlassVariant, GlassStyleConfig> = {
   regular: {
     glassEffectStyle: 'regular',
-    tintColor: 'rgba(255, 255, 255, 0.45)',
+    tintColor: 'rgba(255, 255, 255, 0.22)',
     fallbackIntensity: 75,
     fallbackTint: 'systemMaterial',
     borderColor: 'rgba(255, 255, 255, 0.35)',
@@ -35,7 +35,7 @@ export const glassTokens: Record<GlassVariant, GlassStyleConfig> = {
   },
   subtle: {
     glassEffectStyle: 'regular',
-    tintColor: 'rgba(248, 250, 252, 0.35)',
+    tintColor: 'rgba(248, 250, 252, 0.16)',
     fallbackIntensity: 50,
     fallbackTint: 'systemThinMaterial',
     borderColor: 'rgba(226, 232, 240, 0.6)',
@@ -44,7 +44,7 @@ export const glassTokens: Record<GlassVariant, GlassStyleConfig> = {
   },
   prominent: {
     glassEffectStyle: 'regular',
-    tintColor: 'rgba(255, 255, 255, 0.75)',
+    tintColor: 'rgba(255, 255, 255, 0.28)',
     fallbackIntensity: 90,
     fallbackTint: 'systemMaterial',
     borderColor: 'rgba(255, 255, 255, 0.55)',

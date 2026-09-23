@@ -139,7 +139,7 @@ export default function HomeScreen() {
 
   const featured = sets.length > 0 ? sets[0] : null;
   // Eliminate card redundancy: Library carousel only renders non-featured sets
-  const otherSets = sets.slice(1);
+  const otherSets = sets.slice(1, 7);
   const totalCards = sets.reduce((sum, s) => sum + (s.item_count || 0), 0);
 
   const isTablet = isIpad();
@@ -286,6 +286,136 @@ export default function HomeScreen() {
           </View>
         </View>
 
+        {/* Resume Study Widget - Active Deck */}
+        {featured ? (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Pick up where you left off</Text>
+
+            <View style={styles.resumeWidget}>
+              <View style={styles.resumeHeader}>
+                <View style={styles.resumeActiveBadge}>
+                  <View style={styles.pulseDot} />
+                  <Text style={styles.resumeActiveText}>ACTIVE</Text>
+                </View>
+                <Text style={styles.resumeCountText}>{featured.item_count} Items</Text>
+              </View>
+
+              <Text style={styles.resumeTitle} numberOfLines={2}>{featured.title}</Text>
+
+              <View style={styles.resumeActionGrid}>
+                <PlatformPressable
+                  style={styles.resumePrimaryBtn}
+                  onPress={() =>
+                    router.push({
+                      pathname: '/study/[studySetId]',
+                      params: { studySetId: featured.id, initialMode: 'flashcard' },
+                    })
+                  }
+                >
+                  <View style={styles.resumeBtnContent}>
+                    <HugeiconsIcon icon={FlashIcon} size={isTablet ? 22 : 16} color={colors.onPrimary} strokeWidth={2.5} />
+                    <Text style={styles.resumePrimaryBtnText}>Flashcards</Text>
+                  </View>
+                </PlatformPressable>
+
+                <PlatformPressable
+                  style={styles.resumeSecondaryBtn}
+                  onPress={() =>
+                    router.push({
+                      pathname: '/study/[studySetId]',
+                      params: { studySetId: featured.id, initialMode: 'quiz' },
+                    })
+                  }
+                >
+                  <View style={styles.resumeBtnContent}>
+                    <HugeiconsIcon icon={HelpCircleIcon} size={isTablet ? 22 : 16} color={colors.primaryDark} strokeWidth={2.2} />
+                    <Text style={styles.resumeSecondaryBtnText}>Quiz</Text>
+                  </View>
+                </PlatformPressable>
+              </View>
+            </View>
+          </View>
+        ) : null}
+
+        {/* Library Carousel Widget - Non-Redundant (Shows other decks or invite card) */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Your Library</Text>
+            <TouchableOpacity
+              onPress={() => router.push('/(tabs)/library')}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <Text style={styles.seeAllText}>View All ({sets.length})</Text>
+            </TouchableOpacity>
+          </View>
+
+          {sets.length === 0 ? (
+            <SampleDeckCard onDeckSeeded={loadData} />
+          ) : otherSets.length > 0 ? (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.carouselContainer}
+              snapToInterval={(isTablet ? 420 : 280) + spacing[12]}
+              decelerationRate="fast"
+            >
+              {otherSets.map((s) => (
+                <TouchableOpacity
+                  key={s.id}
+                  style={styles.carouselCard}
+                  onPress={() => router.push(`/study/${s.id}`)}
+                  activeOpacity={0.8}
+                >
+                  <View style={styles.carouselCardTop}>
+                    <Text style={styles.carouselTitle} numberOfLines={2}>
+                      {s.title}
+                    </Text>
+                  </View>
+                  <View style={styles.carouselCardBottom}>
+                    <Text style={styles.carouselMeta}>{s.item_count} items</Text>
+                    <View style={styles.carouselActions}>
+                      <TouchableOpacity
+                        onPress={() => setRenameTarget(s)}
+                        style={styles.iconBtn}
+                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                      >
+                        <HugeiconsIcon icon={Edit02Icon} size={isTablet ? 20 : 16} color={colors.textSecondary} />
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        onPress={() => setDeleteTarget(s)}
+                        style={styles.iconBtn}
+                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                      >
+                        <HugeiconsIcon icon={Delete02Icon} size={isTablet ? 20 : 16} color={colors.dangerAccent} />
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          ) : (
+            <TouchableOpacity
+              style={styles.createDeckPromptCard}
+              onPress={() => router.push('/documents/upload')}
+              activeOpacity={0.8}
+            >
+              <View style={styles.createDeckPromptLeft}>
+                <View style={styles.createDeckPromptIconCircle}>
+                  <HugeiconsIcon icon={Add01Icon} size={20} color={colors.primary} />
+                </View>
+                <View style={styles.createDeckPromptTextCol}>
+                  <Text style={styles.createDeckPromptTitle}>Add Another Reviewer</Text>
+                  <Text style={styles.createDeckPromptSub}>
+                    Upload more study notes to grow your revision library
+                  </Text>
+                </View>
+              </View>
+              <View style={styles.createDeckPromptArrow}>
+                <HugeiconsIcon icon={ArrowRight01Icon} size={16} color={colors.primary} />
+              </View>
+            </TouchableOpacity>
+          )}
+        </View>
         {/* Momo AI Tutor Suite */}
         <View style={styles.momoTutorSection}>
           {/* Momo AI Tutor Card */}
@@ -414,136 +544,6 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        {/* Resume Study Widget - Active Deck */}
-        {featured ? (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Resume Study</Text>
-
-            <View style={styles.resumeWidget}>
-              <View style={styles.resumeHeader}>
-                <View style={styles.resumeActiveBadge}>
-                  <View style={styles.pulseDot} />
-                  <Text style={styles.resumeActiveText}>ACTIVE</Text>
-                </View>
-                <Text style={styles.resumeCountText}>{featured.item_count} Items</Text>
-              </View>
-
-              <Text style={styles.resumeTitle} numberOfLines={2}>{featured.title}</Text>
-
-              <View style={styles.resumeActionGrid}>
-                <PlatformPressable
-                  style={styles.resumePrimaryBtn}
-                  onPress={() =>
-                    router.push({
-                      pathname: '/study/[studySetId]',
-                      params: { studySetId: featured.id, initialMode: 'flashcard' },
-                    })
-                  }
-                >
-                  <View style={styles.resumeBtnContent}>
-                    <HugeiconsIcon icon={FlashIcon} size={isTablet ? 22 : 16} color={colors.onPrimary} strokeWidth={2.5} />
-                    <Text style={styles.resumePrimaryBtnText}>Flashcards</Text>
-                  </View>
-                </PlatformPressable>
-
-                <PlatformPressable
-                  style={styles.resumeSecondaryBtn}
-                  onPress={() =>
-                    router.push({
-                      pathname: '/study/[studySetId]',
-                      params: { studySetId: featured.id, initialMode: 'quiz' },
-                    })
-                  }
-                >
-                  <View style={styles.resumeBtnContent}>
-                    <HugeiconsIcon icon={HelpCircleIcon} size={isTablet ? 22 : 16} color={colors.primaryDark} strokeWidth={2.2} />
-                    <Text style={styles.resumeSecondaryBtnText}>Quiz</Text>
-                  </View>
-                </PlatformPressable>
-              </View>
-            </View>
-          </View>
-        ) : null}
-
-        {/* Library Carousel Widget - Non-Redundant (Shows other decks or invite card) */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Your Library</Text>
-            <TouchableOpacity
-              onPress={() => router.push('/(tabs)/library')}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            >
-              <Text style={styles.seeAllText}>View All ({sets.length})</Text>
-            </TouchableOpacity>
-          </View>
-
-          {sets.length === 0 ? (
-            <SampleDeckCard onDeckSeeded={loadData} />
-          ) : otherSets.length > 0 ? (
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.carouselContainer}
-              snapToInterval={(isTablet ? 420 : 280) + spacing[12]}
-              decelerationRate="fast"
-            >
-              {otherSets.map((s) => (
-                <TouchableOpacity
-                  key={s.id}
-                  style={styles.carouselCard}
-                  onPress={() => router.push(`/study/${s.id}`)}
-                  activeOpacity={0.8}
-                >
-                  <View style={styles.carouselCardTop}>
-                    <Text style={styles.carouselTitle} numberOfLines={2}>
-                      {s.title}
-                    </Text>
-                  </View>
-                  <View style={styles.carouselCardBottom}>
-                    <Text style={styles.carouselMeta}>{s.item_count} items</Text>
-                    <View style={styles.carouselActions}>
-                      <TouchableOpacity
-                        onPress={() => setRenameTarget(s)}
-                        style={styles.iconBtn}
-                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                      >
-                        <HugeiconsIcon icon={Edit02Icon} size={isTablet ? 20 : 16} color={colors.textSecondary} />
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        onPress={() => setDeleteTarget(s)}
-                        style={styles.iconBtn}
-                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                      >
-                        <HugeiconsIcon icon={Delete02Icon} size={isTablet ? 20 : 16} color={colors.dangerAccent} />
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          ) : (
-            <TouchableOpacity
-              style={styles.createDeckPromptCard}
-              onPress={() => router.push('/documents/upload')}
-              activeOpacity={0.8}
-            >
-              <View style={styles.createDeckPromptLeft}>
-                <View style={styles.createDeckPromptIconCircle}>
-                  <HugeiconsIcon icon={Add01Icon} size={20} color={colors.primary} />
-                </View>
-                <View style={styles.createDeckPromptTextCol}>
-                  <Text style={styles.createDeckPromptTitle}>Add Another Reviewer</Text>
-                  <Text style={styles.createDeckPromptSub}>
-                    Upload more study notes to grow your revision library
-                  </Text>
-                </View>
-              </View>
-              <View style={styles.createDeckPromptArrow}>
-                <HugeiconsIcon icon={ArrowRight01Icon} size={16} color={colors.primary} />
-              </View>
-            </TouchableOpacity>
-          )}
-        </View>
       </SmoothScrollView>
 
       {/* Modals */}

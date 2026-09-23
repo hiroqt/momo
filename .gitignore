@@ -60,6 +60,10 @@ test_*.py
 *.spec.[jt]sx
 *.test.*
 *.spec.*
+!mobile/__tests__/
+!mobile/__tests__/*.test.ts
+!backend/tests/
+!backend/tests/test_generation_profile.py
 
 # ==============================================================================
 # JavaScript, React Native & Expo
@@ -160,4 +164,3 @@ scratch/
 # Expo Prebuild Native Folders
 mobile/ios/
 mobile/android/
-

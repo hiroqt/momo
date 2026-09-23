@@ -10,6 +10,8 @@ export interface GenerationRequest {
   question_types?: string[];
   source_only?: boolean;
   custom_instruction?: string;
+  academic_level?: string;
+  learner_focus?: string;
   focus_sections?: string[];
   time_limit_per_question?: number;
 }

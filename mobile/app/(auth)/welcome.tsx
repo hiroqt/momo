@@ -31,6 +31,7 @@ import {
   PreferredFormat,
 } from '../../context/OnboardingContext';
 import { seedSampleDeck } from '../../lib/data/sampleDeck';
+import { buildSampleDeck } from '../../lib/data/sampleDeck';
 import { JungleBackdrop } from '@/components/onboarding/JungleBackdrop';
 import { AnimatedMomo, MomoPose } from '@/components/onboarding/AnimatedMomo';
 import { AgeScrollPicker } from '@/components/onboarding/AgeScrollPicker';
@@ -173,6 +174,7 @@ export default function WelcomeScreen() {
 
   // Loading state
   const [isSeeding, setIsSeeding] = useState<boolean>(false);
+  const preview = buildSampleDeck({ studyTrack: selectedTrack, highSchoolGrade, collegeYear, collegeCourse }).set;
 
   // Transitions
   const isTransitioning = useRef(false);
@@ -335,12 +337,11 @@ export default function WelcomeScreen() {
     setIsSeeding(true);
     triggerHaptic();
     try {
-      await seedSampleDeck();
+      await seedSampleDeck({ studyTrack: selectedTrack, highSchoolGrade, collegeYear, collegeCourse });
       await completeWelcome(selectedTrack, selectedFormats, selectedGoal, true, buildProfilePayload());
-      router.replace('/(tabs)');
+      router.replace('/(auth)/momo-intro');
     } catch (err) {
       console.error('Failed to complete guest welcome:', err);
-      router.replace('/(tabs)');
     } finally {
       setIsSeeding(false);
     }
@@ -348,12 +349,15 @@ export default function WelcomeScreen() {
 
   const handleFinishGoogle = async () => {
     triggerHaptic();
+    setIsSeeding(true);
     try {
+      await seedSampleDeck({ studyTrack: selectedTrack, highSchoolGrade, collegeYear, collegeCourse });
       await completeWelcome(selectedTrack, selectedFormats, selectedGoal, false, buildProfilePayload());
-      router.replace('/(tabs)');
+      router.replace('/(auth)/momo-intro');
     } catch (err) {
       console.error('Failed to complete google welcome:', err);
-      router.replace('/(tabs)');
+    } finally {
+      setIsSeeding(false);
     }
   };
 
@@ -986,9 +990,9 @@ export default function WelcomeScreen() {
                       <HugeiconsIcon icon={SparklesIcon} size={12} color={colors.primary} strokeWidth={2.5} />
                       <Text style={styles.launchBadgeText}>Instant Taste • No Sign-Up Needed</Text>
                     </View>
-                    <Text style={styles.launchCardTitle}>Biology 101 Sample Deck</Text>
+                    <Text style={styles.launchCardTitle}>{preview.title}</Text>
                     <Text style={styles.launchCardDesc}>
-                      Jump straight into action! Flip flashcards and answer quiz questions right away — zero sign-up or document uploads needed.
+                      Your selected study path and level, ready as a curated preview. Upload notes later for source-grounded cards.
                     </Text>
                     <TouchableOpacity
                       style={styles.sampleActionButton}

@@ -42,6 +42,15 @@ async def create_generation(
             )
         req.topic = g_check.sanitized_text
 
+    if req.learner_focus:
+        g_check = guardrails_service.validate_user_input(req.learner_focus)
+        if not g_check.passed:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={"code": "UNSAFE_FOCUS", "message": g_check.refusal_response}
+            )
+        req.learner_focus = g_check.sanitized_text
+
     # 2. Verify document exists & owned by user
     doc = await documents_repo.get_by_id(req.document_id, user.id)
     if not doc:

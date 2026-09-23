@@ -35,13 +35,24 @@ function getExpoSharing(): any {
 }
 
 function getExpoMediaLibrary(): any {
+  // If running inside Expo Go on Android, skip direct MediaLibrary access because
+  // Google Play permission policies in Expo Go prevent full media library access.
+  // The app will cleanly use the native expo-sharing fallback without noisy warnings.
+  if (Platform.OS === 'android') {
+    const isExpoGo = typeof expo !== 'undefined' && (globalThis as any).expo?.modules?.ExpoGo;
+    if (isExpoGo) {
+      return null;
+    }
+  }
+
   try {
+    // Prefer modern expo-media-library (Expo SDK 57+)
     // eslint-disable-next-line @typescript-eslint/no-var-requires
-    return require('expo-media-library/legacy');
+    return require('expo-media-library');
   } catch {
     try {
       // eslint-disable-next-line @typescript-eslint/no-var-requires
-      return require('expo-media-library');
+      return require('expo-media-library/legacy');
     } catch (err) {
       console.warn('[shareStory] expo-media-library not available in binary:', err);
       return null;

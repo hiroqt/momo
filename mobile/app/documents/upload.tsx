@@ -256,11 +256,9 @@ export default function UploadScreen() {
 
       updateProgress(35, 0, 'Uploading your notes...');
       try {
-        const fileResp = await fetch(selectedFile.uri);
-        const fileBlob = await fileResp.blob();
         await uploadFileToS3(
           uploadData.upload_url,
-          fileBlob,
+          selectedFile.uri,
           selectedFile.mimeType || 'application/pdf'
         );
       } catch (uploadErr) {

@@ -1,3 +1,5 @@
+import { Platform } from 'react-native';
+import { File, UploadType } from 'expo-file-system';
 import { apiFetch, BASE_URL } from './client';
 import { DocumentItem } from '../../types';
 
@@ -20,12 +22,47 @@ export async function requestUploadUrl(params: {
   });
 }
 
-export async function uploadFileToS3(uploadUrl: string, fileBytes: Blob, mimeType: string): Promise<void> {
+export async function uploadFileToS3(
+  uploadUrl: string,
+  fileData: Blob | string,
+  mimeType: string
+): Promise<void> {
   const targetUrl = uploadUrl.startsWith('http') ? uploadUrl : `${BASE_URL}${uploadUrl}`;
+
+  // Direct native streaming upload if given a local file URI on native (bypasses JS memory & base64 overhead)
+  if (
+    Platform.OS !== 'web' &&
+    typeof fileData === 'string' &&
+    (fileData.startsWith('file:') || fileData.startsWith('content:'))
+  ) {
+    try {
+      const file = new File(fileData);
+      const uploadRes = await file.upload(targetUrl, {
+        httpMethod: 'PUT',
+        headers: { 'Content-Type': mimeType },
+        uploadType: UploadType.BINARY_CONTENT,
+      });
+
+      if (uploadRes.status >= 200 && uploadRes.status < 300) {
+        return;
+      }
+      console.warn(`[uploadFileToS3] file.upload returned status ${uploadRes.status}, falling back to fetch`);
+    } catch (fsErr) {
+      console.warn('[uploadFileToS3] File upload error, falling back to fetch:', fsErr);
+    }
+  }
+
+  // Fallback to fetch with Blob (web, or if native upload failed)
+  let body: any = fileData;
+  if (typeof fileData === 'string') {
+    const resp = await fetch(fileData);
+    body = await resp.blob();
+  }
+
   const resp = await fetch(targetUrl, {
     method: 'PUT',
     headers: { 'Content-Type': mimeType },
-    body: fileBytes,
+    body,
   });
   if (!resp.ok) {
     throw new Error(`Failed to upload document to storage: ${resp.statusText}`);

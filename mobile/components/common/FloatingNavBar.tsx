@@ -522,46 +522,18 @@ const CenterFabButton: React.FC<CenterFabButtonProps> = ({
   isOpen,
   onPress,
 }) => {
-  const scaleAnim = useRef(new RNAnimated.Value(1)).current;
-
-  const handlePressIn = () => {
-    RNAnimated.spring(scaleAnim, {
-      toValue: 0.88,
-      useNativeDriver: true,
-      speed: 40,
-      bounciness: 4,
-    }).start();
-  };
-
-  const handlePressOut = () => {
-    RNAnimated.spring(scaleAnim, {
-      toValue: 1,
-      useNativeDriver: true,
-      speed: 30,
-      bounciness: 6,
-    }).start();
-  };
-
-  const btnDimension = isTablet ? 62 : 50;
+  const btnDimension = isTablet ? 54 : 44;
 
   return (
     <View style={styles.centerFabSlot}>
-      <RNAnimated.View
-        style={[
-          styles.centerFabWrap,
-          {
-            transform: [{ scale: scaleAnim }],
-          },
-        ]}
-      >
+      <View style={styles.centerFabWrap}>
         <GlassButton
           variant="primary"
           size="icon"
           radius={glassRadius.full}
           haptic="medium"
+          activeScale={0.92}
           onPress={onPress}
-          onPressIn={handlePressIn}
-          onPressOut={handlePressOut}
           style={[
             styles.centerFabBtn,
             isTablet && styles.centerFabBtnTablet,
@@ -572,12 +544,12 @@ const CenterFabButton: React.FC<CenterFabButtonProps> = ({
         >
           <HugeiconsIcon
             icon={Add01Icon}
-            size={isTablet ? 28 : 22}
+            size={isTablet ? 26 : 22}
             color="#FFFFFF"
             strokeWidth={2.8}
           />
         </GlassButton>
-      </RNAnimated.View>
+      </View>
     </View>
   );
 };
@@ -821,24 +793,30 @@ const styles = StyleSheet.create({
   centerFabWrap: {
     alignItems: "center",
     justifyContent: "center",
-    marginTop: isPadDevice ? -16 : -12,
   },
   centerFabBtn: {
+    width: isPadDevice ? 54 : 44,
+    height: isPadDevice ? 54 : 44,
+    borderRadius: (isPadDevice ? 54 : 44) / 2,
     alignItems: "center",
     justifyContent: "center",
     ...Platform.select({
       ios: {
         shadowColor: colors.primary,
-        shadowOffset: { width: 0, height: 6 },
+        shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.35,
-        shadowRadius: 10,
+        shadowRadius: 8,
       },
       android: {
-        elevation: 8,
+        elevation: 6,
       },
     }),
   },
-  centerFabBtnTablet: {},
+  centerFabBtnTablet: {
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+  },
   centerFabBtnOpen: {
     opacity: 0.95,
   },

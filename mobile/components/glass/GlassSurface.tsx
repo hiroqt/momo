@@ -128,18 +128,26 @@ export const GlassSurface: React.FC<GlassSurfaceProps> = ({
       style={[
         styles.blurContainer,
         baseSurfaceStyle,
-        {
-          overflow: 'hidden',
-          backgroundColor: token.backgroundColor,
-        },
       ]}
       {...rest}
     >
-      <BlurView
-        tint={Platform.OS === 'ios' ? token.fallbackTint : 'light'}
-        intensity={token.fallbackIntensity}
-        style={StyleSheet.absoluteFill}
-      />
+      <View
+        pointerEvents="none"
+        style={[
+          StyleSheet.absoluteFill,
+          {
+            borderRadius: radius,
+            overflow: 'hidden',
+            backgroundColor: token.backgroundColor,
+          },
+        ]}
+      >
+        <BlurView
+          tint={Platform.OS === 'ios' ? token.fallbackTint : 'light'}
+          intensity={token.fallbackIntensity}
+          style={StyleSheet.absoluteFill}
+        />
+      </View>
       {children}
     </View>
   );

@@ -12,7 +12,8 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/math", tags=["math"])
 
 class MathSolveRequest(BaseModel):
-    base64_image: str
+    base64_image: Optional[str] = None
+    equation_text: Optional[str] = None
 
 class MathSolveResponse(BaseModel):
     problem: str
@@ -32,8 +33,14 @@ async def solve_math_problem(
     req: MathSolveRequest,
     user: AuthenticatedUser = Depends(get_current_user)
 ):
+    if not req.base64_image and not req.equation_text:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"code": "MISSING_INPUT", "message": "Either base64_image or equation_text must be provided."}
+        )
+
     try:
-        result = await ai_provider.solve_math(req.base64_image)
+        result = await ai_provider.solve_math(req.base64_image, equation_text=req.equation_text)
         # Sanitize any output against credential leaks
         if isinstance(result, dict):
             if "explanation" in result and isinstance(result["explanation"], str):

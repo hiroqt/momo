@@ -99,6 +99,7 @@ export const GlassButton: React.FC<GlassButtonProps> = ({
   return (
     <Animated.View
       style={[
+        { borderRadius: defaultRadius },
         !canUseLiquidGlass && { transform: [{ scale: scaleAnim }] },
         disabled && styles.disabled,
         style,

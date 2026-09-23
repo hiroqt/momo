@@ -14,7 +14,11 @@ function resolveBaseUrl(): string {
 
   // 2. Explicit environment variable if provided
   if (process.env.EXPO_PUBLIC_API_URL) {
-    return process.env.EXPO_PUBLIC_API_URL;
+    let envUrl = process.env.EXPO_PUBLIC_API_URL;
+    if (Platform.OS === 'android' && (envUrl.includes('localhost') || envUrl.includes('127.0.0.1'))) {
+      return envUrl.replace('localhost', '10.0.2.2').replace('127.0.0.1', '10.0.2.2');
+    }
+    return envUrl;
   }
 
   // 3. Android emulator localhost alias to host machine

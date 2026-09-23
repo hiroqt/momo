@@ -17,6 +17,7 @@ import { CreditsProvider } from '../context/CreditsContext';
 import { OnboardingProvider, useOnboarding } from '../context/OnboardingContext';
 import { useRouter, useSegments } from 'expo-router';
 import { MomoLoadingScreen } from '@/components/common/MomoLoadingScreen';
+import { SyncStatusPill } from '@/components/common/SyncStatusPill';
 
 function InitialGate({
   fontsReady,
@@ -84,6 +85,7 @@ export default function RootLayout() {
           <InitialGate fontsReady={fontsReady}>
             <SafeAreaProvider>
               <StatusBar style="dark" />
+              <SyncStatusPill />
               <Stack
                 screenOptions={{
                   headerShown: false,

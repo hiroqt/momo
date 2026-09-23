@@ -601,7 +601,7 @@ export default function ChatScreen() {
       <KeyboardAvoidingView
         style={styles.content}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top + 62 : 0}
       >
         {loading ? (
           <View style={styles.loadingContainer}>

@@ -6,11 +6,20 @@ import {
   TextInputProps,
   TextProps,
   TextStyle,
+  Platform,
 } from 'react-native';
 import { typography } from '@/constants/theme';
 import { isIpad, IPAD_FONT_SCALE } from '@/utils/device';
 
-const getFontFamily = (fontWeight: TextStyle['fontWeight']) => {
+const getFontFamily = (fontWeight: TextStyle['fontWeight'], explicitFontFamily?: string) => {
+  // If an explicit Poppins font family is already defined on the style, respect it
+  if (
+    explicitFontFamily &&
+    Object.values(typography.fontFamily).includes(explicitFontFamily as any)
+  ) {
+    return explicitFontFamily;
+  }
+
   if (fontWeight === 'bold') {
     return typography.fontFamily.bold;
   }
@@ -34,10 +43,16 @@ const getFontFamily = (fontWeight: TextStyle['fontWeight']) => {
 
 const resolveTypographyStyle = (style: TextProps['style']): TextStyle => {
   const resolvedStyle = { ...StyleSheet.flatten(style) };
-  const fontFamily = getFontFamily(resolvedStyle.fontWeight);
+  const explicitFontFamily = resolvedStyle.fontFamily;
+  const fontFamily = getFontFamily(resolvedStyle.fontWeight, explicitFontFamily);
 
   delete resolvedStyle.fontFamily;
   delete resolvedStyle.fontWeight;
+
+  // Android font padding reset to prevent vertical clipping in badges and buttons
+  if (Platform.OS === 'android') {
+    (resolvedStyle as any).includeFontPadding = false;
+  }
 
   if (isIpad()) {
     if (typeof resolvedStyle.fontSize === 'number') {

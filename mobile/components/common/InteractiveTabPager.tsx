@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   StyleSheet,
   View,
@@ -66,6 +66,20 @@ export const InteractiveTabPager: React.FC<InteractiveTabPagerProps> = ({
   const isGestureSettling = useSharedValue(false);
   const isTabPressing = useSharedValue(false);
 
+  // Lazy tab mounting to prevent loading all 4 screens and firing all API calls on app startup
+  const [mountedTabs, setMountedTabs] = useState<Set<number>>(() => new Set([activeIndex]));
+
+  useEffect(() => {
+    setMountedTabs((prev) => {
+      const next = new Set(prev);
+      next.add(activeIndex);
+      // Pre-mount adjacent tabs when active changes
+      if (activeIndex > 0) next.add(activeIndex - 1);
+      if (activeIndex < maxIndex) next.add(activeIndex + 1);
+      return next;
+    });
+  }, [activeIndex, maxIndex]);
+
   // Sync shared value when activeIndex prop updates programmatically
   useEffect(() => {
     if (isGestureSettling.value) {
@@ -103,6 +117,9 @@ export const InteractiveTabPager: React.FC<InteractiveTabPagerProps> = ({
       isTabPressing.value = true;
       isGestureSettling.value = false;
 
+      // Ensure target tab is mounted
+      setMountedTabs((prev) => new Set(prev).add(targetIndex));
+
       // Remove the ease animation for switching tabs: switch immediately with zero slide
       progress.value = targetIndex;
       blurIntensity.value = 0;
@@ -115,8 +132,9 @@ export const InteractiveTabPager: React.FC<InteractiveTabPagerProps> = ({
   );
 
   // Pan Gesture Handler running 100% on the UI thread
+  // calibrated with [-25, 25] active offset to prevent capturing horizontal scroll gestures from carousels
   const panGesture = Gesture.Pan()
-    .activeOffsetX([-14, 14])
+    .activeOffsetX([-25, 25])
     .failOffsetY([-14, 14])
     .onStart(() => {
       'worklet';
@@ -188,6 +206,7 @@ export const InteractiveTabPager: React.FC<InteractiveTabPagerProps> = ({
               key={page.key}
               index={index}
               isActive={activeIndex === index}
+              isMounted={mountedTabs.has(index)}
               progress={progress}
               startProgress={startProgress}
               screenWidth={screenWidth}
@@ -211,6 +230,7 @@ export const InteractiveTabPager: React.FC<InteractiveTabPagerProps> = ({
 interface TabSceneProps {
   index: number;
   isActive: boolean;
+  isMounted: boolean;
   progress: SharedValue<number>;
   startProgress: SharedValue<number>;
   screenWidth: number;
@@ -219,7 +239,7 @@ interface TabSceneProps {
 }
 
 const TabScene: React.FC<TabSceneProps> = React.memo(
-  ({ index, isActive, progress, startProgress, screenWidth, isDragging, Component }) => {
+  ({ index, isActive, isMounted, progress, startProgress, screenWidth, isDragging, Component }) => {
     // Pure 1:1 hardware-accelerated translation with solid opacity
     const animatedStyle = useAnimatedStyle(() => {
       'worklet';
@@ -269,7 +289,11 @@ const TabScene: React.FC<TabSceneProps> = React.memo(
           animatedStyle,
         ]}
       >
-        <Component />
+        {isMounted ? (
+          <Component />
+        ) : (
+          <View style={{ flex: 1, backgroundColor: colors.background }} />
+        )}
 
         {/* Revealing page blur overlay: enabled on iOS native; omitted on Android to prevent HWUI layer allocation flicker */}
         {!IS_ANDROID && (

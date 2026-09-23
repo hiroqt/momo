@@ -43,6 +43,7 @@ import { getRandomStudyQuote, StudyQuote } from '../../lib/data/studyQuotes';
 import { useCredits } from '../../context/CreditsContext';
 import { SampleDeckCard } from '../../components/onboarding/SampleDeckCard';
 import { isIpad } from '@/utils/device';
+import { mutationQueue } from '../../lib/sync/mutationQueue';
 
 function getGreeting(): string {
   const hour = new Date().getHours();
@@ -85,24 +86,17 @@ export default function HomeScreen() {
 
   const handleConfirmRename = async (newTitle: string) => {
     if (!renameTarget) return;
+    const target = renameTarget;
+    setRenameTarget(null); // Instant modal dismiss
 
-    setIsRenaming(true);
-    try {
-      await updateStudySet(renameTarget.id, { title: newTitle });
-      await localDb.updateStudySetTitle(renameTarget.id, newTitle);
-      setSets((prev) =>
-        prev.map((s) => (s.id === renameTarget.id ? { ...s, title: newTitle } : s))
-      );
-      setRenameTarget(null);
-    } catch {
-      await localDb.updateStudySetTitle(renameTarget.id, newTitle);
-      setSets((prev) =>
-        prev.map((s) => (s.id === renameTarget.id ? { ...s, title: newTitle } : s))
-      );
-      setRenameTarget(null);
-    } finally {
-      setIsRenaming(false);
-    }
+    // 0ms Optimistic State & Local DB Update
+    setSets((prev) =>
+      prev.map((s) => (s.id === target.id ? { ...s, title: newTitle } : s))
+    );
+    await localDb.updateStudySetTitle(target.id, newTitle);
+
+    // Enqueue background network task
+    mutationQueue.enqueue('RENAME_STUDY_SET', { id: target.id, title: newTitle });
   };
 
   const loadData = async () => {
@@ -132,19 +126,15 @@ export default function HomeScreen() {
 
   const handleConfirmDelete = async () => {
     if (!deleteTarget) return;
+    const target = deleteTarget;
+    setDeleteTarget(null); // Instant modal dismiss
 
-    setIsDeleting(true);
-    try {
-      const id = deleteTarget.id;
-      await deleteStudySet(id);
-      await localDb.deleteStudySet(id);
-      setSets((prev) => prev.filter((s) => s.id !== id));
-      setDeleteTarget(null);
-    } catch (err) {
-      console.warn('Delete failed:', err);
-    } finally {
-      setIsDeleting(false);
-    }
+    // 0ms Optimistic State & Local DB Update
+    setSets((prev) => prev.filter((s) => s.id !== target.id));
+    await localDb.deleteStudySet(target.id);
+
+    // Enqueue background delete
+    mutationQueue.enqueue('DELETE_STUDY_SET', { id: target.id });
   };
 
   const featured = sets.length > 0 ? sets[0] : null;
@@ -600,6 +590,9 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingHorizontal: isPadDevice ? spacing[36] : spacing[18],
+    maxWidth: 920,
+    alignSelf: 'center',
+    width: '100%',
   },
   header: {
     flexDirection: 'row',
@@ -654,7 +647,7 @@ const styles = StyleSheet.create({
   momoMascotAnchorRow: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    marginBottom: -1,
+    marginBottom: 0,
     paddingHorizontal: 6,
     zIndex: 10,
   },

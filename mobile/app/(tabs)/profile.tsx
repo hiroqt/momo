@@ -92,7 +92,7 @@ export default function ProfileScreen() {
         contentContainerStyle={[
           styles.contentContainer,
           {
-            paddingTop: process.env.EXPO_OS === 'android'
+            paddingTop: Platform.OS === 'android'
               ? Math.max(insets.top, RNStatusBar.currentHeight || spacing[0], spacing[28]) + spacing[14]
               : Math.max(insets.top, spacing[20]),
             paddingBottom: Math.max(insets.bottom, spacing[24]) + spacing[88], // Floating nav clearance
@@ -315,6 +315,9 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     paddingHorizontal: isPadDevice ? spacing[36] : spacing[16],
+    maxWidth: 920,
+    alignSelf: 'center',
+    width: '100%',
   },
   header: {
     marginBottom: isPadDevice ? spacing[22] : spacing[16],

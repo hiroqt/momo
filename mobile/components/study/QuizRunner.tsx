@@ -11,6 +11,7 @@ import {
   ScrollView,
   Alert,
 } from 'react-native';
+import { colors, spacing, typography } from '@/constants/theme';
 import { AppText as Text, AppTextInput as TextInput } from '@/components/common/app-text';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -2615,11 +2616,11 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   container: {
-    padding: isPadDevice ? 28 : 16,
+    padding: isPadDevice ? spacing[28] : spacing[16],
     flexGrow: 1,
     justifyContent: 'space-between',
     width: '100%',
-    maxWidth: isPadDevice ? 860 : undefined,
+    maxWidth: 860,
     alignSelf: 'center',
   },
   center: {

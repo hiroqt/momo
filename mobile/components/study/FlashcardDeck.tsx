@@ -200,27 +200,18 @@ export const FlashcardDeck: React.FC<Props> = ({ items, onFinish }) => {
     extrapolate: 'clamp',
   });
 
-  const frontTransform = Platform.select({
-    ios: [
-      { scaleX: frontScaleX },
-      { scale: cardScale },
-    ],
-    default: [
-      { perspective: 1000 },
-      { rotateY: frontInterpolate },
-    ],
-  });
+  // Fluid 3D perspective flip with subtle lift
+  const frontTransform = [
+    { perspective: 1200 },
+    { rotateY: frontInterpolate },
+    { scale: cardScale },
+  ];
 
-  const backTransform = Platform.select({
-    ios: [
-      { scaleX: backScaleX },
-      { scale: cardScale },
-    ],
-    default: [
-      { perspective: 1000 },
-      { rotateY: backInterpolate },
-    ],
-  });
+  const backTransform = [
+    { perspective: 1200 },
+    { rotateY: backInterpolate },
+    { scale: cardScale },
+  ];
 
   // Buttons transition synchronously in lockstep with the card flip
   const frontBtnOpacity = animatedValue.interpolate({

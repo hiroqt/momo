@@ -122,7 +122,27 @@ export const GlassSurface: React.FC<GlassSurfaceProps> = ({
     );
   }
 
-  // 3. Fallback: Android and pre-iOS 26 devices using expo-blur
+  // 3. Android High-Performance Specular Surface (Eliminates BlurView frame drops and GPU thrashing)
+  if (Platform.OS === 'android') {
+    return (
+      <View
+        style={[
+          styles.solidFallback,
+          baseSurfaceStyle,
+          {
+            backgroundColor: variant === 'primary' ? colors.primary : '#FFFFFF',
+            borderColor: variant === 'primary' ? colors.primaryDark : token.borderColor,
+            overflow: 'hidden',
+          },
+        ]}
+        {...rest}
+      >
+        {children}
+      </View>
+    );
+  }
+
+  // 4. Fallback: Pre-iOS 26 Apple devices using expo-blur
   return (
     <View
       style={[
@@ -143,7 +163,7 @@ export const GlassSurface: React.FC<GlassSurfaceProps> = ({
         ]}
       >
         <BlurView
-          tint={Platform.OS === 'ios' ? token.fallbackTint : 'light'}
+          tint={token.fallbackTint}
           intensity={token.fallbackIntensity}
           style={StyleSheet.absoluteFill}
         />

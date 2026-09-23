@@ -86,7 +86,8 @@ export const FloatingNavBar: React.FC<FloatingNavBarProps> = ({
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
   const [isFabOpen, setIsFabOpen] = useState(false);
 
-  const isTablet = isIpad();
+  const isTablet = isIpad() && windowWidth >= 600;
+  const isCompact = windowWidth <= 380;
   const defaultDockWidth = Math.min(windowWidth * 0.92, isTablet ? 620 : 368);
   const [dockWidth, setDockWidth] = useState(defaultDockWidth);
 
@@ -285,6 +286,8 @@ export const FloatingNavBar: React.FC<FloatingNavBarProps> = ({
               pageIndex={0}
               isFocused={effectiveActiveIndex === 0}
               progressAnim={progressAnim}
+              isTablet={isTablet}
+              isCompact={isCompact}
               onPress={() => handleTabSelect(TABS[0].name, 0)}
             />
 
@@ -294,6 +297,8 @@ export const FloatingNavBar: React.FC<FloatingNavBarProps> = ({
               pageIndex={1}
               isFocused={effectiveActiveIndex === 1}
               progressAnim={progressAnim}
+              isTablet={isTablet}
+              isCompact={isCompact}
               onPress={() => handleTabSelect(TABS[1].name, 1)}
             />
 
@@ -310,6 +315,8 @@ export const FloatingNavBar: React.FC<FloatingNavBarProps> = ({
               pageIndex={2}
               isFocused={effectiveActiveIndex === 2}
               progressAnim={progressAnim}
+              isTablet={isTablet}
+              isCompact={isCompact}
               onPress={() => handleTabSelect(TABS[2].name, 2)}
             />
 
@@ -319,6 +326,8 @@ export const FloatingNavBar: React.FC<FloatingNavBarProps> = ({
               pageIndex={3}
               isFocused={effectiveActiveIndex === 3}
               progressAnim={progressAnim}
+              isTablet={isTablet}
+              isCompact={isCompact}
               onPress={() => handleTabSelect(TABS[3].name, 3)}
             />
           </GlassContainer>
@@ -559,6 +568,8 @@ interface TabItemProps {
   pageIndex: number;
   isFocused: boolean;
   progressAnim?: SharedValue<number>;
+  isTablet?: boolean;
+  isCompact?: boolean;
   onPress: () => void;
 }
 
@@ -567,11 +578,12 @@ const TabItem: React.FC<TabItemProps> = ({
   pageIndex,
   isFocused,
   progressAnim,
+  isTablet = false,
+  isCompact = false,
   onPress,
 }) => {
   const scaleAnim = useRef(new RNAnimated.Value(1)).current;
-  const isTablet = isIpad();
-  const iconSize = isTablet ? 26 : 19.5;
+  const iconSize = isTablet ? 26 : isCompact ? 17.5 : 19.5;
 
   const handlePressIn = () => {
     RNAnimated.spring(scaleAnim, {
@@ -685,7 +697,11 @@ const TabItem: React.FC<TabItemProps> = ({
             strokeWidth={2.4}
           />
           <Text
-            style={[styles.tabLabel, styles.activeTabLabel]}
+            style={[
+              styles.tabLabel,
+              styles.activeTabLabel,
+              isCompact && styles.tabLabelCompact,
+            ]}
             numberOfLines={1}
           >
             {tab.label}
@@ -780,6 +796,10 @@ const styles = StyleSheet.create({
   activeTabLabel: {
     fontWeight: typography.fontWeight.extraBold,
     color: colors.primary,
+  },
+  tabLabelCompact: {
+    fontSize: 9.5,
+    letterSpacing: -0.4,
   },
 
   // Enhanced Center FAB Button

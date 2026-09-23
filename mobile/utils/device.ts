@@ -1,22 +1,16 @@
 import { Platform, Dimensions, useWindowDimensions } from 'react-native';
 
 /**
- * Checks whether the current device is an iPad (specifically 11-inch to 13-inch).
- * Target devices: iPad Pro 11", iPad Air 11", iPad 10th/11th Gen (A16/M1/M2/M4),
- * and iPad Pro 12.9" / 13" (M1/M2/M4).
- * Point dimensions: 820x1180, 834x1194, up to 1024x1366.
- *
- * Excludes:
- * - All iPhones (Platform.isPad is false, minDim < 500)
- * - All Android devices (Platform.OS !== 'ios')
+ * Checks whether the current device/window is a tablet/iPad.
+ * Handles:
+ * - All iPads on iOS (Platform.isPad: iPad mini, 9.7", 10.2", 10.9", 11", 12.9", 13")
+ * - Android tablets and foldables (min dimension >= 600dp)
  */
 export const isIpad = (): boolean => {
-  if (Platform.OS !== 'ios') return false;
-  if (!Platform.isPad) return false;
+  if (Platform.OS === 'ios' && Platform.isPad) return true;
   const { width, height } = Dimensions.get('window');
   const minDim = Math.min(width, height);
-  const maxDim = Math.max(width, height);
-  return minDim >= 768 && maxDim >= 1100;
+  return minDim >= 600;
 };
 
 /**
@@ -24,27 +18,49 @@ export const isIpad = (): boolean => {
  */
 export const useIsIpad = (): boolean => {
   const { width, height } = useWindowDimensions();
-  if (Platform.OS !== 'ios') return false;
-  if (!Platform.isPad) return false;
+  if (Platform.OS === 'ios' && Platform.isPad) {
+    // If in narrow Split View on iPad (width < 500), treat as phone layout
+    return width >= 500;
+  }
   const minDim = Math.min(width, height);
-  const maxDim = Math.max(width, height);
-  return minDim >= 768 && maxDim >= 1100;
+  return minDim >= 600 && width >= 500;
 };
 
 /**
- * Returns `ipadVal` if on an 11"-13" iPad on iOS, otherwise returns `phoneVal`.
+ * Returns true if the current active window width qualifies for multi-column tablet layouts (>= 720pt).
  */
-export const ipadValue = <T>(ipadVal: T, phoneVal: T): T => {
-  return isIpad() ? ipadVal : phoneVal;
+export const isTabletWidth = (windowWidth: number): boolean => {
+  return windowWidth >= 720;
 };
+
+/**
+ * Returns true if device is in a compact phone form factor (<= 380pt, e.g. iPhone SE, 360px Androids).
+ */
+export const isCompactWidth = (windowWidth: number): boolean => {
+  return windowWidth <= 380;
+};
+
+/**
+ * Returns true if an iPad is running in a narrow multitasking Split View / Slide Over mode.
+ */
+export const isSplitViewActive = (windowWidth: number): boolean => {
+  return Platform.OS === 'ios' && Boolean(Platform.isPad) && windowWidth < 600;
+};
+
+/**
+ * Returns `ipadVal` if on a tablet/iPad, otherwise returns `phoneVal`.
+ */
+export function ipadValue<T>(ipadVal: T, phoneVal: T): T {
+  return isIpad() ? ipadVal : phoneVal;
+}
 
 /**
  * Hook version of `ipadValue`.
  */
-export const useIpadValue = <T>(ipadVal: T, phoneVal: T): T => {
+export function useIpadValue<T>(ipadVal: T, phoneVal: T): T {
   const isPad = useIsIpad();
   return isPad ? ipadVal : phoneVal;
-};
+}
 
 export const IPAD_FONT_SCALE = 1.24;
 export const IPAD_SPACING_SCALE = 1.30;

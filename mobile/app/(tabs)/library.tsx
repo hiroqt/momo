@@ -46,6 +46,7 @@ import { RenameModal } from '../../components/common/RenameModal';
 import { TabTransitionView } from '../../components/common/TabTransitionView';
 import { CreateFolderModal } from '../../components/library/CreateFolderModal';
 import { MoveToFolderModal } from '../../components/library/MoveToFolderModal';
+import { mutationQueue } from '../../lib/sync/mutationQueue';
 import { StudySet, DocumentItem, Folder } from '../../types';
 import { isIpad } from '@/utils/device';
 
@@ -89,25 +90,17 @@ export default function LibraryScreen() {
 
   const handleConfirmRename = async (newTitle: string) => {
     if (!renameTarget) return;
+    const target = renameTarget;
+    setRenameTarget(null); // Instant modal dismiss for tactile momentum
 
-    setIsRenaming(true);
-    try {
-      await updateStudySet(renameTarget.id, { title: newTitle });
-      await localDb.updateStudySetTitle(renameTarget.id, newTitle);
-      setSets((prev) =>
-        prev.map((s) => (s.id === renameTarget.id ? { ...s, title: newTitle } : s))
-      );
-      setRenameTarget(null);
-    } catch {
-      // Local fallback for offline mode
-      await localDb.updateStudySetTitle(renameTarget.id, newTitle);
-      setSets((prev) =>
-        prev.map((s) => (s.id === renameTarget.id ? { ...s, title: newTitle } : s))
-      );
-      setRenameTarget(null);
-    } finally {
-      setIsRenaming(false);
-    }
+    // 0ms Optimistic State & Local DB Update
+    setSets((prev) =>
+      prev.map((s) => (s.id === target.id ? { ...s, title: newTitle } : s))
+    );
+    await localDb.updateStudySetTitle(target.id, newTitle);
+
+    // Enqueue background network task
+    mutationQueue.enqueue('RENAME_STUDY_SET', { id: target.id, title: newTitle });
   };
 
   const loadData = async () => {
@@ -136,130 +129,109 @@ export default function LibraryScreen() {
   };
 
   const handleCreateFolder = async (name: string) => {
-    setIsCreatingFolder(true);
-    try {
-      const newFolder = await createFolder(name);
-      await localDb.saveFolder(newFolder);
-      setFolders((prev) => [...prev, newFolder]);
-      setShowCreateFolder(false);
-    } catch (err: any) {
-      console.warn('Failed to create folder:', err);
-      // Offline local fallback
-      const offlineFolder: Folder = {
-        id: 'local-' + Date.now(),
-        user_id: 'local-user',
-        name,
-        reviewer_count: 0,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      };
-      await localDb.saveFolder(offlineFolder);
-      setFolders((prev) => [...prev, offlineFolder]);
-      setShowCreateFolder(false);
-    } finally {
-      setIsCreatingFolder(false);
-    }
+    setShowCreateFolder(false); // Instant modal dismiss
+
+    const newFolder: Folder = {
+      id: 'fld-' + Date.now(),
+      user_id: 'current-user',
+      name,
+      reviewer_count: 0,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+
+    // 0ms Optimistic Update
+    setFolders((prev) => [...prev, newFolder]);
+    await localDb.saveFolder(newFolder);
+
+    // Enqueue background network creation
+    mutationQueue.enqueue('CREATE_FOLDER', { name });
   };
 
   const handleSelectFolderForSet = async (folderId: string | null) => {
     if (!moveToFolderTarget) return;
-    setIsMovingToFolder(true);
     const setId = moveToFolderTarget.id;
     const oldFolderId = moveToFolderTarget.folder_id;
-    try {
-      await setStudySetFolder(setId, folderId);
-      await localDb.updateStudySetFolder(setId, folderId);
-      setSets((prev) =>
-        prev.map((s) => (s.id === setId ? { ...s, folder_id: folderId } : s))
-      );
-      setFolders((prev) =>
-        prev.map((f) => {
-          let count = f.reviewer_count;
-          if (oldFolderId === f.id) count = Math.max(0, count - 1);
-          if (folderId === f.id) count += 1;
-          return { ...f, reviewer_count: count };
-        })
-      );
-      setMoveToFolderTarget(null);
-    } catch (err) {
-      console.warn('Failed to move study set:', err);
-      await localDb.updateStudySetFolder(setId, folderId);
-      setSets((prev) =>
-        prev.map((s) => (s.id === setId ? { ...s, folder_id: folderId } : s))
-      );
-      setMoveToFolderTarget(null);
-    } finally {
-      setIsMovingToFolder(false);
-    }
+    setMoveToFolderTarget(null); // Instant dismiss
+
+    // 0ms Optimistic Update
+    setSets((prev) =>
+      prev.map((s) => (s.id === setId ? { ...s, folder_id: folderId } : s))
+    );
+    setFolders((prev) =>
+      prev.map((f) => {
+        let count = f.reviewer_count;
+        if (oldFolderId === f.id) count = Math.max(0, count - 1);
+        if (folderId === f.id) count += 1;
+        return { ...f, reviewer_count: count };
+      })
+    );
+    await localDb.updateStudySetFolder(setId, folderId);
+
+    // Enqueue background move
+    mutationQueue.enqueue('MOVE_STUDY_SET', { id: setId, folderId });
   };
 
   const handleDeleteFolder = async () => {
     if (!folderToDelete) return;
-    setIsDeletingFolder(true);
     const fId = folderToDelete.id;
-    try {
-      await deleteFolder(fId);
-      await localDb.deleteFolder(fId);
-      setFolders((prev) => prev.filter((f) => f.id !== fId));
-      setSets((prev) =>
-        prev.map((s) => (s.folder_id === fId ? { ...s, folder_id: null } : s))
-      );
-      if (selectedFolderId === fId) {
-        setSelectedFolderId(null);
-      }
-      setFolderToDelete(null);
-    } catch (err) {
-      console.warn('Failed to delete folder:', err);
-    } finally {
-      setIsDeletingFolder(false);
+    setFolderToDelete(null); // Instant dismiss
+
+    // 0ms Optimistic Update
+    setFolders((prev) => prev.filter((f) => f.id !== fId));
+    setSets((prev) =>
+      prev.map((s) => (s.folder_id === fId ? { ...s, folder_id: null } : s))
+    );
+    if (selectedFolderId === fId) {
+      setSelectedFolderId(null);
     }
+    await localDb.deleteFolder(fId);
+
+    // Enqueue background delete
+    mutationQueue.enqueue('DELETE_FOLDER', { id: fId });
   };
 
   const handleRenameFolder = async (newName: string) => {
     if (!folderToEdit) return;
-    try {
-      await apiUpdateFolder(folderToEdit.id, { name: newName });
-      await localDb.updateFolder(folderToEdit.id, { name: newName });
-      setFolders((prev) =>
-        prev.map((f) => (f.id === folderToEdit.id ? { ...f, name: newName } : f))
-      );
-      setFolderToEdit(null);
-    } catch (err) {
-      console.warn('Failed to rename folder:', err);
-    }
+    const fId = folderToEdit.id;
+    setFolderToEdit(null); // Instant dismiss
+
+    // 0ms Optimistic Update
+    setFolders((prev) =>
+      prev.map((f) => (f.id === fId ? { ...f, name: newName } : f))
+    );
+    await localDb.updateFolder(fId, { name: newName });
+
+    // Enqueue background rename
+    mutationQueue.enqueue('RENAME_FOLDER', { id: fId, name: newName });
   };
 
   const handleConfirmDelete = async () => {
     if (!deleteTarget) return;
+    const target = deleteTarget;
+    setDeleteTarget(null); // Instant dismiss
 
-    setIsDeleting(true);
-    try {
-      if (deleteTarget.type === 'set') {
-        const id = deleteTarget.set.id;
-        const setItem = deleteTarget.set;
-        await deleteStudySet(id);
-        await localDb.deleteStudySet(id);
-        setSets((prev) => prev.filter((s) => s.id !== id));
-        if (setItem.folder_id) {
-          setFolders((prev) =>
-            prev.map((f) =>
-              f.id === setItem.folder_id
-                ? { ...f, reviewer_count: Math.max(0, f.reviewer_count - 1) }
-                : f
-            )
-          );
-        }
-      } else {
-        const id = deleteTarget.doc.id;
-        await deleteDocument(id);
-        await localDb.deleteDocument(id);
-        setDocs((prev) => prev.filter((d) => d.id !== id));
+    // 0ms Optimistic Update
+    if (target.type === 'set') {
+      const id = target.set.id;
+      const setItem = target.set;
+      setSets((prev) => prev.filter((s) => s.id !== id));
+      if (setItem.folder_id) {
+        setFolders((prev) =>
+          prev.map((f) =>
+            f.id === setItem.folder_id
+              ? { ...f, reviewer_count: Math.max(0, f.reviewer_count - 1) }
+              : f
+          )
+        );
       }
-      setDeleteTarget(null);
-    } catch (err) {
-      console.warn('Delete failed:', err);
-    } finally {
-      setIsDeleting(false);
+      await localDb.deleteStudySet(id);
+      mutationQueue.enqueue('DELETE_STUDY_SET', { id });
+    } else {
+      const id = target.doc.id;
+      setDocs((prev) => prev.filter((d) => d.id !== id));
+      await localDb.deleteDocument(id);
+      deleteDocument(id).catch(() => {});
     }
   };
 
@@ -1067,6 +1039,9 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
     paddingHorizontal: isPadDevice ? spacing[36] : spacing[16],
+    maxWidth: 920,
+    alignSelf: 'center',
+    width: '100%',
   },
   header: {
     marginBottom: isPadDevice ? spacing[22] : spacing[16],

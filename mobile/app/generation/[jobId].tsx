@@ -142,7 +142,7 @@ export default function GenerationProgressScreen() {
         toValue: nextVal,
         duration: 220,
         easing: Easing.out(Easing.quad),
-        useNativeDriver: false,
+        useNativeDriver: true,
       }).start();
     }, 200);
 
@@ -168,7 +168,7 @@ export default function GenerationProgressScreen() {
           Animated.timing(progressAnim, {
             toValue: clamped,
             duration: 350,
-            useNativeDriver: false,
+            useNativeDriver: true,
           }).start();
         }
 
@@ -183,7 +183,7 @@ export default function GenerationProgressScreen() {
             toValue: 100,
             duration: 350,
             easing: Easing.out(Easing.cubic),
-            useNativeDriver: false,
+            useNativeDriver: true,
           }).start();
 
           setTimeout(() => {
@@ -216,7 +216,7 @@ export default function GenerationProgressScreen() {
     Animated.timing(progressAnim, {
       toValue: 15,
       duration: 300,
-      useNativeDriver: false,
+      useNativeDriver: true,
     }).start();
 
     try {
@@ -238,9 +238,10 @@ export default function GenerationProgressScreen() {
   ];
 
   const currentProgress = simulatedProgress;
-  const progressWidth = progressAnim.interpolate({
+  const progressScale = progressAnim.interpolate({
     inputRange: [0, 100],
-    outputRange: ['0%', '100%'],
+    outputRange: [0, 1],
+    extrapolate: 'clamp',
   });
 
   const selectedFormats = job?.generation_config?.question_types || [];
@@ -319,7 +320,7 @@ export default function GenerationProgressScreen() {
             <>
               {/* Animated Progress Bar */}
               <View style={styles.progressContainer}>
-                <Animated.View style={[styles.progressBar, { width: progressWidth }]} />
+                <Animated.View style={[styles.progressBar, { transform: [{ scaleX: progressScale }] }]} />
               </View>
 
               {/* Steps checklist */}
@@ -484,8 +485,10 @@ const styles = StyleSheet.create({
   },
   progressBar: {
     height: '100%',
+    width: '100%',
     backgroundColor: colors.primary,
     borderRadius: 4,
+    transformOrigin: 'left',
   },
   stepsList: {
     marginBottom: spacing[24],

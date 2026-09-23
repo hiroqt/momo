@@ -7,7 +7,8 @@
     "android": "expo run:android",
     "ios": "expo run:ios",
     "web": "expo start --web",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "test": "tsx --import ./__tests__/setupTests.ts --test \"__tests__/**/*.test.ts\""
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.2",
@@ -48,7 +49,9 @@
     "react-native-view-shot": "5.1.0"
   },
   "devDependencies": {
+    "@types/node": "^22.20.4",
     "@types/react": "~19.2.4",
+    "tsx": "^4.23.15",
     "typescript": "~6.0.3"
   },
   "private": true

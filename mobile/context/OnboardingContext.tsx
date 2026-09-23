@@ -253,6 +253,7 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       }));
     } catch (err) {
       console.error('Failed to save welcome completion', err);
+      throw err;
     }
   };
 

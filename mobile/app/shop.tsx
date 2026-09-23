@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Modal,
@@ -7,15 +7,7 @@ import {
   TouchableOpacity,
   Platform,
   StatusBar as RNStatusBar,
-  ScrollView,
-  type LayoutChangeEvent,
 } from 'react-native';
-import Animated, {
-  Easing,
-  useSharedValue,
-  useAnimatedStyle,
-  withTiming,
-} from 'react-native-reanimated';
 import { AppText as Text } from '@/components/common/app-text';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -38,15 +30,9 @@ import {
   Exchange01Icon,
   ArrowRight01Icon,
   ArrowLeft01Icon,
-  ArrowDown01Icon,
-  ArrowUp01Icon,
   CheckmarkCircle01Icon,
   AlertCircleIcon,
 } from '@hugeicons/core-free-icons';
-
-// Easing curves adhering strictly to the expo-animation skill
-const EASE_OUT = Easing.bezier(0.23, 1, 0.32, 1);      // Strong ease-out for entering UI
-const EASE_IN_OUT = Easing.bezier(0.77, 0, 0.175, 1);  // Smooth ease-in-out for layout reflow and exit
 
 function formatBalance(value: number): string {
   if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}m`;
@@ -54,146 +40,30 @@ function formatBalance(value: number): string {
   return value.toLocaleString();
 }
 
-// Fluid UI-thread rotating chevron adhering to expo-animation cubic-bezier curves
-function AnimatedChevron({ expanded, color }: { expanded: boolean; color: string }) {
-  const rotation = useSharedValue(expanded ? 180 : 0);
+const CREDIT_PACKS = [
+  { title: 'Little Pouch', reward: '100 credits', subtext: 'For a few hints or explanations', price: '$0.99', amount: 100, icon: Coins01Icon, iconColor: '#B45309', iconBgColor: '#FEF3C7', accentColor: '#92400E' },
+  { title: "Momo's Backpack", reward: '500 credits', subtext: 'For regular study sessions', price: '$3.99', amount: 500, icon: Coins02Icon, iconColor: colors.primary, iconBgColor: colors.primarySoft, accentColor: colors.primary },
+  { title: 'Treasure Vault', reward: '1,500 credits', subtext: 'The lowest price per credit', price: '$9.99', amount: 1500, badgeText: 'BEST VALUE', icon: Diamond01Icon, iconColor: '#0284C7', iconBgColor: '#E0F2FE', accentColor: '#0369A1' },
+];
 
-  useEffect(() => {
-    rotation.set(
-      withTiming(expanded ? 180 : 0, {
-        duration: 220,
-        easing: EASE_IN_OUT,
-      })
-    );
-  }, [expanded]);
+const LIFE_PACKS = [
+  { title: 'Single Heart', reward: '1 extra life', subtext: 'One more try in a quiz', price: '$0.99', amount: 1, icon: HeartIcon, iconColor: '#DC2626', iconBgColor: '#FEE2E2', accentColor: '#B91C1C' },
+  { title: 'High Five', reward: '5 extra lives', subtext: 'A few more chances to practice', price: '$2.99', amount: 5, icon: HeartPulseIcon, iconColor: '#DC2626', iconBgColor: '#FEE2E2', accentColor: '#B91C1C' },
+  { title: 'Full Bowl', reward: '15 extra lives', subtext: 'The lowest price per life', price: '$4.99', amount: 15, badgeText: 'BEST VALUE', icon: HeartPlusIcon, iconColor: '#991B1B', iconBgColor: '#FEE2E2', accentColor: '#991B1B' },
+];
 
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ rotate: `${rotation.get()}deg` }],
-  }));
-
-  return (
-    <Animated.View style={animatedStyle}>
-      <HugeiconsIcon icon={ArrowDown01Icon} size={16} color={color} />
-    </Animated.View>
-  );
-}
-
-// Collapsible accordion container: zero delay, instant responsive collapse, zero remaining ghost content
-interface CollapsibleSectionProps {
-  expanded: boolean;
-  children: React.ReactNode;
-}
-
-function CollapsibleSection({ expanded, children }: CollapsibleSectionProps) {
-  const [contentHeight, setContentHeight] = useState<number | null>(null);
-  const animatedHeight = useSharedValue(0);
-  const animatedOpacity = useSharedValue(0);
-
-  const handleLayout = (e: LayoutChangeEvent) => {
-    const h = Math.round(e.nativeEvent.layout.height);
-    if (h > 0 && h !== contentHeight) {
-      setContentHeight(h);
-      if (expanded) {
-        animatedHeight.set(h);
-        animatedOpacity.set(1);
-      }
-    }
-  };
-
-  useEffect(() => {
-    if (contentHeight === null) return;
-
-    if (expanded) {
-      animatedHeight.set(
-        withTiming(contentHeight, {
-          duration: 260,
-          easing: EASE_OUT,
-        })
-      );
-      animatedOpacity.set(
-        withTiming(1, {
-          duration: 220,
-          easing: EASE_OUT,
-        })
-      );
-    } else {
-      animatedHeight.set(
-        withTiming(0, {
-          duration: 220,
-          easing: EASE_IN_OUT,
-        })
-      );
-      animatedOpacity.set(
-        withTiming(0, {
-          duration: 160,
-          easing: EASE_IN_OUT,
-        })
-      );
-    }
-  }, [expanded, contentHeight]);
-
-  const animatedStyle = useAnimatedStyle(() => {
-    if (contentHeight === null) {
-      return {
-        height: expanded ? undefined : 0,
-        opacity: expanded ? 1 : 0,
-        overflow: 'hidden',
-      };
-    }
-    return {
-      height: animatedHeight.get(),
-      opacity: animatedOpacity.get(),
-      overflow: 'hidden',
-    };
-  });
-
-  return (
-    <Animated.View style={animatedStyle}>
-      <View
-        onLayout={handleLayout}
-        style={
-          contentHeight === null && !expanded
-            ? styles.collapsibleMeasuring
-            : styles.collapsibleContent
-        }
-      >
-        {children}
-      </View>
-    </Animated.View>
-  );
-}
+const XP_TRADES = [
+  { title: 'Quick Hint', reward: '50 credits', subtext: 'Spend XP on a little help', xpCost: 500, amount: 50, type: 'credit' as const, icon: BulbIcon, iconColor: '#B45309', iconBgColor: '#FEF3C7' },
+  { title: "Momo's Special", reward: '150 credits', subtext: 'More credits per XP', xpCost: 1200, amount: 150, type: 'credit' as const, icon: SparklesIcon, iconColor: colors.primary, iconBgColor: colors.primarySoft },
+  { title: 'Single Life', reward: '1 extra life', subtext: 'Restore one quiz life', xpCost: 800, amount: 1, type: 'heart' as const, icon: HeartIcon, iconColor: '#DC2626', iconBgColor: '#FEE2E2' },
+  { title: 'Five Lives', reward: '5 extra lives', subtext: 'More lives per XP', xpCost: 3500, amount: 5, type: 'heart' as const, icon: HeartPulseIcon, iconColor: '#DC2626', iconBgColor: '#FEE2E2' },
+];
 
 export default function ShopScreen({ isTab = false }: { isTab?: boolean } = {}) {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const isPadDevice = isIpad();
 
-  // ScrollView ref and category position tracking for focus on expand
-  const scrollViewRef = useRef<ScrollView>(null);
-  const creditsSectionY = useRef(0);
-  const heartsSectionY = useRef(0);
-  const tradeSectionY = useRef(0);
-
-  const scrollToSection = (targetY: number) => {
-    if (!scrollViewRef.current) return;
-    const destY = Math.max(0, targetY - 10);
-    scrollViewRef.current.scrollTo({
-      y: destY,
-      animated: true,
-    });
-    // Secondary alignment after height animation finishes to ensure accurate focus
-    setTimeout(() => {
-      scrollViewRef.current?.scrollTo({
-        y: destY,
-        animated: true,
-      });
-    }, 240);
-  };
-
-  // Category expansion states
-  const [expandedCredits, setExpandedCredits] = useState(false);
-  const [expandedHearts, setExpandedHearts] = useState(false);
-  const [expandedTrade, setExpandedTrade] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState<'credits' | 'lives' | 'xp'>('credits');
 
   // Purchase modal
   const [showPurchaseModal, setShowPurchaseModal] = useState(false);
@@ -217,42 +87,6 @@ export default function ShopScreen({ isTab = false }: { isTab?: boolean } = {}) 
   const [requiredXp, setRequiredXp] = useState(0);
 
   const { credits, xp, hearts, addCredits, addHeart, convertXPToCredits, convertXPToHearts } = useCredits();
-
-  const toggleCredits = () => {
-    setExpandedCredits((prev) => {
-      const next = !prev;
-      if (next) {
-        setTimeout(() => {
-          scrollToSection(creditsSectionY.current);
-        }, 50);
-      }
-      return next;
-    });
-  };
-
-  const toggleHearts = () => {
-    setExpandedHearts((prev) => {
-      const next = !prev;
-      if (next) {
-        setTimeout(() => {
-          scrollToSection(heartsSectionY.current);
-        }, 50);
-      }
-      return next;
-    });
-  };
-
-  const toggleTrade = () => {
-    setExpandedTrade((prev) => {
-      const next = !prev;
-      if (next) {
-        setTimeout(() => {
-          scrollToSection(tradeSectionY.current);
-        }, 50);
-      }
-      return next;
-    });
-  };
 
   const handlePurchase = (amount: number, price: string, type: 'credit' | 'heart') => {
     setPurchaseAmount(amount);
@@ -302,6 +136,9 @@ export default function ShopScreen({ isTab = false }: { isTab?: boolean } = {}) 
       setTimeout(() => {
         setShowSuccessModal(true);
       }, 350);
+    } else {
+      setRequiredXp(tradeXpCost);
+      setShowNotEnoughXpModal(true);
     }
   };
 
@@ -313,301 +150,122 @@ export default function ShopScreen({ isTab = false }: { isTab?: boolean } = {}) 
 
   return (
     <View style={styles.screen}>
-      {/* INTEGRATED HEADER WITH LIVE CURRENCY PILLS */}
       <View style={[styles.headerBar, { paddingTop: headerTopPadding }]}>
-        <View style={styles.headerContentRow}>
-          <View style={styles.headerLeftCol}>
-            {!isTab && (
-              <TouchableOpacity
-                style={styles.iconBtn}
-                onPress={() => router.back()}
-                activeOpacity={0.7}
-                accessibilityRole="button"
-                accessibilityLabel="Go back"
-              >
-                <HugeiconsIcon
-                  icon={ArrowLeft01Icon}
-                  size={isPadDevice ? 24 : 20}
-                  color={colors.text}
-                  strokeWidth={2}
-                />
-              </TouchableOpacity>
-            )}
-            <Text style={styles.headerTitle} numberOfLines={1}>
-              Study shop
-            </Text>
-          </View>
-
-          {/* Currency Pills embedded directly in the Header */}
-          <View style={styles.headerCurrencies}>
-            {/* Credits Pill */}
-            <View style={[styles.headerPill, styles.headerPillGold]}>
-              <HugeiconsIcon icon={Coins01Icon} size={isPadDevice ? 16 : 13} color="#D97706" />
-              <Text style={styles.headerPillText}>{formatBalance(credits)}</Text>
-            </View>
-
-            {/* Lives Pill */}
-            <View style={[styles.headerPill, styles.headerPillCrimson]}>
-              <HugeiconsIcon icon={HeartIcon} size={isPadDevice ? 16 : 13} color="#EF4444" />
-              <Text style={styles.headerPillText}>{formatBalance(hearts)}</Text>
-            </View>
-
-            {/* Study XP Pill */}
-            <View style={[styles.headerPill, styles.headerPillPurple]}>
-              <HugeiconsIcon icon={StarIcon} size={isPadDevice ? 16 : 13} color="#8B5CF6" />
-              <Text style={styles.headerPillText}>
-                {formatBalance(xp)}
-              </Text>
-            </View>
+        <View style={styles.headerLeftCol}>
+          {!isTab && (
+            <TouchableOpacity
+              style={styles.iconBtn}
+              onPress={() => {
+                if (router.canGoBack()) router.back();
+                else router.replace('/(tabs)');
+              }}
+              accessibilityRole="button"
+              accessibilityLabel="Go back"
+            >
+              <HugeiconsIcon icon={ArrowLeft01Icon} size={20} color={colors.text} strokeWidth={2} />
+            </TouchableOpacity>
+          )}
+          <View>
+            <Text style={styles.headerTitle}>Study shop</Text>
+            <Text style={styles.headerSubtitle}>Choose what helps you keep going</Text>
           </View>
         </View>
       </View>
 
-      {/* Main Shop Scrollable View */}
       <SmoothScrollView
-        ref={scrollViewRef}
         contentContainerStyle={[
           styles.container,
           { paddingBottom: Math.max(insets.bottom, 24) + (isTab ? 96 : 32) },
         ]}
       >
-        {/* Featured in Shop Whole Card */}
+        <View style={styles.walletCard}>
+          <Text style={styles.walletEyebrow}>YOUR BALANCE</Text>
+          <Text style={styles.walletTitle}>Ready for your next session</Text>
+          <View style={styles.walletGrid}>
+            <BalanceTile icon={Coins01Icon} label="Credits" value={formatBalance(credits)} color="#B45309" background="#FFFBEB" />
+            <BalanceTile icon={HeartIcon} label="Lives" value={formatBalance(hearts)} color="#DC2626" background="#FEF2F2" />
+            <BalanceTile icon={StarIcon} label="Study XP" value={formatBalance(xp)} color="#7C3AED" background="#F5F3FF" />
+          </View>
+        </View>
+
         <View style={styles.featuredCard}>
-          <View style={styles.featuredHeader}>
-            <View style={styles.featuredBadge}>
-              <HugeiconsIcon icon={SparklesIcon} size={13} color="#FFFFFF" />
-              <Text style={styles.featuredBadgeText}>STUDY BOOSTERS</Text>
+          <View style={styles.featuredTextGroup}>
+            <Text style={styles.featuredEyebrow}>SHOP PREVIEW</Text>
+            <Text style={styles.featuredTitle}>Make every study session count</Text>
+            <Text style={styles.featuredDesc}>Get help with a tough question, add quiz lives, or use the XP you earned.</Text>
+          </View>
+          <Image source={require('../assets/animations/wealth_momo.png')} style={styles.featuredImage} resizeMode="contain" />
+        </View>
+
+        <Text style={styles.catalogTitle}>What do you need?</Text>
+        <Text style={styles.catalogSubtitle}>Compare all the options in one place.</Text>
+        <Text style={styles.catalogDisclosure}>Listed prices are for preview. No payment is taken.</Text>
+        <View style={styles.categoryTabs} accessibilityRole="tablist">
+          {([
+            { id: 'credits', label: 'Credits', icon: Coins01Icon },
+            { id: 'lives', label: 'Quiz lives', icon: HeartIcon },
+            { id: 'xp', label: 'Use XP', icon: StarIcon },
+          ] as const).map((category) => {
+            const isSelected = selectedCategory === category.id;
+            return (
+              <TouchableOpacity
+                key={category.id}
+                style={[styles.categoryTab, isSelected && styles.categoryTabSelected]}
+                onPress={() => setSelectedCategory(category.id)}
+                accessibilityRole="tab"
+                accessibilityState={{ selected: isSelected }}
+                accessibilityLabel={category.label}
+              >
+                <HugeiconsIcon icon={category.icon} size={16} color={isSelected ? '#FFFFFF' : '#64748B'} />
+                <Text style={[styles.categoryTabText, isSelected && styles.categoryTabTextSelected]}>{category.label}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+
+        {selectedCategory === 'credits' && (
+          <View style={styles.catalogSection}>
+            <SectionHeader icon={Coins01Icon} iconColor="#B45309" title="Credits for helpful hints" subtitle="Choose an amount that fits your study plans." />
+            <View style={styles.offerList}>
+              {CREDIT_PACKS.map((pack) => (
+                <PackageCard key={pack.amount} {...pack} onPress={() => handlePurchase(pack.amount, pack.price, 'credit')} />
+              ))}
             </View>
           </View>
-          <View style={styles.featuredContent}>
-            <View style={styles.featuredTextGroup}>
-              <Text style={styles.featuredTitle}>A little help when you need it</Text>
-              <Text style={styles.featuredDesc}>
-                Use credits for hints, keep extra quiz lives on hand, or trade the XP you earned by studying.
-              </Text>
+        )}
+
+        {selectedCategory === 'lives' && (
+          <View style={styles.catalogSection}>
+            <SectionHeader icon={HeartIcon} iconColor="#DC2626" title="More tries for your quizzes" subtitle="Keep practicing after you use a life." />
+            <View style={styles.offerList}>
+              {LIFE_PACKS.map((pack) => (
+                <PackageCard key={pack.amount} {...pack} onPress={() => handlePurchase(pack.amount, pack.price, 'heart')} />
+              ))}
             </View>
-            <Image 
-              source={require("../assets/animations/wealth_momo.png")} 
-              style={styles.featuredImage} 
-              resizeMode="contain" 
-            />
           </View>
-        </View>
+        )}
 
-        {/* CATEGORY 1: MAGIC CREDITS */}
-        <View
-          onLayout={(e) => {
-            creditsSectionY.current = e.nativeEvent.layout.y;
-          }}
-        >
-          <SectionHeader
-            icon={Coins01Icon}
-            iconColor="#D97706"
-            title="Magic Credits"
-            subtitle="Instant AI hints, problem solving, and reviewer explanations"
-          />
-          <View style={styles.packagesContainer}>
-            {/* Default featured single card */}
-            <PackageCard
-              title="Momo's Backpack"
-              reward="500 Credits"
-              subtext="Most popular pack for active students"
-              price="$3.99"
-              badgeText="POPULAR"
-              icon={Coins02Icon}
-              iconColor={colors.primary}
-              iconBgColor={colors.primarySoft}
-              accentColor={colors.primary}
-              onPress={() => handlePurchase(500, '$3.99', 'credit')}
-            />
-
-            {/* Remaining options revealed with smooth Reanimated ease effect */}
-            <CollapsibleSection expanded={expandedCredits}>
-              <View style={styles.extraCardsGroup}>
-                <PackageCard
-                  title="Little Pouch"
-                  reward="100 Credits"
-                  subtext="Perfect for a quick study session"
-                  price="$0.99"
-                  icon={Coins01Icon}
-                  iconColor="#D97706"
-                  iconBgColor="#FEF3C7"
-                  accentColor="#D97706"
-                  onPress={() => handlePurchase(100, '$0.99', 'credit')}
+        {selectedCategory === 'xp' && (
+          <View style={styles.catalogSection}>
+            <SectionHeader icon={Exchange01Icon} iconColor={colors.primary} title="Use the XP you earned" subtitle={`Available: ${xp.toLocaleString()} XP. Trade it for study support.`} />
+            <View style={styles.offerList}>
+              {XP_TRADES.map((trade) => (
+                <ExchangeCard
+                  key={`${trade.type}-${trade.amount}`}
+                  {...trade}
+                  onPress={() => handleExchange(trade.xpCost, trade.amount, trade.type)}
                 />
-                <PackageCard
-                  title="Treasure Vault"
-                  reward="1,500 Credits"
-                  subtext="Best value for exams and midterms"
-                  price="$9.99"
-                  badgeText="BEST VALUE"
-                  icon={Diamond01Icon}
-                  iconColor="#0284C7"
-                  iconBgColor="#E0F2FE"
-                  accentColor="#0284C7"
-                  onPress={() => handlePurchase(1500, '$9.99', 'credit')}
-                />
-              </View>
-            </CollapsibleSection>
-
-            {/* Buy More / Show Less Toggle Button */}
-            <TouchableOpacity
-              style={styles.expandToggleBtn}
-              onPress={toggleCredits}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.expandToggleText}>
-                {expandedCredits ? 'Show Less' : 'Buy More Credits (3 options)'}
-              </Text>
-              <AnimatedChevron expanded={expandedCredits} color={colors.primary} />
-            </TouchableOpacity>
+              ))}
+            </View>
           </View>
-        </View>
+        )}
 
-        {/* CATEGORY 2: QUIZ LIVES */}
-        <View
-          onLayout={(e) => {
-            heartsSectionY.current = e.nativeEvent.layout.y;
-          }}
-        >
-          <SectionHeader
-            icon={HeartIcon}
-            iconColor="#EF4444"
-            title="Quiz Lives"
-            subtitle="Replenish energy to protect your streaks and conquer tough quizzes"
-          />
-          <View style={styles.packagesContainer}>
-            {/* Default featured single card */}
-            <PackageCard
-              title="High Five Pack"
-              reward="5 Extra Lives"
-              subtext="Recommended for marathon quizzes"
-              price="$2.99"
-              badgeText="POPULAR"
-              icon={HeartPulseIcon}
-              iconColor="#DC2626"
-              iconBgColor="#FEE2E2"
-              accentColor="#DC2626"
-              onPress={() => handlePurchase(5, '$2.99', 'heart')}
-            />
-
-            {/* Remaining options revealed with smooth Reanimated ease effect */}
-            <CollapsibleSection expanded={expandedHearts}>
-              <View style={styles.extraCardsGroup}>
-                <PackageCard
-                  title="Single Heart"
-                  reward="1 Extra Life"
-                  subtext="One more chance to beat the quiz"
-                  price="$0.99"
-                  icon={HeartIcon}
-                  iconColor="#EF4444"
-                  iconBgColor="#FEE2E2"
-                  accentColor="#EF4444"
-                  onPress={() => handlePurchase(1, '$0.99', 'heart')}
-                />
-                <PackageCard
-                  title="Infinite Bowl"
-                  reward="15 Extra Lives"
-                  subtext="Complete safety net for finals week"
-                  price="$4.99"
-                  badgeText="BEST VALUE"
-                  icon={HeartPlusIcon}
-                  iconColor="#991B1B"
-                  iconBgColor="#FEE2E2"
-                  accentColor="#991B1B"
-                  onPress={() => handlePurchase(15, '$4.99', 'heart')}
-                />
-              </View>
-            </CollapsibleSection>
-
-            {/* Buy More / Show Less Toggle Button */}
-            <TouchableOpacity
-              style={styles.expandToggleBtn}
-              onPress={toggleHearts}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.expandToggleText}>
-                {expandedHearts ? 'Show Less' : 'Buy More Lives (3 options)'}
-              </Text>
-              <AnimatedChevron expanded={expandedHearts} color={colors.primary} />
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* CATEGORY 3: XP TRADING POST */}
-        <View
-          onLayout={(e) => {
-            tradeSectionY.current = e.nativeEvent.layout.y;
-          }}
-        >
-          <SectionHeader
-            icon={Exchange01Icon}
-            iconColor="#D97706"
-            title="XP Trading Post"
-            subtitle="Turn your hard-earned study stars into free credits and lives"
-          />
-          <View style={styles.packagesContainer}>
-            {/* Default featured single card */}
-            <ExchangeCard
-              title="Momo's Special"
-              reward="150 Credits"
-              subtext="Triple credit pack with huge discount"
-              xpCost={1200}
-              badgeText="POPULAR"
-              icon={SparklesIcon}
-              iconColor={colors.primary}
-              iconBgColor={colors.primarySoft}
-              onPress={() => handleExchange(1200, 150, 'credit')}
-            />
-
-            {/* Remaining options revealed with smooth Reanimated ease effect */}
-            <CollapsibleSection expanded={expandedTrade}>
-              <View style={styles.extraCardsGroup}>
-                <ExchangeCard
-                  title="Quick Hint"
-                  reward="50 Credits"
-                  subtext="Get unstuck on a challenging question"
-                  xpCost={500}
-                  icon={BulbIcon}
-                  iconColor="#D97706"
-                  iconBgColor="#FEF3C7"
-                  onPress={() => handleExchange(500, 50, 'credit')}
-                />
-                <ExchangeCard
-                  title="Single Life"
-                  reward="1 Extra Life"
-                  subtext="Restore one life with study effort"
-                  xpCost={800}
-                  icon={HeartIcon}
-                  iconColor="#EF4444"
-                  iconBgColor="#FEE2E2"
-                  onPress={() => handleExchange(800, 1, 'heart')}
-                />
-                <ExchangeCard
-                  title="Five Lives Stash"
-                  reward="5 Extra Lives"
-                  subtext="Full protection pack from your hard work"
-                  xpCost={3500}
-                  badgeText="BEST VALUE"
-                  icon={HeartPulseIcon}
-                  iconColor="#DC2626"
-                  iconBgColor="#FEE2E2"
-                  onPress={() => handleExchange(3500, 5, 'heart')}
-                />
-              </View>
-            </CollapsibleSection>
-
-            {/* Explore More / Show Less Toggle Button */}
-            <TouchableOpacity
-              style={styles.expandToggleBtn}
-              onPress={toggleTrade}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.expandToggleText}>
-                {expandedTrade ? 'Show Less' : 'Explore More Trades (4 options)'}
-              </Text>
-              <AnimatedChevron expanded={expandedTrade} color={colors.primary} />
-            </TouchableOpacity>
+        <View style={styles.shopNote}>
+          <HugeiconsIcon icon={BulbIcon} size={18} color={colors.primary} />
+          <View style={styles.shopNoteText}>
+            <Text style={styles.shopNoteTitle}>How this shop works</Text>
+            <Text style={styles.shopNoteBody}>Credits are for study help. Lives give you more quiz attempts. Study XP can be exchanged for either.</Text>
+            <Text style={styles.shopNoteDisclosure}>Purchases are a preview in this build. No payment is taken.</Text>
           </View>
         </View>
       </SmoothScrollView>
@@ -617,6 +275,7 @@ export default function ShopScreen({ isTab = false }: { isTab?: boolean } = {}) 
         visible={showPurchaseModal}
         transparent={true}
         animationType="fade"
+        onRequestClose={() => setShowPurchaseModal(false)}
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
@@ -625,14 +284,15 @@ export default function ShopScreen({ isTab = false }: { isTab?: boolean } = {}) 
               style={styles.modalImage} 
               resizeMode="contain" 
             />
-            <Text style={styles.modalTitle}>Confirm Acquisition</Text>
+            <Text style={styles.modalTitle}>Preview this pack</Text>
             <Text style={styles.modalDesc}>
-              You are acquiring{' '}
+              Add a demo pack of{' '}
               <Text style={{ fontWeight: '700', color: colors.text }}>
                 {purchaseAmount} {purchaseType === 'credit' ? 'Magic Credits' : 'Extra Lives'}
               </Text>{' '}
-              for <Text style={{ fontWeight: '700', color: colors.text }}>{purchasePrice}</Text>.
+              to this device.
             </Text>
+            <Text style={styles.purchaseDisclosure}>No payment is taken.</Text>
 
             <View style={styles.modalDetailBox}>
               <View style={styles.modalDetailRow}>
@@ -642,7 +302,7 @@ export default function ShopScreen({ isTab = false }: { isTab?: boolean } = {}) 
                 </Text>
               </View>
               <View style={styles.modalDetailRow}>
-                <Text style={styles.modalDetailLabel}>Price:</Text>
+                <Text style={styles.modalDetailLabel}>Listed price:</Text>
                 <Text style={[styles.modalDetailValue, { color: colors.primary, fontWeight: '700' }]}>
                   {purchasePrice}
                 </Text>
@@ -663,7 +323,7 @@ export default function ShopScreen({ isTab = false }: { isTab?: boolean } = {}) 
                 activeOpacity={0.8}
               >
                 <HugeiconsIcon icon={CheckmarkCircle01Icon} size={18} color="#FFFFFF" />
-                <Text style={styles.modalPurchaseText}>Confirm</Text>
+                <Text style={styles.modalPurchaseText}>Add demo pack</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -675,6 +335,7 @@ export default function ShopScreen({ isTab = false }: { isTab?: boolean } = {}) 
         visible={showTradeModal}
         transparent={true}
         animationType="fade"
+        onRequestClose={() => setShowTradeModal(false)}
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
@@ -749,6 +410,7 @@ export default function ShopScreen({ isTab = false }: { isTab?: boolean } = {}) 
         visible={showSuccessModal}
         transparent={true}
         animationType="fade"
+        onRequestClose={() => setShowSuccessModal(false)}
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
@@ -759,7 +421,7 @@ export default function ShopScreen({ isTab = false }: { isTab?: boolean } = {}) 
             />
             <View style={styles.successHalo}>
               <HugeiconsIcon icon={CheckmarkCircle01Icon} size={24} color="#059669" />
-              <Text style={styles.successBadgeText}>Added to Account</Text>
+              <Text style={styles.successBadgeText}>Balance updated</Text>
             </View>
             <Text style={styles.modalTitle}>Success!</Text>
             <Text style={styles.modalDesc}>
@@ -767,7 +429,7 @@ export default function ShopScreen({ isTab = false }: { isTab?: boolean } = {}) 
               <Text style={{ fontWeight: '700', color: colors.text }}>
                 {successAmount} {successType === 'credit' ? 'Credits' : 'Extra Lives'}
               </Text>
-              . They have been added to your balance and are ready for your next study session.
+              . They are ready for your next study session on this device.
             </Text>
             <TouchableOpacity 
               style={styles.modalPurchaseBtn}
@@ -785,6 +447,7 @@ export default function ShopScreen({ isTab = false }: { isTab?: boolean } = {}) 
         visible={showNotEnoughXpModal}
         transparent={true}
         animationType="fade"
+        onRequestClose={() => setShowNotEnoughXpModal(false)}
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
@@ -831,6 +494,22 @@ export default function ShopScreen({ isTab = false }: { isTab?: boolean } = {}) 
           </View>
         </View>
       </Modal>
+    </View>
+  );
+}
+
+function BalanceTile({ icon, label, value, color, background }: {
+  icon: any;
+  label: string;
+  value: string;
+  color: string;
+  background: string;
+}) {
+  return (
+    <View style={[styles.balanceTile, { backgroundColor: background }]}>
+      <HugeiconsIcon icon={icon} size={18} color={color} />
+      <Text style={styles.balanceValue} numberOfLines={1}>{value}</Text>
+      <Text style={styles.balanceLabel} numberOfLines={1}>{label}</Text>
     </View>
   );
 }
@@ -892,6 +571,8 @@ function PackageCard({
     <PlatformPressable
       style={[styles.card, badgeText ? styles.cardHighlight : null]}
       onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={`${title}, ${reward}, ${price}. ${subtext}. Preview purchase`}
     >
       {badgeText && (
         <View style={styles.cardBadge}>
@@ -906,7 +587,7 @@ function PackageCard({
         <View style={styles.cardInfo}>
           <Text style={styles.cardTitle} numberOfLines={1}>{title}</Text>
           <Text style={[styles.cardReward, { color: accentColor }]} numberOfLines={1}>{reward}</Text>
-          <Text style={styles.cardSubtext} numberOfLines={1}>{subtext}</Text>
+          <Text style={styles.cardSubtext} numberOfLines={2}>{subtext}</Text>
         </View>
         <View style={styles.priceActionBtn}>
           <Text style={styles.priceActionText} numberOfLines={1}>{price}</Text>
@@ -945,6 +626,8 @@ function ExchangeCard({
     <PlatformPressable
       style={[styles.card, badgeText ? styles.cardHighlightTrade : null]}
       onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={`${title}, ${reward}, costs ${xpCost.toLocaleString()} XP. ${subtext}`}
     >
       {badgeText && (
         <View style={[styles.cardBadge, { backgroundColor: '#D97706' }]}>
@@ -959,7 +642,7 @@ function ExchangeCard({
         <View style={styles.cardInfo}>
           <Text style={styles.cardTitle} numberOfLines={1}>{title}</Text>
           <Text style={[styles.cardReward, { color: '#B45309' }]} numberOfLines={1}>{reward}</Text>
-          <Text style={styles.cardSubtext} numberOfLines={1}>{subtext}</Text>
+          <Text style={styles.cardSubtext} numberOfLines={2}>{subtext}</Text>
         </View>
         <View style={styles.tradeActionBtn}>
           <HugeiconsIcon icon={StarIcon} size={13} color="#D97706" />
@@ -979,230 +662,211 @@ const styles = StyleSheet.create({
     backgroundColor: '#F8FAFC',
   },
 
-  /* INTEGRATED HEADER BAR WITH CURRENCY PILLS */
   headerBar: {
     backgroundColor: colors.surface,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.border,
-    paddingHorizontal: isPadDevice ? spacing[28] : spacing[16],
-    paddingBottom: isPadDevice ? spacing[14] : spacing[10],
-    zIndex: 10,
-  },
-  headerContentRow: {
-    flexDirection: isPadDevice ? 'row' : 'column',
-    alignItems: isPadDevice ? 'center' : 'stretch',
-    justifyContent: 'space-between',
-    minHeight: isPadDevice ? 48 : 38,
-    gap: isPadDevice ? 10 : 12,
+    paddingHorizontal: isPadDevice ? spacing[28] : spacing[20],
+    paddingBottom: spacing[14],
   },
   headerLeftCol: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    flexShrink: 0,
-    minHeight: 44,
+    gap: spacing[12],
+    minHeight: 48,
   },
   iconBtn: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 44,
+    height: 44,
+    borderRadius: 15,
     backgroundColor: colors.surfaceMuted,
     alignItems: 'center',
     justifyContent: 'center',
   },
   headerTitle: {
-    fontSize: isPadDevice ? typography.fontSize[22] : typography.fontSize[24],
+    fontSize: isPadDevice ? 26 : 23,
     fontWeight: typography.fontWeight.bold,
     color: colors.text,
-    letterSpacing: typography.letterSpacing[-0.3],
+    lineHeight: isPadDevice ? 34 : 30,
   },
-  headerCurrencies: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: isPadDevice ? 10 : 6,
-    flexShrink: 1,
-    justifyContent: isPadDevice ? 'flex-end' : 'space-between',
+  headerSubtitle: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginTop: 1,
   },
-  headerPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    backgroundColor: '#FFFFFF',
-    paddingVertical: isPadDevice ? 7 : 9,
-    paddingHorizontal: isPadDevice ? 12 : 8,
-    minHeight: 40,
-    flex: isPadDevice ? undefined : 1,
-    justifyContent: 'center',
-    borderRadius: isPadDevice ? 14 : 10,
-    borderWidth: 1,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#0F172A',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.04,
-        shadowRadius: 2,
-      },
-      android: {
-        elevation: 1,
-      },
-    }),
-  },
-  headerPillGold: {
-    backgroundColor: '#FFFBEB',
-    borderColor: '#FDE68A',
-  },
-  headerPillCrimson: {
-    backgroundColor: '#FEF2F2',
-    borderColor: '#FECACA',
-  },
-  headerPillPurple: {
-    backgroundColor: '#F5F3FF',
-    borderColor: '#DDD6FE',
-  },
-  headerPillText: {
-    fontSize: isPadDevice ? 13.5 : 12,
-    fontWeight: '800',
-    color: '#0F172A',
-  },
-
-  /* SCROLL CONTENT CONTAINER */
   container: {
-    paddingHorizontal: isPadDevice ? 36 : 20,
-    paddingTop: 16,
-    maxWidth: isPadDevice ? 860 : undefined,
-    width: isPadDevice ? '100%' : undefined,
-    alignSelf: isPadDevice ? 'center' : undefined,
+    paddingHorizontal: isPadDevice ? spacing[28] : spacing[16],
+    paddingTop: spacing[18],
+    maxWidth: 760,
+    width: '100%',
+    alignSelf: 'center',
   },
-
-  /* FEATURED WHOLE HERO CARD */
-  featuredCard: {
-    backgroundColor: '#EEF2FF',
-    borderRadius: isPadDevice ? 24 : 18,
-    padding: isPadDevice ? 22 : 16,
-    marginBottom: 20,
-    borderWidth: 1.5,
-    borderColor: '#C7D2FE',
-    ...Platform.select({
-      ios: {
-        shadowColor: '#4F46E5',
-        shadowOffset: { width: 0, height: 3 },
-        shadowOpacity: 0.08,
-        shadowRadius: 8,
-      },
-      android: {
-        elevation: 2,
-      },
-    }),
+  walletCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    padding: isPadDevice ? 20 : 16,
+    marginBottom: spacing[14],
   },
-  featuredHeader: {
-    marginBottom: 6,
-  },
-  featuredBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    alignSelf: 'flex-start',
-    backgroundColor: colors.primary,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 8,
-  },
-  featuredBadgeText: {
+  walletEyebrow: {
+    color: colors.primary,
     fontSize: 10,
-    fontWeight: '800',
-    color: '#FFFFFF',
-    letterSpacing: 0.6,
+    fontWeight: typography.fontWeight.bold,
+    letterSpacing: 1.2,
   },
-  featuredContent: {
+  walletTitle: {
+    color: colors.text,
+    fontSize: isPadDevice ? 20 : 17,
+    fontWeight: typography.fontWeight.bold,
+    marginTop: 2,
+    marginBottom: spacing[14],
+  },
+  walletGrid: {
+    flexDirection: 'row',
+    gap: isPadDevice ? spacing[12] : spacing[8],
+  },
+  balanceTile: {
+    flex: 1,
+    minWidth: 0,
+    alignItems: 'flex-start',
+    borderRadius: 16,
+    padding: isPadDevice ? 16 : 12,
+    gap: 3,
+  },
+  balanceValue: {
+    color: colors.text,
+    fontSize: isPadDevice ? 24 : 20,
+    fontWeight: typography.fontWeight.bold,
+    lineHeight: isPadDevice ? 30 : 26,
+  },
+  balanceLabel: {
+    color: colors.textSecondary,
+    fontSize: isPadDevice ? 12 : 10.5,
+    fontWeight: typography.fontWeight.medium,
+  },
+  featuredCard: {
+    backgroundColor: '#272062',
+    borderRadius: 22,
+    padding: isPadDevice ? 22 : 17,
+    marginBottom: spacing[24],
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 12,
+    overflow: 'hidden',
+    minHeight: isPadDevice ? 150 : 130,
   },
   featuredTextGroup: {
     flex: 1,
+    zIndex: 1,
+  },
+  featuredEyebrow: {
+    color: '#C7D2FE',
+    fontSize: 10,
+    fontWeight: typography.fontWeight.bold,
+    letterSpacing: 0.8,
+    marginBottom: 4,
   },
   featuredTitle: {
-    fontSize: isPadDevice ? 21 : 17,
-    fontWeight: '800',
-    color: '#1E1B4B',
+    color: '#FFFFFF',
+    fontSize: isPadDevice ? 22 : 18,
+    fontWeight: typography.fontWeight.bold,
+    lineHeight: isPadDevice ? 28 : 23,
     marginBottom: 4,
   },
   featuredDesc: {
-    fontSize: isPadDevice ? 13.5 : 12,
-    color: '#4338CA',
-    lineHeight: isPadDevice ? 20 : 17,
+    color: '#E0E7FF',
+    fontSize: isPadDevice ? 13 : 11.5,
+    lineHeight: isPadDevice ? 19 : 17,
   },
   featuredImage: {
-    width: isPadDevice ? 98 : 76,
-    height: isPadDevice ? 98 : 76,
-    flexShrink: 0,
+    width: isPadDevice ? 128 : 100,
+    height: isPadDevice ? 128 : 100,
+    marginLeft: spacing[8],
   },
-
-  /* SECTION HEADERS */
+  catalogTitle: {
+    fontSize: isPadDevice ? 22 : 20,
+    fontWeight: typography.fontWeight.bold,
+    color: colors.text,
+  },
+  catalogSubtitle: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginTop: 2,
+    marginBottom: spacing[8],
+  },
+  catalogDisclosure: {
+    fontSize: 11.5,
+    color: '#4338CA',
+    fontWeight: typography.fontWeight.medium,
+    marginBottom: spacing[14],
+  },
+  categoryTabs: {
+    flexDirection: 'row',
+    backgroundColor: '#E9EDF5',
+    padding: 4,
+    borderRadius: 16,
+    gap: 3,
+    marginBottom: spacing[20],
+  },
+  categoryTab: {
+    flex: 1,
+    minHeight: 44,
+    borderRadius: 13,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
+  },
+  categoryTabSelected: {
+    backgroundColor: colors.primary,
+  },
+  categoryTabText: {
+    fontSize: isPadDevice ? 14 : 11.5,
+    fontWeight: typography.fontWeight.semiBold,
+    color: colors.textSecondary,
+  },
+  categoryTabTextSelected: {
+    color: '#FFFFFF',
+  },
+  catalogSection: {
+    marginBottom: spacing[20],
+  },
   sectionHeaderBox: {
-    marginTop: 6,
-    marginBottom: 10,
+    marginBottom: spacing[14],
   },
   sectionHeaderTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginBottom: 2,
+    gap: spacing[8],
+    marginBottom: 3,
   },
   sectionIconBadge: {
-    width: isPadDevice ? 28 : 24,
-    height: isPadDevice ? 28 : 24,
-    borderRadius: isPadDevice ? 9 : 7,
+    width: 30,
+    height: 30,
+    borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
   },
   sectionTitle: {
-    fontSize: isPadDevice ? 18 : 15,
-    fontWeight: '800',
-    color: '#0F172A',
+    fontSize: isPadDevice ? 18 : 16,
+    fontWeight: typography.fontWeight.bold,
+    color: colors.text,
+    flex: 1,
   },
   sectionSubtitle: {
-    fontSize: isPadDevice ? 13 : 11.5,
-    color: '#64748B',
-    marginLeft: isPadDevice ? 36 : 32,
+    fontSize: 12,
+    color: colors.textSecondary,
+    lineHeight: 17,
   },
-
-  /* PACKAGES LIST */
-  packagesContainer: {
-    marginBottom: 20,
-  },
-  extraCardsGroup: {
-    paddingTop: isPadDevice ? 12 : 9,
-    gap: isPadDevice ? 12 : 9,
-  },
-  collapsibleMeasuring: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    opacity: 0,
-  },
-  collapsibleContent: {
-    width: '100%',
+  offerList: {
+    gap: spacing[10],
   },
   card: {
     backgroundColor: '#FFFFFF',
-    borderRadius: isPadDevice ? 18 : 15,
+    borderRadius: 18,
     borderWidth: 1.5,
     borderColor: '#E2E8F0',
     overflow: 'hidden',
-    ...Platform.select({
-      ios: {
-        shadowColor: '#0F172A',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.04,
-        shadowRadius: 4,
-      },
-      android: {
-        elevation: 1.5,
-      },
-    }),
   },
   cardHighlight: {
     borderColor: colors.primaryBorder,
@@ -1213,116 +877,126 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFEFA',
   },
   cardBadge: {
-    position: 'absolute',
-    top: 0,
-    right: 0,
     flexDirection: 'row',
     alignItems: 'center',
+    alignSelf: 'flex-start',
     gap: 4,
     backgroundColor: colors.primary,
     paddingVertical: 3,
     paddingHorizontal: 9,
-    borderBottomLeftRadius: 10,
-    zIndex: 2,
+    marginTop: spacing[10],
+    marginLeft: spacing[14],
+    borderRadius: 8,
   },
   cardBadgeText: {
     color: '#FFFFFF',
     fontSize: 9.5,
-    fontWeight: '800',
+    fontWeight: typography.fontWeight.bold,
     letterSpacing: 0.4,
   },
   cardBody: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: isPadDevice ? 16 : 13,
-    gap: 12,
+    padding: isPadDevice ? 18 : 14,
+    gap: isPadDevice ? 14 : 10,
+    minHeight: 90,
   },
   iconSquircle: {
-    width: isPadDevice ? 52 : 44,
-    height: isPadDevice ? 52 : 44,
-    borderRadius: isPadDevice ? 16 : 13,
+    width: isPadDevice ? 52 : 42,
+    height: isPadDevice ? 52 : 42,
+    borderRadius: 13,
     alignItems: 'center',
     justifyContent: 'center',
     flexShrink: 0,
   },
   cardInfo: {
     flex: 1,
-    justifyContent: 'center',
+    minWidth: 0,
   },
   cardTitle: {
-    fontSize: isPadDevice ? 15.5 : 13.5,
-    fontWeight: '700',
-    color: '#0F172A',
+    fontSize: isPadDevice ? 14 : 12,
+    fontWeight: typography.fontWeight.semiBold,
+    color: colors.textSecondary,
     marginBottom: 2,
   },
   cardReward: {
-    fontSize: isPadDevice ? 14.5 : 13,
-    fontWeight: '800',
-    marginBottom: 2,
+    fontSize: isPadDevice ? 19 : 16,
+    fontWeight: typography.fontWeight.bold,
+    marginBottom: 3,
   },
   cardSubtext: {
     fontSize: isPadDevice ? 12 : 11,
-    color: '#64748B',
+    color: colors.textSecondary,
+    lineHeight: 15,
   },
   priceActionBtn: {
-    backgroundColor: '#F1F5F9',
-    paddingHorizontal: isPadDevice ? 15 : 12,
-    paddingVertical: isPadDevice ? 9 : 7,
-    borderRadius: isPadDevice ? 13 : 9,
+    backgroundColor: colors.primary,
+    paddingHorizontal: isPadDevice ? 15 : 10,
+    paddingVertical: 9,
+    borderRadius: 11,
+    minWidth: isPadDevice ? 84 : 64,
     alignItems: 'center',
-    justifyContent: 'center',
-    minWidth: isPadDevice ? 78 : 64,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
   },
   priceActionText: {
-    fontSize: isPadDevice ? 14.5 : 13,
-    fontWeight: '800',
-    color: '#0F172A',
+    fontSize: isPadDevice ? 14 : 12.5,
+    fontWeight: typography.fontWeight.bold,
+    color: '#FFFFFF',
   },
   tradeActionBtn: {
-    flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    backgroundColor: '#FEF3C7',
-    paddingHorizontal: isPadDevice ? 13 : 10,
-    paddingVertical: isPadDevice ? 9 : 7,
-    borderRadius: isPadDevice ? 13 : 9,
-    borderWidth: 1,
-    borderColor: '#FDE68A',
-    minWidth: isPadDevice ? 84 : 70,
     justifyContent: 'center',
+    backgroundColor: '#FEF3C7',
+    borderRadius: 11,
+    paddingHorizontal: isPadDevice ? 12 : 8,
+    paddingVertical: 7,
+    minWidth: isPadDevice ? 85 : 69,
   },
   tradeActionText: {
-    fontSize: isPadDevice ? 14 : 12.5,
-    fontWeight: '800',
-    color: '#B45309',
+    fontSize: isPadDevice ? 15 : 13,
+    fontWeight: typography.fontWeight.bold,
+    color: '#92400E',
   },
   tradeActionSub: {
-    fontSize: isPadDevice ? 11.5 : 10,
-    fontWeight: '700',
-    color: '#D97706',
+    fontSize: 10,
+    fontWeight: typography.fontWeight.semiBold,
+    color: '#B45309',
   },
-
-  /* EXPAND / COLLAPSE TOGGLE BUTTON */
-  expandToggleBtn: {
+  shopNote: {
     flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    paddingVertical: isPadDevice ? 12 : 10,
-    paddingHorizontal: 16,
+    gap: spacing[10],
     backgroundColor: '#EEF2FF',
-    borderRadius: isPadDevice ? 14 : 11,
+    borderRadius: 16,
+    padding: spacing[16],
     borderWidth: 1,
     borderColor: '#C7D2FE',
-    borderStyle: 'dashed',
-    marginTop: isPadDevice ? 12 : 9,
   },
-  expandToggleText: {
-    fontSize: isPadDevice ? 14 : 12.5,
-    fontWeight: '700',
-    color: colors.primary,
+  shopNoteText: {
+    flex: 1,
+  },
+  shopNoteTitle: {
+    fontSize: 13,
+    fontWeight: typography.fontWeight.bold,
+    color: '#312E81',
+    marginBottom: 3,
+  },
+  shopNoteBody: {
+    fontSize: 11.5,
+    lineHeight: 17,
+    color: '#475569',
+  },
+  shopNoteDisclosure: {
+    fontSize: 11.5,
+    lineHeight: 17,
+    color: '#4338CA',
+    fontWeight: typography.fontWeight.semiBold,
+    marginTop: spacing[8],
+  },
+  purchaseDisclosure: {
+    color: '#4338CA',
+    fontSize: 11.5,
+    lineHeight: 17,
+    textAlign: 'center',
+    marginBottom: spacing[14],
   },
 
   /* MODALS */

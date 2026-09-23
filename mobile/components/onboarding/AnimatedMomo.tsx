@@ -1,19 +1,18 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   StyleSheet,
   TouchableOpacity,
-  Dimensions,
+  AccessibilityInfo,
 } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
-  withRepeat,
   withSequence,
   withTiming,
   Easing,
 } from 'react-native-reanimated';
-import LottieView from 'lottie-react-native';
+import LottieView, { type AnimationObject } from 'lottie-react-native';
 import * as Haptics from 'expo-haptics';
 import { AppText as Text } from '@/components/common/app-text';
 import { spacing, typography } from '@/constants/theme';
@@ -29,15 +28,27 @@ export type MomoPose =
   | 'cool'
   | 'cheer';
 
-// Clean assets without furrowed/wavy eyebrows (thinking maps to clean happy_momo)
-const MOMO_ASSETS: Record<MomoPose, any> = {
+// Each pose is a Lottie animation with an embedded, optimized Momo illustration.
+const MOMO_ANIMATIONS: Record<MomoPose, AnimationObject> = {
+  welcome: require('@/assets/animations/welcome_momo.lottie.json'),
+  thinking: require('@/assets/animations/happy_momo.lottie.json'),
+  happy: require('@/assets/animations/happy_momo.lottie.json'),
+  document: require('@/assets/animations/document_momo.lottie.json'),
+  creating: require('@/assets/animations/creating_momo.lottie.json'),
+  xp: require('@/assets/animations/cheer_momo.lottie.json'),
+  focus: require('@/assets/animations/creating_momo.lottie.json'),
+  cool: require('@/assets/animations/cool_momo.lottie.json'),
+  cheer: require('@/assets/animations/cheer_momo.lottie.json'),
+};
+
+const MOMO_FALLBACKS: Record<MomoPose, number> = {
   welcome: require('@/assets/animations/welcome_momo.png'),
-  thinking: require('@/assets/animations/happy_momo.png'), // clean brows, no furrowed eyebrows
+  thinking: require('@/assets/animations/happy_momo.png'),
   happy: require('@/assets/animations/happy_momo.png'),
   document: require('@/assets/animations/document_momo.png'),
   creating: require('@/assets/animations/creating_momo.png'),
-  xp: require('@/assets/animations/xp_momo.png'),
-  focus: require('@/assets/animations/creating_momo.png'), // friendly study focus without angry brows
+  xp: require('@/assets/animations/cheer_momo.png'),
+  focus: require('@/assets/animations/creating_momo.png'),
   cool: require('@/assets/animations/cool_momo.png'),
   cheer: require('@/assets/animations/cheer_momo.png'),
 };
@@ -68,41 +79,26 @@ export const AnimatedMomo: React.FC<AnimatedMomoProps> = ({
 }) => {
   const [activePose, setActivePose] = useState<MomoPose>(pose);
   const [currentQuote, setCurrentQuote] = useState<string | null>(null);
+  const [reduceMotion, setReduceMotion] = useState(false);
+  const [animationFailed, setAnimationFailed] = useState(false);
 
-  // --- REANIMATED VALUES ---
-  // Organic breathing & subtle sway anchored flush to the card (ZERO vertical lift, ZERO gap)
-  const breathScaleY = useSharedValue(1);
-  const idleTilt = useSharedValue(0);
   const reactScale = useSharedValue(1);
 
   // Speech bubble opacity
   const bubbleOpacity = useSharedValue(speechText ? 1 : 0);
 
-  // 1. ORGANIC BREATHING & SWAY (Anchored at the bottom edge)
   useEffect(() => {
-    // Gentle breathing scale Y: expands up from the bottom edge
-    breathScaleY.value = withRepeat(
-      withSequence(
-        withTiming(1.025, { duration: 1800, easing: Easing.bezier(0.42, 0, 0.58, 1) }),
-        withTiming(1.0, { duration: 1800, easing: Easing.bezier(0.42, 0, 0.58, 1) })
-      ),
-      -1,
-      true
-    );
-
-    // Subtle sway tilt (from waist anchor)
-    idleTilt.value = withRepeat(
-      withSequence(
-        withTiming(-0.8, { duration: 2400, easing: Easing.inOut(Easing.sin) }),
-        withTiming(0.8, { duration: 2400, easing: Easing.inOut(Easing.sin) })
-      ),
-      -1,
-      true
-    );
+    AccessibilityInfo.isReduceMotionEnabled().then(setReduceMotion).catch(() => {});
+    const subscription = AccessibilityInfo.addEventListener('reduceMotionChanged', setReduceMotion);
+    return () => subscription.remove();
   }, []);
 
-  // 2. STAGE TRANSITION (Celebratory squash & stretch from card anchor)
   useEffect(() => {
+    if (reduceMotion) {
+      setActivePose(pose);
+      setAnimationFailed(false);
+      return;
+    }
     reactScale.value = withSequence(
       withTiming(1.04, { duration: 120, easing: Easing.out(Easing.cubic) }),
       withTiming(0.99, { duration: 100, easing: Easing.inOut(Easing.quad) }),
@@ -110,7 +106,8 @@ export const AnimatedMomo: React.FC<AnimatedMomoProps> = ({
     );
 
     setActivePose(pose);
-  }, [stage, pose]);
+    setAnimationFailed(false);
+  }, [stage, pose, reduceMotion]);
 
   // Handle Speech Bubble updates
   useEffect(() => {
@@ -145,20 +142,9 @@ export const AnimatedMomo: React.FC<AnimatedMomoProps> = ({
     }
   };
 
-  // Keep Momo's bottom cut-off edge 100% flush against the card (no gap, no overlap)
-  // By offsetting translateY by -((scaleY - 1) * (size / 2)), the bottom edge remains exactly at y = size
   const momoMotionStyle = useAnimatedStyle(() => {
-    const totalScaleY = breathScaleY.value * reactScale.value;
-    const bottomAnchorOffsetY = -((totalScaleY - 1) * (size / 2));
-    const volumeCompX = 1 / Math.sqrt(totalScaleY);
-
     return {
-      transform: [
-        { translateY: bottomAnchorOffsetY },
-        { scaleY: totalScaleY },
-        { scaleX: volumeCompX },
-        { rotateZ: `${idleTilt.value}deg` },
-      ],
+      transform: [{ scale: reactScale.value }],
     };
   });
 
@@ -183,7 +169,7 @@ export const AnimatedMomo: React.FC<AnimatedMomoProps> = ({
           activeOpacity={0.9}
           onPress={handlePressMomo}
           style={[styles.touchTarget, { width: size, height: size }]}
-          accessibilityRole="image"
+          accessibilityRole="button"
           accessibilityLabel="Momo, your AI study companion. Tap to interact."
         >
           {/* Lottie Magic Aura behind Momo */}
@@ -194,29 +180,43 @@ export const AnimatedMomo: React.FC<AnimatedMomoProps> = ({
             ]}
             pointerEvents="none"
           >
-            <LottieView
-              source={
-                stage === 6
+            {!reduceMotion && (
+              <LottieView
+                source={stage === 6
                   ? require('@/assets/animations/momo_confetti.json')
-                  : require('@/assets/animations/magic_sparkles.json')
-              }
-              autoPlay
-              loop
-              speed={0.85}
-              style={styles.lottieView}
-            />
+                  : require('@/assets/animations/magic_sparkles.json')}
+                autoPlay
+                loop
+                speed={0.85}
+                style={styles.lottieView}
+              />
+            )}
           </View>
 
-          {/* Momo Character Image: Bottom-aligned to touch card top seamlessly */}
-          <Animated.Image
-            source={MOMO_ASSETS[activePose] || MOMO_ASSETS.welcome}
+          <Animated.View
             style={[
               styles.momoImage,
               { width: size, height: size },
               momoMotionStyle,
             ]}
-            resizeMode="contain"
-          />
+          >
+            {animationFailed || reduceMotion ? (
+              <Animated.Image
+                source={MOMO_FALLBACKS[activePose]}
+                resizeMode="contain"
+                style={styles.lottieView}
+              />
+            ) : (
+              <LottieView
+                key={activePose}
+                source={MOMO_ANIMATIONS[activePose]}
+                autoPlay={!reduceMotion}
+                loop={!reduceMotion}
+                onAnimationFailure={() => setAnimationFailed(true)}
+                style={styles.lottieView}
+              />
+            )}
+          </Animated.View>
         </TouchableOpacity>
 
         {/* Speech Bubble Placed on the RIGHT Side of Momo */}

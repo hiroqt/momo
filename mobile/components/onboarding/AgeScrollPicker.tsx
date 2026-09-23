@@ -21,7 +21,8 @@ interface AgeScrollPickerProps {
 }
 
 const ITEM_WIDTH = 56;
-const AUDIO_POOL_SIZE = 6;
+const AUDIO_POOL_SIZE = 8;
+const AGE_TICK = require('@/assets/sounds/age_tick.wav');
 
 export const AgeScrollPicker: React.FC<AgeScrollPickerProps> = ({
   value,
@@ -32,28 +33,27 @@ export const AgeScrollPicker: React.FC<AgeScrollPickerProps> = ({
   const scrollViewRef = useRef<ScrollView>(null);
   const [containerWidth, setContainerWidth] = useState<number>(300);
   
-  // Track last tick index continuously so sound plays on every tick during scrolling
+  // Keep the committed age in a ref so rapid taps do not depend on a delayed rerender.
   const initialIndex = Math.max(0, Math.min(maxAge - minAge, value - minAge));
   const lastTickIndex = useRef<number>(initialIndex);
 
-  // Audio player pool for ultra-responsive, zero-latency mechanical keyboard clicks while scrolling
-  const audioSource = require('@/assets/sounds/keyboard_switch.wav');
   const playersPool = useRef<AudioPlayer[]>([]);
   const poolIndex = useRef<number>(0);
+  const pendingPlayers = useRef<Set<AudioPlayer>>(new Set());
+  const mounted = useRef(true);
 
-  // Configure audio session and pre-warm audio player pool
   useEffect(() => {
-    try {
-      setAudioModeAsync({
-        playsInSilentMode: true,
-        interruptionMode: 'mixWithOthers',
-      });
-    } catch {}
+    mounted.current = true;
+    void setAudioModeAsync({
+      playsInSilentMode: true,
+      interruptionMode: 'mixWithOthers',
+    }).catch((err) => console.warn('Failed to configure age picker audio:', err));
 
     const pool: AudioPlayer[] = [];
     for (let i = 0; i < AUDIO_POOL_SIZE; i++) {
       try {
-        const player = createAudioPlayer(audioSource);
+        const player = createAudioPlayer(AGE_TICK);
+        player.volume = 0.75;
         pool.push(player);
       } catch (err) {
         console.warn('Failed to pre-warm audio player:', err);
@@ -62,9 +62,12 @@ export const AgeScrollPicker: React.FC<AgeScrollPickerProps> = ({
     playersPool.current = pool;
 
     return () => {
+      mounted.current = false;
+      playersPool.current = [];
+      pendingPlayers.current.clear();
       pool.forEach((p) => {
         try {
-          p.pause();
+          p.remove();
         } catch {}
       });
     };
@@ -92,60 +95,55 @@ export const AgeScrollPicker: React.FC<AgeScrollPickerProps> = ({
     }
   }, [containerWidth]);
 
-  // Trigger instant mechanical keyboard switch audio and rigid tactile haptic
   const playSwitchAction = () => {
-    // Dismiss any active keyboard to prevent input blocking while scrolling
-    try {
-      Keyboard.dismiss();
-    } catch {}
+    const pool = playersPool.current;
+    for (let attempt = 0; attempt < pool.length; attempt++) {
+      const index = (poolIndex.current + attempt) % pool.length;
+      const player = pool[index];
+      if (!player.isLoaded || player.playing || pendingPlayers.current.has(player)) continue;
 
-    // Round-robin cycling through player pool for responsive continuous clicks while scrolling
-    try {
-      const pool = playersPool.current;
-      if (pool.length > 0) {
-        const player = pool[poolIndex.current % pool.length];
-        poolIndex.current++;
-        player.seekTo(0);
-        player.play();
+      poolIndex.current = (index + 1) % pool.length;
+      pendingPlayers.current.add(player);
+      if (player.currentTime <= 0.001) {
+        try {
+          player.play();
+        } catch (err) {
+          console.warn('Failed to play age picker tick:', err);
+        } finally {
+          pendingPlayers.current.delete(player);
+        }
+      } else {
+        void player.seekTo(0).then(() => {
+          if (mounted.current) player.play();
+        }).catch((err) => {
+          console.warn('Failed to play age picker tick:', err);
+        }).finally(() => {
+          pendingPlayers.current.delete(player);
+        });
       }
-    } catch {}
-
-    // Crisp rigid mechanical switch tactile haptic
-    try {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Rigid);
-    } catch {
-      try {
-        Haptics.selectionAsync();
-      } catch {}
+      break;
     }
+
+    void Haptics.selectionAsync().catch(() => {});
   };
 
-  // Handle scroll events: sounds play responsively on EVERY tick crossed even before finger lift
+  const selectIndex = (index: number) => {
+    const nextIndex = Math.max(0, Math.min(ages.length - 1, index));
+    if (nextIndex === lastTickIndex.current) return;
+    lastTickIndex.current = nextIndex;
+    onChange(ages[nextIndex]);
+    playSwitchAction();
+  };
+
+  // The center cursor selects an age as it crosses each visible number.
   const handleScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const offsetX = e.nativeEvent.contentOffset.x;
-    const rawIndex = Math.round(offsetX / ITEM_WIDTH);
-    const clampedIndex = Math.max(0, Math.min(ages.length - 1, rawIndex));
-
-    if (clampedIndex !== lastTickIndex.current) {
-      lastTickIndex.current = clampedIndex;
-      playSwitchAction();
-      const newAge = ages[clampedIndex];
-      if (newAge !== undefined) {
-        onChange(newAge);
-      }
-    }
+    selectIndex(Math.round(e.nativeEvent.contentOffset.x / ITEM_WIDTH));
   };
 
-  // Step button adjust
   const handleStep = (delta: number) => {
-    const nextAge = Math.max(minAge, Math.min(maxAge, value + delta));
-    if (nextAge !== value) {
-      lastTickIndex.current = nextAge - minAge;
-      playSwitchAction();
-      onChange(nextAge);
-      const targetIndex = nextAge - minAge;
-      scrollViewRef.current?.scrollTo({ x: targetIndex * ITEM_WIDTH, animated: true });
-    }
+    const nextIndex = Math.max(0, Math.min(ages.length - 1, lastTickIndex.current + delta));
+    selectIndex(nextIndex);
+    scrollViewRef.current?.scrollTo({ x: nextIndex * ITEM_WIDTH, animated: false });
   };
 
   return (
@@ -155,6 +153,11 @@ export const AgeScrollPicker: React.FC<AgeScrollPickerProps> = ({
       accessibilityRole="adjustable"
       accessibilityLabel={`Age selector: ${value} years old`}
       accessibilityValue={{ min: minAge, max: maxAge, now: value }}
+      accessibilityActions={[{ name: 'increment' }, { name: 'decrement' }]}
+      onAccessibilityAction={(event) => {
+        if (event.nativeEvent.actionName === 'increment') handleStep(1);
+        if (event.nativeEvent.actionName === 'decrement') handleStep(-1);
+      }}
     >
       {/* Centered Hero Number Display */}
       <View style={styles.heroDisplay}>
@@ -195,16 +198,7 @@ export const AgeScrollPicker: React.FC<AgeScrollPickerProps> = ({
             decelerationRate="fast"
             bounces={false}
             onScroll={handleScroll}
-            onMomentumScrollEnd={(e) => {
-              const offsetX = e.nativeEvent.contentOffset.x;
-              const rawIndex = Math.round(offsetX / ITEM_WIDTH);
-              const clampedIndex = Math.max(0, Math.min(ages.length - 1, rawIndex));
-              lastTickIndex.current = clampedIndex;
-              const newAge = ages[clampedIndex];
-              if (newAge !== undefined && newAge !== value) {
-                onChange(newAge);
-              }
-            }}
+            onMomentumScrollEnd={handleScroll}
             onScrollBeginDrag={() => Keyboard.dismiss()}
             scrollEventThrottle={16}
             contentContainerStyle={{
@@ -222,7 +216,8 @@ export const AgeScrollPicker: React.FC<AgeScrollPickerProps> = ({
                   style={styles.reelItem}
                   onPress={() => {
                     const targetIndex = age - minAge;
-                    scrollViewRef.current?.scrollTo({ x: targetIndex * ITEM_WIDTH, animated: true });
+                    selectIndex(targetIndex);
+                    scrollViewRef.current?.scrollTo({ x: targetIndex * ITEM_WIDTH, animated: false });
                   }}
                   activeOpacity={0.8}
                 >

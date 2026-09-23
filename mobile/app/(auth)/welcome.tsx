@@ -129,10 +129,12 @@ const FORMAT_OPTIONS: {
 ];
 
 const GOAL_OPTIONS = [
-  { minutes: 10, label: '10 min/day', tag: 'Chill', desc: 'Easy daily habit to build recall without burnout' },
-  { minutes: 20, label: '20 min/day', tag: 'Momo Pick', desc: 'Optimal memory retention and streak multiplier XP' },
-  { minutes: 45, label: '45 min/day', tag: 'Lock In!', desc: 'Intense crunch mode for upcoming midterm exams' },
+  { minutes: 10, label: '10 min/day', tag: 'Easy start', desc: 'A small daily study target' },
+  { minutes: 20, label: '20 min/day', tag: 'Suggested', desc: 'Time for a short review session' },
+  { minutes: 45, label: '45 min/day', tag: 'Deep focus', desc: 'More time for practice and review' },
 ];
+
+const STAGE_LABELS = ['Welcome', 'Your name', 'Your age', 'Study path', 'Study plan', 'Get started'] as const;
 
 export default function WelcomeScreen() {
   const router = useRouter();
@@ -169,10 +171,11 @@ export default function WelcomeScreen() {
 
   // Goal & Reminders
   const [selectedGoal, setSelectedGoal] = useState<number>(20);
-  const [studyRemindersEnabled, setStudyRemindersEnabled] = useState<boolean>(true);
+  const [studyRemindersEnabled, setStudyRemindersEnabled] = useState<boolean>(false);
 
   // Loading state
   const [isSeeding, setIsSeeding] = useState<boolean>(false);
+  const [completionError, setCompletionError] = useState<string | null>(null);
 
   // Transitions
   const isTransitioning = useRef(false);
@@ -223,6 +226,7 @@ export default function WelcomeScreen() {
   const goToStage = (nextStage: 1 | 2 | 3 | 4 | 5 | 6, direction: 'forward' | 'backward' = 'forward') => {
     if (isTransitioning.current) return;
     isTransitioning.current = true;
+    setCompletionError(null);
     triggerHaptic();
 
     const exitOffset = direction === 'forward' ? -25 : 25;
@@ -332,7 +336,9 @@ export default function WelcomeScreen() {
   });
 
   const handleFinishGuest = async () => {
+    if (isSeeding) return;
     setIsSeeding(true);
+    setCompletionError(null);
     triggerHaptic();
     try {
       await seedSampleDeck();
@@ -340,20 +346,25 @@ export default function WelcomeScreen() {
       router.replace('/(tabs)');
     } catch (err) {
       console.error('Failed to complete guest welcome:', err);
-      router.replace('/(tabs)');
+      setCompletionError('We could not prepare your sample deck. Please try again.');
     } finally {
       setIsSeeding(false);
     }
   };
 
   const handleFinishGoogle = async () => {
+    if (isSeeding) return;
+    setIsSeeding(true);
+    setCompletionError(null);
     triggerHaptic();
     try {
       await completeWelcome(selectedTrack, selectedFormats, selectedGoal, false, buildProfilePayload());
       router.replace('/(tabs)');
     } catch (err) {
       console.error('Failed to complete google welcome:', err);
-      router.replace('/(tabs)');
+      setCompletionError('We could not save your choices. Please try again.');
+    } finally {
+      setIsSeeding(false);
     }
   };
 
@@ -365,14 +376,14 @@ export default function WelcomeScreen() {
           <View style={styles.progressContent}>
             <View style={styles.stageTitleRow}>
               <HugeiconsIcon icon={SparklesIcon} size={14} color="#FBBF24" strokeWidth={2.5} />
-              <Text style={styles.progressLabel}>JUNGLE STAGE {stage} OF 6</Text>
+              <Text style={styles.progressLabel}>STEP {stage} OF 6 · {STAGE_LABELS[stage - 1]}</Text>
             </View>
             <View
               style={styles.progressContainer}
               accessible
               accessibilityRole="progressbar"
               accessibilityValue={{ min: 1, max: 6, now: stage }}
-              accessibilityLabel="Quest progress"
+              accessibilityLabel={`Onboarding progress, step ${stage} of 6, ${STAGE_LABELS[stage - 1]}`}
             >
               {[1, 2, 3, 4, 5, 6].map((i) => (
                 <View
@@ -391,12 +402,16 @@ export default function WelcomeScreen() {
             style={styles.headerSkipBtn}
             disabled={isSeeding}
             accessibilityRole="button"
-            accessibilityLabel="Skip quest and jump to dashboard"
+            accessibilityLabel="Skip setup and try a sample deck"
             activeOpacity={0.7}
           >
             <Text style={styles.headerSkipText}>Skip</Text>
           </TouchableOpacity>
         </View>
+
+        {completionError && (
+          <Text style={styles.completionError} accessibilityRole="alert">{completionError}</Text>
+        )}
 
         <ScrollView
           ref={scrollViewRef}
@@ -430,9 +445,9 @@ export default function WelcomeScreen() {
               {/* STAGE 1: JUNGLE WELCOME & 3 SUPERPOWERS */}
               {stage === 1 && (
                 <View style={styles.stageCard}>
-                  <Text style={styles.welcomeHeading}>Hey Explorer, Let's Lock In!</Text>
+                  <Text style={styles.welcomeHeading}>Turn your notes into practice</Text>
                   <Text style={styles.welcomeSub}>
-                    Feed me your slides or lecture notes. I turn boring files into active recall weapons — 100% grounded in your material.
+                    Upload your slides or notes, then study with questions and flashcards built from your material.
                   </Text>
 
                   {/* 3 Core Superpower Pillars */}
@@ -442,9 +457,9 @@ export default function WelcomeScreen() {
                         <HugeiconsIcon icon={CheckmarkCircle02Icon} size={16} color={colors.primary} strokeWidth={2.5} />
                       </View>
                       <View style={styles.superpowerTextWrap}>
-                        <Text style={styles.superpowerTitle}>100% From Your Notes</Text>
+                        <Text style={styles.superpowerTitle}>Grounded in your notes</Text>
                         <Text style={styles.superpowerDesc}>
-                          Zero AI hallucinations. Every question cites the exact page so you can double check.
+                          Review source references and check answers against your material.
                         </Text>
                       </View>
                     </View>
@@ -456,7 +471,7 @@ export default function WelcomeScreen() {
                       <View style={styles.superpowerTextWrap}>
                         <Text style={styles.superpowerTitle}>Gamified Recall & XP</Text>
                         <Text style={styles.superpowerDesc}>
-                          Score XP with every right answer! Build study streaks and become an Academic Weapon.
+                          Practice what you remember and earn XP for correct answers.
                         </Text>
                       </View>
                     </View>
@@ -468,30 +483,11 @@ export default function WelcomeScreen() {
                       <View style={styles.superpowerTextWrap}>
                         <Text style={styles.superpowerTitle}>Study Offline Anywhere</Text>
                         <Text style={styles.superpowerDesc}>
-                          No signal on the train? No problem. All generated decks live safely on your phone.
+                          Download generated sets to review when you are offline.
                         </Text>
                       </View>
                     </View>
                   </View>
-
-                  <TouchableOpacity
-                    style={styles.primaryButton}
-                    onPress={() => goToStage(2, 'forward')}
-                    accessibilityRole="button"
-                    accessibilityLabel="Begin Study Quest"
-                    activeOpacity={0.85}
-                  >
-                    <Text style={styles.primaryButtonText}>Begin Study Quest</Text>
-                    <HugeiconsIcon icon={ArrowRight01Icon} size={18} color="#FFFFFF" strokeWidth={2.5} />
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={styles.skipSecondaryButton}
-                    onPress={handleFinishGuest}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={styles.skipSecondaryButtonText}>Skip setup, jump to Dashboard</Text>
-                  </TouchableOpacity>
                 </View>
               )}
 
@@ -509,7 +505,7 @@ export default function WelcomeScreen() {
                     </TouchableOpacity>
                     <View style={{ flex: 1 }}>
                       <Text style={styles.cardTitle}>Who are we locking in with?</Text>
-                      <Text style={styles.cardSub}>Momo personalizes your study tone and cheers you on</Text>
+                      <Text style={styles.cardSub}>So Momo knows what to call you</Text>
                     </View>
                   </View>
 
@@ -589,7 +585,7 @@ export default function WelcomeScreen() {
                     </TouchableOpacity>
                     <View style={{ flex: 1 }}>
                       <Text style={styles.cardTitle}>How old are you?</Text>
-                      <Text style={styles.cardSub}>Momo tunes exam complexity and pacing for your age</Text>
+                      <Text style={styles.cardSub}>This helps tailor your study experience</Text>
                     </View>
                   </View>
 
@@ -626,7 +622,7 @@ export default function WelcomeScreen() {
                     </TouchableOpacity>
                     <View style={{ flex: 1 }}>
                       <Text style={styles.cardTitle}>What are you conquering?</Text>
-                      <Text style={styles.cardSub}>Momo calibrates question depth and vocabulary</Text>
+                      <Text style={styles.cardSub}>Choose the path that fits your studies</Text>
                     </View>
                   </View>
 
@@ -643,6 +639,9 @@ export default function WelcomeScreen() {
                             triggerHaptic();
                             setSelectedTrack(t.id);
                           }}
+                          accessibilityRole="radio"
+                          accessibilityState={{ selected: isSelected }}
+                          accessibilityLabel={`${t.label}. ${t.desc}`}
                         >
                           <View style={[styles.trackIconCircle, isSelected && styles.trackIconCircleSelected]}>
                             <HugeiconsIcon
@@ -803,16 +802,6 @@ export default function WelcomeScreen() {
                       </View>
                     </View>
                   )}
-
-                  <TouchableOpacity
-                    style={[styles.primaryButton, { marginTop: spacing[16] }]}
-                    onPress={() => goToStage(5, 'forward')}
-                    accessibilityRole="button"
-                    accessibilityLabel="Continue to study weapons"
-                  >
-                    <Text style={styles.primaryButtonText}>Continue Quest</Text>
-                    <HugeiconsIcon icon={ArrowRight01Icon} size={18} color="#FFFFFF" strokeWidth={2.5} />
-                  </TouchableOpacity>
                 </View>
               )}
 
@@ -829,8 +818,8 @@ export default function WelcomeScreen() {
                       <HugeiconsIcon icon={ArrowLeft01Icon} size={20} color="#0F172A" strokeWidth={2} />
                     </TouchableOpacity>
                     <View style={{ flex: 1 }}>
-                      <Text style={styles.cardTitle}>Choose Study Weapons</Text>
-                      <Text style={styles.cardSub}>How Momo transforms your notes into practice drills</Text>
+                      <Text style={styles.cardTitle}>How do you like to study?</Text>
+                      <Text style={styles.cardSub}>Choose one or more formats for your reviewers</Text>
                     </View>
                   </View>
 
@@ -849,6 +838,9 @@ export default function WelcomeScreen() {
                             f.isAll && isSelected && styles.formatCardAllSelected,
                           ]}
                           onPress={() => handleToggleFormat(f.id)}
+                          accessibilityRole="checkbox"
+                          accessibilityState={{ checked: isSelected }}
+                          accessibilityLabel={`${f.label}. ${f.desc}`}
                         >
                           <View style={[styles.trackIconCircle, isSelected && styles.trackIconCircleSelected]}>
                             <HugeiconsIcon
@@ -895,6 +887,9 @@ export default function WelcomeScreen() {
                               triggerHaptic();
                               setSelectedGoal(g.minutes);
                             }}
+                            accessibilityRole="radio"
+                            accessibilityState={{ selected: isSelected }}
+                            accessibilityLabel={`${g.label}. ${g.desc}`}
                           >
                             <View style={{ flex: 1 }}>
                               <View style={styles.goalTitleRow}>
@@ -928,6 +923,8 @@ export default function WelcomeScreen() {
                       triggerHaptic();
                       setStudyRemindersEnabled(!studyRemindersEnabled);
                     }}
+                    accessibilityRole="checkbox"
+                    accessibilityState={{ checked: studyRemindersEnabled }}
                     activeOpacity={0.8}
                   >
                     <View
@@ -941,21 +938,11 @@ export default function WelcomeScreen() {
                       )}
                     </View>
                     <View style={{ flex: 1 }}>
-                      <Text style={styles.reminderTitle}>Daily Streak Shield</Text>
+                      <Text style={styles.reminderTitle}>Study reminders</Text>
                       <Text style={styles.reminderDesc}>
-                        Momo alerts me daily so I never break my study streak and lose XP!
+                        Save my preference for daily reminders.
                       </Text>
                     </View>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={[styles.primaryButton, { marginTop: spacing[16] }]}
-                    onPress={() => goToStage(6, 'forward')}
-                    accessibilityRole="button"
-                    accessibilityLabel="Continue to launch"
-                  >
-                    <Text style={styles.primaryButtonText}>Lock In Choices</Text>
-                    <HugeiconsIcon icon={ArrowRight01Icon} size={18} color="#FFFFFF" strokeWidth={2.5} />
                   </TouchableOpacity>
                 </View>
               )}
@@ -976,7 +963,7 @@ export default function WelcomeScreen() {
                       <Text style={styles.cardTitle}>
                         You're Ready{firstName ? `, ${firstName}` : ''}!
                       </Text>
-                      <Text style={styles.cardSub}>Choose how you want to enter the Study Jungle</Text>
+                      <Text style={styles.cardSub}>Try a sample set or continue to your library</Text>
                     </View>
                   </View>
 
@@ -984,11 +971,11 @@ export default function WelcomeScreen() {
                   <View style={styles.launchCardHighlighted}>
                     <View style={styles.launchBadge}>
                       <HugeiconsIcon icon={SparklesIcon} size={12} color={colors.primary} strokeWidth={2.5} />
-                      <Text style={styles.launchBadgeText}>Instant Taste • No Sign-Up Needed</Text>
+                      <Text style={styles.launchBadgeText}>No upload needed</Text>
                     </View>
                     <Text style={styles.launchCardTitle}>Biology 101 Sample Deck</Text>
                     <Text style={styles.launchCardDesc}>
-                      Jump straight into action! Flip flashcards and answer quiz questions right away — zero sign-up or document uploads needed.
+                      Get a feel for flashcards and quizzes with a ready-made biology set.
                     </Text>
                     <TouchableOpacity
                       style={styles.sampleActionButton}
@@ -998,7 +985,7 @@ export default function WelcomeScreen() {
                     >
                       <HugeiconsIcon icon={BookOpen01Icon} size={18} color="#FFFFFF" strokeWidth={2.5} />
                       <Text style={styles.sampleActionText}>
-                        {isSeeding ? 'Whipping up deck...' : 'Start Sample Deck'}
+                        {isSeeding ? 'Preparing sample...' : 'Try Sample Deck'}
                       </Text>
                     </TouchableOpacity>
                   </View>
@@ -1013,11 +1000,12 @@ export default function WelcomeScreen() {
                   <View style={styles.launchCardGoogle}>
                     <Text style={styles.googleCardTitle}>Sign In with Google</Text>
                     <Text style={styles.googleCardDesc}>
-                      Upload your own lecture slides, keep your XP streaks synced across devices, and cook up to 10 reviewers every month!
+                      Continue to your study library and add your own materials.
                     </Text>
                     <TouchableOpacity
                       style={styles.googleButton}
                       onPress={handleFinishGoogle}
+                      disabled={isSeeding}
                       activeOpacity={0.85}
                     >
                       <Text style={styles.googleIconPlaceholder}>G</Text>
@@ -1029,6 +1017,22 @@ export default function WelcomeScreen() {
             </View>
           </Animated.View>
         </ScrollView>
+        {(stage === 1 || stage === 4 || stage === 5) && (
+          <View style={styles.stickyFooter}>
+            <TouchableOpacity
+              style={styles.primaryButton}
+              onPress={() => goToStage((stage + 1) as 2 | 5 | 6)}
+              accessibilityRole="button"
+              accessibilityLabel={stage === 1 ? 'Start setup' : 'Continue to next step'}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.primaryButtonText}>
+                {stage === 1 ? 'Get started' : stage === 4 ? 'Continue to study plan' : 'Review my choices'}
+              </Text>
+              <HugeiconsIcon icon={ArrowRight01Icon} size={18} color="#FFFFFF" strokeWidth={2.5} />
+            </TouchableOpacity>
+          </View>
+        )}
       </SafeAreaView>
     </JungleBackdrop>
   );
@@ -1105,6 +1109,14 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     paddingHorizontal: spacing[16],
     paddingBottom: spacing[32],
+  },
+  stickyFooter: {
+    paddingHorizontal: spacing[16],
+    paddingTop: spacing[10],
+    paddingBottom: spacing[10],
+    backgroundColor: 'rgba(7, 24, 17, 0.90)',
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.16)',
   },
   animatedStepWrapper: {
     width: '100%',
@@ -1215,17 +1227,6 @@ const styles = StyleSheet.create({
   },
   primaryButtonTextDisabled: {
     color: '#94A3B8',
-  },
-  skipSecondaryButton: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: spacing[10],
-    marginTop: spacing[6],
-  },
-  skipSecondaryButtonText: {
-    fontSize: typography.fontSize[12.5],
-    fontWeight: typography.fontWeight.medium,
-    color: '#64748B',
   },
   cardHeaderRow: {
     flexDirection: 'row',
@@ -1640,5 +1641,16 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSize[13],
     fontWeight: typography.fontWeight.bold,
     color: '#0F172A',
+  },
+  completionError: {
+    color: colors.danger,
+    fontSize: typography.fontSize[12],
+    lineHeight: 18,
+    marginHorizontal: spacing[20],
+    marginVertical: spacing[8],
+    padding: spacing[12],
+    borderRadius: 12,
+    backgroundColor: colors.dangerSoft,
+    textAlign: 'center',
   },
 });

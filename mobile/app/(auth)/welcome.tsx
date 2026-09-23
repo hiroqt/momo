@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import {
   View,
   StyleSheet,
@@ -30,8 +30,7 @@ import {
   StudyTrack,
   PreferredFormat,
 } from '../../context/OnboardingContext';
-import { seedSampleDeck } from '../../lib/data/sampleDeck';
-import { buildSampleDeck } from '../../lib/data/sampleDeck';
+import { seedSampleDeck, buildSampleDeck } from '../../lib/data/sampleDeck';
 import { JungleBackdrop } from '@/components/onboarding/JungleBackdrop';
 import { AnimatedMomo, MomoPose } from '@/components/onboarding/AnimatedMomo';
 import { AgeScrollPicker } from '@/components/onboarding/AgeScrollPicker';
@@ -173,6 +172,16 @@ export default function WelcomeScreen() {
   // Goal & Reminders
   const [selectedGoal, setSelectedGoal] = useState<number>(20);
   const [studyRemindersEnabled, setStudyRemindersEnabled] = useState<boolean>(false);
+
+  const preview = useMemo(
+    () => buildSampleDeck({
+      studyTrack: selectedTrack,
+      highSchoolGrade,
+      collegeYear,
+      collegeCourse,
+    }).set,
+    [selectedTrack, highSchoolGrade, collegeYear, collegeCourse]
+  );
 
   // Loading state
   const [isSeeding, setIsSeeding] = useState<boolean>(false);
@@ -1076,10 +1085,10 @@ const styles = StyleSheet.create({
   headerSkipBtn: {
     paddingVertical: 6,
     paddingHorizontal: 12,
-    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+    backgroundColor: colors.primary,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.35)',
+    borderColor: colors.primaryLight,
   },
   headerSkipText: {
     fontSize: typography.fontSize[12],
@@ -1117,9 +1126,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing[16],
     paddingTop: spacing[10],
     paddingBottom: spacing[10],
-    backgroundColor: 'rgba(7, 24, 17, 0.90)',
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.16)',
+    backgroundColor: 'transparent',
   },
   animatedStepWrapper: {
     width: '100%',

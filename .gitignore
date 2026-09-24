@@ -2,6 +2,8 @@
 # Dependencies & Package Managers
 # ==============================================================================
 node_modules/
+.next/
+*.tsbuildinfo
 .pnp
 .pnp.js
 .venv/

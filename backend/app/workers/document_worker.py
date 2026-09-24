@@ -2,7 +2,7 @@ import asyncio
 from typing import Optional
 from app.db.repositories.documents_repo import documents_repo
 from app.db.repositories.chunks_repo import chunks_repo
-from app.services.storage.s3_service import s3_service
+from app.services.storage import storage_service
 from app.services.extraction.extractor_service import extractor_service
 from app.services.extraction.chunking_service import chunking_service
 from app.services.embeddings.embedding_service import embedding_service
@@ -25,8 +25,8 @@ class DocumentWorker:
             await documents_repo.update_status(document_id, "VALIDATING")
             await asyncio.sleep(0.05)
 
-            # 2. Fetch object bytes from S3
-            file_bytes = s3_service.get_object_bytes(s3_object_key)
+            # 2. Fetch object bytes from storage
+            file_bytes = storage_service.get_object_bytes(s3_object_key)
 
             # 3. Status: EXTRACTING
             await documents_repo.update_status(document_id, "EXTRACTING")

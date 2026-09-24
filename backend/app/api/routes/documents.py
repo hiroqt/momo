@@ -11,7 +11,7 @@ from app.schemas.documents import (
     DocumentResponse,
     DocumentStatusResponse
 )
-from app.services.storage.s3_service import s3_service
+from app.services.storage import storage_service
 from app.db.repositories.documents_repo import documents_repo
 from app.db.repositories.chunks_repo import chunks_repo
 from app.db.repositories.usage_repo import usage_repo
@@ -27,7 +27,7 @@ SUPPORTED_TYPES = {"pdf", "docx", "txt", "pptx"}
 @router.put("/mock-upload/{object_key:path}")
 async def mock_s3_upload(object_key: str, request: Request):
     body = await request.body()
-    s3_service.save_mock_object(object_key, body)
+    storage_service.save_mock_object(object_key, body)
     return {"status": "success", "object_key": object_key, "size": len(body)}
 
 @router.post("/upload-url", response_model=UploadUrlResponse)
@@ -68,15 +68,15 @@ async def get_upload_url(
             }
         )
 
-    # 4. Generate S3 object key and presigned URL
+    # 4. Generate storage object key and upload URL
     doc_id = str(uuid.uuid4())
-    object_key = s3_service.build_object_key(
+    object_key = storage_service.build_object_key(
         user_id=user.id,
         document_id=doc_id,
         extension=clean_type
     )
 
-    presigned_url = s3_service.generate_presigned_upload_url(
+    presigned_url = storage_service.generate_presigned_upload_url(
         object_key=object_key,
         mime_type=req.mime_type,
         expires_in=settings.S3_PRESIGNED_URL_EXPIRE_SECONDS
@@ -104,7 +104,7 @@ async def register_document(
         )
 
     now = datetime.now(timezone.utc)
-    expires_at = s3_service.calculate_expiration(now)
+    expires_at = storage_service.calculate_expiration(now)
 
     doc_data = {
         "id": doc_in.document_id,
@@ -205,7 +205,7 @@ async def delete_document(
     if not doc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail={"code": "DOCUMENT_NOT_FOUND", "message": "Not found"})
 
-    s3_service.delete_object(doc.get("s3_object_key", ""))
+    storage_service.delete_object(doc.get("s3_object_key", ""))
     await chunks_repo.delete_by_document_id(document_id, user.id)
     await documents_repo.delete(document_id, user.id)
     return {"deleted": True, "document_id": document_id}

@@ -10,7 +10,7 @@ from app.db.repositories.study_repo import study_repo
 from app.services.retrieval.retrieval_service import retrieval_service
 from app.services.synthesis.synthesis_service import synthesis_service
 from app.services.validation.grounding_validator import grounding_validator
-from app.services.ai.ai_provider import ai_provider
+from app.services.ai.ai_provider import ai_provider, parse_tool_calls_from_text
 from app.services.ai.image_service import image_service
 from app.services.ai.diagram_synthesizer import diagram_synthesizer
 from app.services.security.guardrails_service import guardrails_service
@@ -31,19 +31,15 @@ Your mission is to help students learn effectively, understand difficult concept
 CORE REASONING & INTERACTION RULES:
 1. GROUNDING & SOURCE SELECTION:
    - When answering questions about study materials, retrieve evidence using `search_documents`.
-   - When a user asks to make a deck, quiz, or flashcards:
-     a) IF the user has NOT specified a topic (e.g. clicks "Build a 10-card flashcard deck" or says "make me flashcards"):
-        DO NOT fail or blindly create a deck. Ask the user warmly:
-        "What topic would you like to study? You can pick any topic (e.g. Python Arrays, Java Arrays, Cell Biology, Calculus) or tell me to ground it in your uploaded notes."
-        And offer popular topics.
-     b) IF the user replies with or provides a topic (e.g. "Java arrays", "Arrays using Python", "Calculus", "World War 2"):
-        - CRITICAL RULE: If the assistant previously asked what topic the user wants to study, or if the user is answering what topic to study, DO NOT ask them again or say "I'd like to help you, please upload"! The user already gave you the topic!
-        - Immediately call `create_study_deck` with `topic=<topic>`, `count=10` (or requested count), `allow_ai_generation=True` to immediately generate and save the complete deck!
-     c) IF the user provides a topic up front with no prior dialogue (e.g. "create me 10 flashcards about arrays using Python"):
-        - If the user has uploaded documents for this topic, ground the deck in their notes.
-        - If the user has NO uploaded documents for this topic, ask whether they want Momo AI to build the deck using curated educational AI knowledge right away, or if they would prefer to upload their own course notes first.
-     d) IF the user chooses "Let Momo build", "Build with AI", "Let the AI build", or confirms:
-        - Call `create_study_deck` with `allow_ai_generation=True` to immediately generate and save the complete deck!
+   - When a user directly asks or commands to make a deck, quiz, or flashcards on a specific topic (e.g. "Create me a 10 items quiz regarding to polygons", "make a quiz on calculus", "build 10 flashcards about cellular respiration"):
+     * Immediately call `create_study_deck` with `topic=<topic>`, `count=<count>` (default 10), `question_types=<types>` (e.g. ["multiple_choice"] for quiz, ["flashcard"] for flashcards), and `allow_ai_generation=True`!
+     * DO NOT delay by listing documents or asking for upload if the user explicitly commanded to create it!
+   - When a user asks to make flashcards or a quiz without specifying a topic (e.g. clicks "Build a 10-card flashcard deck" or says "make me flashcards"):
+     * Ask the user warmly: "What topic would you like to study? You can pick any topic (e.g. Python Arrays, Java Arrays, Cell Biology, Calculus) or tell me to ground it in your uploaded notes." And offer popular topics.
+   - When the user replies with or provides a topic following a prompt:
+     * Immediately call `create_study_deck` with `topic=<topic>`, `count=10` (or requested count), `allow_ai_generation=True` to immediately generate and save the complete deck!
+   - IF the user chooses "Let Momo build", "Build with AI", "Let the AI build", or confirms:
+     * Call `create_study_deck` with `allow_ai_generation=True` to immediately generate and save the complete deck!
 2. AGENTIC CAPABILITIES:
    - `list_user_documents`: Check user's available notes and readiness.
    - `create_study_deck`: Build flashcard decks and quizzes. Set `allow_ai_generation=True` when building without uploaded documents upon user selection or topic reply.
@@ -335,8 +331,29 @@ class ChatService:
             count = int(arguments.get("count") or 10)
             count = min(max(count, 3), 30)
             difficulty = arguments.get("difficulty") or "medium"
-            question_types = arguments.get("question_types") or ["flashcard", "multiple_choice"]
+            question_types = arguments.get("question_types")
+            if not question_types:
+                topic_lower = (topic or "").lower()
+                custom_lower = (arguments.get("custom_instruction") or "").lower()
+                combined = f"{topic_lower} {custom_lower}"
+                if any(w in combined for w in ["quiz", "multiple choice", "mcq", "exam", "test"]):
+                    question_types = ["multiple_choice"]
+                elif any(w in combined for w in ["flashcard", "flashcards", "card", "cards"]):
+                    question_types = ["flashcard"]
+                else:
+                    question_types = ["flashcard", "multiple_choice"]
             custom_instruction = arguments.get("custom_instruction")
+
+            # Clean topic title if it contains leading prepositions or conversational phrases
+            clean_topic = topic.strip()
+            clean_topic = re.sub(r"^(?:regarding to|in relation to|regarding|relating to|about|on|for|covering|pertaining to)\s+", "", clean_topic, flags=re.IGNORECASE).strip()
+            if clean_topic:
+                topic = clean_topic
+
+            # If user has no documents uploaded and commanded a specific topic deck/quiz, enable AI generation directly
+            if not ready_docs and not allow_ai_gen:
+                if topic and topic.lower() not in {"general", "core study review", "core concepts", "this topic"}:
+                    allow_ai_gen = True
 
             # Case 1: No documents and user has not confirmed AI generation yet
             if not ready_docs and not allow_ai_gen:
@@ -389,21 +406,12 @@ class ChatService:
                 topic_title = topic.strip().title()
                 source_evidence = f"""
 Core study topic: {topic_title}.
+Authoritative educational study material and exam principles for {topic_title}.
+Key concepts include definitions, structural properties, primary classifications, core formulas, mechanisms, and high-yield relationships in {topic_title}.
 Foundational definition of {topic_title} establishes the baseline principles and standard rules of the domain.
 Structural architecture in {topic_title} organizes primary components, relationships, and operational boundaries.
 Core mechanisms in {topic_title} govern how internal elements interact, transform, and exchange signals or data.
 Primary functional classification in {topic_title} categorizes essential components based on their specialized roles.
-Operational lifecycle in {topic_title} dictates sequence, initialization, state transitions, and termination stages.
-Performance characteristics in {topic_title} analyze efficiency, resource consumption, and throughput limits.
-Standard implementation patterns in {topic_title} provide validated methodologies for solving frequent practical problems.
-Error handling and validation in {topic_title} prevent aberrant behavior, invalid inputs, and runtime anomalies.
-Resource management in {topic_title} optimizes allocation, prevents leaks, and regulates internal capacity.
-Diagnostic evaluation in {topic_title} identifies performance bottlenecks, structural defects, and degradation.
-Regulatory feedback mechanisms in {topic_title} maintain equilibrium, stability, and adaptive control.
-Comparative analysis in {topic_title} contrasts modern strategies with alternative and legacy paradigms.
-Security and integrity standards in {topic_title} protect internal states from unauthorized interference or corruption.
-Optimization algorithms in {topic_title} enhance efficiency, reduce execution latency, and eliminate bottlenecks.
-High-yield exam principles in {topic_title} prioritize foundational terminology, direct causal relationships, and real-world synthesis.
 """
                 sources_meta = [
                     {"source": "Momo AI Knowledge Base", "topic": topic_title, "page": i + 1, "section": f"{topic_title} Core Concepts"}
@@ -414,12 +422,15 @@ High-yield exam principles in {topic_title} prioritize foundational terminology,
                 set_desc = f"Curated study set on {topic_title} created by Momo AI ({count} items)"
 
             # 3. Model Generation
+            gen_count = count if allow_ai_gen else min(count + 4, int(count * 1.3))
             gen_spec = {
                 "topic": topic,
-                "count": max(count + 6, int(count * 1.5)),
+                "count": gen_count,
                 "difficulty": difficulty,
                 "question_types": question_types,
-                "custom_instruction": custom_instruction
+                "custom_instruction": custom_instruction,
+                "allow_ai_generation": allow_ai_gen,
+                "source_only": not allow_ai_gen
             }
             system_instruction = "You are an expert educational reviewer generator. Build high-yield, accurate questions and flashcards."
             raw_items = await ai_provider.generate_study_material(
@@ -812,54 +823,7 @@ High-yield exam principles in {topic_title} prioritize foundational terminology,
                 created_at=saved_msg["created_at"]
             )
 
-        # 5. First AI Provider Turn
-        ai_resp = await ai_provider.chat_agent(
-            system_instruction=MOMO_SYSTEM_PROMPT,
-            messages=api_messages,
-            tools=CHAT_TOOLS
-        )
-
-        assistant_content = ai_resp.get("content") or ""
-        tool_calls = ai_resp.get("tool_calls")
-
-        # Guard: Check if user requests an image/diagram or if model replied with refusal to produce images
-        has_visual_word = any(w in user_lower for w in ["image", "diagram", "picture", "illustration", "visual", "chart", "figure", "drawing"])
-        has_action_word = any(w in user_lower for w in [
-            "generate", "create", "make", "draw", "show", "provide", "give", "display",
-            "render", "cant", "can't", "can", "need", "want", "ask", "produce"
-        ])
-        is_visual_request = (
-            (has_visual_word and has_action_word) or
-            ("generate a diagram" in user_lower or "draw a diagram" in user_lower or "make a diagram" in user_lower or "create a diagram" in user_lower or "diagram of" in user_lower or user_lower.strip() in {"diagram", "image diagram"}) or
-            ("image" in user_lower and any(w in user_lower for w in ["can", "cant", "can't", "provide", "create", "generate", "show", "make", "need", "want", "draw"]))
-        )
-        has_image_refusal = any(p in assistant_content.lower() for p in [
-            "cannot generate image", "cannot create image", "unable to create image",
-            "cannot provide image", "unable to generate image", "cannot draw",
-            "as an ai text", "i am an ai text", "don't have the ability to create image",
-            "can't create image", "can't generate image", "can't provide image",
-            "cannot produce image", "unable to produce image", "can't make image", "cannot make image",
-            "don't have the capability to create image", "unable to generate diagram", "cannot create diagram"
-        ])
-
-        if (is_visual_request and not tool_calls) or has_image_refusal:
-            logger.info("Enforcing visual diagram generation for visual request or model refusal")
-            diag_topic = self._extract_diagram_topic(guardrail_check.sanitized_text, api_messages)
-            tool_calls = [{
-                "id": f"call-{uuid.uuid4()}",
-                "type": "function",
-                "function": {
-                    "name": "generate_diagram",
-                    "arguments": json.dumps({
-                        "topic": diag_topic,
-                        "requirements": guardrail_check.sanitized_text,
-                        "diagram_prompt": f"2D educational scientific diagram of {diag_topic} with clear annotations and high clarity",
-                        "explanation": f"Visual concept diagram illustrating key structural principles and mechanisms of {diag_topic}."
-                    })
-                }
-            }]
-            assistant_content = ""
-
+        # 5. Agentic Tool Execution Loop
         executed_tool_records: List[ToolCallRecord] = []
         collected_citations: List[CitationItem] = []
         created_deck_meta: Optional[CreatedDeckMetadata] = None
@@ -868,8 +832,75 @@ High-yield exam principles in {topic_title} prioritize foundational terminology,
         diagram_elements: Optional[List[Dict[str, Any]]] = None
         diagram_takeaways: Optional[List[str]] = None
 
-        # 4. Agentic Tool Execution Loop if tools were requested
-        if tool_calls:
+        MAX_AGENT_ITERATIONS = 4
+        iteration = 0
+        ai_resp: Dict[str, Any] = {}
+        assistant_content = ""
+
+        while iteration < MAX_AGENT_ITERATIONS:
+            iteration += 1
+            tools_for_turn = CHAT_TOOLS if iteration < MAX_AGENT_ITERATIONS else None
+
+            ai_resp = await ai_provider.chat_agent(
+                system_instruction=MOMO_SYSTEM_PROMPT,
+                messages=api_messages,
+                tools=tools_for_turn
+            )
+
+            assistant_content = ai_resp.get("content") or ""
+            tool_calls = ai_resp.get("tool_calls")
+
+            # Check if assistant_content has embedded XML tool calls that OpenRouter returned as text
+            if not tool_calls and ("<tool_call>" in assistant_content or "<function=" in assistant_content or "<function " in assistant_content):
+                extracted_calls, cleaned_text = parse_tool_calls_from_text(assistant_content)
+                if extracted_calls:
+                    tool_calls = extracted_calls
+                    assistant_content = cleaned_text
+
+            # Guard on turn 1: Check if user requests an image/diagram or if model replied with refusal to produce images
+            if iteration == 1:
+                has_visual_word = any(w in user_lower for w in ["image", "diagram", "picture", "illustration", "visual", "chart", "figure", "drawing"])
+                has_action_word = any(w in user_lower for w in [
+                    "generate", "create", "make", "draw", "show", "provide", "give", "display",
+                    "render", "cant", "can't", "can", "need", "want", "ask", "produce"
+                ])
+                is_visual_request = (
+                    (has_visual_word and has_action_word) or
+                    ("generate a diagram" in user_lower or "draw a diagram" in user_lower or "make a diagram" in user_lower or "create a diagram" in user_lower or "diagram of" in user_lower or user_lower.strip() in {"diagram", "image diagram"}) or
+                    ("image" in user_lower and any(w in user_lower for w in ["can", "cant", "can't", "provide", "create", "generate", "show", "make", "need", "want", "draw"]))
+                )
+                has_image_refusal = any(p in assistant_content.lower() for p in [
+                    "cannot generate image", "cannot create image", "unable to create image",
+                    "cannot provide image", "unable to generate image", "cannot draw",
+                    "as an ai text", "i am an ai text", "don't have the ability to create image",
+                    "can't create image", "can't generate image", "can't provide image",
+                    "cannot produce image", "unable to produce image", "can't make image", "cannot make image",
+                    "don't have the capability to create image", "unable to generate diagram", "cannot create diagram"
+                ])
+
+                if (is_visual_request and not tool_calls) or has_image_refusal:
+                    logger.info("Enforcing visual diagram generation for visual request or model refusal")
+                    diag_topic = self._extract_diagram_topic(guardrail_check.sanitized_text, api_messages)
+                    tool_calls = [{
+                        "id": f"call-{uuid.uuid4()}",
+                        "type": "function",
+                        "function": {
+                            "name": "generate_diagram",
+                            "arguments": json.dumps({
+                                "topic": diag_topic,
+                                "requirements": guardrail_check.sanitized_text,
+                                "diagram_prompt": f"2D educational scientific diagram of {diag_topic} with clear annotations and high clarity",
+                                "explanation": f"Visual concept diagram illustrating key structural principles and mechanisms of {diag_topic}."
+                            })
+                        }
+                    }]
+                    assistant_content = ""
+
+            # If no tools requested, we have reached the model's text response!
+            if not tool_calls:
+                break
+
+            # Execute all requested tool calls in this iteration
             for tc in tool_calls:
                 fn = tc.get("function", {})
                 tool_name = fn.get("name", "")
@@ -938,10 +969,10 @@ High-yield exam principles in {topic_title} prioritize foundational terminology,
                 if isinstance(tool_result_for_llm, dict) and "image_base64" in tool_result_for_llm:
                     tool_result_for_llm = {k: ("<rendered_image_b64>" if k == "image_base64" else v) for k, v in tool_result_for_llm.items()}
 
-                # Append tool result to dialogue
+                # Append assistant tool call and tool response to dialogue history
                 api_messages.append({
                     "role": "assistant",
-                    "content": assistant_content,
+                    "content": assistant_content or None,
                     "tool_calls": [tc]
                 })
                 api_messages.append({
@@ -951,8 +982,7 @@ High-yield exam principles in {topic_title} prioritize foundational terminology,
                     "content": json.dumps(tool_result_for_llm)
                 })
 
-            # Second AI Provider Turn (synthesize tool result into final friendly answer)
-            # If a diagram was generated, keep accompanying message concise and avoid redundant LLM latency.
+            # If an image was generated, keep accompanying message concise and avoid redundant LLM latency
             if generated_image_b64:
                 top_name = study_card_meta.topic if study_card_meta else "Educational Diagram"
                 assistant_content = f"Visual concept diagram: **{top_name}**"
@@ -961,15 +991,13 @@ High-yield exam principles in {topic_title} prioritize foundational terminology,
                     f"Break down the key steps",
                     f"Quiz me on {top_name}"
                 ]
-            else:
-                final_turn = await ai_provider.chat_agent(
-                    system_instruction=MOMO_SYSTEM_PROMPT,
-                    messages=api_messages,
-                    tools=None
-                )
-                assistant_content = final_turn.get("content") or assistant_content
-                if final_turn.get("quick_replies"):
-                    ai_resp["quick_replies"] = final_turn.get("quick_replies")
+                break
+
+        # Strip any lingering tool call XML or tags from final assistant content
+        if assistant_content:
+            assistant_content = re.sub(r"<tool_call>.*?</tool_call>", "", assistant_content, flags=re.DOTALL)
+            assistant_content = re.sub(r"<function[=> ].*?</function>", "", assistant_content, flags=re.DOTALL)
+            assistant_content = assistant_content.strip()
 
         # 5. Extract quick replies and guarantee assistant_content is friendly and never empty
         collected_quick_replies: Optional[List[str]] = ai_resp.get("quick_replies")
@@ -1054,6 +1082,9 @@ High-yield exam principles in {topic_title} prioritize foundational terminology,
                     assistant_content = "I completed the request for you! Feel free to ask more questions about your notes."
             else:
                 assistant_content = "Hello! I'm Momo, your personal AI study companion. Ask me anything from your study notes or tell me to generate a practice deck!"
+
+        if created_deck_meta and not collected_quick_replies:
+            collected_quick_replies = [f"Start studying {created_deck_meta.title}", "Quiz me on this deck", "Show study sets"]
 
         # 6. Sanitize assistant message for sensitive credentials & save with metadata
         assistant_content = guardrails_service.sanitize_model_output(assistant_content)

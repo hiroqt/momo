@@ -4,11 +4,12 @@ from botocore.exceptions import ClientError
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 from app.config import settings
+from app.services.storage.base import BaseStorageService
 import logging
 
 logger = logging.getLogger(__name__)
 
-class S3Service:
+class S3Service(BaseStorageService):
     def __init__(self):
         self.bucket = settings.AWS_S3_BUCKET
         self.region = settings.AWS_REGION
@@ -30,7 +31,7 @@ class S3Service:
         else:
             self.client = None
 
-    def save_mock_object(self, object_key: str, data: bytes):
+    def save_mock_object(self, object_key: str, data: bytes) -> None:
         self._mock_storage[object_key] = data
 
     def build_object_key(self, user_id: str, document_id: str, extension: str) -> str:

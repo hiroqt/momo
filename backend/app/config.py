@@ -8,7 +8,11 @@ class Settings(BaseSettings):
     SUPABASE_SERVICE_ROLE_KEY: str = "mock-service-role-key"
     SUPABASE_JWT_SECRET: Optional[str] = "mock-jwt-secret"
 
-    # AWS S3
+    # Storage Configuration ('supabase', 's3')
+    STORAGE_PROVIDER: str = "supabase"
+    SUPABASE_STORAGE_BUCKET: str = "documents"
+
+    # AWS S3 (Optional if using Supabase Storage)
     AWS_ACCESS_KEY_ID: str = "mock-access-key"
     AWS_SECRET_ACCESS_KEY: str = "mock-secret-key"
     AWS_REGION: str = "us-east-1"

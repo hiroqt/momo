@@ -69,6 +69,8 @@ export async function uploadFileToS3(
   }
 }
 
+export const uploadDocumentToStorage = uploadFileToS3;
+
 export async function registerDocument(params: {
   document_id: string;
   original_filename: string;

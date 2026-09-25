@@ -1,0 +1,68 @@
+.section {
+  position: relative;
+  overflow: hidden;
+  background: var(--paper);
+}
+.inner { max-width: 1240px; margin: auto; padding: 92px 28px 36px; }
+.heading { position: relative; z-index: 2; text-align: center; }
+.eyebrow { color: #625ab1; font-size: 11px; font-weight: 700; letter-spacing: .18em; }
+.heading h2 { margin: 22px 0 20px; font-size: clamp(48px, 6.4vw, 84px); font-weight: 700; line-height: 1.07; letter-spacing: -.065em; }
+.heading h2 em { color: #5146cb; font-style: normal; }
+.heading p { margin: 0 auto 26px; max-width: 610px; color: #59617b; font-size: 14px; line-height: 1.9; }
+.stores > div { justify-content: center; }
+.stores button:disabled { opacity: 1; }
+.previewLink { display: inline-flex; align-items: center; gap: 10px; margin-top: 20px; font-size: 12px; font-weight: 600; color: #4e469d; text-underline-offset: 5px; }
+.previewLink:hover { text-decoration: underline; }
+.scene { position: relative; height: 410px; margin: 5px auto 0; max-width: 1060px; }
+.orbit { position: absolute; left: 9%; right: 9%; top: 120px; height: 250px; border: 1px dashed #b7afe4; border-radius: 50%; transform: rotate(-12deg); }
+.mascot { position: absolute; width: 390px; height: 400px; bottom: 0; left: calc(50% - 195px); z-index: 2; }
+.mascotCrop { position: absolute; inset: 0; overflow: hidden; }
+.mascot img { display: block; width: 100%; height: auto; filter: drop-shadow(0 20px 20px #453a7830); }
+.speech { position: absolute; top: 16px; left: 240px; width: 160px; padding: 12px 16px; border: 1px solid #e1dcfa; border-radius: 18px 18px 18px 3px; background: #fff; color: #605696; font-size: 11px; line-height: 1.65; transform: rotate(5deg); z-index: 3; box-shadow: 0 6px 0 #d8d1f4; }
+.speech b { display: block; color: #352965; }
+.notebook { position: absolute; left: 2%; top: 25px; width: 245px; padding: 32px 25px 22px; border: 1px solid #e4dec8; border-radius: 7px 20px 20px 7px; background: #fffdf5; box-shadow: -6px 6px 0 #eee7d3, -7px 7px 0 #d6cfbc, 0 20px 30px #51467e15; transform: rotate(-12deg); }
+.notebook::before { content: ''; position: absolute; left: 13px; top: 0; bottom: 0; border-left: 1px solid #efb9b3; }
+.notebook small { font-size: 8px; letter-spacing: .1em; color: #867c63; font-weight: 600; }
+.notebook strong { display: block; margin-top: 15px; font-size: 23px; line-height: 1.5; letter-spacing: -.05em; }
+.notebook mark { color: inherit; background: #ffe38e; padding: 0 3px; }
+.tape { position: absolute; left: 83px; top: -12px; width: 74px; height: 25px; background: #bdb1eb99; transform: rotate(6deg); }
+.noteLines { display: grid; gap: 10px; margin: 19px 0; }
+.noteLines span { height: 5px; border-radius: 3px; background: #e5dfcf; }
+.noteLines span:nth-child(2) { width: 85%; }.noteLines span:last-child { width: 65%; }
+.noteFooter { font-size: 8px; color: #827866; }
+.flashcard { position: absolute; right: 1%; top: 78px; width: 235px; min-height: 226px; padding: 20px; background: #fff; color: #262044; border: 1px solid #d9d3ed; border-radius: 22px; box-shadow: 7px 8px 0 #c8bef1, 8px 9px 0 #b7a9e5, 0 20px 35px #44357e15; text-align: left; transform: rotate(10deg); transition: transform .25s, background .25s; z-index: 3; }
+.flashcard:hover { transform: rotate(5deg) translateY(-6px); }
+.revealed { background: #f5fff7; }
+.cardTop { display: flex; align-items: center; justify-content: space-between; font-size: 8px; font-weight: 600; letter-spacing: .06em; color: #7664b3; }
+.cardTop > span { font-size: 23px; color: #e1aa32; }
+.cardContent { display: flex; min-height: 121px; flex-direction: column; justify-content: center; gap: 9px; }
+.cardContent strong { font-size: 21px; line-height: 1.35; letter-spacing: -.045em; }.cardContent > span { font-size: 10px; color: #597763; }
+.cardBottom { display: flex; align-items: center; justify-content: space-between; border-top: 1px solid #e8e3f3; padding-top: 13px; color: #66549d; font-size: 10px; font-weight: 600; }
+.cardBottom > span { font-size: 18px; }
+.offlineBadge { position: absolute; left: 11%; bottom: 34px; display: flex; align-items: center; gap: 9px; background: #e7f4df; border: 1px solid #c4dcb6; border-radius: 14px; padding: 13px 17px; color: #446338; font-size: 10px; font-weight: 600; transform: rotate(-5deg); z-index: 3; box-shadow: 0 5px 0 #d3e4c6; }
+.stickyNote { position: absolute; right: 9%; bottom: 0; padding: 19px 23px; background: #ffdf83; color: #705522; font-size: 11px; line-height: 1.8; transform: rotate(-8deg); box-shadow: 3px 7px 0 #dcc06e55; }
+.stickyNote > span { position: absolute; right: 8px; bottom: 0; font-size: 22px; }.stickyNote b { font-weight: 600; }
+.spark { position: absolute; color: #ad96dc; font-size: 40px; }.sparkLeft { left: 29%; top: 0; }.sparkRight { right: 1%; bottom: 20px; color: #d09a2a; font-size: 45px; }
+.footnote { position: relative; z-index: 3; margin: 28px auto 0; text-align: center; font-size: 12px; font-weight: 600; color: #534782; }
+.footnote > span { display: block; margin-top: 7px; color: #716a88; font-size: 10px; font-weight: 400; line-height: 1.7; }
+@media (min-width: 761px) and (max-width: 1000px) {
+  .scene { height: 430px; }.notebook { left: 0; width: 205px; }.notebook strong { font-size: 20px; }
+  .flashcard { right: 0; width: 205px; }.cardContent strong { font-size: 18px; }
+  .mascot { width: 330px; height: 400px; left: calc(50% - 165px); }.speech { left: 180px; top: -40px; }
+  .offlineBadge { left: 1%; }.stickyNote { right: 1%; bottom: 2px; }
+}
+@media (max-width: 760px) {
+  .inner { padding: 65px 20px 28px; }.eyebrow { font-size: 9px; }
+  .heading h2 { font-size: clamp(38px, 8.3vw, 60px); margin-top: 19px; }.heading p { max-width: 420px; font-size: 12px; }.desktopBreak { display: none; }
+  .stores { max-width: 390px; margin: auto; }.stores > div { flex-direction: row; gap: 9px; }
+  .stores :global(.hero-store) { min-width: 0; flex: 1; width: auto; }
+  .previewLink { font-size: 11px; }.scene { max-width: 430px; height: 525px; margin-top: 30px; }
+  .notebook { left: 3%; top: 0; width: 164px; padding: 24px 19px 15px; transform: rotate(-9deg); }.notebook small { font-size: 6px; }.notebook strong { font-size: 17px; margin-top: 10px; }.noteFooter { font-size: 6px; }.noteLines { gap: 8px; margin: 15px 0; }.tape { left: 50px; width: 57px; }
+  .flashcard { top: 16px; right: 2%; width: 153px; min-height: 182px; padding: 14px; transform: rotate(8deg); border-radius: 17px; }.cardTop { font-size: 6px; }.cardTop > span { font-size: 15px; }.cardContent { min-height: 109px; }.cardContent strong { font-size: 16px; }.cardContent > span { font-size: 8px; }.cardBottom { font-size: 8px; padding-top: 9px; }
+  .mascot { width: 320px; max-width: 92%; height: 350px; left: 50%; transform: translateX(-50%); bottom: 0; z-index: 4; }.speech { top: 65px; left: -8px; width: 119px; font-size: 8px; padding: 9px 11px; transform: rotate(-8deg); }
+  .offlineBadge,.stickyNote { display: none; }
+  .orbit { top: 160px; left: -12%; right: -12%; height: 190px; }.sparkLeft { left: 48%; top: 192px; font-size: 24px; }.sparkRight { right: 0; bottom: 140px; font-size: 30px; }
+  .footnote { margin-top: 25px; font-size: 11px; }.footnote > span { max-width: 310px; margin: 7px auto 0; font-size: 9px; }
+}
+@media (max-width: 359px) { .notebook { left: -5px; width: 145px; }.flashcard { right: -4px; width: 140px; }.notebook strong { font-size: 15px; }.cardContent strong { font-size: 15px; }.scene { height: 500px; }.mascot { width: 280px; } }
+@media (prefers-reduced-motion: reduce) { .flashcard { transition: none; }.flashcard:hover { transform: rotate(10deg); } }

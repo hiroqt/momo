@@ -66,6 +66,11 @@ test_*.py
 !mobile/__tests__/*.test.ts
 !backend/tests/
 !backend/tests/test_generation_profile.py
+!/web/tests/
+!/web/tests/momo-sounds.test.ts
+!/web/scripts/
+/web/scripts/*
+!/web/scripts/prepare-momo-sounds.py
 
 # ==============================================================================
 # JavaScript, React Native & Expo

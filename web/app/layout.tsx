@@ -1,5 +1,8 @@
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
+import BananaCursor from './components/BananaCursor';
+import SmoothScroll from './components/SmoothScroll';
+import 'lenis/dist/lenis.css';
 
 export const metadata: Metadata = {
   title: 'Momo: Make your notes make sense',
@@ -15,7 +18,11 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>
+        <SmoothScroll />
+        <BananaCursor />
+        {children}
+      </body>
     </html>
   );
 }

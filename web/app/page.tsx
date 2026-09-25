@@ -1,54 +1,25 @@
 'use client';
 
 import Image from 'next/image';
+import Icon from './components/Icon';
+import dynamic from 'next/dynamic';
 import { AnimatePresence, motion, useReducedMotion, useScroll, useSpring } from 'motion/react';
 import { useEffect, useRef, useState } from 'react';
+import PhoneMockup from './components/PhoneMockup';
+import MockupGallery from './components/MockupGallery';
+import StudyAnywhere from './components/StudyAnywhere';
+import StoreButtons from './components/StoreButtons';
+import { MomoSounds } from '../lib/momo-sounds';
+import { createMessagePicker } from '../lib/momo-click-messages';
+
+const DotLottieReact = dynamic(
+  () => import('@lottiefiles/dotlottie-react').then((mod) => mod.DotLottieReact),
+  { ssr: false }
+);
 
 const asset = '/assets/';
 const screens = '/screens/';
-const googlePlayUrl = process.env.NEXT_PUBLIC_GOOGLE_PLAY_URL;
-const appStoreUrl = process.env.NEXT_PUBLIC_APP_STORE_URL;
-const studyWords = ['brain gains!', 'one card at a time', 'aha moment!', 'from notes to knowledge', 'quiz time!', 'source powered', 'you’ve got this!', 'keep curious!'];
 type ClickWord = { id: number; x: number; y: number; text: string };
-type CallNote = { at: number; length: number; from: number; to: number };
-const cartoonCalls: CallNote[][] = [
-  [{ at: 0, length: 0.17, from: 330, to: 570 }, { at: 0.18, length: 0.19, from: 540, to: 295 }, { at: 0.42, length: 0.26, from: 310, to: 460 }],
-  [{ at: 0, length: 0.13, from: 440, to: 650 }, { at: 0.14, length: 0.13, from: 500, to: 690 }, { at: 0.34, length: 0.3, from: 610, to: 285 }],
-  [{ at: 0, length: 0.25, from: 260, to: 490 }, { at: 0.3, length: 0.14, from: 620, to: 420 }, { at: 0.47, length: 0.14, from: 620, to: 420 }, { at: 0.67, length: 0.2, from: 390, to: 520 }],
-];
-
-function playCartoonMonkeyCall(context: AudioContext, notes: CallNote[]) {
-  const start = context.currentTime + 0.01;
-  const master = context.createGain();
-  master.gain.value = 0.18;
-  master.connect(context.destination);
-  notes.forEach(({ at, length, from, to }) => {
-    const time = start + at;
-    const voice = context.createOscillator();
-    const overtone = context.createOscillator();
-    const filter = context.createBiquadFilter();
-    const envelope = context.createGain();
-    voice.type = 'triangle';
-    overtone.type = 'sine';
-    voice.frequency.setValueAtTime(from, time);
-    voice.frequency.exponentialRampToValueAtTime(to, time + length);
-    overtone.frequency.setValueAtTime(from * 2, time);
-    overtone.frequency.exponentialRampToValueAtTime(to * 2, time + length);
-    filter.type = 'lowpass';
-    filter.frequency.value = 1450;
-    envelope.gain.setValueAtTime(0.001, time);
-    envelope.gain.exponentialRampToValueAtTime(0.55, time + 0.035);
-    envelope.gain.exponentialRampToValueAtTime(0.001, time + length);
-    voice.connect(filter);
-    overtone.connect(filter);
-    filter.connect(envelope);
-    envelope.connect(master);
-    voice.start(time);
-    overtone.start(time);
-    voice.stop(time + length + 0.02);
-    overtone.stop(time + length + 0.02);
-  });
-}
 
 function Reveal({ children, className = '' }: { children: React.ReactNode; className?: string }) {
   const reducedMotion = useReducedMotion();
@@ -87,77 +58,165 @@ const faqs = [
   { question: 'What happens to the original file?', answer: 'Original uploaded documents are temporary and are scheduled for deletion after three days. Generated study sets are kept separately so you can continue studying.' },
 ];
 
-const screenPreviews = [
-  { title: 'Meet Momo', detail: 'Your friendly study companion', file: 'momo-welcome.png', alt: 'Momo welcome screen with the study companion and getting started tips' },
-  { title: 'Your home', detail: 'Pick up where you left off', file: 'momo-dashboard.png', alt: 'Momo dashboard showing a study streak, active reviewer, and library' },
-  { title: 'Flashcards', detail: 'Practice active recall', file: 'momo-flashcards.png', alt: 'Momo flashcard screen with progress, a question, and an educational diagram' },
-  { title: 'Study shop', detail: 'More ways to keep going', file: 'momo-shop.png', alt: 'Momo study shop with credits, lives, study XP, and a mascot preview' },
-  { title: 'Momo AI', detail: 'Ask about your material', file: 'momo-ai.png', alt: 'Momo AI assistant welcome screen with study prompt suggestions' },
-] as const;
-
-function StoreButtons({ light = false }: { light?: boolean }) {
-  const className = `button store-button ${light ? 'button-light' : 'button-primary'}`;
-  return (
-    <div className={`store-buttons ${light ? 'store-buttons-light' : ''}`}>
-      {googlePlayUrl ? <a className={className} href={googlePlayUrl} target="_blank" rel="noopener noreferrer">Go to Google Play <span aria-hidden="true">↗</span></a> : <button className={`${className} store-button-pending`} type="button" disabled title="Google Play link coming soon">Go to Google Play <small>Coming soon</small></button>}
-      {appStoreUrl ? <a className={`button store-button ${light ? 'button-light-outline' : 'button-secondary'}`} href={appStoreUrl} target="_blank" rel="noopener noreferrer">App Store <span aria-hidden="true">↗</span></a> : <button className={`button store-button store-button-pending ${light ? 'button-light-outline' : 'button-secondary'}`} type="button" disabled title="App Store link coming soon">App Store <small>Coming soon</small></button>}
-    </div>
-  );
-}
-
 function StepArt({ kind }: { kind: (typeof steps)[number]['art'] }) {
-  if (kind === 'upload') return <div className="step-art step-art-upload" aria-hidden="true"><div className="paper paper-back" /><div className="paper paper-front"><span /><span /><span /><strong>PDF</strong></div><span className="art-plus">+</span></div>;
-  if (kind === 'momo') return <div className="step-art step-art-momo" aria-hidden="true"><div className="art-circle" /><Image src={`${asset}document_momo.png`} alt="" width={220} height={220} sizes="220px" /><span className="little-star">✦</span></div>;
-  return <div className="step-art step-art-study" aria-hidden="true"><div className="mini-flashcard"><small>FLASHCARD 01 / 12</small><strong>What is cellular respiration?</strong><span>Tap to reveal ↗</span></div><span className="art-check">✓</span></div>;
-}
+  const lottieLayout = { fit: 'contain' as const, align: [0.5, 0.5] as [number, number] };
 
-function PhoneMockup({
-  children,
-  className = '',
-  glow = false,
-}: {
-  children: React.ReactNode;
-  className?: string;
-  glow?: boolean;
-}) {
-  return (
-    <div className={`phone-mockup-frame ${className}`}>
-      <span className="phone-btn phone-btn-silent" aria-hidden="true" />
-      <span className="phone-btn phone-btn-vol-up" aria-hidden="true" />
-      <span className="phone-btn phone-btn-vol-down" aria-hidden="true" />
-      <span className="phone-btn phone-btn-power" aria-hidden="true" />
-
-      <div className="phone-chassis">
-        <div className="phone-speaker" aria-hidden="true" />
-        <div className="phone-island" aria-hidden="true">
-          <span className="island-lens" />
-          <span className="island-dot" />
-        </div>
-        <div className="phone-screen">
-          {children}
-          <div className="phone-sheen" aria-hidden="true" />
-          <div className="phone-home-bar" aria-hidden="true" />
-        </div>
+  if (kind === 'upload') {
+    return (
+      <div className="step-art step-art-upload" aria-hidden="true">
+        <span className="step-art-glow" />
+        <DotLottieReact
+          src="/lottie/Scanner Animation.lottie"
+          loop
+          autoplay
+          speed={0.82}
+          layout={lottieLayout}
+          renderConfig={{ autoResize: true }}
+          className="step-lottie step-lottie-upload"
+        />
       </div>
-      {glow && <div className="phone-glow" aria-hidden="true" />}
+    );
+  }
+  if (kind === 'momo') {
+    return (
+      <div className="step-art step-art-momo" aria-hidden="true">
+        <span className="step-art-glow" />
+        <DotLottieReact
+          src="/lottie/Searching.lottie"
+          loop
+          autoplay
+          speed={0.88}
+          layout={lottieLayout}
+          renderConfig={{ autoResize: true }}
+          className="step-lottie step-lottie-momo"
+        />
+      </div>
+    );
+  }
+  return (
+    <div className="step-art step-art-study" aria-hidden="true">
+      <span className="step-art-glow" />
+      <DotLottieReact
+        src="/lottie/Book.lottie"
+        loop
+        autoplay
+        speed={0.9}
+        layout={lottieLayout}
+        renderConfig={{ autoResize: true }}
+        className="step-lottie step-lottie-study"
+      />
     </div>
   );
 }
 
 export default function Home() {
   const [menuOpen, setMenuOpen] = useState(false);
-  const [waving, setWaving] = useState(false);
   const [soundOn, setSoundOn] = useState(true);
   const [clickWords, setClickWords] = useState<ClickWord[]>([]);
-  const audioContextRef = useRef<AudioContext | null>(null);
+  const soundsRef = useRef<MomoSounds | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const soundOnRef = useRef(true);
-  const soundIndexRef = useRef(0);
-  const lastSoundAtRef = useRef(0);
   const wordIdRef = useRef(0);
   const reducedMotion = useReducedMotion();
   const { scrollYProgress } = useScroll();
   const scaleX = useSpring(scrollYProgress, { stiffness: 110, damping: 30, restDelta: 0.001 });
+
+  const [chatOpen, setChatOpen] = useState(false);
+  const [chatMessages, setChatMessages] = useState<Array<{ role: 'assistant' | 'user'; content: string }>>([
+    {
+      role: 'assistant',
+      content: "Hi, I’m Momo. Your notes called; they would like to become more than desktop decoration. Ask me about uploads, quizzes, or studying offline.",
+    },
+  ]);
+  const [inputVal, setInputVal] = useState('');
+  const [isSending, setIsSending] = useState(false);
+  const [chatError, setChatError] = useState<string | null>(null);
+  const chatScrollRef = useRef<HTMLDivElement>(null);
+  const sendingRef = useRef(false);
+  const chatRequestRef = useRef<AbortController | null>(null);
+  useEffect(() => () => chatRequestRef.current?.abort(), []);
+
+  const quickQuestions = [
+    'Save my GPA pls',
+    'Can I dump a 50-page PDF?',
+    'Do you steal my notes?',
+    'Does this work with zero Wi-Fi?',
+  ];
+
+  function playMomoCall() {
+    void soundsRef.current?.play();
+  }
+
+  useEffect(() => {
+    const sounds = new MomoSounds();
+    sounds.setEnabled(soundOnRef.current);
+    soundsRef.current = sounds;
+    return () => {
+      sounds.dispose();
+      soundsRef.current = null;
+    };
+  }, []);
+
+  async function sendMessage(textToSend?: string) {
+    const text = (textToSend ?? inputVal).trim();
+    if (!text || sendingRef.current) return;
+    sendingRef.current = true;
+    const controller = new AbortController();
+    chatRequestRef.current = controller;
+    const timeout = window.setTimeout(() => controller.abort(), 12000);
+
+    setInputVal('');
+    setChatError(null);
+    const updatedMessages = [...chatMessages, { role: 'user' as const, content: text }];
+    setChatMessages(updatedMessages);
+    setIsSending(true);
+
+    try {
+      const res = await fetch('/api/momo-preview-chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        signal: controller.signal,
+        body: JSON.stringify({
+          message: text,
+          history: chatMessages.slice(-24),
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        setChatError(data?.error || 'Momo is taking a quick breather. Please try again in a few moments.');
+        return;
+      }
+
+      if (typeof data.reply !== 'string' || !data.reply.trim()) {
+        setChatError('Momo lost the thread. Try asking again.');
+        return;
+      }
+      const reply = data.reply.trim();
+      if (chatMessages.some(item => item.role === 'assistant' && item.content.toLowerCase() === reply.toLowerCase())) {
+        setChatError('We have covered that one. Ask about another Momo feature for something new.');
+        return;
+      }
+      setChatMessages(prev => [...prev, { role: 'assistant', content: reply }]);
+
+      if (soundOn) {
+        playMomoCall();
+      }
+    } catch {
+      setChatError('Could not reach Momo right now. Please try again!');
+    } finally {
+      window.clearTimeout(timeout);
+      sendingRef.current = false;
+      chatRequestRef.current = null;
+      setIsSending(false);
+    }
+  }
+
+  useEffect(() => {
+    if (chatOpen && chatScrollRef.current) {
+      chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight;
+    }
+  }, [chatMessages, isSending, chatOpen]);
 
   useEffect(() => {
     if (videoRef.current) {
@@ -169,9 +228,10 @@ export default function Home() {
 
   useEffect(() => {
     const timers = new Set<number>();
+    const nextMessage = createMessagePicker();
     const pointerStarts = new Map<number, { x: number; y: number }>();
     function rememberPointer(event: PointerEvent) {
-      if (event.pointerType === 'mouse' && event.button !== 0) return;
+      if (!event.isPrimary || event.button !== 0) return;
       pointerStarts.set(event.pointerId, { x: event.clientX, y: event.clientY });
     }
     function addStudyWord(event: PointerEvent) {
@@ -179,18 +239,15 @@ export default function Home() {
       pointerStarts.delete(event.pointerId);
       if (!start || Math.hypot(event.clientX - start.x, event.clientY - start.y) > 12) return;
       const soundToggle = event.target instanceof Element && event.target.closest('[data-sound-toggle]');
-      if (soundOnRef.current && !soundToggle && window.AudioContext && performance.now() - lastSoundAtRef.current >= 300) {
-        lastSoundAtRef.current = performance.now();
-        const context = audioContextRef.current ?? new AudioContext();
-        audioContextRef.current = context;
-        if (context.state === 'suspended') void context.resume();
-        playCartoonMonkeyCall(context, cartoonCalls[soundIndexRef.current % cartoonCalls.length]);
-        soundIndexRef.current += 1;
-      }
+      if (soundToggle) return;
+      playMomoCall();
       const id = ++wordIdRef.current;
       const x = Math.max(100, Math.min(window.innerWidth - 100, event.clientX));
       const y = Math.max(36, Math.min(window.innerHeight - 36, event.clientY));
-      setClickWords((words) => [...words.slice(-7), { id, x, y, text: studyWords[(id - 1) % studyWords.length] }]);
+      const word = {
+        id, x, y, text: nextMessage(),
+      };
+      setClickWords((words) => [...words.slice(-7), word]);
       const timer = window.setTimeout(() => {
         setClickWords((words) => words.filter((word) => word.id !== id));
         timers.delete(timer);
@@ -208,18 +265,13 @@ export default function Home() {
       window.removeEventListener('pointerup', addStudyWord);
       window.removeEventListener('pointercancel', forgetPointer);
       timers.forEach(window.clearTimeout);
-      if (audioContextRef.current) void audioContextRef.current.close();
     };
   }, []);
-
-  function wave() {
-    setWaving(true);
-    window.setTimeout(() => setWaving(false), 650);
-  }
 
   function toggleSound() {
     soundOnRef.current = !soundOnRef.current;
     setSoundOn(soundOnRef.current);
+    soundsRef.current?.setEnabled(soundOnRef.current);
   }
 
   return (
@@ -231,26 +283,203 @@ export default function Home() {
         <div className="header-inner shell flex items-center justify-between">
           <Brand />
           <nav className="desktop-nav" aria-label="Main navigation"><a href="#how-it-works">How it works</a><a href="#features">What you can do</a><a href="#screens">Screen View</a><a href="#questions">Questions</a></nav>
-          <a className="header-cta" href="#get-momo">Get Momo <span aria-hidden="true">↗</span></a>
-          <button className={`menu-toggle ${menuOpen ? 'is-open' : ''}`} type="button" aria-label={menuOpen ? 'Close menu' : 'Open menu'} aria-controls="mobile-nav" aria-expanded={menuOpen} onClick={() => setMenuOpen((open) => !open)}><span /><span /></button>
+          <div className="header-actions">
+            <button
+              className="sound-toggle header-sound-toggle"
+              data-sound-toggle
+              type="button"
+              aria-label={soundOn ? 'Mute Momo sounds' : 'Unmute Momo sounds'}
+              aria-pressed={!soundOn}
+              onClick={toggleSound}
+              title={soundOn ? 'Sound is on - click to mute' : 'Sound is off - click to enable'}
+            >
+              {soundOn ? (
+                <Icon name="volumeOn" size={15} />
+              ) : (
+                <Icon name="volumeOff" size={15} />
+              )}
+              <span>{soundOn ? 'Sound on' : 'Sound off'}</span>
+            </button>
+            <a className="header-cta" href="#get-momo">Get Momo <span className="header-cta-arrow" aria-hidden="true"><Icon name="arrowUpRight" size={18} /></span></a>
+          </div>
+          <button className={`menu-toggle ${menuOpen ? 'is-open' : ''}`} type="button" aria-label={menuOpen ? 'Close menu' : 'Open menu'} aria-controls="mobile-nav" aria-expanded={menuOpen} onClick={() => setMenuOpen((open) => !open)}><Icon name={menuOpen ? 'close' : 'menu'} size={22} /></button>
         </div>
-        <nav className="mobile-nav" id="mobile-nav" aria-label="Mobile navigation" hidden={!menuOpen} onClick={() => setMenuOpen(false)}><a href="#how-it-works">How it works</a><a href="#features">What you can do</a><a href="#screens">Screen View</a><a href="#questions">Questions</a><a href="#get-momo">Get Momo ↗</a></nav>
+        <nav className="mobile-nav" id="mobile-nav" aria-label="Mobile navigation" hidden={!menuOpen} onClick={() => setMenuOpen(false)}><a href="#how-it-works">How it works</a><a href="#features">What you can do</a><a href="#screens">Screen View</a><a href="#questions">Questions</a><a href="#get-momo">Get Momo <Icon name="arrowUpRight" size={16} /></a></nav>
       </header>
 
       <main id="main">
-        <section className="hero shell hero-split" aria-labelledby="hero-title">
+        <section className="hero shell hero-split momo-hero" aria-labelledby="hero-title">
           <div className="hero-content">
-            <h1 id="hero-title">Big study energy.<br /><span>Little monkey magic.</span></h1>
-            <p className="hero-copy">Meet Momo. Turn the material you already trust into flashcards, quizzes, and reviewers that make studying feel a little less overwhelming.</p>
-            <div className="hero-actions"><StoreButtons /></div>
-            <p className="hero-footnote"><span aria-hidden="true">✦</span> Built around your study material, not random answers from the internet.</p>
+            <h1 id="hero-title">Study smarter.<br /><span>Learn with Momo.</span></h1>
+            <p className="hero-copy">Turn your notes into flashcards, quizzes, and clear summaries—with a study buddy by your side.</p>
+            <StoreButtons className="hero-actions" />
           </div>
-          <div className="hero-visual">
-            <PhoneMockup className="hero-screen-phone" glow>
-              <Image src={`${screens}momo-dashboard.png`} alt="Actual Momo dashboard showing a reviewer, streak, and library" width={1080} height={2348} priority sizes="(max-width: 760px) 220px, 315px" />
+          <div className={`hero-visual ${chatOpen ? 'is-chat-open' : ''}`}>
+            {chatOpen && (
+              <div
+                className="chat-backdrop"
+                aria-hidden="true"
+                onClick={() => setChatOpen(false)}
+              />
+            )}
+            <PhoneMockup
+              className={`hero-screen-phone ${chatOpen ? 'is-chat-mode' : ''}`}
+              glow
+            >
+              <AnimatePresence mode="wait">
+                {!chatOpen ? (
+                  <motion.div
+                    key="phone-dashboard"
+                    className="phone-screen-inner"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.22 }}
+                  >
+                    <Image
+                      src={`${screens}momo-dashboard.png`}
+                      alt="Actual Momo dashboard showing a reviewer, streak, and library"
+                      width={1080}
+                      height={2348}
+                      priority
+                      sizes="(max-width: 760px) 220px, 315px"
+                    />
+                  </motion.div>
+                ) : (
+                  <motion.div
+                    key="phone-chat"
+                    className="phone-chat-view"
+                    role="dialog"
+                    aria-label="Momo AI Chat Preview"
+                    initial={reducedMotion ? false : { opacity: 0, scale: 0.96 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.96 }}
+                    transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
+                  >
+                    <div className="phone-chat-header">
+                      <div className="phone-chat-header-avatar">
+                        <Image src={`${asset}momo_logo.png`} alt="" width={26} height={26} />
+                        <span className="status-dot" aria-label="Online" />
+                      </div>
+                      <div className="phone-chat-header-info">
+                        <div className="phone-chat-title-row">
+                          <strong>Ask Momo</strong>
+                          <span className="chat-live-badge">Preview</span>
+                        </div>
+                        <span>Your sarcastic study bestie</span>
+                      </div>
+                      <button
+                        type="button"
+                        className="phone-chat-close-btn"
+                        aria-label="Close Momo chat"
+                        title="Close chat"
+                        onClick={() => setChatOpen(false)}
+                      >
+                        <Icon name="close" size={13} />
+                      </button>
+                    </div>
+
+                    <div className="phone-chat-messages" ref={chatScrollRef} data-native-scroll role="log" aria-label="Conversation with Momo" aria-live="polite">
+                      {chatMessages.map((msg, i) => (
+                        <div key={i} className={`chat-msg chat-msg-${msg.role}`}>
+                          {msg.role === 'assistant' && (
+                            <span className="msg-avatar-icon" aria-hidden="true">
+                              <Image src={`${asset}momo_logo.png`} alt="" width={18} height={18} />
+                            </span>
+                          )}
+                          <div className="msg-bubble">
+                            <p>{msg.content}</p>
+                          </div>
+                        </div>
+                      ))}
+                      {isSending && (
+                        <div className="chat-msg chat-msg-assistant">
+                          <span className="msg-avatar-icon" aria-hidden="true">
+                            <Image src={`${asset}momo_logo.png`} alt="" width={18} height={18} />
+                          </span>
+                          <div className="msg-bubble msg-typing">
+                            <span className="typing-dot" />
+                            <span className="typing-dot" />
+                            <span className="typing-dot" />
+                          </div>
+                        </div>
+                      )}
+                      {chatError && (
+                        <div className="chat-error-banner" role="alert">
+                          <Icon name="alert" size={13} />
+                          <span>{chatError}</span>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="phone-chat-chips">
+                      {quickQuestions.filter(q => !chatMessages.some(message => message.role === 'user' && message.content === q)).slice(0, 2).map((q) => (
+                        <button
+                          key={q}
+                          type="button"
+                          className="chat-chip"
+                          disabled={isSending}
+                          onClick={() => sendMessage(q)}
+                        >
+                          {q}
+                        </button>
+                      ))}
+                    </div>
+
+                    <form
+                      className="phone-chat-form"
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        sendMessage();
+                      }}
+                    >
+                      <input
+                        type="text"
+                        className="phone-chat-input"
+                        placeholder="Ask about Momo…"
+                        aria-label="Your question about Momo"
+                        value={inputVal}
+                        maxLength={500}
+                        onChange={(e) => setInputVal(e.target.value)}
+                        disabled={isSending}
+                      />
+                      <button
+                        type="submit"
+                        className="phone-chat-send-btn"
+                        aria-label="Send question"
+                        disabled={!inputVal.trim() || isSending}
+                      >
+                        <Icon name="arrowUp" size={14} />
+                      </button>
+                    </form>
+                    <div className="phone-chat-footer-note">
+                      <span>Momo product preview · No uploads here</span>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </PhoneMockup>
-            <div className="hero-mascot-wrap"><motion.button className="mascot-button" type="button" aria-label="Wave to Momo" title="Wave to Momo" onClick={wave} animate={waving && !reducedMotion ? { rotate: [0, -4, 4, -2, 0], scale: [1, 1.04, 1] } : { rotate: 0, scale: 1 }} transition={{ duration: 0.6 }}><Image src={`${asset}momo-full-body-cutout.png`} alt="Full-body Momo waving with a yellow study notebook" width={1024} height={1536} priority sizes="(max-width: 760px) 190px, 330px" /></motion.button></div>
-            <div className="hero-visual-hint"><span>Tap anywhere for a little Momo magic <span aria-hidden="true">✦</span></span><button className="sound-toggle" data-sound-toggle type="button" aria-label={soundOn ? 'Mute Momo sounds' : 'Unmute Momo sounds'} aria-pressed={!soundOn} onClick={toggleSound}>{soundOn ? 'Sound on' : 'Sound off'}</button></div>
+
+            <div className="hero-mascot-wrap">
+              <button
+                className={`mascot-button ${chatOpen ? 'is-chat-active' : ''}`}
+                type="button"
+                aria-label={chatOpen ? "Close Momo study chat" : "Chat with Momo AI"}
+                title={chatOpen ? "Close Momo chat" : "Tap to chat with Momo!"}
+                onClick={() => {
+                  setChatOpen((open) => !open);
+                  if (!chatOpen && soundOn) {
+                    playMomoCall();
+                  }
+                }}
+              >
+                <Image src={`${asset}momo-full-body-cutout.png`} alt="Momo holding a yellow study notebook" width={1024} height={1536} priority sizes="(max-width: 760px) 220px, 340px" />
+              </button>
+              {!chatOpen && <button type="button" className="mascot-chat-hint" onClick={() => setChatOpen(true)}>
+                <Icon name="arrowTurnUp" size={26} />
+                <span>Psst… tap me to chat.</span>
+              </button>}
+            </div>
           </div>
         </section>
 
@@ -260,10 +489,10 @@ export default function Home() {
         </section>
 
         <section className="formats-section" id="features" aria-labelledby="features-title"><div className="shell formats-shell"><Reveal className="formats-heading"><h2 id="features-title">Your material.<br /><em>Every study mood.</em></h2><p>Need a quick check, a deep review, or a practice run? Momo helps turn one source into the format that fits your day.</p></Reveal><div className="format-cards">
-          <Reveal className="format-card format-card-flash"><span className="format-icon" aria-hidden="true">✦</span><div className="format-preview flash-preview" aria-hidden="true"><small>FLASHCARD</small><strong>One idea at a time.</strong><span>Flip. Remember. Repeat.</span></div><h3>Flashcards</h3><p>Make important ideas easier to revisit.</p></Reveal>
-          <Reveal className="format-card format-card-quiz"><span className="format-icon" aria-hidden="true">☑</span><div className="format-preview quiz-preview" aria-hidden="true"><small>QUICK QUIZ</small><strong>Which answer makes sense?</strong><span className="quiz-option">A &nbsp; The one in your notes</span><span className="quiz-option selected">B &nbsp; You got this ✓</span></div><h3>Quizzes & exams</h3><p>Practice recalling, not just rereading.</p></Reveal>
-          <Reveal className="format-card format-card-summary"><span className="format-icon" aria-hidden="true">✎</span><div className="format-preview summary-preview" aria-hidden="true"><small>STUDY SUMMARY</small><strong>The big picture, clearer.</strong><span /><span /><span /></div><h3>Summaries & answers</h3><p>Get to the key points in your own material.</p></Reveal>
-          </div><Reveal className="format-note">And more: true or false, identification, fill in the blank, Q&amp;A, and topic explanations. <span aria-hidden="true">↗</span></Reveal></div></section>
+          <Reveal className="format-card format-card-flash"><span className="format-icon" aria-hidden="true"><Icon name="cards" size={22} /></span><div className="format-preview flash-preview" aria-hidden="true"><small>FLASHCARD</small><strong>One idea at a time.</strong><span>Flip. Remember. Repeat.</span></div><h3>Flashcards</h3><p>Make important ideas easier to revisit.</p></Reveal>
+          <Reveal className="format-card format-card-quiz"><span className="format-icon" aria-hidden="true"><Icon name="quiz" size={22} /></span><div className="format-preview quiz-preview" aria-hidden="true"><small>QUICK QUIZ</small><strong>Which answer makes sense?</strong><span className="quiz-option">A &nbsp; The one in your notes</span><span className="quiz-option selected">B &nbsp; You got this <Icon name="check" size={13} /></span></div><h3>Quizzes & exams</h3><p>Practice recalling, not just rereading.</p></Reveal>
+          <Reveal className="format-card format-card-summary"><span className="format-icon" aria-hidden="true"><Icon name="note" size={22} /></span><div className="format-preview summary-preview" aria-hidden="true"><small>STUDY SUMMARY</small><strong>The big picture, clearer.</strong><span /><span /><span /></div><h3>Summaries & answers</h3><p>Get to the key points in your own material.</p></Reveal>
+          </div><Reveal className="format-note">And more: true or false, identification, fill in the blank, Q&amp;A, and topic explanations. <Icon name="arrowUpRight" size={18} /></Reveal></div></section>
 
         <section className="screens-section" id="screens" aria-labelledby="screens-title">
           <div className="shell screens-heading-shell">
@@ -272,51 +501,14 @@ export default function Home() {
               <p>These are screens from the app, from your first hello to your next study session.</p>
             </Reveal>
           </div>
-          <div className="screens-marquee-container" aria-label="Momo app screens preview">
-            <div className="screens-marquee-track">
-              <div className="screens-marquee-group" role="list">
-                {screenPreviews.concat(screenPreviews).map((screen, idx) => (
-                  <article className="screen-card" role="listitem" key={`g1-${screen.file}-${idx}`}>
-                    <PhoneMockup className="screen-phone-mockup">
-                      <Image
-                        src={`${screens}${screen.file}`}
-                        alt={screen.alt}
-                        width={1080}
-                        height={2348}
-                        sizes="(max-width: 600px) 72vw, (max-width: 1000px) 34vw, 260px"
-                      />
-                    </PhoneMockup>
-                    <h3>{screen.title}</h3>
-                    <p>{screen.detail}</p>
-                  </article>
-                ))}
-              </div>
-              <div className="screens-marquee-group" aria-hidden="true">
-                {screenPreviews.concat(screenPreviews).map((screen, idx) => (
-                  <article className="screen-card" key={`g2-${screen.file}-${idx}`}>
-                    <PhoneMockup className="screen-phone-mockup">
-                      <Image
-                        src={`${screens}${screen.file}`}
-                        alt={screen.alt}
-                        width={1080}
-                        height={2348}
-                        sizes="(max-width: 600px) 72vw, (max-width: 1000px) 34vw, 260px"
-                      />
-                    </PhoneMockup>
-                    <h3>{screen.title}</h3>
-                    <p>{screen.detail}</p>
-                  </article>
-                ))}
-              </div>
-            </div>
-          </div>
+          <MockupGallery />
         </section>
 
-        <section className="promise-section shell" id="explorer" aria-labelledby="promise-title"><Reveal className="promise-visual"><PhoneMockup className="promise-video-phone" glow><video ref={videoRef} aria-label="Momo app preview video" autoPlay={!reducedMotion} muted loop playsInline controls preload="auto" poster={`${screens}momo-explorer-poster.png`}><source src="/media/momo-demo.webm" type="video/webm" /><source src="/media/momo-demo.mp4" type="video/mp4" />Your browser does not support embedded video.</video></PhoneMockup></Reveal><Reveal className="promise-copy"><h2 id="promise-title">No guesswork.<br /><em>Just your good stuff.</em></h2><p>Momo creates study material from the documents you provide and keeps source references where possible. If your material doesn’t cover something, Momo should tell you instead of making it up.</p><div className="promise-points"><div><span aria-hidden="true">✓</span> Grounded in your uploaded material</div><div><span aria-hidden="true">✓</span> Source references you can check</div><div><span aria-hidden="true">✓</span> Your finished study sets stay with you</div></div><StoreButtons /></Reveal></section>
+        <section className="promise-section shell" id="explorer" aria-labelledby="promise-title"><Reveal className="promise-visual"><PhoneMockup className="promise-video-phone" glow><video ref={videoRef} aria-label="Momo app preview video" autoPlay={!reducedMotion} muted loop playsInline controls preload="auto" poster={`${screens}momo-explorer-poster.png`}><source src="/media/momo-demo.webm" type="video/webm" /><source src="/media/momo-demo.mp4" type="video/mp4" />Your browser does not support embedded video.</video></PhoneMockup></Reveal><Reveal className="promise-copy"><h2 id="promise-title">No guesswork.<br /><em>Just your good stuff.</em></h2><p>Momo creates study material from the documents you provide and keeps source references where possible. If your material doesn’t cover something, Momo should tell you instead of making it up.</p><div className="promise-points"><div><span aria-hidden="true"><Icon name="check" size={18} /></span> Grounded in your uploaded material</div><div><span aria-hidden="true"><Icon name="check" size={18} /></span> Source references you can check</div><div><span aria-hidden="true"><Icon name="check" size={18} /></span> Your finished study sets stay with you</div></div><StoreButtons /></Reveal></section>
 
-        <section className="faq-section shell" id="questions" aria-labelledby="faq-title"><Reveal className="faq-intro"><h2 id="faq-title">Curious minds<br /><em>welcome.</em></h2><p>Here are a few things people ask about studying with Momo.</p></Reveal><Reveal className="faq-list">{faqs.map((faq) => <details key={faq.question}><summary>{faq.question}<span aria-hidden="true">+</span></summary><p>{faq.answer}</p></details>)}</Reveal></section>
+        <section className="faq-section shell" id="questions" aria-labelledby="faq-title"><Reveal className="faq-intro"><h2 id="faq-title">Curious minds<br /><em>welcome.</em></h2><p>Here are a few things people ask about studying with Momo.</p></Reveal><Reveal className="faq-list">{faqs.map((faq) => <details key={faq.question}><summary>{faq.question}<span aria-hidden="true"><Icon name="add" size={18} /></span></summary><p>{faq.answer}</p></details>)}</Reveal></section>
 
-        <section className="final-cta shell" id="get-momo" aria-labelledby="cta-title"><div className="final-inner"><h2>Your next <em>aha!</em><br />starts here.</h2><p>Momo is your friendly sidekick for turning notes into real progress.</p><StoreButtons light /></div></section>
+        <StudyAnywhere><StoreButtons /></StudyAnywhere>
       </main>
       <footer className="site-footer"><div className="shell footer-inner"><Brand /><p>Made for the moments when learning clicks.</p><nav aria-label="Footer navigation"><a href="#how-it-works">How it works</a><a href="#features">Features</a><a href="#screens">Screen View</a><a href="#questions">FAQ</a></nav><small>© {new Date().getFullYear()} Momo. Keep curious.</small></div></footer>
     </>

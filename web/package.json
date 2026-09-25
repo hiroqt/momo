@@ -6,9 +6,14 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "test": "tsx --test tests/*.test.ts"
   },
   "dependencies": {
+    "@hugeicons/core-free-icons": "^4.3.5",
+    "@hugeicons/react": "^1.1.10",
+    "@lottiefiles/dotlottie-react": "^0.19.16",
+    "lenis": "^1.3.26",
     "motion": "^12.23.24",
     "next": "^15.5.4",
     "react": "^19.1.1",
@@ -20,6 +25,7 @@
     "@types/node": "^22.18.6",
     "@types/react": "^19.1.13",
     "@types/react-dom": "^19.1.9",
+    "tsx": "^4.23.15",
     "typescript": "^5.9.2"
   }
 }

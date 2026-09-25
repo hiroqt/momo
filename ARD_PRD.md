@@ -1,1751 +1,567 @@
-# AI Study Platform --- ARD / PRD
+# AI Study Platform — Architecture and Product Requirements Document (ARD / PRD)
 
-## 1. Document Information
+## 1. Document Control and System Metadata
 
-  -----------------------------------------------------------------------
-  Field                               Value
-  ----------------------------------- -----------------------------------
-  Product                             AI Study Platform
+| Specification Field | Canonical Value |
+| :--- | :--- |
+| Primary Product | Momo AI Study Platform |
+| Governing Documents | `ARCHITECTURE.md`, `AGENTS.md`, `SKILL.md` |
+| Document Classification | Master Product and Architecture Specification |
+| Current System State | Production-Grade Monorepo (Mobile + Web + Backend) |
+| Mobile Architecture | React Native 0.76+, Expo SDK 52+, TypeScript, Expo Router (file-based) |
+| Web Showcase | Next.js 15 App Router, React 19, TypeScript, Tailwind CSS |
+| Backend Services | Python 3.11+, FastAPI, Pydantic v2, Uvicorn |
+| Primary Database | Supabase PostgreSQL 15+ with `pgvector` extension |
+| Storage Architecture | Pluggable Object Storage (AWS S3 or Supabase Storage) with presigned PUT URLs |
+| Primary AI Model | NVIDIA Nemotron Ultra (`nvidia/nemotron-4-340b-instruct`) via OpenRouter Gateway |
+| Embedding Engine | 1536-dimensional vector embeddings (`nvidia/embeddings-nv-embed-qa-4`) |
+| Semantic Validation | TypeSafe Jev for bounded semantic evaluation and grounding verification |
+| Local Mobile Storage | Expo SQLite for zero-latency offline decks, quiz states, and mutation ledger |
+| Offline Study Support | Full reading, flashcard flips, quiz execution, and progress tracking |
+| Offline Generation | Prohibited (requires cloud model inference and vector retrieval) |
+| Document Retention | 3 Days (72-hour TTL via cloud lifecycle rules) |
+| Study Set Retention | Indefinite (decoupled from original uploaded document life cycle) |
+| Document Ingestion Limits | 10 accepted documents per user per calendar month |
+| Document Constraints | 10 to 15 MB file size; 50 pages maximum |
+| Supported Source Formats | PDF (`.pdf`), Word (`.docx`), Plain Text (`.txt`), PowerPoint (`.pptx`) |
 
-  Platform                            React Native + Expo mobile
-                                      application
+---
 
-  Backend                             Python + FastAPI
+## 2. Executive Product Vision
 
-  Database                            Supabase PostgreSQL
+The Momo AI Study Platform transforms passive, high-volume academic materials into interactive, highly retentive study reviewers. Students, medical residents, law candidates, and certification seekers frequently confront hundreds of pages of unorganized slides, lecture notes, and textbook chapters. Generic conversational chatbots fail this demographic because they fabricate plausible-sounding details, lack strict grounding in syllabus materials, and require persistent network connectivity.
 
-  Authentication                      Google
+Momo enforces a zero-hallucination, evidence-first model:
+1. Every flashcard, quiz question, identification prompt, and practice exam is synthesized strictly from user-supplied materials (`source_only = True`).
+2. Generated study sets persist permanently on the user's account and mobile device, even though raw uploaded files are automatically deleted after 3 days to protect intellectual property and storage economy.
+3. The platform functions seamlessly offline. Students can review flashcards, solve practice quizzes, and accrue study streaks on subways or campuses with intermittent cellular coverage, synchronizing progress idempotently when online.
+4. An intelligent, friendly study companion named Momo provides active conversational tutoring, step-by-step math problem solving with LaTeX formulas, dynamic 2D educational concept diagrams, and targeted weakness remediation based on personal mastery profiles.
 
-  Object Storage                      AWS S3
+---
 
-  AI Model                            NVIDIA Nemotron Ultra
+## 3. Target Demographics and Academic Disciplines
 
-  AI Gateway                          OpenRouter
+The platform serves secondary, post-secondary, and professional licensure learners:
+- High school students preparing for standardized assessments (AP, IB, SAT, national entrance exams).
+- Undergraduate and graduate collegiate students in STEM, humanities, and social sciences.
+- High-consequence licensure candidates:
+  - Nursing and Health Sciences: NCLEX-RN, NCLEX-PN, USMLE Step 1/2, pharmacology, anatomy.
+  - Law and Jurisprudence: Bar examinations, constitutional law, contracts, civil procedure.
+  - Engineering and Computing: Computer science algorithms, systems design, FE/PE examinations.
+  - Accounting and Finance: CPA, CFA, business ethics, taxation.
+- Professional certification seekers (AWS Certified Solutions Architect, CompTIA Security+, PMP).
 
-  Architecture                        RAG + grounded generation +
-                                      asynchronous document processing
+---
 
-  Supported Files                     PDF, DOCX, TXT, PPTX
+## 4. Architectural Invariants and Non-Negotiable Rules
 
-  Maximum File Size                   10--15 MB
+The following six invariants are absolute. No feature addition, agent task, or performance optimization may compromise these invariants:
 
-  Maximum Pages                       50 pages
+### Invariant 1: Ephemeral Document Decoupling
+The original uploaded document binary is ephemeral and must be deleted after 3 days (72 hours). Generated study sets, individual questions, summaries, and learning statistics must persist permanently. All relational links between study sets and source documents must use `ON DELETE SET NULL`. Automatic or manual deletion of a document must never delete user study sets.
 
-  Original File Retention             3 days
+### Invariant 2: Strict Source Grounding (`source_only = True`)
+AI generation must draw facts strictly from retrieved source chunks. When user-requested topics or questions lack sufficient textual evidence in the source material, the model must emit a structured `insufficient_source` response. The system must never supplement missing domain facts with general pre-trained model knowledge.
 
-  Offline Study                       Yes
+### Invariant 3: Server-Side Quota and Identity Enforcement
+Client applications are untrusted. User identity must be derived exclusively from cryptographically verified Supabase JWT tokens in backend middleware. The monthly upload quota (10 documents per user per calendar month) must be checked and enforced at the API layer before presigned upload URLs are generated.
 
-  Offline Generation                  No
+### Invariant 4: Direct-to-Storage Presigned Uploads
+Raw document bytes must never be streamed through the FastAPI application server. The client requests a presigned PUT URL and transmits the binary directly to object storage (AWS S3 or Supabase Storage). This preserves server thread capacity and network I/O.
 
-  Document Generation Limit           10 documents/month/user
+### Invariant 5: Offline-First Operation with Idempotent Sync
+Studying existing sets, flipping cards, taking quizzes, and updating local XP must work with 0ms latency in offline mode using local Expo SQLite. Offline events must append to a local mutation queue with client-generated UUID `event_id`s. The backend sync endpoint must execute idempotent upserts (`ON CONFLICT (event_id) DO NOTHING`).
 
-  Primary Product                     AI Study Platform
-  -----------------------------------------------------------------------
+### Invariant 6: Server-Isolated Secrets and Layered Boundaries
+Cloud credentials (AWS access keys, OpenRouter tokens, Supabase service-role keys, TypeSafe Jev keys) must exist solely in backend environment variables. Mobile clients and public web clients must never receive elevated keys. API route handlers must delegate database interaction to dedicated repositories and must never execute raw inline SQL.
 
-------------------------------------------------------------------------
+---
 
-# 2. Product Vision
+## 5. System Topology and Architecture
 
-The AI Study Platform lets students and exam takers turn their existing
-study materials into interactive reviewers.
+The platform uses a coordinated 4-tier monorepo architecture:
 
-A user uploads a document, describes what they want to study, and
-receives a generated study set grounded only in the uploaded material.
-
-The platform should support multiple study formats from the same source:
-
--   Flashcards
--   Multiple-choice questions
--   True/False
--   Identification
--   Fill-in-the-blank
--   Practice exams
--   Study summaries
--   Q&A
--   Topic explanations
-
-The product should prioritize:
-
-1.  Source grounding
-2.  Generation quality
-3.  Generation speed
-4.  Simple mobile UX
-5.  Offline studying
-6.  Recoverable processing
-7.  Clear source attribution
-
-The product should not behave as a generic chatbot that invents
-educational content. Uploaded documents are the primary knowledge
-source.
-
-------------------------------------------------------------------------
-
-# 3. Target Users
-
-The platform targets:
-
--   High school students
--   College students
--   Review-center students
--   Professional examination candidates
--   General learners
-
-The initial product should remain broad enough to support different
-subjects and exam types.
-
-Examples:
-
--   Biology
--   Nursing
--   Computer Science
--   Information Technology
--   Engineering
--   Law
--   Medicine
--   Accounting
--   Mathematics
--   Networking
--   Professional certification review
-
-------------------------------------------------------------------------
-
-# 4. Core User Journey
-
-``` text
-Google Sign In
-      ↓
-Home
-      ↓
-Upload Study Material
-      ↓
-Document Processing
-      ↓
-Document Ready
-      ↓
-Create Reviewer
-      ↓
-Configure Requirements
-      ↓
-Retrieve Relevant Source Content
-      ↓
-Synthesize Grounded Context
-      ↓
-Nemotron Ultra Generation
-      ↓
-Validate / Deduplicate
-      ↓
-Save Study Set
-      ↓
-Study
-      ↓
-Offline Progress Sync
+```text
++-----------------------------------------------------------------------------------+
+|                            Presentation Layer (Clients)                           |
+|  - Mobile Client (mobile/): React Native, Expo SDK, Expo Router, Expo SQLite      |
+|  - Web Client (web/): Next.js 15 App Router, React 19, Momo Interactive Preview  |
++-----------------------------------------+-----------------------------------------+
+                                          |
+                        HTTPS REST (Bearer JWT Auth)
+                                          |
++-----------------------------------------v-----------------------------------------+
+|                    Application & Transport Layer (FastAPI)                        |
+|  - FastAPI Endpoints: /api/auth, /api/documents, /api/generations, /api/study-sets|
+|    /api/sync, /api/folders, /api/math, /api/stats, /api/chat, /api/images         |
+|  - Middleware: Supabase JWT Guard, Sliding Window Rate Limiter, Guardrail Sanitizer|
++--------------------+------------------------------------+-------------------------+
+                     |                                    |
+      Enqueues Async Background Tasks             CRUD via Parameterized Repos
+                     |                                    |
++--------------------v--------------------+ +-------------v-------------------------+
+|     Domain Services & Background Workers| |         Data & Storage Layer          |
+|  - DocumentWorker (Extract, Chunk, Embed| |  - Supabase PostgreSQL 15+            |
+|  - GenerationWorker (RAG, Nemotron, Val)| |    (Tables, RLS, Indexes)             |
+|  - StorageService (S3 / Supabase)       | |  - pgvector (1536-dim IVFFlat Index)  |
+|  - AIProvider (Nemotron Ultra, Tools)   | |  - Object Storage (AWS S3 / Supabase) |
+|  - MathEngine, DiagramSynthesizer       | |    (Private Bucket, 3-Day Retention)  |
++--------------------+--------------------+ +---------------------------------------+
+                     |
+         HTTPS Structured JSON Prompts
+                     |
++--------------------v--------------------------------------------------------------+
+|                          External AI & Validation Layer                           |
+|  - OpenRouter Gateway (NVIDIA Nemotron Ultra: nvidia/nemotron-4-340b-instruct)     |
+|  - Embedding Service (1536-dimensional vector generation)                         |
+|  - TypeSafe Jev (Semantic validation and grounding judgments)                     |
++-----------------------------------------------------------------------------------+
 ```
 
-------------------------------------------------------------------------
+---
 
-# 5. Core Product Features
+## 6. Detailed Capabilities Specification
 
-## 5.1 Google Authentication
+### 6.1 Document Ingestion and Ephemeral Storage Lifecycle
+1. Supported formats: PDF, DOCX, TXT, PPTX.
+2. File constraints: Maximum file size is 15 MB; maximum page count is 50 pages.
+3. Storage abstraction: Backend implements `BaseStorageService` with dual provider drivers:
+   - `S3Service`: Amazon AWS S3 private bucket with presigned PUT URLs and automated S3 Lifecycle rule deleting objects after 3 days.
+   - `SupabaseStorageService`: Supabase Storage bucket with signed upload URLs.
+   - Provider selection is controlled via `STORAGE_PROVIDER` (`supabase` or `s3`).
+4. Ingestion sequence:
+   - Step 1: Client calls `POST /api/documents/upload-url` providing filename, file size, and MIME type.
+   - Step 2: Backend verifies user quota (`usage_repo.can_upload_document`), validates size/type, constructs storage key (`documents/{user_id}/{document_id}/{filename}`), and returns presigned PUT URL.
+   - Step 3: Client uploads file binary directly to object storage via HTTP PUT.
+   - Step 4: Client registers metadata by calling `POST /api/documents`. Backend creates a database record with `processing_status = 'UPLOADED'` and enqueues `DocumentWorker.process_document`.
+   - Step 5: `DocumentWorker` downloads bytes, executes structural extraction preserving page numbers and slide indexes, triggers OCR if extracted text is sparse, chunks text into semantic windows with overlap, generates 1536-dimensional embeddings, and inserts batch records into `document_chunks`.
+   - Step 6: Backend updates document record with `processing_status = 'READY'`, detected `page_count`, and `suggested_topics`.
 
-Users authenticate through Google.
+### 6.2 Grounded RAG Study Set Generation
+1. Study formats:
+   - Flashcards: Front prompt and back answer with contextual hint and source citation.
+   - Multiple Choice Questions (MCQ): Question stem, 4 plausible options, single correct answer, and pedagogical explanation.
+   - True / False: Proposition, boolean answer, and source-grounded justification.
+   - Identification: Direct concept definition prompt requiring concise term recall.
+   - Fill-in-the-Blank: Sentence with masked term and exact replacement key.
+   - Practice Exams: Multi-format composite assessment with timer configuration.
+   - Study Summaries: High-yield outlines, key definitions, and concept breakdowns.
+   - Q&A: Deep conceptual question and answer pairs.
+   - Topic Explanations: Narrative conceptual breakdown structured for quick comprehension.
+2. Personalization parameters (`GenerationCreateRequest`):
+   - `academic_level`: Grade 9, Grade 10, Grade 11, Grade 12, 1st Year College, 2nd Year, 3rd Year, 4th Year, Graduate School. The prompt engine adjusts sentence structure, technical terminology, and clinical/theoretical depth to match.
+   - `learner_focus`: Custom focus area (e.g., NCLEX board mastery, exam definitions, practical formulas, conceptual synthesis).
+   - `topic`: Target chapter, module, or concept.
+   - `count`: 1 to 50 items (default: 20).
+   - `difficulty`: easy, medium, hard.
+   - `question_types`: Array of selected study formats.
+   - `source_only`: Strictly enforced boolean (default: true).
+   - `custom_instruction`: User guidance sanitized against prompt injection.
+3. RAG retrieval pipeline:
+   - Search query formulation: Topic + focus parameters.
+   - Vector similarity search: Query embedding matched against `document_chunks` using pgvector cosine distance (`<=>`).
+   - Context assembly: Top-ranked chunks formatted within delimited XML evidence blocks: `<evidence page="3" section="Chapter 2">...</evidence>`.
+   - Strict system prompt: Document content is classified solely as untrusted source evidence, never as instructions.
+   - Validation: Pydantic v2 schema validation, citation provenance matching, and duplicate item filtering.
 
-Requirements:
+### 6.3 Conversational Momo AI Tutor
+1. Architecture: High-concurrency conversational assistant grounded in student notes (`/api/chat`).
+2. Persona: Momo, an encouraging, intellectually rigorous, and cheerful study companion.
+3. Communication style: Clean typography, structured bullet points, clear bold headings, and ZERO emojis.
+4. Tool-calling framework:
+   - `list_user_documents`: Queries available documents and processing statuses.
+   - `search_documents`: Retrieves factual evidence and citations from indexed materials.
+   - `create_study_deck`: Programmatically initiates and saves a full study set.
+   - `generate_study_card`: Synthesizes an immediate standalone review card with 1-tap library import.
+   - `generate_diagram`: Synthesizes visual concept diagrams for complex processes.
+   - `get_learning_profile`: Retrieves mastery metrics, weak topics, and study progress.
+   - `generate_weakness_review`: Generates an adaptive remedial study set addressing historically missed items.
+5. Interactive card import: Study cards generated during chat include a 1-tap `POST /api/chat/import-card` action that saves the item directly into a persistent library study set.
 
--   Google OAuth
--   Secure token handling
--   Supabase user identity
--   User-specific data isolation
--   Persistent sessions
--   Logout
--   Account deletion
+### 6.4 Step-by-Step Math and Camera Problem Solver
+1. Endpoint: `POST /api/math/solve`.
+2. Input modalities: Base64 encoded image (handwritten or printed equation) or typed mathematical formula.
+3. Optical character recognition: `ocr_service.py` extracts mathematical expressions, exponents, fractions, and Greek symbols.
+4. Reasoning engine: `math_engine.py` solves the problem step by step:
+   - Problem classification (Algebra, Calculus, Linear Algebra, Statistics, Discrete Math).
+   - Key concepts identified.
+   - Step-by-step analytical derivation with formatted LaTeX strings.
+   - Final verified answer.
+   - Pedagogical conceptual explanation.
+5. Safety: Output is filtered by `guardrails_service.py` to prevent credential exposure or command execution.
 
-The mobile client must never directly receive or expose server-side
-secrets.
+### 6.5 2D Educational Concept Diagrams and Illustrations
+1. Endpoint: `POST /api/images/generate`.
+2. Purpose: Visual generation for complex biological pathways, data structures, network topologies, and cycle mechanisms.
+3. Synthesizer: `diagram_synthesizer.py` compiles visual descriptions into structured vector diagrams (Mermaid, SVG, or Matplotlib charts) and renders high-resolution base64 PNG images.
+4. Grounding: Diagram prompts accept topic, context notes, and specific student requirements to ensure visual elements match course materials.
 
-## 5.2 Gamified Learning (XP System)
+### 6.6 Library, Folders, and Progressive Economics
+1. Endpoints: `GET /api/folders`, `POST /api/folders`, `GET /api/folders/{id}`, `PATCH /api/folders/{id}`, `DELETE /api/folders/{id}`.
+2. Organization: Students organize study sets and documents into colored folders.
+3. Progressive credit cost calculation (`calculate_folder_credit_cost`):
+   - First 3 folders (counts 0, 1, 2): 0 credits (Free).
+   - 4th folder (count 3): 50 credits.
+   - 5th folder (count 4): 75 credits.
+   - Nth folder ($N \ge 3$): $50 + (N - 3) \times 25$ credits.
+4. Deletion safety: Deleting a folder unsets `folder_id` on member study sets (`ON DELETE SET NULL`), preserving the study sets.
 
-The study experience includes a gamified reward system.
-When answering questions in the Quiz Runner:
-- Users earn XP for correct answers.
-- The amount of XP varies by the question type (e.g., identification vs multiple choice).
-- Incorrect answers yield 0 XP.
+### 6.7 Gamification, Economy, and Mascot Customization
+1. Heart system: Students maintain 5 hearts. An incorrect quiz answer consumes 1 heart. Hearts regenerate over time or can be refilled using earned Momo Coins.
+2. XP and Leveling: Correct answers award XP based on question difficulty and format (e.g., Identification awards more XP than True/False). XP aggregates toward student levels.
+3. Daily streaks: Calculated via `GET /api/stats/streak` tracking consecutive UTC study days.
+4. Cosmetics shop (`mobile/app/shop.tsx`): Students spend earned Momo Coins on mascot accessories, custom outfits, and study themes.
+5. Academic Weapon social sharing (`AcademicWeaponStoryCard.tsx`, `shareStory.ts`): Students generate branded Instagram story visual cards showcasing mastery percentages, streak days, and reviewer titles.
 
-## 5.3 Momo AI Mascot
+### 6.8 Mobile Onboarding and Sensory Experience
+1. Immersive backdrop: `JungleBackdrop.tsx` with animated 3D leaf transforms (`Jungle3DLeaves.tsx`) using React Native Reanimated.
+2. Audio-haptic age picker (`AgeScrollPicker.tsx`): Pre-warmed audio player pool playing low-latency mechanical tick sounds (`age_tick.wav`) synchronized with device haptics.
+3. Academic track onboarding (`welcome.tsx`): Students select track (STEM, ABM, HUMSS, TVL, College Major), year level, and target exam.
+4. Dynamic starter decks (`sampleDeck.ts`): Instantly generates tailored starter review decks matching selected discipline before any user document upload.
 
-The platform uses a dedicated AI mascot ("Momo") to guide users through generation and learning states.
-- Animations reflect current app states (e.g., `MomoMaker` during generation, `MomoSadFace` on failure, `MomoThinkingFace` during answer evaluation).
+### 6.9 Web Showcase and Interactive Preview Chat
+1. Platform: Next.js 15 App Router located in `web/`.
+2. Capabilities: Product marketing, interactive mockups, soundboard, and interactive preview chat (`/api/momo-preview-chat`).
+3. Rate limiting: Dedicated in-memory preview rate limiter preventing abuse while allowing prospective students to test Momo's conversational tutoring.
 
+---
 
-------------------------------------------------------------------------
+## 7. Database Model and Relational Specifications
 
-# 6. Document Upload
+The system runs on Supabase PostgreSQL with the `pgvector` extension enabled.
 
-Supported:
+```mermaid
+erDiagram
+    users ||--o{ documents : owns
+    users ||--o{ generation_jobs : triggers
+    users ||--o{ folders : creates
+    users ||--o{ study_sets : creates
+    users ||--o{ study_sessions : performs
+    users ||--o{ sync_events : submits
+    users ||--o{ usage_records : tracks
+    users ||--o{ chat_sessions : conducts
 
--   PDF
--   DOCX
--   TXT
--   PPTX
+    folders ||--o{ study_sets : categorizes
 
-Constraints:
+    documents ||--o{ document_chunks : contains
+    documents ||--o{ generation_jobs : referenced_by
+    documents ||--o{ study_sets : originates
 
--   Target maximum: 10--15 MB
--   Target maximum: 50 pages
--   Reject unsupported file types
--   Reject oversized files
--   Validate MIME type and extension
--   Generate a unique object key
--   Upload directly to AWS S3 using a secure mechanism such as a
-    presigned upload URL
+    study_sets ||--o{ study_items : contains
+    study_sets ||--o{ study_sessions : records
 
-Recommended upload flow:
-
-``` text
-Expo
-  ↓
-Request presigned upload URL
-  ↓
-FastAPI
-  ↓
-S3 presigned URL
-  ↓
-Expo uploads directly to S3
-  ↓
-FastAPI receives processing request
+    chat_sessions ||--o{ chat_messages : contains
 ```
 
-Do not route large document bytes through the FastAPI application server
-unless necessary.
+### Table Definitions
 
-------------------------------------------------------------------------
+#### `users`
+- `id` (UUID, Primary Key, Default: `gen_random_uuid()`)
+- `email` (TEXT, Unique, Not Null)
+- `full_name` (TEXT)
+- `avatar_url` (TEXT)
+- `created_at` (TIMESTAMPTZ, Default: `NOW()`)
+- `updated_at` (TIMESTAMPTZ, Default: `NOW()`)
 
-# 7. Temporary Document Retention
+#### `documents`
+- `id` (UUID, Primary Key, Default: `gen_random_uuid()`)
+- `user_id` (UUID, Not Null, References `users.id`)
+- `original_filename` (TEXT, Not Null)
+- `file_type` (TEXT, Not Null: `'pdf'`, `'docx'`, `'txt'`, `'pptx'`)
+- `mime_type` (TEXT, Not Null)
+- `file_size` (BIGINT, Not Null)
+- `page_count` (INT, Default: 0)
+- `s3_object_key` (TEXT, Not Null)
+- `uploaded_at` (TIMESTAMPTZ, Default: `NOW()`)
+- `expires_at` (TIMESTAMPTZ, Not Null: `uploaded_at + INTERVAL '3 days'`)
+- `processing_status` (TEXT, Default: `'UPLOADED'`, Values: `'UPLOADED'`, `'PROCESSING'`, `'READY'`, `'FAILED'`)
+- `processing_error` (TEXT)
+- `created_at` (TIMESTAMPTZ, Default: `NOW()`)
+- `updated_at` (TIMESTAMPTZ, Default: `NOW()`)
 
-Original uploaded documents remain available for exactly the configured
-retention window.
+#### `document_chunks`
+- `id` (UUID, Primary Key, Default: `gen_random_uuid()`)
+- `document_id` (UUID, Not Null, References `documents.id` ON DELETE CASCADE)
+- `user_id` (UUID, Not Null)
+- `chunk_index` (INT, Not Null)
+- `content` (TEXT, Not Null)
+- `page_start` (INT)
+- `page_end` (INT)
+- `section` (TEXT)
+- `source_type` (TEXT)
+- `embedding` (VECTOR(1536))
+- `metadata` (JSONB, Default: `'{}'`)
+- `created_at` (TIMESTAMPTZ, Default: `NOW()`)
 
-Default:
+#### `folders`
+- `id` (UUID, Primary Key, Default: `gen_random_uuid()`)
+- `user_id` (UUID, Not Null, References `users.id`)
+- `name` (TEXT, Not Null)
+- `color` (TEXT, Default: `'#4F46E5'`)
+- `created_at` (TIMESTAMPTZ, Default: `NOW()`)
+- `updated_at` (TIMESTAMPTZ, Default: `NOW()`)
 
-**3 days**
+#### `study_sets`
+- `id` (UUID, Primary Key, Default: `gen_random_uuid()`)
+- `user_id` (UUID, Not Null, References `users.id`)
+- `document_id` (UUID, References `documents.id` ON DELETE SET NULL)
+- `folder_id` (UUID, References `folders.id` ON DELETE SET NULL)
+- `title` (TEXT, Not Null)
+- `description` (TEXT)
+- `generation_config` (JSONB, Default: `'{}'`)
+- `generation_status` (TEXT, Default: `'COMPLETED'`)
+- `item_count` (INT, Default: 0)
+- `created_at` (TIMESTAMPTZ, Default: `NOW()`)
+- `updated_at` (TIMESTAMPTZ, Default: `NOW()`)
 
-Lifecycle:
+#### `study_items`
+- `id` (UUID, Primary Key, Default: `gen_random_uuid()`)
+- `study_set_id` (UUID, Not Null, References `study_sets.id` ON DELETE CASCADE)
+- `type` (TEXT, Not Null: `'flashcard'`, `'multiple_choice'`, `'true_false'`, `'identification'`, `'fill_in_the_blank'`, `'summary'`, `'qa'`, `'topic_explanation'`)
+- `question` (TEXT, Not Null)
+- `answer` (TEXT, Not Null)
+- `explanation` (TEXT)
+- `options` (JSONB)
+- `difficulty` (TEXT, Default: `'medium'`)
+- `image_base64` (TEXT)
+- `source_metadata` (JSONB, Not Null, Default: `'{}'`)
+- `order_index` (INT, Default: 0)
+- `created_at` (TIMESTAMPTZ, Default: `NOW()`)
 
-``` text
-Uploaded
-   ↓
-S3
-   ↓
-Processed
-   ↓
-Available for 3 days
-   ↓
-Automatic deletion
-```
+#### `generation_jobs`
+- `id` (UUID, Primary Key, Default: `gen_random_uuid()`)
+- `user_id` (UUID, Not Null, References `users.id`)
+- `document_id` (UUID, References `documents.id` ON DELETE SET NULL)
+- `study_set_id` (UUID)
+- `status` (TEXT, Default: `'PENDING'`, Values: `'PENDING'`, `'PROCESSING'`, `'COMPLETED'`, `'FAILED'`)
+- `stage` (TEXT, Default: `'Created'`)
+- `progress` (INT, Default: 0)
+- `message` (TEXT, Default: `'Initializing...'`)
+- `error` (TEXT)
+- `generation_config` (JSONB, Default: `'{}'`)
+- `created_at` (TIMESTAMPTZ, Default: `NOW()`)
+- `updated_at` (TIMESTAMPTZ, Default: `NOW()`)
 
-The database must not assume that the original object remains forever.
+#### `study_sessions`
+- `id` (UUID, Primary Key, Default: `gen_random_uuid()`)
+- `user_id` (UUID, Not Null, References `users.id`)
+- `study_set_id` (UUID, Not Null, References `study_sets.id` ON DELETE CASCADE)
+- `mode` (TEXT, Not Null: `'flashcards'`, `'quiz'`, `'exam'`)
+- `started_at` (TIMESTAMPTZ, Default: `NOW()`)
+- `completed_at` (TIMESTAMPTZ)
+- `total_items` (INT, Default: 0)
+- `correct_count` (INT, Default: 0)
+- `incorrect_count` (INT, Default: 0)
+- `score_percent` (DOUBLE PRECISION, Default: 0.0)
+- `created_at` (TIMESTAMPTZ, Default: `NOW()`)
 
-Store:
+#### `sync_events`
+- `id` (UUID, Primary Key, Default: `gen_random_uuid()`)
+- `event_id` (TEXT, Unique, Not Null)
+- `user_id` (UUID, Not Null, References `users.id`)
+- `study_session_id` (UUID)
+- `study_item_id` (UUID)
+- `result` (TEXT, Not Null: `'correct'`, `'incorrect'`, `'review_again'`, `'skipped'`)
+- `user_answer` (TEXT)
+- `occurred_at` (TIMESTAMPTZ, Not Null)
+- `synced_at` (TIMESTAMPTZ, Default: `NOW()`)
 
--   S3 object key
--   upload timestamp
--   expiration timestamp
--   processing status
--   file metadata
--   extraction metadata
+#### `usage_records`
+- `id` (UUID, Primary Key, Default: `gen_random_uuid()`)
+- `user_id` (UUID, Not Null, References `users.id`)
+- `year_month` (TEXT, Not Null)
+- `documents_count` (INT, Default: 0)
+- `created_at` (TIMESTAMPTZ, Default: `NOW()`)
+- `updated_at` (TIMESTAMPTZ, Default: `NOW()`)
+- Constraint: `UNIQUE(user_id, year_month)`
 
-Use an automated cleanup mechanism.
+#### `chat_sessions`
+- `id` (UUID, Primary Key, Default: `gen_random_uuid()`)
+- `user_id` (UUID, Not Null, References `users.id`)
+- `title` (TEXT, Not Null, Default: `'Chat with Momo'`)
+- `message_count` (INT, Default: 0)
+- `created_at` (TIMESTAMPTZ, Default: `NOW()`)
+- `updated_at` (TIMESTAMPTZ, Default: `NOW()`)
 
-The generated study set must remain after the original file is deleted.
+#### `chat_messages`
+- `id` (UUID, Primary Key, Default: `gen_random_uuid()`)
+- `session_id` (UUID, Not Null, References `chat_sessions.id` ON DELETE CASCADE)
+- `sender` (TEXT, Not Null: `'user'`, `'momo'`)
+- `text` (TEXT, Not Null)
+- `citations` (JSONB, Default: `'[]'`)
+- `tool_calls` (JSONB, Default: `'[]'`)
+- `study_card` (JSONB)
+- `created_at` (TIMESTAMPTZ, Default: `NOW()`)
 
-------------------------------------------------------------------------
+---
 
-# 8. Document Processing Pipeline
+## 8. Complete API Specifications
 
-The document pipeline should be modular.
+All endpoints require standard authorization headers (`Authorization: Bearer <supabase_jwt>`) with user identity derived exclusively by server-side verification.
 
-``` text
-Document
-   ↓
-File Validation
-   ↓
-Text / Structure Extraction
-   ↓
-OCR if required
-   ↓
-Normalization
-   ↓
-Structure Detection
-   ↓
-Chunking
-   ↓
-Metadata Assignment
-   ↓
-Embedding Generation
-   ↓
-Vector Index
-   ↓
-Knowledge Source Ready
-```
-
-Each processing stage should have an explicit status.
-
-Example:
-
-``` text
-UPLOADED
-VALIDATING
-EXTRACTING
-OCR
-NORMALIZING
-CHUNKING
-EMBEDDING
-INDEXING
-READY
-FAILED
-```
-
-------------------------------------------------------------------------
-
-# 9. OCR
-
-OCR is required for scanned or image-based documents where normal text
-extraction is insufficient.
-
-The OCR layer should:
-
-1.  Detect whether extracted text is usable.
-2.  Run OCR when required.
-3.  Preserve page numbers.
-4.  Preserve document/section relationships where possible.
-5.  Mark OCR-derived content.
-6.  Make OCR errors visible to the downstream pipeline where
-    appropriate.
-
-OCR should be implemented behind an abstraction so the OCR provider/tool
-can be replaced later.
-
-------------------------------------------------------------------------
-
-# 10. Document Structure
-
-The extraction pipeline should preserve as much document structure as
-practical:
-
--   Page number
--   Heading
--   Section
--   Paragraph
--   List
--   Table
--   Code block
--   Slide number for PPTX
--   Document title
-
-Each chunk should carry metadata.
-
-Example:
-
-``` json
+Uniform Error Response Structure:
+```json
 {
-  "document_id": "doc_123",
-  "chunk_id": "chunk_456",
-  "content": "...",
-  "page_start": 18,
-  "page_end": 19,
-  "section": "Cellular Respiration",
-  "source_type": "pdf"
-}
-```
-
-------------------------------------------------------------------------
-
-# 11. Tables
-
-Tables should not be flattened blindly.
-
-The extraction layer should preserve table relationships where possible.
-
-Example source:
-
-``` text
-Drug | Dosage | Effect
-A    | 50mg   | ...
-B    | 20mg   | ...
-```
-
-The resulting knowledge chunks should preserve enough structure for the
-AI to understand row/column relationships.
-
-------------------------------------------------------------------------
-
-# 12. RAG / Grounding Architecture
-
-The application uses retrieval-augmented generation.
-
-The PDF/document is the primary knowledge source.
-
-``` text
-Document
-   ↓
-Chunks
-   ↓
-Embeddings
-   ↓
-Vector Search
-   ↓
-Relevant Evidence
-   ↓
-Context Synthesis
-   ↓
-Nemotron Ultra
-```
-
-The system should not pass an entire large document to the model when
-retrieval can provide the relevant evidence.
-
-------------------------------------------------------------------------
-
-# 13. Grounded Knowledge Synthesis
-
-Before generation, the backend should retrieve relevant chunks based on
-the user's requested requirements.
-
-Example:
-
-User:
-
-> Create 30 difficult flashcards about cardiovascular diseases.
-
-Pipeline:
-
-``` text
-User Requirements
-      ↓
-Topic / Intent Analysis
-      ↓
-Retrieve Relevant Chunks
-      ↓
-Rank Evidence
-      ↓
-Synthesize Grounded Context
-      ↓
-Nemotron Ultra
-```
-
-The synthesis layer should:
-
--   Combine related sections
--   Remove irrelevant content
--   Preserve important definitions
--   Preserve relationships
--   Preserve source references
--   Avoid adding unsupported facts
--   Maintain page/section provenance
-
-------------------------------------------------------------------------
-
-# 14. Source-Only Policy
-
-Default behavior:
-
-**Use only information supported by the uploaded document.**
-
-If the document lacks enough information, the system should not silently
-supplement it with general model knowledge.
-
-Example:
-
-``` text
-User:
-Create 50 questions about quantum computing.
-
-Document:
-Contains only basic networking material.
-```
-
-Expected result:
-
-``` text
-Insufficient source coverage.
-
-The uploaded material does not contain enough
-information about quantum computing.
-
-Try another topic or upload another document.
-```
-
-The product may later support an explicit user-controlled "supplement
-with general knowledge" mode, but that is not part of the default MVP
-behavior.
-
-------------------------------------------------------------------------
-
-# 15. User Generation Requirements
-
-Users can configure:
-
--   Study topic
--   Number of questions/cards
--   Difficulty
--   Question types
--   Focus areas
--   Chapters/sections where supported
--   Custom instructions
-
-Example:
-
-``` text
-Topic:
-Cardiovascular System
-
-Number:
-50
-
-Difficulty:
-Hard
-
-Question Types:
-Multiple Choice
-Identification
-
-Instructions:
-Focus on concepts likely to appear on an exam.
-Prioritize mechanisms and comparisons.
-```
-
-------------------------------------------------------------------------
-
-# 16. Custom Prompt
-
-Users may provide natural-language requirements.
-
-Example:
-
-> Create 50 difficult questions from Chapters 1--5. Focus on concepts
-> likely to appear on exams. Avoid trivial questions. Make the questions
-> require understanding rather than memorization.
-
-The backend should convert user requirements into a structured
-generation specification before sending the request to Nemotron.
-
-Do not rely solely on raw prompt concatenation.
-
-------------------------------------------------------------------------
-
-# 17. Generation Types
-
-## Flashcards
-
-``` json
-{
-  "type": "flashcard",
-  "question": "...",
-  "answer": "...",
-  "explanation": "...",
-  "difficulty": "hard",
-  "source": {
-    "document_id": "...",
-    "page": 42,
-    "section": "..."
+  "error": {
+    "code": "ERROR_CODE_IDENTIFIER",
+    "message": "Human readable technical explanation."
   }
 }
 ```
 
-## Multiple Choice
-
-Must include:
-
--   Question
--   Options
--   Correct answer
--   Explanation
--   Difficulty
--   Source
-
-## True/False
-
-Must include:
-
--   Statement
--   Correct answer
--   Explanation
--   Source
-
-## Identification
-
-Must include:
-
--   Question
--   Expected answer
--   Accepted answer variants where appropriate
--   Explanation
--   Source
-
-## Fill-in-the-Blank
-
-Must include:
-
--   Question
--   Blank
--   Expected answer
--   Explanation
--   Source
-
-## Practice Exam
-
-Must contain:
-
--   Exam metadata
--   Questions
--   Question types
--   Answer key
--   Explanations
--   Sources
--   Difficulty
-
-## Study Summary
-
-Must be grounded in the source document and preserve important concepts.
-
-## Q&A
-
-Should produce source-grounded question/answer pairs.
-
-## Explain Topic
-
-Should explain a selected topic using only supported information from
-the source.
-
-------------------------------------------------------------------------
-
-# 18. Flashcard UX
-
-Example:
-
-``` text
-Biology
-Card 12 / 50
-
-What is the primary purpose of
-the Krebs cycle?
-
-[ Show Answer ]
-```
-
-After reveal:
-
-``` text
-Answer
-
-...
-
-Source
-Biology.pdf
-Page 38
-Cellular Respiration
-
-[ I Got It ]
-[ Review Again ]
-```
-
-------------------------------------------------------------------------
-
-# 19. Quiz UX (Gamified)
-
-The quiz runner currently supports:
-- Multiple Choice
-- True / False
-- Typed input for Fill-in-the-blank and Identification
-
-Example:
-
-``` text
-Question 12 / 30
-Type: Multiple Choice
-[XP Bar]
-
-Which process produces ATP
-during glycolysis?
-
-A. ...
-B. ...
-C. ...
-D. ...
-
-[ Submit ]
-```
-
-After submission:
-
-``` text
-Correct
-
-Explanation:
-...
-
-Source:
-Biology.pdf — Page 21
-```
-
-------------------------------------------------------------------------
-
-# 20. Practice Exam UX
-
-Example:
-
-``` text
-Biology Practice Exam
-
-50 Questions
-60 Minutes
-
-[ Start Exam ]
-```
-
-Features:
-
--   Timer
--   Question navigation
--   Mark for review
--   Submit exam
--   Score
--   Answer review
--   Explanations
--   Source references
-
-------------------------------------------------------------------------
-
-# 21. Offline Study
-
-Generated study sets can be downloaded/stored locally.
-
-Offline behavior:
-
-``` text
-Cloud Study Set
-      ↓
-Local Mobile Database
-      ↓
-Offline Study
-```
-
-Offline users can:
-
--   View flashcards
--   Answer quizzes
--   Take downloaded exams
--   Review explanations
--   Review source references already synchronized
--   Record progress
-
-Offline users cannot:
-
--   Upload documents
--   Generate new AI material
--   Run Nemotron
--   Perform server-side RAG
-
-------------------------------------------------------------------------
-
-# 22. Offline Synchronization
-
-Local study actions should be treated as events or pending mutations.
-
-Example:
-
-``` text
-Offline:
-
-Card 12 → Correct
-Card 13 → Wrong
-Card 14 → Correct
-
-       ↓ Internet returns
-
-Sync Queue
-       ↓
-FastAPI
-       ↓
-PostgreSQL
-```
-
-The synchronization layer must handle:
-
--   Retry
--   Duplicate requests
--   Idempotency
--   Conflict resolution
--   Last-known server state
-
-------------------------------------------------------------------------
-
-# 23. Generation UX
-
-Generation is user-friendly and guided by the "Momo" AI Mascot using animated components (e.g. `MomoMaker`).
-
-Detailed progress reflects human-readable states tied directly to the backend processing pipeline:
-
-``` text
-[Momo Maker Animation]
-
-Momo is crafting your questions and flashcards...
-[Progress Bar: 65%]
-```
-
-Actual backend stages shown to the user:
-- Retrieving relevant study concepts...
-- Extracting key study concepts from your document...
-- Momo is crafting your questions and flashcards...
-- Fact-checking answers and verifying questions...
-- Packaging your high-yield reviewer...
-- Your reviewer is cooked to perfection! Ready to lock in!
-
-------------------------------------------------------------------------
-
-# 24. Generation Failure
-
-For MVP, generation failure should allow a full restart.
-
-Example:
-
-``` text
-We couldn't finish creating your reviewer.
-
-Your document is still available.
-
-[ Try Again ]
-```
-
-The retry must create a clean generation attempt rather than
-accidentally duplicating old partial results.
-
-------------------------------------------------------------------------
-
-# 25. Validation Layer
-
-Generated content must be validated before being shown as final.
-
-Validation should check:
-
--   Required fields exist
--   JSON/schema is valid
--   Question is not empty
--   Answer is not empty
--   Multiple-choice questions have valid options
--   Correct answer exists
--   Difficulty is valid
--   Source references exist
--   Question is supported by retrieved evidence
--   Duplicate/near-duplicate questions are removed
--   Malformed model output is rejected
-
-Potential pipeline:
-
-``` text
-Nemotron
-   ↓
-JSON Parse
-   ↓
-Schema Validation
-   ↓
-Grounding Validation
-   ↓
-Duplicate Detection
-   ↓
-Final Study Set
-```
-
-------------------------------------------------------------------------
-
-# 26. Grounding Validation
-
-A generated question should have supporting evidence.
-
-Example:
-
-``` text
-Question
-   ↓
-Supporting source chunks
-   ↓
-Grounding check
-```
-
-If evidence is insufficient:
-
-``` text
-Reject card
-```
-
-Do not present unsupported content as source-grounded.
-
-------------------------------------------------------------------------
-
-# 27. Duplicate Detection
-
-The system should identify exact and semantic duplicates.
-
-Example:
-
-``` text
-What is HTTP?
-
-What does HTTP stand for?
-
-What protocol is used for web communication?
-```
-
-These may overlap and should not unnecessarily occupy three cards.
-
-------------------------------------------------------------------------
-
-# 28. Database Model
-
-Recommended core entities:
-
-``` text
-users
-documents
-document_chunks
-generation_jobs
-study_sets
-study_items
-study_sessions
-study_answers
-sync_events
-usage_records
-```
-
-Suggested relationships:
-
-``` text
-User
- ├── Documents
- ├── Study Sets
- ├── Generation Jobs
- ├── Study Sessions
- └── Usage Records
-
-Document
- ├── Chunks
- └── Study Sets
-
-Study Set
- ├── Study Items
- └── Study Sessions
-```
-
-------------------------------------------------------------------------
-
-# 29. Recommended Document Schema
-
-``` text
-documents
-- id
-- user_id
-- original_filename
-- file_type
-- mime_type
-- file_size
-- page_count
-- s3_object_key
-- uploaded_at
-- expires_at
-- processing_status
-- processing_error
-- created_at
-- updated_at
-```
-
-------------------------------------------------------------------------
-
-# 30. Recommended Study Set Schema
-
-``` text
-study_sets
-- id
-- user_id
-- document_id
-- title
-- description
-- generation_config
-- generation_status
-- item_count
-- created_at
-- updated_at
-```
-
-------------------------------------------------------------------------
-
-# 31. Study Item Schema
-
-``` text
-study_items
-- id
-- study_set_id
-- type
-- question
-- answer
-- explanation
-- options
-- difficulty
-- source_metadata
-- order_index
-- created_at
-```
-
-Use JSONB for flexible type-specific structures while keeping important
-searchable fields normalized where appropriate.
-
-------------------------------------------------------------------------
-
-# 32. API Architecture
-
-Recommended REST API.
-
-## Authentication
-
-``` text
-GET /api/me
-```
-
-## Documents
-
-``` text
-POST /api/documents/upload-url
-POST /api/documents
-GET /api/documents
-GET /api/documents/{document_id}
-DELETE /api/documents/{document_id}
-```
-
-## Processing
-
-``` text
-GET /api/documents/{document_id}/status
-```
-
-## Study Sets
-
-``` text
-POST /api/study-sets
-GET /api/study-sets
-GET /api/study-sets/{study_set_id}
-DELETE /api/study-sets/{study_set_id}
-```
-
-## Generation
-
-``` text
-POST /api/generations
-GET /api/generations/{generation_id}
-POST /api/generations/{generation_id}/retry
-```
-
-## Study
-
-``` text
-GET /api/study-sets/{study_set_id}/items
-POST /api/study-sessions
-POST /api/study-sessions/{session_id}/answers
-POST /api/sync
-```
-
-------------------------------------------------------------------------
-
-# 33. API Security
-
-Requirements:
-
--   Validate Supabase JWT
--   Enforce user ownership
--   Never trust `user_id` from request body
--   Validate file type
--   Validate file size
--   Validate page count
--   Protect generation endpoints
--   Rate limit expensive endpoints
--   Enforce 10-document monthly quota
--   Keep OpenRouter credentials server-side
--   Keep AWS credentials server-side
--   Use presigned S3 URLs
--   Never expose privileged Supabase keys to the client
-
-------------------------------------------------------------------------
-
-# 34. Usage Limits
-
-Default:
-
-**10 uploaded documents per user per month**
-
-A document counts when it enters the accepted processing pipeline.
-
-The quota system should prevent abuse before expensive AI processing
-begins.
-
-Example:
-
-``` text
-10 / 10 documents used
-
-You've reached this month's document limit.
-```
-
-Track usage by server-side user identity.
-
-------------------------------------------------------------------------
-
-# 35. AI Provider Architecture
-
-Use an AI provider abstraction.
-
-``` text
-AIService
-   │
-   └── OpenRouterNemotronProvider
-```
-
-Do not tightly couple business logic to OpenRouter.
-
-This allows future providers/models:
-
-``` text
-OpenRouter
-NVIDIA NIM
-Direct NVIDIA endpoint
-Other model provider
-```
-
-------------------------------------------------------------------------
-
-# 36. Model Prompt Architecture
-
-Use layered prompts:
-
-``` text
-System Instructions
-       +
-Generation Specification
-       +
-Grounded Evidence
-       +
-Output Schema
-```
-
-The model should be explicitly instructed to:
-
--   Use provided evidence
--   Avoid unsupported facts
--   Follow requested quantity
--   Follow requested difficulty
--   Follow requested question types
--   Produce structured output
--   Preserve source references
--   Avoid duplicate questions
--   Return a clear insufficiency signal when evidence is inadequate
-
-------------------------------------------------------------------------
-
-# 37. Generation Specification
-
-Example:
-
-``` json
-{
-  "output_type": "flashcard",
-  "count": 30,
-  "difficulty": "hard",
-  "topic": "cardiovascular system",
-  "question_types": ["flashcard"],
-  "source_only": true,
-  "custom_instruction": "Focus on exam-relevant concepts."
-}
-```
-
-This object should be the internal contract between the product layer
-and AI generation layer.
-
-------------------------------------------------------------------------
-
-# 38. Large-File Performance
-
-Even though the maximum document is only approximately 15 MB / 50 pages,
-processing should remain asynchronous.
-
-Recommended architecture:
-
-``` text
-Expo
- ↓
-FastAPI
- ↓
-Job Queue
- ↓
-Document Worker
- ↓
-RAG Index
- ↓
-Generation Worker
- ↓
-PostgreSQL
-```
-
-The API should not hold an HTTP connection open while performing
-expensive processing.
-
-------------------------------------------------------------------------
-
-# 39. Background Jobs
-
-Recommended stages:
-
-``` text
-DOCUMENT_PROCESSING
-       ↓
-KNOWLEDGE_INDEXING
-       ↓
-STUDY_GENERATION
-       ↓
-VALIDATION
-       ↓
-PERSISTENCE
-```
-
-Each job should have:
-
--   ID
--   user ID
--   status
--   progress
--   current stage
--   error
--   created timestamp
--   updated timestamp
-
-------------------------------------------------------------------------
-
-# 40. Progress API
-
-Example:
-
-``` json
-{
-  "status": "generating",
-  "progress": 72,
-  "stage": "Generating questions",
-  "message": "Creating your reviewer..."
-}
-```
-
-The Expo app can poll this endpoint.
-
-For MVP, polling is acceptable and simpler than WebSockets.
-
-------------------------------------------------------------------------
-
-# 41. Recommended Backend Structure
-
-``` text
-backend/
-├── app/
-│   ├── main.py
-│   ├── config.py
-│   ├── dependencies.py
-│   │
-│   ├── api/
-│   │   └── routes/
-│   │       ├── auth.py
-│   │       ├── documents.py
-│   │       ├── generations.py
-│   │       ├── study_sets.py
-│   │       └── sync.py
-│   │
-│   ├── domain/
-│   │   ├── documents/
-│   │   ├── generation/
-│   │   ├── study/
-│   │   └── users/
-│   │
-│   ├── services/
-│   │   ├── storage/
-│   │   ├── extraction/
-│   │   ├── ocr/
-│   │   ├── embeddings/
-│   │   ├── retrieval/
-│   │   ├── synthesis/
-│   │   ├── ai/
-│   │   └── validation/
-│   │
-│   ├── workers/
-│   │   ├── document_worker.py
-│   │   └── generation_worker.py
-│   │
-│   ├── db/
-│   │   ├── models/
-│   │   ├── repositories/
-│   │   └── session.py
-│   │
-│   └── schemas/
-│
-└── tests/
-```
-
-------------------------------------------------------------------------
-
-# 42. Recommended Expo Structure
-
-``` text
-mobile/
-├── app/
-│   ├── (auth)/
-│   ├── (tabs)/
-│   │   ├── index.tsx
-│   │   ├── library.tsx
-│   │   └── profile.tsx
-│   │
-│   ├── documents/
-│   ├── create/
-│   ├── study/
-│   └── generation/
-│
-├── components/
-│   ├── documents/
-│   ├── study/
-│   ├── quiz/
-│   └── generation/
-│
-├── lib/
-│   ├── api/
-│   ├── auth/
-│   ├── storage/
-│   ├── offline/
-│   └── sync/
-│
-├── store/
-├── hooks/
-├── types/
-└── utils/
-```
-
-------------------------------------------------------------------------
-
-# 43. Local Storage
-
-Use an on-device database for offline study.
-
-Candidate:
-
-**Expo SQLite**
-
-Store:
-
--   Downloaded study sets
--   Study items
--   Local sessions
--   Pending sync events
--   Metadata
-
-Secure authentication/session data separately using an appropriate
-secure storage mechanism.
-
-------------------------------------------------------------------------
-
-# 44. Home Screen
-
-Suggested:
-
-``` text
-Good morning
-
-Continue studying
-┌───────────────────────────┐
-│ Biology Final Exam        │
-│ 64% mastered              │
-│ [ Continue ]              │
-└───────────────────────────┘
-
-Recent Study Sets
-
-Biology
-Data Structures
-Networking
-
-[ + Create Reviewer ]
-```
-
-------------------------------------------------------------------------
-
-# 45. Library
-
-``` text
-My Study Sets
-
-Search
-
-All
-Flashcards
-Quiz
-Exam
-
-Biology Final
-Data Structures
-Networking
-```
-
-The library should focus on generated study sets rather than temporary
-raw documents.
-
-------------------------------------------------------------------------
-
-# 46. Create Reviewer Screen
-
-``` text
-Create Reviewer
-
-Study Material
-[ Biology.pdf ]
-
-What do you want to study?
-[ Cardiovascular System ]
-
-Number
-[ 30 ]
-
-Difficulty
-[ Hard ]
-
-Format
-☑ Flashcards
-☑ Multiple Choice
-
-Additional instructions
-[ Focus on exam-relevant concepts ]
-
-[ Generate Reviewer ]
-```
-
-------------------------------------------------------------------------
-
-# 47. Document Processing UX
-
-Avoid technical jargon.
-
-Instead of:
-
-``` text
-Embedding chunks...
-```
-
-display:
-
-``` text
-Understanding your study material...
-```
-
-Recommended stages:
-
-``` text
-Uploading
-Reading document
-Understanding content
-Preparing study material
-Creating reviewer
-Finishing up
-```
-
-------------------------------------------------------------------------
-
-# 48. Error Handling
-
-User-facing errors should be understandable.
-
-Bad:
-
-``` text
-HTTP 502
-JSONDecodeError
-```
-
-Good:
-
-``` text
-We couldn't create your reviewer right now.
-
-Please try again.
-```
-
-Log the technical error server-side.
-
-------------------------------------------------------------------------
-
-# 49. Observability
-
-Backend should log:
-
--   Request ID
--   User ID
--   Document ID
--   Generation ID
--   Processing stage
--   Duration
--   AI provider latency
--   AI failure
--   Validation failures
--   Retry count
-
-Do not log document contents or sensitive user data unnecessarily.
-
-------------------------------------------------------------------------
-
-# 50. Testing Strategy
-
-## Unit Tests
-
-Test:
-
--   File validation
--   Chunking
--   Metadata extraction
--   Generation specification
--   Prompt construction
--   JSON parsing
--   Validation
--   Duplicate detection
--   Quota calculation
-
-## Integration Tests
-
-Test:
-
-``` text
-Upload
- ↓
-S3
- ↓
-Processing
- ↓
-Embedding
- ↓
-Retrieval
- ↓
-Generation
- ↓
-Persistence
-```
-
-## Mobile Tests
-
-Test:
-
--   Authentication
--   Upload
--   Generation status
--   Flashcard navigation
--   Quiz
--   Exam
--   Offline study
--   Sync
--   Error states
-
-------------------------------------------------------------------------
-
-# 51. Acceptance Criteria
-
-## Upload
-
--   User can sign in with Google.
--   User can upload supported file types.
--   Files above the limit are rejected.
--   Unsupported files are rejected.
--   Files are uploaded securely to S3.
-
-## Processing
-
--   Text is extracted.
--   OCR is used when needed.
--   Page/source metadata is preserved where possible.
--   Chunks are indexed.
--   Processing status is visible.
-
-## Generation
-
--   User can specify topic.
--   User can specify quantity.
--   User can specify difficulty.
--   User can specify format.
--   User can provide custom instructions.
--   Generation uses retrieved source evidence.
--   Unsupported content is rejected or reported.
--   Generated content is validated.
--   Study set is persisted.
-
-## Study
-
--   Flashcards can be studied.
--   Quizzes can be taken.
--   Exams can be taken.
--   Explanations are displayed.
--   Sources are displayed.
--   Generated sets work offline after download.
-
-## Storage
-
--   Original document expires after 3 days.
--   Generated study sets remain available.
--   Expired S3 objects are deleted automatically.
-
-## Quota
-
--   User can process up to 10 documents/month.
--   Server enforces the limit.
-
-------------------------------------------------------------------------
-
-# 52. MVP Scope
-
-### Include
-
--   Google authentication
--   PDF/DOCX/TXT/PPTX upload
--   10--15 MB file limit
--   50-page target
--   OCR
--   Text extraction
--   Chunking
--   Embeddings
--   RAG
--   Grounded generation
--   Nemotron Ultra through OpenRouter
--   Flashcards
--   Multiple-choice
--   True/False
--   Identification
--   Fill-in-the-blank
--   Practice exams
--   Summaries
--   Q&A
--   Topic explanations
--   Custom generation requirements
--   Source references
--   Study set persistence
--   3-day original file retention
--   10-document monthly limit
--   Offline study
--   Progress tracking
--   Generation status
--   Retry
-
-------------------------------------------------------------------------
-
-# 53. Post-MVP
-
-Potential future features:
-
--   Spaced repetition
--   Adaptive difficulty
--   AI tutor chat
--   General-knowledge supplementation mode
--   Advanced analytics
--   Study streaks
--   Gamification
--   Collaborative study sets
--   Shared reviewers
--   Teacher mode
--   Public reviewer marketplace
--   Additional authentication providers
--   Multiple AI providers
--   Voice-based study
--   Image-based question generation
--   Diagram understanding
--   More advanced multimodal document processing
-
-------------------------------------------------------------------------
-
-# 54. Recommended Implementation Order
-
-``` text
-Phase 1
-Project setup
-Authentication
-Database
-API foundation
-
-Phase 2
-S3 upload
-Document metadata
-File validation
-3-day lifecycle
-
-Phase 3
-Document extraction
-OCR
-Normalization
-Chunking
-
-Phase 4
-Embeddings
-Vector search
-Retrieval
-Grounding
-
-Phase 5
-Nemotron integration
-Structured generation
-Prompt system
-
-Phase 6
-Validation
-Deduplication
-Source attribution
-
-Phase 7
-Study sets
-Flashcards
-Quiz
-Exam
-Summary
-Q&A
-
-Phase 8
-Generation progress
-Retries
-Quota
-
-Phase 9
-Offline SQLite
-Study sessions
-Sync
-
-Phase 10
-Testing
-Security
-Performance
-Deployment
-```
-
-------------------------------------------------------------------------
-
-# 55. Definition of Done
-
-The MVP is complete when a new user can:
-
-``` text
-1. Sign in with Google
-2. Upload a supported study document
-3. Wait while it is processed
-4. Configure a reviewer
-5. Add custom instructions
-6. Generate grounded content with Nemotron
-7. Open the generated study set
-8. Study flashcards
-9. Take quizzes/exams
-10. See explanations and sources
-11. Download the study set for offline use
-12. Study offline
-13. Reconnect and synchronize progress
-14. Return later and access the study set
-```
-
-The original uploaded document should automatically expire after three
-days while the generated study set remains available.
+### 8.1 Authentication
+- `GET /api/me`: Returns verified `user_id`, email, and full name.
+
+### 8.2 Document Management
+- `POST /api/documents/upload-url`
+  - Request: `{ "filename": "Cardio.pdf", "file_size": 4194304, "mime_type": "application/pdf", "file_type": "pdf" }`
+  - Response: `{ "upload_url": "https://...", "s3_object_key": "documents/...", "document_id": "...", "expires_in_seconds": 3600 }`
+  - Validations: Enforces 10 docs/mo quota; rejects files > 15 MB; verifies extension.
+- `POST /api/documents`
+  - Request: `{ "id": "...", "original_filename": "Cardio.pdf", "file_type": "pdf", "mime_type": "application/pdf", "file_size": 4194304, "s3_object_key": "..." }`
+  - Action: Registers metadata; triggers `DocumentWorker.process_document` in background.
+- `GET /api/documents`: Returns list of user's active documents.
+- `GET /api/documents/{id}`: Returns document metadata and page count.
+- `GET /api/documents/{id}/status`: Returns processing status (`UPLOADED`, `PROCESSING`, `READY`, `FAILED`), page count, error.
+- `DELETE /api/documents/{id}`: Deletes document record and storage object.
+
+### 8.3 Study Set Generation
+- `POST /api/generations`
+  - Request:
+    ```json
+    {
+      "document_id": "uuid",
+      "topic": "Cardiovascular Anatomy",
+      "count": 25,
+      "difficulty": "hard",
+      "question_types": ["flashcard", "multiple_choice", "identification"],
+      "source_only": true,
+      "academic_level": "3rd Year",
+      "learner_focus": "NCLEX pharmacology and physiology",
+      "custom_instruction": "Highlight contraindications."
+    }
+    ```
+  - Response: `{ "generation_id": "uuid", "status": "PENDING", "stage": "Created", "progress": 0 }`
+  - Rate limit: 5 requests per minute.
+- `GET /api/generations/{id}`: Polling endpoint returning progress percentage, stage message, and final `study_set_id`.
+- `POST /api/generations/{id}/retry`: Re-triggers failed generation without duplicating records.
+
+### 8.4 Study Sets & Items
+- `GET /api/study-sets`: Lists all user study sets with item counts and folder associations.
+- `POST /api/study-sets`: Creates a custom study set container.
+- `GET /api/study-sets/{id}`: Retrieves complete study set including array of grounded `study_items`.
+- `PATCH /api/study-sets/{id}`: Updates title, description, or assigned `folder_id`.
+- `DELETE /api/study-sets/{id}`: Deletes study set and its associated items.
+
+### 8.5 Offline Event Synchronization
+- `POST /api/sync/events`
+  - Request:
+    ```json
+    {
+      "events": [
+        {
+          "event_id": "client-uuid-1",
+          "study_session_id": "uuid",
+          "study_item_id": "uuid",
+          "result": "correct",
+          "user_answer": "Option B",
+          "occurred_at": "2026-09-25T14:30:00Z"
+        }
+      ]
+    }
+    ```
+  - Response: `{ "synced_ids": ["client-uuid-1"], "ignored_duplicates": 0 }`
+  - Idempotency: Duplicate submissions are acknowledged safely without re-crediting XP.
+
+### 8.6 Folders & Organization
+- `GET /api/folders`: Lists folders with computed reviewer counts.
+- `POST /api/folders`: Creates a new folder. Checks folder count and validates credit economy.
+- `GET /api/folders/{id}`: Retrieves single folder metadata.
+- `PATCH /api/folders/{id}`: Updates folder name or color hex.
+- `DELETE /api/folders/{id}`: Deletes folder; sets `folder_id = NULL` on member study sets.
+
+### 8.7 Step-by-Step Math Solver
+- `POST /api/math/solve`
+  - Request: `{ "base64_image": "data:image/jpeg;base64,...", "equation_text": "\\int x^2 dx" }`
+  - Response:
+    ```json
+    {
+      "problem": "\\int x^2 dx",
+      "category": "Calculus",
+      "difficulty": "medium",
+      "key_concepts": ["Power Rule of Integration"],
+      "steps": ["Apply the power rule: \\int x^n dx = \\frac{x^{n+1}}{n+1} + C", "Substitute n = 2: \\frac{x^3}{3} + C"],
+      "final_answer": "\\frac{1}{3}x^3 + C",
+      "explanation": "The power rule increases the exponent by one and divides by the new exponent."
+    }
+    ```
+  - Rate limit: 10 requests per minute.
+
+### 8.8 Learning Statistics & Streaks
+- `GET /api/stats/streak`: Returns array of active dates (`YYYY-MM-DD`) and current integer streak count.
+
+### 8.9 Conversational Momo AI Tutor
+- `GET /api/chat/sessions`: Lists user chat sessions ordered by update timestamp.
+- `POST /api/chat/sessions`: Creates a new chat thread.
+- `GET /api/chat/sessions/{id}`: Returns session metadata and historical message list.
+- `POST /api/chat/sessions/{id}/messages`: Submits student question. Executes semantic retrieval, prompt synthesis, dynamic tool execution, and returns Momo's structured answer with citation pills and generated study cards.
+- `POST /api/chat/import-card`: 1-tap import of generated study card directly into a library study set.
+
+### 8.10 Educational Diagrams & Visualizations
+- `POST /api/images/generate`
+  - Request: `{ "prompt": "Krebs Cycle pathway", "topic": "Cellular Respiration", "context": "Focus on acetyl-CoA entry and NADH generation" }`
+  - Response: `{ "image_base64": "...", "provider": "matplotlib_renderer", "prompt": "..." }`
+  - Rate limit: 5 requests per minute.
+
+---
+
+## 9. Security, Guardrails, and Rate Limiting
+
+1. Sliding Window Rate Limiter (`app/services/security/rate_limiter.py`):
+   - Per-user and per-IP tracking across 60-second sliding windows.
+   - Tiered limits:
+     - Global limit: 60 requests per minute.
+     - Chat limit: 20 requests per minute.
+     - Math solver limit: 10 requests per minute.
+     - Study generation limit: 5 requests per minute.
+   - Rejections return HTTP 429 with explicit `Retry-After` headers and `RATE_LIMIT_EXCEEDED` codes.
+2. Prompt Injection Defense (`guardrails_service.py`):
+   - System prompts establish that document content constitutes untrusted evidence only.
+   - Delimited XML encapsulation isolates untrusted text: `<evidence>...</evidence>`.
+   - Heuristic and regex filters detect and neutralize prompt escape sequences (e.g., "Ignore previous instructions", "Reveal system prompt", "Forget rules").
+3. Credential Sanitizer:
+   - Automated regex scrubbing prevents API keys, database connection strings, JWTs, and internal hostnames from leaking in AI generation outputs or error responses.
+4. Quota Protection:
+   - Server-enforced monthly upload limit (10 documents/month). Quota consumption is verified prior to issuing storage presigned URLs and double-checked upon document registration.
+
+---
+
+## 10. Verification and Quality Engineering
+
+### 10.1 Automated Test Suite
+The backend maintains comprehensive pytest coverage across critical modules:
+- `test_extraction_and_chunking.py`: Validates PDF, DOCX, TXT, PPTX parsers, sliding window chunkers, and page provenance retention.
+- `test_embeddings_and_rag.py`: Tests vector generation, pgvector cosine search, and evidence synthesis.
+- `test_grounding_validation.py`: Verifies `source_only = True` compliance and detection of ungrounded or hallucinated answers.
+- `test_quota_and_lifecycle.py`: Asserts server-side monthly quota enforcement, 3-day expiration calculation, and independent study set persistence.
+- `test_api_endpoints.py`: Verifies HTTP status codes, Pydantic validation failures, and RFC error response structures.
+- `test_generation_profile.py`: Tests `academic_level` and `learner_focus` prompt adaptations.
+- `test_folders.py` & `test_folder_schemas.py`: Validates folder CRUD and progressive credit pricing formulas.
+- `test_full_generation_pipeline.py`: End-to-end integration test simulating upload, chunking, retrieval, model inference, validation, and storage.
+
+### 10.2 Mobile Verification
+- Mobile unit tests (`mobile/__tests__/sampleDeck.test.ts`) verify dynamic deck compilation for selected tracks.
+- Component-level TypeScript checks verify strict typing across all Expo Router screens and custom hooks.
+
+---
+
+## 11. Definition of Done (DoD)
+
+A feature or architectural change is considered complete only when:
+1. It complies with all 6 architectural invariants in Section 4.
+2. All request and response structures are typed via Pydantic v2 (backend) and TypeScript interfaces (mobile/web).
+3. Secrets remain isolated to backend environment variables.
+4. Input validation and guardrail sanitization are applied to user prompts.
+5. All automated unit and integration tests pass cleanly (`uv run pytest`).
+6. No console errors, unhandled rejections, or type errors exist.
+7. Documentation integrity is maintained without emojis.

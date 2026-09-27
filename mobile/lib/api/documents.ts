@@ -1,6 +1,6 @@
 import { Platform } from 'react-native';
-import { File, UploadType } from 'expo-file-system';
-import { apiFetch, BASE_URL } from './client';
+import * as FileSystem from 'expo-file-system/legacy';
+import { apiFetch, getBaseUrl, BASE_URL } from './client';
 import { DocumentItem } from '../../types';
 
 export interface UploadUrlResponse {
@@ -27,32 +27,33 @@ export async function uploadFileToS3(
   fileData: Blob | string,
   mimeType: string
 ): Promise<void> {
-  const targetUrl = uploadUrl.startsWith('http') ? uploadUrl : `${BASE_URL}${uploadUrl}`;
+  const currentBase = getBaseUrl();
+  const targetUrl = uploadUrl.startsWith('http') ? uploadUrl : `${currentBase}${uploadUrl}`;
 
-  // Direct native streaming upload if given a local file URI on native (bypasses JS memory & base64 overhead)
+  // Direct native streaming upload for local file URI on iOS & Android (bypasses JS memory & base64 overhead)
   if (
     Platform.OS !== 'web' &&
     typeof fileData === 'string' &&
     (fileData.startsWith('file:') || fileData.startsWith('content:'))
   ) {
     try {
-      const file = new File(fileData);
-      const uploadRes = await file.upload(targetUrl, {
+      const uploadRes = await FileSystem.uploadAsync(targetUrl, fileData, {
         httpMethod: 'PUT',
         headers: { 'Content-Type': mimeType },
-        uploadType: UploadType.BINARY_CONTENT,
+        uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
       });
 
       if (uploadRes.status >= 200 && uploadRes.status < 300) {
         return;
       }
-      console.warn(`[uploadFileToS3] file.upload returned status ${uploadRes.status}, falling back to fetch`);
-    } catch (fsErr) {
-      console.warn('[uploadFileToS3] File upload error, falling back to fetch:', fsErr);
+      throw new Error(`Upload failed with server status ${uploadRes.status}`);
+    } catch (fsErr: any) {
+      console.warn('[uploadFileToS3] Native upload failed:', fsErr);
+      throw new Error(fsErr.message || 'Failed to upload document from device storage.');
     }
   }
 
-  // Fallback to fetch with Blob (web, or if native upload failed)
+  // Fallback for Web (where fileData is a Blob or File object)
   let body: any = fileData;
   if (typeof fileData === 'string') {
     const resp = await fetch(fileData);

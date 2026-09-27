@@ -19,12 +19,14 @@ export default function SmoothScroll() {
           anchors: true,
           prevent: (element) => element.hasAttribute('data-native-scroll'),
         });
+        (window as unknown as { __lenis?: Lenis }).__lenis = scroll;
       }
     };
     configure();
     preference.addEventListener('change', configure);
     return () => {
       scroll?.destroy();
+      delete (window as unknown as { __lenis?: Lenis }).__lenis;
       preference.removeEventListener('change', configure);
     };
   }, []);

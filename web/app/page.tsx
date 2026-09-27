@@ -36,9 +36,25 @@ function Reveal({ children, className = '' }: { children: React.ReactNode; class
   );
 }
 
-function Brand() {
+function Brand({ onClick }: { onClick?: () => void }) {
+  const handleClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    onClick?.();
+    if (typeof window !== 'undefined' && window.location.pathname === '/') {
+      e.preventDefault();
+      if (window.location.hash) {
+        window.history.pushState(null, '', '/');
+      }
+      const lenis = (window as unknown as { __lenis?: { scrollTo: (target: number | string | HTMLElement, opts?: { immediate?: boolean }) => void } }).__lenis;
+      if (lenis) {
+        lenis.scrollTo(0);
+      } else {
+        window.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
+      }
+    }
+  };
+
   return (
-    <a className="brand" href="#top" aria-label="Momo home">
+    <a className="brand" href="/" onClick={handleClick} aria-label="Momo home">
       <span className="brand-mark"><Image src={`${asset}momo_logo.png`} alt="" width={39} height={39} /></span>
       <span>momo<span className="brand-dot">.</span></span>
     </a>
@@ -112,6 +128,8 @@ function StepArt({ kind }: { kind: (typeof steps)[number]['art'] }) {
 export default function Home() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [soundOn, setSoundOn] = useState(true);
+  const [navVisible, setNavVisible] = useState(true);
+  const [isScrolled, setIsScrolled] = useState(false);
   const [clickWords, setClickWords] = useState<ClickWord[]>([]);
   const soundsRef = useRef<MomoSounds | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -146,6 +164,70 @@ export default function Home() {
   function playMomoCall() {
     void soundsRef.current?.play();
   }
+
+  useEffect(() => {
+    let lastScrollY = typeof window !== 'undefined' ? window.scrollY : 0;
+    let ticking = false;
+
+    if (typeof window !== 'undefined' && window.scrollY > 20) {
+      setIsScrolled(true);
+    }
+
+    const handleScroll = () => {
+      const currentScrollY = window.scrollY;
+
+      // Always show at or near the top
+      if (currentScrollY <= 60) {
+        setNavVisible(true);
+        setIsScrolled(currentScrollY > 15);
+        lastScrollY = Math.max(0, currentScrollY);
+        ticking = false;
+        return;
+      }
+
+      setIsScrolled(true);
+
+      // Keep navbar visible if mobile navigation menu is open
+      if (menuOpen) {
+        setNavVisible(true);
+        lastScrollY = currentScrollY;
+        ticking = false;
+        return;
+      }
+
+      const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
+      if (currentScrollY >= maxScroll - 10) {
+        ticking = false;
+        return;
+      }
+
+      const diff = currentScrollY - lastScrollY;
+      const threshold = 6;
+
+      if (Math.abs(diff) >= threshold) {
+        if (diff > 0) {
+          // Scrolling down -> hide navbar to save screen space
+          setNavVisible(false);
+        } else {
+          // Scrolling up -> instantly reveal floating navbar
+          setNavVisible(true);
+        }
+        lastScrollY = currentScrollY;
+      }
+
+      ticking = false;
+    };
+
+    const onScroll = () => {
+      if (!ticking) {
+        window.requestAnimationFrame(handleScroll);
+        ticking = true;
+      }
+    };
+
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, [menuOpen]);
 
   useEffect(() => {
     const sounds = new MomoSounds();
@@ -279,9 +361,12 @@ export default function Home() {
       <a className="skip-link" href="#main">Skip to content</a>
       <motion.div className="scroll-progress" style={{ scaleX }} aria-hidden="true" />
       <div className="click-words" aria-hidden="true"><AnimatePresence>{clickWords.map((word) => <motion.span key={word.id} className="click-word" style={{ left: word.x, top: word.y }} initial={reducedMotion ? false : { opacity: 0, y: 4, scale: 0.85 }} animate={{ opacity: 1, y: reducedMotion ? 0 : -22, scale: 1 }} exit={{ opacity: 0, y: reducedMotion ? 0 : -38 }} transition={{ duration: reducedMotion ? 0 : 0.35 }}>{word.text}</motion.span>)}</AnimatePresence></div>
-      <header className="site-header" id="top">
+      <header
+        className={`site-header ${isScrolled ? 'is-scrolled' : ''} ${!navVisible && !menuOpen ? 'is-hidden' : ''}`}
+        id="top"
+      >
         <div className="header-inner shell flex items-center justify-between">
-          <Brand />
+          <Brand onClick={() => { setNavVisible(true); setMenuOpen(false); }} />
           <nav className="desktop-nav" aria-label="Main navigation"><a href="#how-it-works">How it works</a><a href="#features">What you can do</a><a href="#screens">Screen View</a><a href="#questions">Questions</a></nav>
           <div className="header-actions">
             <button

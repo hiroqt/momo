@@ -95,7 +95,7 @@ export const GlassSurface: React.FC<GlassSurfaceProps> = ({
           styles.solidFallback,
           baseSurfaceStyle,
           {
-            backgroundColor: variant === 'primary' ? colors.primary : colors.surface,
+            backgroundColor: tintColor ?? (variant === 'primary' ? colors.primaryPressed : colors.surface),
             borderColor: variant === 'primary' ? colors.primaryDark : colors.border,
           },
         ]}
@@ -130,7 +130,7 @@ export const GlassSurface: React.FC<GlassSurfaceProps> = ({
           styles.solidFallback,
           baseSurfaceStyle,
           {
-            backgroundColor: variant === 'primary' ? colors.primary : '#FFFFFF',
+            backgroundColor: tintColor ?? (variant === 'primary' ? colors.primaryPressed : '#FFFFFF'),
             borderColor: variant === 'primary' ? colors.primaryDark : token.borderColor,
             overflow: 'hidden',
           },

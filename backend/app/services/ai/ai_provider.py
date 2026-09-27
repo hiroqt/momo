@@ -199,7 +199,12 @@ class MockNemotronProvider(AIProvider):
     ) -> List[Dict[str, Any]]:
         count = min(generation_spec.get("count", 5), 50)
         topic = generation_spec.get("topic", "General")
-        q_types = generation_spec.get("question_types", ["flashcard", "multiple_choice"])
+        q_types = (
+            generation_spec.get("effective_types")
+            or generation_spec.get("reviewer_types")
+            or generation_spec.get("question_types")
+            or ["flashcard", "multiple_choice"]
+        )
         difficulty = generation_spec.get("difficulty", "medium")
         custom_inst = (generation_spec.get("custom_instruction") or "").lower()
 
@@ -285,7 +290,71 @@ class MockNemotronProvider(AIProvider):
                 if len(alt_subjects) >= 3:
                     break
 
-            if q_type == "flashcard":
+            if q_type == "glossary":
+                item = {
+                    "type": "glossary",
+                    "question": subject,
+                    "answer": f"A key concept in {topic_context or 'the material'} that {verb} {predicate}.",
+                    "explanation": f"Important domain terminology representing the mechanism that {verb} {predicate}.",
+                    "hint": f"Term starting with '{subject[0].upper()}'",
+                    "difficulty": difficulty,
+                    "source_metadata": meta
+                }
+            elif q_type == "concept_outline":
+                item = {
+                    "type": "concept_outline",
+                    "question": f"{subject}: Core Mechanism & Overview",
+                    "answer": (
+                        f"• Core Function: Operates by {verb}ing {predicate}.\n"
+                        f"• Systemic Role: Integrates with key {topic_context or 'domain'} processes for optimal efficiency.\n"
+                        f"• Critical Insight: Essential for proper regulation and functional continuity."
+                    ),
+                    "explanation": f"Comprehensive conceptual summary outline grounded in source documentation.",
+                    "difficulty": difficulty,
+                    "source_metadata": meta
+                }
+            elif q_type == "cheat_sheet":
+                item = {
+                    "type": "cheat_sheet",
+                    "question": f"Key Principle: {subject}",
+                    "answer": f"MUST-KNOW: {subject} directly {verb} {predicate}.",
+                    "explanation": f"High-yield rule and formula anchor for rapid review before exams.",
+                    "hint": f"{subject} -> {verb} {predicate}",
+                    "difficulty": difficulty,
+                    "source_metadata": meta
+                }
+            elif q_type == "compare_contrast":
+                comp_subject = alt_subjects[0] if alt_subjects else "Related Pathway"
+                item = {
+                    "type": "compare_contrast",
+                    "question": f"{subject} vs. {comp_subject}",
+                    "answer": (
+                        f"• {subject}: Specifically functions to {verb} {predicate}.\n"
+                        f"• {comp_subject}: Executes a distinct role with separate regulatory properties."
+                    ),
+                    "explanation": f"Clear comparative distinction to avoid conceptual confusion on assessments.",
+                    "difficulty": difficulty,
+                    "source_metadata": meta
+                }
+            elif q_type == "qa_study_sheet":
+                item = {
+                    "type": "qa_study_sheet",
+                    "question": f"What is the functional role of {subject} and why is it important?",
+                    "answer": f"{subject} is critical because it directly {verb} {predicate}. If disrupted, the process cannot complete successfully.",
+                    "explanation": f"Anticipated study question examining foundational principles of {topic_context or 'the material'}.",
+                    "difficulty": difficulty,
+                    "source_metadata": meta
+                }
+            elif q_type == "timeline_process":
+                item = {
+                    "type": "timeline_process",
+                    "question": f"Stage {i + 1}: {subject} Mechanism",
+                    "answer": f"In this sequence, {subject} activates to {verb} {predicate}.",
+                    "explanation": f"Sequential procedural step identified in the source study material.",
+                    "difficulty": difficulty,
+                    "source_metadata": meta
+                }
+            elif q_type == "flashcard":
                 variant = i % 4
                 if variant == 0:
                     q_text = f"{topic_prefix}{'w' if topic_prefix else 'W'}hat is the primary role and function of {subject}?"
@@ -1266,11 +1335,37 @@ class OpenRouterNemotronProvider(AIProvider):
             "   - For Identification:\n"
             "     * Formulate direct, clear questions asking for the key entity, structure, or term in the topic.\n"
             "     * Include a helpful, conceptual clue in 'hint' (e.g., category or starting letter) without revealing the answer.\n"
-            "11. Return strict JSON format with a top-level 'items' array. Each item must contain: "
-            "'type', 'question', 'answer', 'explanation', 'options' (for MCQ/True-False), 'hint' (concise clue for identification questions), 'difficulty', 'source_ref_id' (matching the Source #).\n"
-            "12. COMPREHENSIVE COVERAGE:\n"
+            "11. REVIEWER FORMAT SPECIFICATIONS (STUDY GUIDE / NON-QUIZ READING MATERIAL):\n"
+            "   - When 'type' is 'glossary':\n"
+            "     * 'question': The exact technical term or vocabulary word (e.g., 'Homeostasis', 'Krebs Cycle', 'TCP Three-Way Handshake').\n"
+            "     * 'answer': Concise, authoritative, plain-language definition and meaning grounded strictly in the source text.\n"
+            "     * 'explanation': Real-world educational application or why the term is critical to the domain.\n"
+            "     * 'hint': Initial letter or conceptual category (e.g. 'Physiological regulation mechanism').\n"
+            "   - When 'type' is 'concept_outline':\n"
+            "     * 'question': Concept or section heading name (e.g., 'Overview: Cellular Respiration').\n"
+            "     * 'answer': Formatted bullet points (using '•') breaking down the core principles, prerequisites, and mechanisms.\n"
+            "     * 'explanation': High-yield takeaways and key relationships to adjacent topics.\n"
+            "   - When 'type' is 'cheat_sheet':\n"
+            "     * 'question': The rule, formula, or must-know fact title (e.g., 'Key Formula: Ohm\\'s Law', 'Core Rule: Statute of Frauds').\n"
+            "     * 'answer': The exact rule, equation, or vital fact summary in bold memorable terms.\n"
+            "     * 'explanation': High-yield mnemonic anchor or exam reminder.\n"
+            "   - When 'type' is 'compare_contrast':\n"
+            "     * 'question': Direct comparison title (e.g., 'Mitosis vs. Meiosis', 'TCP vs. UDP', 'Aerobic vs. Anaerobic').\n"
+            "     * 'answer': Clear bulleted side-by-side contrast highlighting key similarities, differences, and practical uses.\n"
+            "     * 'explanation': Why students confuse these two and how to easily distinguish them on exams.\n"
+            "   - When 'type' is 'qa_study_sheet':\n"
+            "     * 'question': Comprehensive, anticipated study question (e.g., 'How does the loop of Henle maintain osmotic gradient?').\n"
+            "     * 'answer': In-depth, crystal-clear explanation answering the question thoroughly for reading/study.\n"
+            "     * 'explanation': Deeper context, exceptions, or connected physiological principles.\n"
+            "   - When 'type' is 'timeline_process':\n"
+            "     * 'question': Step or chronological event title (e.g., 'Phase 1: Glycolysis', 'Step 2: Signal Transduction').\n"
+            "     * 'answer': Sequential explanation of actions, inputs, outputs, and catalyst elements.\n"
+            "     * 'explanation': Prerequisites required before this step and what immediately follows.\n"
+            "12. Return strict JSON format with a top-level 'items' array. Each item must contain: "
+            "'type', 'question', 'answer', 'explanation', 'options' (for MCQ/True-False/comparisons), 'hint', 'difficulty', 'source_ref_id' (matching the Source #).\n"
+            "13. COMPREHENSIVE COVERAGE:\n"
             "    - Generate high-yield, distinct study items to comprehensively cover all core questions, definitions, terminology, and mechanisms across the source material.\n"
-            "    - Ensure every major concept, question, and mechanism in the evidence has a corresponding direct flashcard or question.\n"
+            "    - Ensure every major concept, question, and mechanism in the evidence has a corresponding direct flashcard, reviewer item, or question.\n"
         )
 
     async def _call_nemotron(
@@ -1334,7 +1429,12 @@ class OpenRouterNemotronProvider(AIProvider):
     ) -> List[Dict[str, Any]]:
         difficulty = batch_spec.get("difficulty", "medium")
         custom_inst = batch_spec.get("custom_instruction")
-        q_types = batch_spec.get("question_types")
+        q_types = (
+            batch_spec.get("effective_types")
+            or batch_spec.get("reviewer_types")
+            or batch_spec.get("question_types")
+            or ["flashcard", "multiple_choice"]
+        )
         topic = batch_spec.get("topic")
         allow_ai = bool(batch_spec.get("allow_ai_generation", False)) or not bool(batch_spec.get("source_only", True))
         system_prompt = self._build_system_prompt(
@@ -1431,7 +1531,12 @@ class OpenRouterNemotronProvider(AIProvider):
         # e.g. 15 items -> 2 batches (8, 7); 20 items -> 3 batches (7, 7, 6)
         batch_size = 7
         num_batches = max(2, (requested_count + batch_size - 1) // batch_size)
-        q_types = generation_spec.get("question_types", ["flashcard", "multiple_choice"])
+        q_types = (
+            generation_spec.get("effective_types")
+            or generation_spec.get("reviewer_types")
+            or generation_spec.get("question_types")
+            or ["flashcard", "multiple_choice"]
+        )
 
         batches = []
         remaining = requested_count
@@ -1446,6 +1551,7 @@ class OpenRouterNemotronProvider(AIProvider):
             b_spec = dict(generation_spec)
             b_spec["count"] = b_count
             b_spec["question_types"] = type_slice
+            b_spec["effective_types"] = type_slice
             batches.append(b_spec)
 
         logger.info(f"Running {len(batches)} parallel Nemotron generation batches for target count {requested_count}")

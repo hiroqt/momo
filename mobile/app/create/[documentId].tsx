@@ -8,6 +8,8 @@ import {
   Platform,
   Animated,
   KeyboardAvoidingView,
+  Keyboard,
+  TouchableWithoutFeedback,
 } from 'react-native';
 import { AppText as Text, AppTextInput as TextInput } from '@/components/common/app-text';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -16,10 +18,12 @@ import { HugeiconsIcon } from '@hugeicons/react-native';
 import {
   Tick01Icon,
   Add01Icon,
+  Cancel01Icon,
   SparklesIcon,
   ArrowRight01Icon,
   ArrowLeft01Icon,
   BookOpen01Icon,
+  Book02Icon,
   CheckmarkCircle02Icon,
   Clock01Icon,
   Edit02Icon,
@@ -27,6 +31,8 @@ import {
   Target02Icon,
   Layers01Icon,
   Task01Icon,
+  HelpCircleIcon,
+  File01Icon,
 } from '@hugeicons/core-free-icons';
 import { createGeneration } from '../../lib/api/generations';
 import { getDocument } from '../../lib/api/documents';
@@ -36,26 +42,28 @@ import { SmoothScrollView } from '../../components/common/SmoothScrollView';
 import { isIpad } from '../../utils/device';
 import { useOnboarding } from '../../context/OnboardingContext';
 
-const TOTAL_STEPS = 6;
-
-const STEP_TITLES = [
-  'Reviewer Name',
-  'Study Topic',
-  'Question Count',
-  'Difficulty Level',
-  'Study Formats',
-  'Question Timer',
-];
-
 export default function CreateReviewerScreen() {
-  const { documentId } = useLocalSearchParams<{ documentId: string }>();
+  const { documentId, otherDocIds, mode, targetMode } = useLocalSearchParams<{
+    documentId: string;
+    otherDocIds?: string;
+    mode?: 'reviewer' | 'quiz';
+    targetMode?: 'reviewer' | 'quiz';
+  }>();
   const router = useRouter();
   const { studyTrack, highSchoolGrade, collegeYear, collegeCourse } = useOnboarding();
   const insets = useSafeAreaInsets();
 
-  // Step state (1 to 5)
+  const currentMode = mode || targetMode || 'reviewer';
+  const isQuizFlow = currentMode === 'quiz';
+  const totalSteps = isQuizFlow ? 6 : 4;
+
+  const stepTitles = isQuizFlow
+    ? ['Quiz Name', 'Study Topic', 'Question Count', 'Difficulty Level', 'Quiz Formats', 'Question Timer']
+    : ['Reviewer Name', 'Topic Focus', 'Content Level', 'Reviewer Formats'];
+
+  // Step state
   const [currentStep, setCurrentStep] = useState(1);
-  const progressAnim = useRef(new Animated.Value(1 / TOTAL_STEPS)).current;
+  const progressAnim = useRef(new Animated.Value(1 / totalSteps)).current;
 
   // Step 1: Name
   const [title, setTitle] = useState('');
@@ -65,20 +73,33 @@ export default function CreateReviewerScreen() {
   const [suggestedTopics, setSuggestedTopics] = useState<string[]>([]);
   const [documentName, setDocumentName] = useState('');
 
-  // Step 3: Count
+  // Step 3 (Reviewer): Content Level
+  const [contentLevel, setContentLevel] = useState<'light' | 'moderate' | 'detailed'>('moderate');
+
+  // Step 3 (Quiz): Count
   const [count, setCount] = useState('20');
 
-  // Step 4: Difficulty
+  // Step 4 (Quiz): Difficulty
   const [difficulty, setDifficulty] = useState<'easy' | 'medium' | 'hard'>('medium');
 
-  // Step 5: Formats & Instructions
-  const [formats, setFormats] = useState<{ [key: string]: boolean }>({
+  // Formats
+  const [reviewerFormats, setReviewerFormats] = useState<{ [key: string]: boolean }>({
+    glossary: true,
+    concept_outline: true,
+    cheat_sheet: true,
+    compare_contrast: true,
+    qa_study_sheet: true,
+    timeline_process: false,
+  });
+  const [quizFormats, setQuizFormats] = useState<{ [key: string]: boolean }>({
     flashcard: true,
     multiple_choice: true,
     true_false: false,
     identification: false,
   });
   const [instructions, setInstructions] = useState('');
+
+  // Step 6 (Quiz): Timer
   const [timerOption, setTimerOption] = useState<'none' | '15' | '30' | '45' | '60' | 'custom'>('none');
   const [customTimer, setCustomTimer] = useState('90');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -87,11 +108,12 @@ export default function CreateReviewerScreen() {
     if (!documentId) return;
     getDocument(documentId)
       .then((res) => {
+        const defaultSuffix = isQuizFlow ? 'Quiz' : 'Reviewer';
         if (res.original_filename) {
           setDocumentName(res.original_filename);
           // Set smart default title if empty
           const baseName = res.original_filename.replace(/\.[^/.]+$/, '');
-          setTitle(`${baseName} Reviewer`);
+          setTitle(`${baseName} ${defaultSuffix}`);
         }
         if (res.suggested_topics && res.suggested_topics.length > 0) {
           setSuggestedTopics(res.suggested_topics);
@@ -99,47 +121,63 @@ export default function CreateReviewerScreen() {
           if (!title) {
             const rawTopic = res.suggested_topics[0];
             const cleanTopic = rawTopic.replace(/^entire\s+document\s*(?:\((.*?)\))?/i, '$1').trim();
-            setTitle(`${cleanTopic || res.original_filename?.replace(/\.[^/.]+$/, '') || 'Study'} Reviewer`);
+            setTitle(`${cleanTopic || res.original_filename?.replace(/\.[^/.]+$/, '') || 'Study'} ${defaultSuffix}`);
           }
         }
       })
       .catch((err) => {
         console.warn('Failed to load document details:', err);
       });
-  }, [documentId]);
+  }, [documentId, isQuizFlow]);
 
   const animateProgress = (targetStep: number) => {
     Animated.timing(progressAnim, {
-      toValue: targetStep / TOTAL_STEPS,
+      toValue: targetStep / totalSteps,
       duration: 300,
       useNativeDriver: false,
     }).start();
   };
 
   const goToNextStep = () => {
-    // Step-by-step validations
+    // Step 1: Name validation
     if (currentStep === 1) {
       if (!title.trim()) {
-        Alert.alert('Name Required', 'Please enter a name for your reviewer.');
+        Alert.alert('Name Required', `Please enter a name for your ${isQuizFlow ? 'quiz' : 'reviewer'}.`);
         return;
       }
-    } else if (currentStep === 2) {
+    } 
+    // Step 2: Topic validation
+    else if (currentStep === 2) {
       if (!topic.trim()) {
         Alert.alert('Topic Required', 'Please enter or select a topic to study.');
         return;
       }
-    } else if (currentStep === 5) {
-      const selectedTypes = Object.keys(formats).filter((k) => formats[k]);
-      if (selectedTypes.length === 0) {
-        Alert.alert('Selection Required', 'Please select at least one study format.');
+    } 
+    // Reviewer Flow: Step 4 is Formats (Final step for reviewer)
+    else if (!isQuizFlow && currentStep === 4) {
+      const selectedRev = Object.keys(reviewerFormats).filter((k) => reviewerFormats[k]);
+      if (selectedRev.length === 0) {
+        Alert.alert('Selection Required', 'Please select at least one reviewer format.');
         return;
       }
-    } else if (currentStep === 6) {
+      handleGenerate();
+      return;
+    }
+    // Quiz Flow: Step 5 is Formats
+    else if (isQuizFlow && currentStep === 5) {
+      const selectedQuiz = Object.keys(quizFormats).filter((k) => quizFormats[k]);
+      if (selectedQuiz.length === 0) {
+        Alert.alert('Selection Required', 'Please select at least one quiz format.');
+        return;
+      }
+    } 
+    // Quiz Flow: Step 6 is Timer (Final step for quiz)
+    else if (isQuizFlow && currentStep === 6) {
       handleGenerate();
       return;
     }
 
-    const next = Math.min(currentStep + 1, TOTAL_STEPS);
+    const next = Math.min(currentStep + 1, totalSteps);
     setCurrentStep(next);
     animateProgress(next);
   };
@@ -154,34 +192,54 @@ export default function CreateReviewerScreen() {
     }
   };
 
-  const toggleFormat = (key: string) => {
-    setFormats((prev) => ({ ...prev, [key]: !prev[key] }));
+  const toggleReviewerFormat = (key: string) => {
+    setReviewerFormats((prev) => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  const toggleQuizFormat = (key: string) => {
+    setQuizFormats((prev) => ({ ...prev, [key]: !prev[key] }));
   };
 
   const handleGenerate = async () => {
-    const selectedTypes = Object.keys(formats).filter((k) => formats[k]);
-    if (selectedTypes.length === 0) {
-      Alert.alert('Selection Required', 'Please select at least one study format.');
+    const selectedRev = Object.keys(reviewerFormats).filter((k) => reviewerFormats[k]);
+    const selectedQuiz = Object.keys(quizFormats).filter((k) => quizFormats[k]);
+
+    if (!isQuizFlow && selectedRev.length === 0) {
+      Alert.alert('Selection Required', 'Please select at least one reviewer format.');
+      return;
+    }
+    if (isQuizFlow && selectedQuiz.length === 0) {
+      Alert.alert('Selection Required', 'Please select at least one quiz format.');
       return;
     }
 
     setIsSubmitting(true);
     try {
       const parsedCustom = parseInt(customTimer, 10);
-      const timerSeconds =
-        timerOption === 'none'
+      const timerSeconds = isQuizFlow
+        ? timerOption === 'none'
           ? undefined
           : timerOption === 'custom'
-          ? (Number.isFinite(parsedCustom) && parsedCustom > 0 ? parsedCustom : 60)
-          : parseInt(timerOption, 10);
+          ? Number.isFinite(parsedCustom) && parsedCustom > 0 ? parsedCustom : 60
+          : parseInt(timerOption, 10)
+        : undefined;
+
+      const otherList = otherDocIds ? otherDocIds.split(',').filter(Boolean) : [];
+      const allDocIds = [documentId, ...otherList];
+
+      const reviewerItemCount = contentLevel === 'light' ? 12 : contentLevel === 'detailed' ? 35 : 20;
 
       const job = await createGeneration({
         document_id: documentId,
-        title: title.trim() || `${topic.trim()} Reviewer`,
+        document_ids: allDocIds.length > 1 ? allDocIds : undefined,
+        generation_mode: isQuizFlow ? 'quiz' : 'reviewer',
+        reviewer_types: !isQuizFlow ? selectedRev : [],
+        question_types: isQuizFlow ? selectedQuiz : [],
+        content_level: !isQuizFlow ? contentLevel : undefined,
+        title: title.trim() || `${topic.trim()} ${isQuizFlow ? 'Quiz' : 'Reviewer'}`,
         topic: topic.trim() || 'Core Document Concepts',
-        count: parseInt(count, 10) || 20,
-        difficulty,
-        question_types: selectedTypes,
+        count: isQuizFlow ? (parseInt(count, 10) || 20) : reviewerItemCount,
+        difficulty: isQuizFlow ? difficulty : 'medium',
         custom_instruction: instructions.trim() || undefined,
         academic_level: studyTrack === 'high_school' ? highSchoolGrade || undefined : collegeYear || undefined,
         learner_focus: studyTrack === 'high_school' ? undefined : collegeCourse?.trim() || undefined,
@@ -207,8 +265,8 @@ export default function CreateReviewerScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <PageHeader
-        title="Create Reviewer"
-        subtitle={`Step ${currentStep} of ${TOTAL_STEPS} • ${STEP_TITLES[currentStep - 1]}`}
+        title={isQuizFlow ? 'Create Practice Quiz' : 'Create Reviewer Guide'}
+        subtitle={`Step ${currentStep} of ${totalSteps} • ${stepTitles[currentStep - 1]}`}
         onBack={goToPreviousStep}
       />
 
@@ -220,7 +278,7 @@ export default function CreateReviewerScreen() {
 
         {/* Step indicator pills */}
         <View style={styles.stepPillRow}>
-          {STEP_TITLES.map((t, idx) => {
+          {stepTitles.map((t, idx) => {
             const stepNum = idx + 1;
             const isCompleted = currentStep > stepNum;
             const isCurrent = currentStep === stepNum;
@@ -258,8 +316,10 @@ export default function CreateReviewerScreen() {
           styles.content,
           { paddingBottom: Math.max(insets.bottom, spacing[24]) + spacing[90] },
         ]}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
       >
-        {/* STEP 1: Name of the Reviewer */}
+        {/* STEP 1: Name of Reviewer or Quiz */}
         {currentStep === 1 && (
           <View style={styles.stepSection}>
             <View style={styles.sectionHeader}>
@@ -267,24 +327,43 @@ export default function CreateReviewerScreen() {
                 <View style={styles.stepIconBox}>
                   <HugeiconsIcon icon={Edit02Icon} size={18} color={colors.primary} strokeWidth={2.2} />
                 </View>
-                <Text style={styles.stepTitle}>Name your reviewer</Text>
+                <Text style={styles.stepTitle}>
+                  {isQuizFlow ? 'Name your quiz' : 'Name your reviewer'}
+                </Text>
               </View>
               <Text style={styles.stepDesc}>
-                Give your study reviewer a clear, memorable title so you can easily find it in your library.
+                {isQuizFlow
+                  ? 'Give your practice quiz a clear, memorable title so you can easily track your test scores.'
+                  : 'Give your study reviewer a clear, memorable title so you can easily find it in your library.'}
               </Text>
             </View>
 
             <View style={styles.inputWrapper}>
-              <Text style={styles.label}>Reviewer Title</Text>
+              <View style={styles.inputLabelRow}>
+                <Text style={styles.label}>{isQuizFlow ? 'Quiz Title' : 'Reviewer Title'}</Text>
+                <TouchableOpacity
+                  style={styles.closeKeyboardBtn}
+                  onPress={() => Keyboard.dismiss()}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <HugeiconsIcon icon={Cancel01Icon} size={12} color={colors.primary} strokeWidth={2.4} />
+                  <Text style={styles.closeKeyboardBtnText}>Close</Text>
+                </TouchableOpacity>
+              </View>
               <TextInput
                 style={styles.input}
-                placeholder="e.g. Cardiovascular Exam Prep, Biology Ch. 3"
+                placeholder={
+                  isQuizFlow
+                    ? 'e.g. Cardiovascular Exam Prep, Biology Ch. 3 Quiz'
+                    : 'e.g. Cardiovascular Exam Prep, Biology Ch. 3'
+                }
                 placeholderTextColor={colors.textDisabled}
                 value={title}
                 onChangeText={setTitle}
                 autoFocus={true}
-                returnKeyType="next"
-                onSubmitEditing={goToNextStep}
+                returnKeyType="done"
+                blurOnSubmit={true}
+                onSubmitEditing={() => Keyboard.dismiss()}
               />
             </View>
 
@@ -324,8 +403,8 @@ export default function CreateReviewerScreen() {
                         style={[styles.topicChip, isSelected && styles.activeTopicChip]}
                         onPress={() => {
                           setTopic(item);
-                          if (!title || title.endsWith('Reviewer')) {
-                            setTitle(`${item} Reviewer`);
+                          if (!title || title.endsWith('Reviewer') || title.endsWith('Quiz')) {
+                            setTitle(`${item} ${isQuizFlow ? 'Quiz' : 'Reviewer'}`);
                           }
                         }}
                         activeOpacity={0.7}
@@ -347,41 +426,262 @@ export default function CreateReviewerScreen() {
             )}
 
             <View style={styles.inputWrapper}>
-              <Text style={styles.label}>Selected Topic</Text>
+              <View style={styles.inputLabelRow}>
+                <Text style={styles.label}>Selected Topic</Text>
+                <TouchableOpacity
+                  style={styles.closeKeyboardBtn}
+                  onPress={() => Keyboard.dismiss()}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <HugeiconsIcon icon={Cancel01Icon} size={12} color={colors.primary} strokeWidth={2.4} />
+                  <Text style={styles.closeKeyboardBtnText}>Close</Text>
+                </TouchableOpacity>
+              </View>
               <TextInput
                 style={styles.input}
                 placeholder="e.g. Action Potential, Cardiac Cycle, Chapter 4"
                 placeholderTextColor={colors.textDisabled}
                 value={topic}
                 onChangeText={setTopic}
-                returnKeyType="next"
-                onSubmitEditing={goToNextStep}
+                returnKeyType="done"
+                blurOnSubmit={true}
+                onSubmitEditing={() => Keyboard.dismiss()}
               />
             </View>
           </View>
         )}
 
-        {/* STEP 3: Question Count */}
-        {currentStep === 3 && (
+        {/* STEP 3 (Reviewer Mode): Content Level */}
+        {!isQuizFlow && currentStep === 3 && (
           <View style={styles.stepSection}>
             <View style={styles.sectionHeader}>
               <View style={styles.stepTitleRow}>
                 <View style={styles.stepIconBox}>
                   <HugeiconsIcon icon={Layers01Icon} size={18} color={colors.primary} strokeWidth={2.2} />
                 </View>
-                <Text style={styles.stepTitle}>How many items?</Text>
+                <Text style={styles.stepTitle}>Content detail level</Text>
               </View>
               <Text style={styles.stepDesc}>
-                Choose the target number of cards and questions. Select Maximum Coverage (50) to generate as many flashcards and questions as possible from your material.
+                Choose how thorough and comprehensive Momo should make your study reviewer guide.
+              </Text>
+            </View>
+
+            <View style={styles.diffCardList}>
+              {[
+                {
+                  id: 'light',
+                  title: 'Light',
+                  subtitle: 'Quick Overview',
+                  outputCount: '~12 items',
+                  highlight: 'Fast Review',
+                  color: colors.success,
+                  bg: colors.successSoft,
+                  borderColor: colors.successBorder,
+                  desc: 'Essential definitions, core vocabulary, and high-level summaries for fast revision.',
+                },
+                {
+                  id: 'moderate',
+                  title: 'Moderate',
+                  subtitle: 'Balanced Coverage',
+                  outputCount: '~20 items',
+                  highlight: 'Recommended',
+                  color: colors.primary,
+                  bg: colors.primarySoft,
+                  borderColor: colors.primaryBorder,
+                  desc: 'Standard depth with complete explanations, formulas, mechanisms, and structured outlines.',
+                },
+                {
+                  id: 'detailed',
+                  title: 'Detailed',
+                  subtitle: 'Comprehensive Deep-Dive',
+                  outputCount: '~35 items',
+                  highlight: 'Max Coverage',
+                  color: colors.warning,
+                  bg: colors.warningSoft,
+                  borderColor: colors.warningBorder,
+                  desc: 'Exhaustive breakdown covering all sub-topics, deep comparisons, step-by-step processes, and exam FAQ.',
+                },
+              ].map((lvl) => {
+                const isSelected = contentLevel === lvl.id;
+                return (
+                  <TouchableOpacity
+                    key={lvl.id}
+                    style={[
+                      styles.contentLevelCard,
+                      isSelected && {
+                        borderColor: lvl.color,
+                        backgroundColor: lvl.bg,
+                      },
+                    ]}
+                    onPress={() => setContentLevel(lvl.id as any)}
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.contentLevelHeader}>
+                      <View style={styles.contentLevelLeft}>
+                        <View
+                          style={[
+                            styles.diffRadio,
+                            isSelected && { borderColor: lvl.color, backgroundColor: lvl.color },
+                          ]}
+                        >
+                          {isSelected && <View style={styles.diffRadioInner} />}
+                        </View>
+                        <View style={styles.contentLevelTitles}>
+                          <View style={styles.contentLevelNameRow}>
+                            <Text style={[styles.contentLevelName, isSelected && { color: lvl.color }]}>
+                              {lvl.title}
+                            </Text>
+                            <View style={[styles.levelHighlightBadge, isSelected && { backgroundColor: lvl.color }]}>
+                              <Text style={[styles.levelHighlightText, isSelected && { color: '#FFFFFF' }]}>
+                                {lvl.highlight}
+                              </Text>
+                            </View>
+                          </View>
+                          <Text style={styles.contentLevelSubtitle}>{lvl.subtitle}</Text>
+                        </View>
+                      </View>
+
+                      {/* Bubble number of output of reviewer */}
+                      <View style={[styles.outputBubble, isSelected && { backgroundColor: lvl.color, borderColor: lvl.color }]}>
+                        <Text style={[styles.outputBubbleNum, isSelected && { color: '#FFFFFF' }]}>
+                          {lvl.outputCount}
+                        </Text>
+                      </View>
+                    </View>
+
+                    <Text style={styles.contentLevelDesc}>{lvl.desc}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </View>
+        )}
+
+        {/* STEP 4 (Reviewer Mode): Formats (Final Step for Reviewer) */}
+        {!isQuizFlow && currentStep === 4 && (
+          <View style={styles.stepSection}>
+            <View style={styles.sectionHeader}>
+              <View style={styles.stepTitleRow}>
+                <View style={styles.stepIconBox}>
+                  <HugeiconsIcon icon={Book02Icon} size={18} color={colors.primary} strokeWidth={2.2} />
+                </View>
+                <Text style={styles.stepTitle}>Choose reviewer formats</Text>
+              </View>
+              <Text style={styles.stepDesc}>
+                Select the study sections you want included in your synthesized reviewer guide.
+              </Text>
+            </View>
+
+            <View style={styles.formatGroup}>
+              {[
+                {
+                  key: 'glossary',
+                  label: 'Technical Terms & Meanings',
+                  desc: 'Dictionary of essential terms, vocabulary and plain definitions',
+                  icon: File01Icon,
+                },
+                {
+                  key: 'concept_outline',
+                  label: 'Concept Outlines & Summary',
+                  desc: 'Structured bullet points breaking down core topics & principles',
+                  icon: Task01Icon,
+                },
+                {
+                  key: 'cheat_sheet',
+                  label: 'High-Yield Cheat Sheet',
+                  desc: 'Formulas, rules, equations, and rapid last-minute cram facts',
+                  icon: FlashIcon,
+                },
+                {
+                  key: 'compare_contrast',
+                  label: 'Compare & Contrast',
+                  desc: 'Side-by-side differences between related concepts (e.g. X vs Y)',
+                  icon: Layers01Icon,
+                },
+                {
+                  key: 'qa_study_sheet',
+                  label: 'Study Q&A (FAQ Style)',
+                  desc: 'Anticipated exam questions with full in-depth grounded answers',
+                  icon: HelpCircleIcon,
+                },
+                {
+                  key: 'timeline_process',
+                  label: 'Step-by-Step & Timelines',
+                  desc: 'Sequential procedures, scientific cycles, and chronological flows',
+                  icon: SparklesIcon,
+                },
+              ].map((fmt) => {
+                const isChecked = reviewerFormats[fmt.key];
+                return (
+                  <TouchableOpacity
+                    key={fmt.key}
+                    style={[styles.formatCard, isChecked && styles.formatCardChecked]}
+                    onPress={() => toggleReviewerFormat(fmt.key)}
+                    activeOpacity={0.7}
+                  >
+                    <View style={[styles.checkbox, isChecked && styles.checkboxChecked]}>
+                      {isChecked && (
+                        <HugeiconsIcon icon={Tick01Icon} size={13} color={colors.onPrimary} strokeWidth={3} />
+                      )}
+                    </View>
+                    <View style={styles.formatInfo}>
+                      <Text style={[styles.formatTitle, isChecked && styles.formatTitleChecked]}>
+                        {fmt.label}
+                      </Text>
+                      <Text style={styles.formatDesc}>{fmt.desc}</Text>
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            {/* Additional Instructions */}
+            <View style={styles.instructionBox}>
+              <View style={styles.inputLabelRow}>
+                <Text style={styles.label}>Additional Study Instructions (Optional)</Text>
+                <TouchableOpacity
+                  style={styles.closeKeyboardBtn}
+                  onPress={() => Keyboard.dismiss()}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <HugeiconsIcon icon={Cancel01Icon} size={12} color={colors.primary} strokeWidth={2.4} />
+                  <Text style={styles.closeKeyboardBtnText}>Close</Text>
+                </TouchableOpacity>
+              </View>
+              <TextInput
+                style={[styles.input, styles.textArea]}
+                placeholder="e.g. Focus heavily on exam-relevant definitions and clinical symptoms..."
+                placeholderTextColor={colors.textDisabled}
+                value={instructions}
+                onChangeText={setInstructions}
+                multiline
+                numberOfLines={3}
+              />
+            </View>
+          </View>
+        )}
+
+        {/* STEP 3 (Quiz Mode): Question Count */}
+        {isQuizFlow && currentStep === 3 && (
+          <View style={styles.stepSection}>
+            <View style={styles.sectionHeader}>
+              <View style={styles.stepTitleRow}>
+                <View style={styles.stepIconBox}>
+                  <HugeiconsIcon icon={Layers01Icon} size={18} color={colors.primary} strokeWidth={2.2} />
+                </View>
+                <Text style={styles.stepTitle}>How many questions?</Text>
+              </View>
+              <Text style={styles.stepDesc}>
+                Choose the target number of practice questions for your quiz session.
               </Text>
             </View>
 
             <View style={styles.countGrid}>
               {[
                 { num: '10', label: 'Quick Warmup', badge: '5 mins' },
-                { num: '20', label: 'Recommended', badge: 'Standard deck' },
+                { num: '20', label: 'Recommended', badge: 'Standard quiz' },
                 { num: '30', label: 'Deep Practice', badge: 'Comprehensive' },
-                { num: '50', label: 'Maximum Coverage', badge: 'As many as possible' },
+                { num: '50', label: 'Maximum Coverage', badge: 'Full exam mode' },
               ].map((c) => {
                 const isSelected = count === c.num;
                 return (
@@ -411,8 +711,8 @@ export default function CreateReviewerScreen() {
           </View>
         )}
 
-        {/* STEP 4: Difficulty */}
-        {currentStep === 4 && (
+        {/* STEP 4 (Quiz Mode): Difficulty */}
+        {isQuizFlow && currentStep === 4 && (
           <View style={styles.stepSection}>
             <View style={styles.sectionHeader}>
               <View style={styles.stepTitleRow}>
@@ -488,22 +788,21 @@ export default function CreateReviewerScreen() {
           </View>
         )}
 
-        {/* STEP 5: Study Formats & Additional Instructions */}
-        {currentStep === 5 && (
+        {/* STEP 5 (Quiz Mode): Quiz Formats */}
+        {isQuizFlow && currentStep === 5 && (
           <View style={styles.stepSection}>
             <View style={styles.sectionHeader}>
               <View style={styles.stepTitleRow}>
                 <View style={styles.stepIconBox}>
                   <HugeiconsIcon icon={Task01Icon} size={18} color={colors.primary} strokeWidth={2.2} />
                 </View>
-                <Text style={styles.stepTitle}>Select study formats</Text>
+                <Text style={styles.stepTitle}>Choose quiz formats</Text>
               </View>
               <Text style={styles.stepDesc}>
-                Only the study formats you check below will be generated and shown in your reviewer.
+                Select the question types you want Momo to test you on.
               </Text>
             </View>
 
-            {/* Study Formats checkboxes */}
             <View style={styles.formatGroup}>
               {[
                 {
@@ -531,12 +830,12 @@ export default function CreateReviewerScreen() {
                   icon: Edit02Icon,
                 },
               ].map((fmt) => {
-                const isChecked = formats[fmt.key];
+                const isChecked = quizFormats[fmt.key];
                 return (
                   <TouchableOpacity
                     key={fmt.key}
                     style={[styles.formatCard, isChecked && styles.formatCardChecked]}
-                    onPress={() => toggleFormat(fmt.key)}
+                    onPress={() => toggleQuizFormat(fmt.key)}
                     activeOpacity={0.7}
                   >
                     <View style={[styles.checkbox, isChecked && styles.checkboxChecked]}>
@@ -557,7 +856,17 @@ export default function CreateReviewerScreen() {
 
             {/* Additional Instructions */}
             <View style={styles.instructionBox}>
-              <Text style={styles.label}>Additional Study Instructions (Optional)</Text>
+              <View style={styles.inputLabelRow}>
+                <Text style={styles.label}>Additional Study Instructions (Optional)</Text>
+                <TouchableOpacity
+                  style={styles.closeKeyboardBtn}
+                  onPress={() => Keyboard.dismiss()}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <HugeiconsIcon icon={Cancel01Icon} size={12} color={colors.primary} strokeWidth={2.4} />
+                  <Text style={styles.closeKeyboardBtnText}>Close</Text>
+                </TouchableOpacity>
+              </View>
               <TextInput
                 style={[styles.input, styles.textArea]}
                 placeholder="e.g. Focus heavily on exam-relevant definitions and clinical symptoms..."
@@ -571,8 +880,8 @@ export default function CreateReviewerScreen() {
           </View>
         )}
 
-        {/* STEP 6: Question Timer */}
-        {currentStep === 6 && (
+        {/* STEP 6 (Quiz Mode): Question Timer */}
+        {isQuizFlow && currentStep === 6 && (
           <View style={styles.stepSection}>
             <View style={styles.sectionHeader}>
               <View style={styles.stepTitleRow}>
@@ -626,8 +935,19 @@ export default function CreateReviewerScreen() {
                     placeholder="90"
                     placeholderTextColor={colors.textDisabled}
                     maxLength={4}
+                    returnKeyType="done"
+                    blurOnSubmit={true}
+                    onSubmitEditing={() => Keyboard.dismiss()}
                   />
                   <Text style={styles.customTimerUnit}>seconds</Text>
+                  <TouchableOpacity
+                    style={styles.closeKeyboardBtn}
+                    onPress={() => Keyboard.dismiss()}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
+                    <HugeiconsIcon icon={Cancel01Icon} size={12} color={colors.primary} strokeWidth={2.4} />
+                    <Text style={styles.closeKeyboardBtnText}>Close</Text>
+                  </TouchableOpacity>
                 </View>
               )}
             </View>
@@ -665,14 +985,24 @@ export default function CreateReviewerScreen() {
         >
           <View style={styles.nextBtnContent}>
             <Text style={styles.nextBtnText}>
-              {currentStep === TOTAL_STEPS
+              {currentStep === totalSteps
                 ? isSubmitting
-                  ? 'Creating Reviewer...'
+                  ? isQuizFlow
+                    ? 'Creating Quiz...'
+                    : 'Creating Reviewer...'
+                  : isQuizFlow
+                  ? 'Generate Quiz'
                   : 'Generate Reviewer'
                 : 'Next Step'}
             </Text>
             <HugeiconsIcon
-              icon={currentStep === TOTAL_STEPS ? SparklesIcon : ArrowRight01Icon}
+              icon={
+                currentStep === totalSteps
+                  ? isQuizFlow
+                    ? CheckmarkCircle02Icon
+                    : Book02Icon
+                  : ArrowRight01Icon
+              }
               size={18}
               color={colors.onPrimary}
               strokeWidth={2.2}
@@ -785,11 +1115,30 @@ const styles = StyleSheet.create({
   inputWrapper: {
     marginBottom: spacing[16],
   },
+  inputLabelRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing[8],
+  },
+  closeKeyboardBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: spacing[8],
+    paddingVertical: spacing[4],
+    borderRadius: 8,
+    backgroundColor: colors.primarySoft,
+  },
+  closeKeyboardBtnText: {
+    fontSize: typography.fontSize[11],
+    fontWeight: typography.fontWeight.bold,
+    color: colors.primary,
+  },
   label: {
     fontSize: isPadDevice ? typography.fontSize[16] : typography.fontSize[13.5],
     fontWeight: typography.fontWeight.bold,
     color: colors.text,
-    marginBottom: spacing[8],
     letterSpacing: typography.letterSpacing[-0.2],
   },
   sublabel: {
@@ -921,6 +1270,78 @@ const styles = StyleSheet.create({
   },
   diffCardList: {
     gap: isPadDevice ? spacing[16] : spacing[12],
+  },
+  contentLevelCard: {
+    backgroundColor: colors.surface,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    borderRadius: isPadDevice ? 20 : 16,
+    padding: isPadDevice ? spacing[20] : spacing[16],
+  },
+  contentLevelHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing[8],
+  },
+  contentLevelLeft: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing[10],
+  },
+  contentLevelTitles: {
+    flex: 1,
+  },
+  contentLevelNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: spacing[6],
+  },
+  contentLevelName: {
+    fontSize: isPadDevice ? typography.fontSize[18] : typography.fontSize[15.5],
+    fontWeight: typography.fontWeight.bold,
+    color: colors.text,
+  },
+  levelHighlightBadge: {
+    paddingHorizontal: spacing[8],
+    paddingVertical: 2,
+    borderRadius: 8,
+    backgroundColor: colors.surfaceMuted,
+  },
+  levelHighlightText: {
+    fontSize: typography.fontSize[10.5],
+    fontWeight: typography.fontWeight.bold,
+    color: colors.textMuted,
+  },
+  contentLevelSubtitle: {
+    fontSize: isPadDevice ? typography.fontSize[13] : typography.fontSize[11.5],
+    fontWeight: typography.fontWeight.medium,
+    color: colors.textMuted,
+    marginTop: 2,
+  },
+  outputBubble: {
+    paddingHorizontal: spacing[10],
+    paddingVertical: spacing[5],
+    borderRadius: 14,
+    backgroundColor: colors.surfaceMuted,
+    borderWidth: 1,
+    borderColor: colors.borderStrong,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  outputBubbleNum: {
+    fontSize: isPadDevice ? typography.fontSize[13] : typography.fontSize[11.5],
+    fontWeight: typography.fontWeight.bold,
+    color: colors.text,
+  },
+  contentLevelDesc: {
+    fontSize: isPadDevice ? typography.fontSize[14.5] : typography.fontSize[12.5],
+    color: colors.textMuted,
+    lineHeight: isPadDevice ? typography.lineHeight[22] : typography.lineHeight[18],
+    marginTop: spacing[10],
   },
   diffCard: {
     backgroundColor: colors.surface,

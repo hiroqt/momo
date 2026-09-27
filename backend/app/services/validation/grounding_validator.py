@@ -44,8 +44,9 @@ class GroundingValidator:
                 logger.warning(f"Item #{idx} question and answer are identical. Dropping.")
                 continue
 
-            # Length validation: questions must be meaningful (>= 6 chars)
-            if len(question) < 6 or len(answer) < 1:
+            # Length validation: questions must be meaningful (>= 6 chars for questions, >= 2 chars for glossary/cheat_sheet terms)
+            min_len = 2 if item_type in {"glossary", "cheat_sheet"} else 6
+            if len(question) < min_len or len(answer) < 1:
                 logger.warning(f"Item #{idx} question or answer too short. Dropping.")
                 continue
 

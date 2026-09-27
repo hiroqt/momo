@@ -40,6 +40,8 @@ import {
   Upload01Icon,
   Camera01Icon,
   ArrowRight01Icon,
+  Book02Icon,
+  CheckmarkCircle02Icon,
 } from "@hugeicons/core-free-icons";
 
 export interface TabConfig {
@@ -69,7 +71,7 @@ export interface FloatingNavBarProps {
   activeIndex?: number;
   progressAnim?: SharedValue<number>;
   onTabPress?: (index: number) => void;
-  onFabAction?: (action: 'upload' | 'solve' | 'studysets') => void;
+  onFabAction?: (action: 'upload' | 'reviewer' | 'quiz' | 'solve' | 'studysets') => void;
 }
 
 export const FloatingNavBar: React.FC<FloatingNavBarProps> = ({
@@ -190,14 +192,25 @@ export const FloatingNavBar: React.FC<FloatingNavBarProps> = ({
     extrapolate: 'clamp',
   });
 
-  const handleUploadPress = () => {
+  const handleReviewerPress = () => {
     closeFabMenu();
     if (onFabAction) {
-      onFabAction('upload');
+      onFabAction('reviewer');
     } else {
-      router.push('/documents/upload');
+      router.push({ pathname: '/documents/upload', params: { mode: 'reviewer' } });
     }
   };
+
+  const handleQuizPress = () => {
+    closeFabMenu();
+    if (onFabAction) {
+      onFabAction('quiz');
+    } else {
+      router.push({ pathname: '/documents/upload', params: { mode: 'quiz' } });
+    }
+  };
+
+  const handleUploadPress = handleReviewerPress;
 
   const handleMathSolvePress = () => {
     closeFabMenu();
@@ -407,29 +420,57 @@ export const FloatingNavBar: React.FC<FloatingNavBarProps> = ({
             {/* Action Tiles List */}
             <View style={styles.drawerActionsList}>
               {/* Tile 1: Upload Document */}
+              {/* Tile 1: Generate Reviewer */}
               <Pressable
                 style={[styles.drawerActionTile, styles.drawerPrimaryAction]}
-                onPress={handleUploadPress}
+                onPress={handleReviewerPress}
                 android_ripple={{ color: 'rgba(255,255,255,0.24)' }}
                 accessibilityRole="button"
-                accessibilityLabel="Create a reviewer from a document"
+                accessibilityLabel="Generate Reviewer from notes"
               >
                 <View style={[styles.drawerActionIconWrap, styles.primaryIconWrap]}>
-                  <HugeiconsIcon icon={Upload01Icon} size={22} color={colors.onPrimary} strokeWidth={2.4} />
+                  <HugeiconsIcon icon={Book02Icon} size={22} color={colors.onPrimary} strokeWidth={2.4} />
                 </View>
                 <View style={styles.drawerActionTextCol}>
                   <View style={styles.drawerActionTitleRow}>
-                    <Text style={[styles.drawerActionTitle, styles.primaryActionText]}>Create a reviewer</Text>
+                    <Text style={[styles.drawerActionTitle, styles.primaryActionText]}>Generate Reviewer</Text>
                     <View style={[styles.drawerBadge, styles.primaryBadge]}>
-                      <Text style={[styles.drawerBadgeText, styles.primaryActionText]}>START HERE</Text>
+                      <Text style={[styles.drawerBadgeText, styles.primaryActionText]}>STUDY GUIDE</Text>
                     </View>
                   </View>
                   <Text style={[styles.drawerActionDesc, styles.primaryActionDesc]}>
-                    Upload notes to make flashcards and practice questions
+                    Summaries, key terms, outlines & high-yield cheat sheets
                   </Text>
                 </View>
                 <View style={styles.drawerActionArrow}>
                   <HugeiconsIcon icon={ArrowRight01Icon} size={18} color={colors.onPrimary} strokeWidth={2.2} />
+                </View>
+              </Pressable>
+
+              {/* Tile 2: Generate Quiz */}
+              <Pressable
+                style={styles.drawerActionTile}
+                onPress={handleQuizPress}
+                android_ripple={{ color: colors.primaryRipple }}
+                accessibilityRole="button"
+                accessibilityLabel="Generate Quiz from notes"
+              >
+                <View style={[styles.drawerActionIconWrap, { backgroundColor: '#D1FAE5' }]}>
+                  <HugeiconsIcon icon={CheckmarkCircle02Icon} size={22} color="#059669" strokeWidth={2.4} />
+                </View>
+                <View style={styles.drawerActionTextCol}>
+                  <View style={styles.drawerActionTitleRow}>
+                    <Text style={styles.drawerActionTitle}>Generate Quiz</Text>
+                    <View style={[styles.drawerBadge, { backgroundColor: '#D1FAE5' }]}>
+                      <Text style={[styles.drawerBadgeText, { color: '#047857' }]}>ACTIVE RECALL</Text>
+                    </View>
+                  </View>
+                  <Text style={styles.drawerActionDesc}>
+                    Practice test questions, flashcards & timed quiz decks
+                  </Text>
+                </View>
+                <View style={styles.drawerActionArrow}>
+                  <HugeiconsIcon icon={ArrowRight01Icon} size={18} color="#98A2B3" strokeWidth={2.2} />
                 </View>
               </Pressable>
 
@@ -831,13 +872,14 @@ const styles = StyleSheet.create({
     width: isPadDevice ? 54 : 48,
     height: isPadDevice ? 54 : 48,
     borderRadius: (isPadDevice ? 54 : 48) / 2,
+    backgroundColor: colors.primaryPressed,
     alignItems: "center",
     justifyContent: "center",
     ...Platform.select({
       ios: {
-        shadowColor: colors.primary,
+        shadowColor: colors.primaryPressed,
         shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.35,
+        shadowOpacity: 0.4,
         shadowRadius: 8,
       },
       android: {

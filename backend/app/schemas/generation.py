@@ -4,6 +4,10 @@ from datetime import datetime
 
 class GenerationCreateRequest(BaseModel):
     document_id: str
+    document_ids: Optional[List[str]] = None
+    generation_mode: Optional[Literal["reviewer", "quiz", "both"]] = "reviewer"
+    content_level: Optional[Literal["light", "moderate", "detailed"]] = "moderate"
+    reviewer_types: Optional[List[str]] = Field(default=["glossary", "concept_outline", "cheat_sheet", "compare_contrast", "qa_study_sheet", "timeline_process"])
     topic: Optional[str] = "General Review"
     count: int = Field(default=20, ge=1, le=50)
     difficulty: str = Field(default="medium", pattern="^(easy|medium|hard)$")

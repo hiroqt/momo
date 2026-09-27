@@ -14,7 +14,13 @@ export type QuestionType =
   | 'fill_in_the_blank'
   | 'summary'
   | 'qa'
-  | 'topic_explanation';
+  | 'topic_explanation'
+  | 'glossary'
+  | 'concept_outline'
+  | 'cheat_sheet'
+  | 'compare_contrast'
+  | 'qa_study_sheet'
+  | 'timeline_process';
 
 export type DifficultyLevel = 'easy' | 'medium' | 'hard';
 

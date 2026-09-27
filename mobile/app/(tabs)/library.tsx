@@ -30,6 +30,8 @@ import {
   MoreVerticalIcon,
   Upload01Icon,
   FlashIcon,
+  Book02Icon,
+  CheckmarkCircle02Icon,
 } from '@hugeicons/core-free-icons';
 import { listStudySets, deleteStudySet, updateStudySet } from '../../lib/api/studySets';
 import { listDocuments, deleteDocument } from '../../lib/api/documents';
@@ -63,10 +65,61 @@ type DeleteTarget =
   | { type: 'set'; set: StudySet }
   | { type: 'doc'; doc: DocumentItem };
 
+type SetFilterType = 'all' | 'reviewers' | 'quizzes';
+
+const isSetQuiz = (set: StudySet): boolean => {
+  const genMode = set.generation_config?.generation_mode;
+  if (genMode === 'quiz') return true;
+  if (genMode === 'reviewer') return false;
+
+  const qTypes = set.generation_config?.question_types;
+  if (Array.isArray(qTypes) && qTypes.some((t: string) => ['multiple_choice', 'true_false', 'identification', 'fill_in_the_blank'].includes(t))) {
+    return true;
+  }
+
+  const revTypes = set.generation_config?.reviewer_types;
+  if (Array.isArray(revTypes) && revTypes.length > 0) return false;
+
+  const lowerTitle = set.title.toLowerCase();
+  if (lowerTitle.includes('quiz')) return true;
+  return false;
+};
+
+const isSetReviewer = (set: StudySet): boolean => {
+  const genMode = set.generation_config?.generation_mode;
+  if (genMode === 'reviewer') return true;
+  if (genMode === 'quiz') return false;
+
+  const revTypes = set.generation_config?.reviewer_types;
+  if (Array.isArray(revTypes) && revTypes.length > 0) return true;
+
+  const qTypes = set.generation_config?.question_types;
+  if (Array.isArray(qTypes) && qTypes.some((t: string) => ['multiple_choice', 'true_false', 'identification', 'fill_in_the_blank'].includes(t))) {
+    return false;
+  }
+
+  const lowerTitle = set.title.toLowerCase();
+  if (lowerTitle.includes('reviewer')) return true;
+  if (lowerTitle.includes('quiz')) return false;
+
+  return true; // Default
+};
+
+const matchesSetTypeFilter = (set: StudySet, filter: SetFilterType): boolean => {
+  if (filter === 'all') return true;
+  const genMode = set.generation_config?.generation_mode;
+  if (genMode === 'both') return true;
+
+  if (filter === 'reviewers') return isSetReviewer(set);
+  if (filter === 'quizzes') return isSetQuiz(set);
+  return true;
+};
+
 export default function LibraryScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const [activeTab, setActiveTab] = useState<'reviewers' | 'documents'>('reviewers');
+  const [activeTab, setActiveTab] = useState<'study_sets' | 'documents'>('study_sets');
+  const [setTypeFilter, setSetTypeFilter] = useState<SetFilterType>('all');
   const [sets, setSets] = useState<StudySet[]>([]);
   const [docs, setDocs] = useState<DocumentItem[]>([]);
   const [folders, setFolders] = useState<Folder[]>([]);
@@ -237,11 +290,31 @@ export default function LibraryScreen() {
 
   const deferredSearch = useDeferredValue(search.trim().toLocaleLowerCase());
   const folderById = useMemo(() => new Map(folders.map((folder) => [folder.id, folder])), [folders]);
-  const filteredSets = useMemo(() => sets.filter((set) => {
-    const matchesFolder = selectedFolderId === null ||
-      (selectedFolderId === 'unorganized' ? !set.folder_id : set.folder_id === selectedFolderId);
-    return matchesFolder && set.title.toLocaleLowerCase().includes(deferredSearch);
-  }), [sets, selectedFolderId, deferredSearch]);
+
+  const folderFilteredSets = useMemo(() => {
+    return sets.filter((set) => {
+      if (selectedFolderId === null) return true;
+      if (selectedFolderId === 'unorganized') return !set.folder_id;
+      return set.folder_id === selectedFolderId;
+    });
+  }, [sets, selectedFolderId]);
+
+  const allCount = folderFilteredSets.length;
+  const reviewerCount = useMemo(() => {
+    return folderFilteredSets.filter((s) => matchesSetTypeFilter(s, 'reviewers')).length;
+  }, [folderFilteredSets]);
+  const quizCount = useMemo(() => {
+    return folderFilteredSets.filter((s) => matchesSetTypeFilter(s, 'quizzes')).length;
+  }, [folderFilteredSets]);
+
+  const filteredSets = useMemo(() => {
+    return folderFilteredSets.filter((set) => {
+      const matchesSearch = deferredSearch ? set.title.toLocaleLowerCase().includes(deferredSearch) : true;
+      const matchesType = matchesSetTypeFilter(set, setTypeFilter);
+      return matchesSearch && matchesType;
+    });
+  }, [folderFilteredSets, deferredSearch, setTypeFilter]);
+
   const filteredDocs = useMemo(() => docs.filter((doc) =>
     doc.original_filename.toLocaleLowerCase().includes(deferredSearch)
   ), [docs, deferredSearch]);
@@ -263,18 +336,18 @@ export default function LibraryScreen() {
       {/* Screen Title Bar */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Study Library</Text>
-        <Text style={styles.headerSub}>Your reviewers, organized for the next study session</Text>
+        <Text style={styles.headerSub}>Your study sets, organized for the next study session</Text>
       </View>
 
       {/* Segmented Switcher */}
       <View style={styles.segmentContainer}>
         <TouchableOpacity
-          style={[styles.segmentBtn, activeTab === 'reviewers' && styles.activeSegmentBtn]}
-          onPress={() => setActiveTab('reviewers')}
+          style={[styles.segmentBtn, activeTab === 'study_sets' && styles.activeSegmentBtn]}
+          onPress={() => setActiveTab('study_sets')}
           activeOpacity={0.7}
         >
-          <Text style={[styles.segmentText, activeTab === 'reviewers' && styles.activeSegmentText]}>
-            Reviewers ({sets.length})
+          <Text style={[styles.segmentText, activeTab === 'study_sets' && styles.activeSegmentText]}>
+            Study Sets ({sets.length})
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
@@ -295,7 +368,7 @@ export default function LibraryScreen() {
         </View>
         <TextInput
           style={styles.searchInput}
-          placeholder={activeTab === 'reviewers' ? 'Search study sets...' : 'Search documents...'}
+          placeholder={activeTab === 'study_sets' ? 'Search study sets...' : 'Search documents...'}
           placeholderTextColor={colors.textDisabled}
           value={search}
           onChangeText={setSearch}
@@ -309,14 +382,82 @@ export default function LibraryScreen() {
         )}
       </View>
 
+      {/* Type Filter Buttons (All / Reviewers / Quizzes) */}
+      {activeTab === 'study_sets' && (
+        <View style={styles.filterPillsRow}>
+          <TouchableOpacity
+            style={[styles.filterPill, setTypeFilter === 'all' && styles.activeFilterPill]}
+            onPress={() => setSetTypeFilter('all')}
+            activeOpacity={0.7}
+          >
+            <HugeiconsIcon
+              icon={BookOpen01Icon}
+              size={13}
+              color={setTypeFilter === 'all' ? colors.primary : colors.textMuted}
+              strokeWidth={2.2}
+            />
+            <Text style={[styles.filterPillText, setTypeFilter === 'all' && styles.activeFilterPillText]}>
+              All
+            </Text>
+            <View style={[styles.filterPillBadge, setTypeFilter === 'all' && styles.activeFilterPillBadge]}>
+              <Text style={[styles.filterPillBadgeText, setTypeFilter === 'all' && styles.activeFilterPillBadgeText]}>
+                {allCount}
+              </Text>
+            </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.filterPill, setTypeFilter === 'reviewers' && styles.activeFilterPill]}
+            onPress={() => setSetTypeFilter('reviewers')}
+            activeOpacity={0.7}
+          >
+            <HugeiconsIcon
+              icon={Book02Icon}
+              size={13}
+              color={setTypeFilter === 'reviewers' ? colors.primary : colors.textMuted}
+              strokeWidth={2.2}
+            />
+            <Text style={[styles.filterPillText, setTypeFilter === 'reviewers' && styles.activeFilterPillText]}>
+              Reviewers
+            </Text>
+            <View style={[styles.filterPillBadge, setTypeFilter === 'reviewers' && styles.activeFilterPillBadge]}>
+              <Text style={[styles.filterPillBadgeText, setTypeFilter === 'reviewers' && styles.activeFilterPillBadgeText]}>
+                {reviewerCount}
+              </Text>
+            </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.filterPill, setTypeFilter === 'quizzes' && styles.activeFilterPill]}
+            onPress={() => setSetTypeFilter('quizzes')}
+            activeOpacity={0.7}
+          >
+            <HugeiconsIcon
+              icon={CheckmarkCircle02Icon}
+              size={13}
+              color={setTypeFilter === 'quizzes' ? colors.primary : colors.textMuted}
+              strokeWidth={2.2}
+            />
+            <Text style={[styles.filterPillText, setTypeFilter === 'quizzes' && styles.activeFilterPillText]}>
+              Quizzes
+            </Text>
+            <View style={[styles.filterPillBadge, setTypeFilter === 'quizzes' && styles.activeFilterPillBadge]}>
+              <Text style={[styles.filterPillBadgeText, setTypeFilter === 'quizzes' && styles.activeFilterPillBadgeText]}>
+                {quizCount}
+              </Text>
+            </View>
+          </TouchableOpacity>
+        </View>
+      )}
+
       <Text style={styles.resultsSummary} accessibilityRole="text">
-        {activeTab === 'reviewers'
-          ? `${filteredSets.length} ${filteredSets.length === 1 ? 'reviewer' : 'reviewers'}${selectedFolderId ? ' in this folder' : ' ready to study'}`
+        {activeTab === 'study_sets'
+          ? `${filteredSets.length} ${filteredSets.length === 1 ? (setTypeFilter === 'quizzes' ? 'quiz' : setTypeFilter === 'reviewers' ? 'reviewer' : 'study set') : (setTypeFilter === 'quizzes' ? 'quizzes' : setTypeFilter === 'reviewers' ? 'reviewers' : 'study sets')}${selectedFolderId ? ' in this folder' : ' ready to study'}`
           : `${filteredDocs.length} ${filteredDocs.length === 1 ? 'source document' : 'source documents'}`}
       </Text>
 
-      {/* Reviewers Tab Content */}
-      {activeTab === 'reviewers' ? (
+      {/* Study Sets Tab Content */}
+      {activeTab === 'study_sets' ? (
         <>
           {/* Folders Section / Carousel (shown when user has folders or study sets) */}
           {(folders.length > 0 || sets.length > 0) && (
@@ -508,6 +649,17 @@ export default function LibraryScreen() {
                     </TouchableOpacity>
 
                     <View style={styles.cardHeaderRight}>
+                      <View style={[styles.typeBadge, isSetQuiz(item) ? styles.quizTypeBadge : styles.reviewerTypeBadge]}>
+                        <HugeiconsIcon
+                          icon={isSetQuiz(item) ? CheckmarkCircle02Icon : Book02Icon}
+                          size={11}
+                          color={isSetQuiz(item) ? colors.info : colors.primary}
+                          strokeWidth={2.4}
+                        />
+                        <Text style={[styles.typeBadgeText, isSetQuiz(item) ? styles.quizTypeBadgeText : styles.reviewerTypeBadgeText]}>
+                          {isSetQuiz(item) ? 'Quiz' : 'Reviewer'}
+                        </Text>
+                      </View>
                       <View style={styles.badge}>
                         <Text style={styles.badgeText}>{item.item_count} items</Text>
                       </View>
@@ -565,7 +717,7 @@ export default function LibraryScreen() {
             }}
             ListEmptyComponent={
               <View style={styles.emptyContainer}>
-                {selectedFolderId && !search ? (
+                {selectedFolderId && !search && setTypeFilter === 'all' ? (
                   // Empty Folder
                   <View style={styles.emptyBox}>
                     <View style={styles.emptyFolderIconCircle}>
@@ -573,7 +725,7 @@ export default function LibraryScreen() {
                     </View>
                     <Text style={styles.emptyHeroTitle}>This Folder is Empty</Text>
                     <Text style={styles.emptyHeroText}>
-                      {`There are no reviewers saved in "${folders.find((f) => f.id === selectedFolderId)?.name || 'this folder'}". You can organize existing reviewers here via the (⋮) menu, or upload new files.`}
+                      {`There are no study sets saved in "${folders.find((f) => f.id === selectedFolderId)?.name || 'this folder'}". You can organize existing study sets here via the (⋮) menu, or upload new files.`}
                     </Text>
                     <View style={styles.emptyButtonRow}>
                       <TouchableOpacity
@@ -581,7 +733,7 @@ export default function LibraryScreen() {
                         onPress={() => setSelectedFolderId(null)}
                         activeOpacity={0.7}
                       >
-                        <Text style={styles.emptySecondaryBtnText}>View All Reviewers</Text>
+                        <Text style={styles.emptySecondaryBtnText}>View All Study Sets</Text>
                       </TouchableOpacity>
                       <TouchableOpacity
                         style={styles.emptyHeroActionBtn}
@@ -593,22 +745,33 @@ export default function LibraryScreen() {
                       </TouchableOpacity>
                     </View>
                   </View>
-                ) : search ? (
-                  // Search No Results
+                ) : search || setTypeFilter !== 'all' ? (
+                  // Search or Filter No Results
                   <View style={styles.emptyBox}>
                     <View style={styles.emptyIconCircle}>
                       <HugeiconsIcon icon={Search01Icon} size={28} color={colors.textDisabled} strokeWidth={2} />
                     </View>
-                    <Text style={styles.emptyHeroTitle}>No matching reviewers</Text>
+                    <Text style={styles.emptyHeroTitle}>
+                      {setTypeFilter === 'quizzes'
+                        ? 'No quizzes found'
+                        : setTypeFilter === 'reviewers'
+                        ? 'No reviewers found'
+                        : 'No matching study sets'}
+                    </Text>
                     <Text style={styles.emptyHeroText}>
-                      We couldn't find any study sets matching &quot;{search}&quot;. Try a different keyword or check your spelling.
+                      {search
+                        ? `We couldn't find any study sets matching "${search}". Try a different keyword or check your filters.`
+                        : `You don't have any ${setTypeFilter === 'quizzes' ? 'quizzes' : 'reviewers'}${selectedFolderId ? ' in this folder' : ''} yet.`}
                     </Text>
                     <TouchableOpacity
                       style={styles.emptySecondaryBtn}
-                      onPress={() => setSearch('')}
+                      onPress={() => {
+                        setSearch('');
+                        setSetTypeFilter('all');
+                      }}
                       activeOpacity={0.7}
                     >
-                      <Text style={styles.emptySecondaryBtnText}>Clear Search</Text>
+                      <Text style={styles.emptySecondaryBtnText}>Reset Filters</Text>
                     </TouchableOpacity>
                   </View>
                 ) : (
@@ -756,19 +919,41 @@ export default function LibraryScreen() {
                   </View>
                   <View style={styles.docActions}>
                     {isReady && (
-                      <TouchableOpacity
-                        style={styles.studyActionBadge}
-                        onPress={(e) => {
-                          e.stopPropagation();
-                          router.push(`/create/${item.id}`);
-                        }}
-                        activeOpacity={0.8}
-                        accessibilityRole="button"
-                        accessibilityLabel={`Study ${item.original_filename}`}
-                      >
-                        <HugeiconsIcon icon={FlashIcon} size={13} color={colors.onPrimary} strokeWidth={2.4} />
-                        <Text style={styles.studyActionBadgeText}>Study</Text>
-                      </TouchableOpacity>
+                      <View style={styles.docButtonsCol}>
+                        <TouchableOpacity
+                          style={styles.reviewerActionBadge}
+                          onPress={(e) => {
+                            e.stopPropagation();
+                            router.push({
+                              pathname: `/create/${item.id}`,
+                              params: { targetMode: 'reviewer' },
+                            });
+                          }}
+                          activeOpacity={0.8}
+                          accessibilityRole="button"
+                          accessibilityLabel={`Generate Reviewer from ${item.original_filename}`}
+                        >
+                          <HugeiconsIcon icon={Book02Icon} size={11} color="#FFFFFF" strokeWidth={2.4} />
+                          <Text style={styles.reviewerActionBadgeText}>Reviewer</Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                          style={styles.quizActionBadge}
+                          onPress={(e) => {
+                            e.stopPropagation();
+                            router.push({
+                              pathname: `/create/${item.id}`,
+                              params: { targetMode: 'quiz' },
+                            });
+                          }}
+                          activeOpacity={0.8}
+                          accessibilityRole="button"
+                          accessibilityLabel={`Generate Quiz from ${item.original_filename}`}
+                        >
+                          <HugeiconsIcon icon={CheckmarkCircle02Icon} size={11} color={colors.primary} strokeWidth={2.4} />
+                          <Text style={styles.quizActionBadgeText}>Quiz</Text>
+                        </TouchableOpacity>
+                      </View>
                     )}
                     <TouchableOpacity
                       style={styles.docDeleteBtn}
@@ -1146,6 +1331,70 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     marginBottom: spacing[10],
   },
+  filterPillsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing[12],
+    gap: spacing[8],
+  },
+  filterPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: spacing[11],
+    paddingVertical: spacing[6],
+    minHeight: 32,
+    borderRadius: 16,
+    backgroundColor: colors.surface,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    gap: spacing[6],
+    overflow: 'visible',
+  },
+  activeFilterPill: {
+    backgroundColor: colors.primarySoft,
+    borderColor: colors.primary,
+  },
+  filterPillText: {
+    fontSize: isPadDevice ? typography.fontSize[13] : typography.fontSize[11],
+    fontFamily: typography.fontFamily.medium,
+    color: colors.textMuted,
+  },
+  activeFilterPillText: {
+    color: colors.primary,
+    fontFamily: typography.fontFamily.bold,
+  },
+  filterPillBadge: {
+    minWidth: 19,
+    height: 19,
+    paddingHorizontal: 4,
+    borderRadius: 10,
+    backgroundColor: colors.surfaceMuted,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  activeFilterPillBadge: {
+    backgroundColor: colors.primary,
+  },
+  filterPillBadgeText: {
+    fontSize: 9.5,
+    color: colors.textMuted,
+    fontFamily: typography.fontFamily.bold,
+    textAlign: 'center',
+    includeFontPadding: false,
+    ...Platform.select({
+      ios: {
+        lineHeight: 19,
+      },
+      android: {
+        textAlignVertical: 'center',
+      },
+    }),
+  },
+  activeFilterPillBadgeText: {
+    color: '#FFFFFF',
+  },
   foldersSection: {
     marginBottom: isPadDevice ? spacing[16] : spacing[12],
   },
@@ -1347,6 +1596,31 @@ const styles = StyleSheet.create({
     fontWeight: typography.fontWeight.bold,
     color: colors.primary,
   },
+  typeBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: isPadDevice ? spacing[8] : spacing[6],
+    paddingVertical: isPadDevice ? spacing[3] : spacing[2],
+    borderRadius: 6,
+    marginRight: 6,
+  },
+  reviewerTypeBadge: {
+    backgroundColor: colors.primarySoft,
+  },
+  quizTypeBadge: {
+    backgroundColor: colors.infoSoft || 'rgba(3, 105, 161, 0.1)',
+  },
+  typeBadgeText: {
+    fontSize: isPadDevice ? typography.fontSize[12] : typography.fontSize[10.5],
+    fontWeight: typography.fontWeight.bold,
+  },
+  reviewerTypeBadgeText: {
+    color: colors.primary,
+  },
+  quizTypeBadgeText: {
+    color: colors.info,
+  },
   cardDesc: {
     fontSize: isPadDevice ? typography.fontSize[15] : typography.fontSize[13],
     color: colors.textMuted,
@@ -1504,23 +1778,74 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing[10],
     paddingVertical: spacing[6],
     borderRadius: 8,
-    ...Platform.select({
-      ios: {
-        shadowColor: colors.primary,
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.2,
-        shadowRadius: 4,
-      },
-      android: {
-        elevation: 2,
-      },
-    }),
   },
   studyActionBadgeText: {
     fontSize: typography.fontSize[12],
     fontWeight: typography.fontWeight.bold,
     color: colors.onPrimary,
     letterSpacing: -0.1,
+  },
+  docButtonsCol: {
+    flexDirection: 'column',
+    gap: 5,
+    justifyContent: 'center',
+    alignItems: 'stretch',
+  },
+  reviewerActionBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    backgroundColor: colors.primary,
+    paddingHorizontal: spacing[8],
+    paddingVertical: 5,
+    minWidth: 78,
+    borderRadius: 7,
+    ...Platform.select({
+      ios: {
+        shadowColor: colors.primary,
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.16,
+        shadowRadius: 3,
+      },
+      android: {
+        elevation: 1.5,
+      },
+    }),
+  },
+  reviewerActionBadgeText: {
+    fontSize: 10,
+    fontWeight: typography.fontWeight.bold,
+    color: '#FFFFFF',
+  },
+  quizActionBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    backgroundColor: colors.surface,
+    borderWidth: 1.2,
+    borderColor: colors.primaryBorder,
+    paddingHorizontal: spacing[8],
+    paddingVertical: 4,
+    minWidth: 78,
+    borderRadius: 7,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.04,
+        shadowRadius: 2,
+      },
+      android: {
+        elevation: 1,
+      },
+    }),
+  },
+  quizActionBadgeText: {
+    fontSize: 10,
+    fontWeight: typography.fontWeight.bold,
+    color: colors.primary,
   },
   docDeleteBtn: {
     width: 34,

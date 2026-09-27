@@ -18,18 +18,25 @@ class RetrievalService:
         document_id: str,
         query: str,
         top_k: int = 12,
-        section_filter: Optional[List[str]] = None
+        section_filter: Optional[List[str]] = None,
+        document_ids: Optional[List[str]] = None
     ) -> List[Dict[str, Any]]:
         # 1. Embed query
         query_embedding = await embedding_service.embed_query(query)
 
         # 2. Vector search via repository
-        raw_chunks = await chunks_repo.search_similar(
-            document_id=document_id,
-            query_embedding=query_embedding,
-            top_k=max(top_k * 2, 16),
-            section_filter=section_filter
-        )
+        all_doc_ids = list(set([document_id] + (document_ids or [])))
+        raw_chunks = []
+        for d_id in all_doc_ids:
+            if not d_id:
+                continue
+            doc_chunks = await chunks_repo.search_similar(
+                document_id=d_id,
+                query_embedding=query_embedding,
+                top_k=max(top_k * 2, 16),
+                section_filter=section_filter
+            )
+            raw_chunks.extend(doc_chunks)
 
         # 3. Informational diversity filter & topic keyword relevance prioritization
         query_keywords = [

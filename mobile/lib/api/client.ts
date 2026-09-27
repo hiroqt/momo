@@ -2,17 +2,7 @@ import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 
 function resolveBaseUrl(): string {
-  // 1. Dynamic host resolution from Metro bundler host when available
-  const hostUri =
-    Constants.expoConfig?.hostUri ||
-    (Constants as any).manifest?.debuggerHost ||
-    (Constants as any).manifest2?.extra?.expoGo?.debuggerHost;
-  const ip = hostUri?.split(':')?.[0];
-  if (ip && ip !== 'localhost' && ip !== '127.0.0.1') {
-    return `http://${ip}:8000`;
-  }
-
-  // 2. Explicit environment variable if provided
+  // 1. Explicit environment variable if provided
   if (process.env.EXPO_PUBLIC_API_URL) {
     let envUrl = process.env.EXPO_PUBLIC_API_URL;
     if (Platform.OS === 'android' && (envUrl.includes('localhost') || envUrl.includes('127.0.0.1'))) {
@@ -21,14 +11,29 @@ function resolveBaseUrl(): string {
     return envUrl;
   }
 
+  // 2. Dynamic host resolution from Metro bundler host when available
+  const hostUri =
+    Constants.expoConfig?.hostUri ||
+    (Constants as any).manifest?.debuggerHost ||
+    (Constants as any).manifest2?.extra?.expoGo?.debuggerHost;
+  const ip = hostUri?.split(':')?.[0];
+  if (ip && ip !== 'localhost' && ip !== '127.0.0.1') {
+    // Current backend is running on port 800 (with port 8000 as standard fallback)
+    return `http://${ip}:800`;
+  }
+
   // 3. Android emulator localhost alias to host machine
   if (Platform.OS === 'android') {
-    return 'http://10.0.2.2:8000';
+    return 'http://10.0.2.2:800';
   }
-  return 'http://localhost:8000';
+  return 'http://localhost:800';
 }
 
-export const BASE_URL = resolveBaseUrl();
+export let BASE_URL = resolveBaseUrl();
+
+export function getBaseUrl(): string {
+  return BASE_URL;
+}
 
 let authToken: string | null = 'test-token-dev-user-001';
 
@@ -41,7 +46,8 @@ export function getAuthToken(): string | null {
 }
 
 export async function apiFetch<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-  const url = `${BASE_URL}${endpoint}`;
+  const currentBase = BASE_URL;
+  const url = `${currentBase}${endpoint}`;
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     ...(options.headers as Record<string, string> || {}),
@@ -52,7 +58,8 @@ export async function apiFetch<T>(endpoint: string, options: RequestInit = {}): 
   }
 
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 60000);
+  // Responsive timeout: 15 seconds for general requests
+  const timeoutId = setTimeout(() => controller.abort(), 15000);
 
   try {
     const response = await fetch(url, {
@@ -74,9 +81,45 @@ export async function apiFetch<T>(endpoint: string, options: RequestInit = {}): 
 
     return response.json();
   } catch (error: any) {
-    if (error?.name === 'AbortError' || error?.message?.includes('FetchRequestCanceledException')) {
-      throw new Error(`[TIMEOUT] Request to ${url} timed out or was canceled. Check backend connection.`);
+    // If connection failed or timed out on port 800 or 8000, attempt alternative port automatically
+    const isTimeoutOrNetwork =
+      error?.name === 'AbortError' ||
+      error?.message?.includes('fetch failed') ||
+      error?.message?.includes('The request timed out') ||
+      error?.message?.includes('Network request failed') ||
+      error?.message?.includes('FetchRequestCanceledException');
+
+    if (isTimeoutOrNetwork) {
+      const altBase = currentBase.includes(':8000')
+        ? currentBase.replace(':8000', ':800')
+        : currentBase.includes(':800')
+        ? currentBase.replace(':800', ':8000')
+        : null;
+
+      if (altBase && altBase !== currentBase) {
+        try {
+          const altController = new AbortController();
+          const altTimeout = setTimeout(() => altController.abort(), 6000);
+          const altUrl = `${altBase}${endpoint}`;
+          const altResponse = await fetch(altUrl, {
+            ...options,
+            headers,
+            signal: altController.signal,
+          });
+          clearTimeout(altTimeout);
+
+          if (altResponse.ok) {
+            BASE_URL = altBase; // Cache the verified responsive port
+            return altResponse.json();
+          }
+        } catch {
+          // Fall through to original error
+        }
+      }
+
+      throw new Error(`[TIMEOUT] Unable to connect to backend at ${url}. Ensure the backend server is running and accessible.`);
     }
+
     throw error;
   } finally {
     clearTimeout(timeoutId);

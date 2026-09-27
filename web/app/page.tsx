@@ -36,9 +36,25 @@ function Reveal({ children, className = '' }: { children: React.ReactNode; class
   );
 }
 
-function Brand() {
+function Brand({ onClick }: { onClick?: () => void }) {
+  const handleClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    onClick?.();
+    if (typeof window !== 'undefined' && window.location.pathname === '/') {
+      e.preventDefault();
+      if (window.location.hash) {
+        window.history.pushState(null, '', '/');
+      }
+      const lenis = (window as unknown as { __lenis?: { scrollTo: (target: number | string | HTMLElement, opts?: { immediate?: boolean }) => void } }).__lenis;
+      if (lenis) {
+        lenis.scrollTo(0);
+      } else {
+        window.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
+      }
+    }
+  };
+
   return (
-    <a className="brand" href="#top" aria-label="Momo home">
+    <a className="brand" href="/" onClick={handleClick} aria-label="Momo home">
       <span className="brand-mark"><Image src={`${asset}momo_logo.png`} alt="" width={39} height={39} /></span>
       <span>momo<span className="brand-dot">.</span></span>
     </a>
@@ -350,7 +366,7 @@ export default function Home() {
         id="top"
       >
         <div className="header-inner shell flex items-center justify-between">
-          <Brand />
+          <Brand onClick={() => { setNavVisible(true); setMenuOpen(false); }} />
           <nav className="desktop-nav" aria-label="Main navigation"><a href="#how-it-works">How it works</a><a href="#features">What you can do</a><a href="#screens">Screen View</a><a href="#questions">Questions</a></nav>
           <div className="header-actions">
             <button

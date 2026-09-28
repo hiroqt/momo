@@ -1,14 +1,20 @@
-import React, { useState, useRef, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   StyleSheet,
   TouchableOpacity,
-  ScrollView,
   TextInput,
-  Animated,
-  Easing,
+  KeyboardAvoidingView,
   Platform,
+  useWindowDimensions,
 } from 'react-native';
+import Animated, {
+  FadeInRight,
+  FadeInLeft,
+  FadeOutLeft,
+  FadeOutRight,
+  ReduceMotion,
+} from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { AppText as Text } from '@/components/common/app-text';
@@ -18,20 +24,19 @@ import {
   ArrowRight01Icon,
   ArrowLeft01Icon,
   CheckmarkCircle02Icon,
-  SparklesIcon,
   BookOpen01Icon,
   FlashIcon,
   TrophyIcon,
   Tick01Icon,
 } from '@hugeicons/core-free-icons';
-import { colors, spacing, typography } from '@/constants/theme';
+import { colors, onboardingColors, spacing, typography } from '@/constants/theme';
 import {
   useOnboarding,
   StudyTrack,
   PreferredFormat,
 } from '../../context/OnboardingContext';
 import { seedSampleDeck, buildSampleDeck } from '../../lib/data/sampleDeck';
-import { JungleBackdrop } from '@/components/onboarding/JungleBackdrop';
+import { MomoBackdrop } from '@/components/onboarding/MomoBackdrop';
 import { AnimatedMomo, MomoPose } from '@/components/onboarding/AnimatedMomo';
 import { AgeScrollPicker } from '@/components/onboarding/AgeScrollPicker';
 
@@ -41,7 +46,7 @@ const TRACK_OPTIONS: { id: StudyTrack; label: string; icon: any; desc: string }[
   { id: 'med_nursing', label: 'Medicine & Nursing', icon: CheckmarkCircle02Icon, desc: 'Anatomy, pharma & boards' },
   { id: 'stem', label: 'STEM & Engineering', icon: FlashIcon, desc: 'Formulas, problem sets & code' },
   { id: 'boards', label: 'Board & Licensure', icon: TrophyIcon, desc: 'High-stakes practice drills' },
-  { id: 'general', label: 'General Learning', icon: SparklesIcon, desc: 'Curiosity & personal growth' },
+  { id: 'general', label: 'General Learning', icon: BookOpen01Icon, desc: 'Curiosity & personal growth' },
 ];
 
 const HIGH_SCHOOL_GRADES = [
@@ -97,9 +102,9 @@ const FORMAT_OPTIONS: {
 }[] = [
   {
     id: 'all',
-    label: 'All Formats (Momo Pick)',
+    label: 'Let Momo choose',
     desc: 'Flashcards, quizzes, exams and summaries — give me everything!',
-    icon: SparklesIcon,
+    icon: CheckmarkCircle02Icon,
     isAll: true,
   },
   {
@@ -110,7 +115,7 @@ const FORMAT_OPTIONS: {
   },
   {
     id: 'quiz',
-    label: 'Fun Quizzes',
+    label: 'Quick quizzes',
     desc: 'Active recall challenges with instant answers and XP score',
     icon: TrophyIcon,
   },
@@ -134,24 +139,31 @@ const GOAL_OPTIONS = [
   { minutes: 45, label: '45 min/day', tag: 'Deep focus', desc: 'More time for practice and review' },
 ];
 
-const STAGE_LABELS = ['Welcome', 'Your name', 'Your age', 'Study path', 'Study plan', 'Get started'] as const;
+const STAGE_LABELS = [
+  'Meet Momo',
+  'About you',
+  'Your level',
+  'Study path',
+  'Study details',
+  'Study style',
+  'Daily rhythm',
+  'Your preview',
+] as const;
+
+type OnboardingStage = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
 
 export default function WelcomeScreen() {
   const router = useRouter();
   const { completeWelcome } = useOnboarding();
+  const { height: viewportHeight } = useWindowDimensions();
+  const compactLayout = viewportHeight < 760;
 
-  // 6 Streamlined Stages:
-  // 1: Jungle Welcome & Superpowers
-  // 2: Explorer Name (First Name + Last Name)
-  // 3: Explorer Age (Centered Horizontal Scroll Ruler Reel)
-  // 4: Academic Quest (Track + Program/Major)
-  // 5: Study Weapons & Habit (Formats + Daily Goal & Reminders)
-  // 6: Lock In (Instant Sample Deck vs Google Sign-In)
-  const [stage, setStage] = useState<1 | 2 | 3 | 4 | 5 | 6>(1);
+  // Each page asks for one understandable decision and keeps the next action visible.
+  const [stage, setStage] = useState<OnboardingStage>(1);
+  const [transitionDirection, setTransitionDirection] = useState<'forward' | 'backward'>('forward');
 
   // Profile data
   const [firstName, setFirstName] = useState<string>('');
-  const [lastName, setLastName] = useState<string>('');
   const [selectedAge, setSelectedAge] = useState<number>(18);
 
   // Academic calibration
@@ -188,12 +200,6 @@ export default function WelcomeScreen() {
   const [completionError, setCompletionError] = useState<string | null>(null);
 
   // Transitions
-  const isTransitioning = useRef(false);
-  const fadeAnim = useRef(new Animated.Value(1)).current;
-  const slideAnim = useRef(new Animated.Value(0)).current;
-  const scaleAnim = useRef(new Animated.Value(1)).current;
-  const scrollViewRef = useRef<ScrollView>(null);
-
   // Dynamic Momo Pose: Stage 2 uses 'happy' with clean, un-furrowed brows
   const getActiveMomoPose = (): MomoPose => {
     switch (stage) {
@@ -206,25 +212,16 @@ export default function WelcomeScreen() {
       case 4:
         return 'document';
       case 5:
-        return 'creating';
+        return 'thinking';
       case 6:
+        return 'creating';
+      case 7:
+        return 'focus';
+      case 8:
         return 'cheer';
       default:
         return 'welcome';
     }
-  };
-
-  // Zero-emoji speech text
-  const getMomoSpeech = (): string | undefined => {
-    if (stage === 1) return "Let's lock in.";
-    if (stage === 2) {
-      return firstName.trim().length > 0 ? `Ready, ${firstName.trim()}.` : 'Who am I coaching?';
-    }
-    if (stage === 3) return 'What is your age, explorer?';
-    if (stage === 4) return 'Let me inspect your syllabus.';
-    if (stage === 5) return 'Pick your study formats.';
-    if (stage === 6) return 'Ready to ace your exams.';
-    return undefined;
   };
 
   const triggerHaptic = () => {
@@ -233,76 +230,11 @@ export default function WelcomeScreen() {
     } catch {}
   };
 
-  const goToStage = (nextStage: 1 | 2 | 3 | 4 | 5 | 6, direction: 'forward' | 'backward' = 'forward') => {
-    if (isTransitioning.current) return;
-    isTransitioning.current = true;
+  const goToStage = (nextStage: OnboardingStage, direction: 'forward' | 'backward' = 'forward') => {
     setCompletionError(null);
     triggerHaptic();
-
-    const exitOffset = direction === 'forward' ? -25 : 25;
-    const enterOffset = direction === 'forward' ? 25 : -25;
-
-    Animated.parallel([
-      Animated.timing(fadeAnim, {
-        toValue: 0,
-        duration: 130,
-        easing: Easing.out(Easing.ease),
-        useNativeDriver: true,
-      }),
-      Animated.timing(slideAnim, {
-        toValue: exitOffset,
-        duration: 130,
-        easing: Easing.out(Easing.ease),
-        useNativeDriver: true,
-      }),
-      Animated.timing(scaleAnim, {
-        toValue: 0.97,
-        duration: 130,
-        easing: Easing.out(Easing.ease),
-        useNativeDriver: true,
-      }),
-    ]).start(() => {
-      setStage(nextStage);
-      scrollViewRef.current?.scrollTo({ y: 0, animated: false });
-      slideAnim.setValue(enterOffset);
-      scaleAnim.setValue(0.97);
-
-      Animated.parallel([
-        Animated.timing(fadeAnim, {
-          toValue: 1,
-          duration: 200,
-          easing: Easing.out(Easing.cubic),
-          useNativeDriver: true,
-        }),
-        Animated.timing(slideAnim, {
-          toValue: 0,
-          duration: 200,
-          easing: Easing.out(Easing.cubic),
-          useNativeDriver: true,
-        }),
-        Animated.timing(scaleAnim, {
-          toValue: 1,
-          duration: 200,
-          easing: Easing.out(Easing.cubic),
-          useNativeDriver: true,
-        }),
-      ]).start(() => {
-        fadeAnim.setValue(1);
-        slideAnim.setValue(0);
-        scaleAnim.setValue(1);
-        isTransitioning.current = false;
-      });
-    });
-
-    // Fallback safety watchdog
-    setTimeout(() => {
-      if (isTransitioning.current) {
-        fadeAnim.setValue(1);
-        slideAnim.setValue(0);
-        scaleAnim.setValue(1);
-        isTransitioning.current = false;
-      }
-    }, 450);
+    setTransitionDirection(direction);
+    setStage(nextStage);
   };
 
   const handleToggleFormat = (id: PreferredFormat | 'all') => {
@@ -335,7 +267,7 @@ export default function WelcomeScreen() {
 
   const buildProfilePayload = () => ({
     firstName: firstName.trim(),
-    lastName: lastName.trim(),
+    lastName: '',
     age: selectedAge,
     highSchoolGrade: selectedTrack === 'high_school' ? highSchoolGrade : null,
     collegeYear: ['college', 'med_nursing', 'stem'].includes(selectedTrack) ? collegeYear : null,
@@ -381,23 +313,21 @@ export default function WelcomeScreen() {
   };
 
   return (
-    <JungleBackdrop>
+    <MomoBackdrop>
       <SafeAreaView style={styles.safeArea}>
-        {/* Top Header: Game Progress Track + Skip Action */}
-        <View style={styles.topHeader}>
+        {stage > 1 && <View style={styles.topHeader}>
           <View style={styles.progressContent}>
             <View style={styles.stageTitleRow}>
-              <HugeiconsIcon icon={SparklesIcon} size={14} color="#FBBF24" strokeWidth={2.5} />
-              <Text style={styles.progressLabel}>STEP {stage} OF 6 · {STAGE_LABELS[stage - 1]}</Text>
+              <Text style={styles.progressLabel}>{stage} of 8 · {STAGE_LABELS[stage - 1]}</Text>
             </View>
             <View
               style={styles.progressContainer}
               accessible
               accessibilityRole="progressbar"
-              accessibilityValue={{ min: 1, max: 6, now: stage }}
-              accessibilityLabel={`Onboarding progress, step ${stage} of 6, ${STAGE_LABELS[stage - 1]}`}
+              accessibilityValue={{ min: 1, max: 8, now: stage }}
+              accessibilityLabel={`Onboarding progress, step ${stage} of 8, ${STAGE_LABELS[stage - 1]}`}
             >
-              {[1, 2, 3, 4, 5, 6].map((i) => (
+              {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
                 <View
                   key={i}
                   style={[
@@ -417,93 +347,86 @@ export default function WelcomeScreen() {
             accessibilityLabel="Skip setup and try a sample deck"
             activeOpacity={0.7}
           >
-            <Text style={styles.headerSkipText}>Skip</Text>
+            <Text style={styles.headerSkipText}>Try Momo</Text>
           </TouchableOpacity>
-        </View>
+        </View>}
 
         {completionError && (
           <Text style={styles.completionError} accessibilityRole="alert">{completionError}</Text>
         )}
 
-        <ScrollView
-          ref={scrollViewRef}
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
+        <KeyboardAvoidingView
+          style={styles.pageContent}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 8 : 0}
         >
           <Animated.View
-            style={[
-              styles.animatedStepWrapper,
-              {
-                opacity: fadeAnim,
-                transform: [
-                  { translateX: slideAnim },
-                  { scale: scaleAnim },
-                ],
-              },
-            ]}
+            key={stage}
+            entering={(transitionDirection === 'forward' ? FadeInRight : FadeInLeft)
+              .duration(220)
+              .reduceMotion(ReduceMotion.System)}
+            exiting={(transitionDirection === 'forward' ? FadeOutLeft : FadeOutRight)
+              .duration(160)
+              .reduceMotion(ReduceMotion.System)}
+            style={styles.animatedStepWrapper}
           >
-            <View style={styles.cardWrapper}>
-              {/* Momo Capped at the Top of the Card with Speech Bubble on the Right */}
-              <View style={styles.momoCapContainer}>
-                <AnimatedMomo
-                  pose={getActiveMomoPose()}
-                  stage={stage}
-                  size={155}
-                  speechText={getMomoSpeech()}
-                />
-              </View>
-
-              {/* STAGE 1: JUNGLE WELCOME & 3 SUPERPOWERS */}
+            <View style={[styles.cardWrapper, compactLayout && styles.cardWrapperCompact]}>
               {stage === 1 && (
-                <View style={styles.stageCard}>
-                  <Text style={styles.welcomeHeading}>Turn your notes into practice</Text>
-                  <Text style={styles.welcomeSub}>
-                    Upload your slides or notes, then study with questions and flashcards built from your material.
-                  </Text>
-
-                  {/* 3 Core Superpower Pillars */}
-                  <View style={styles.superpowerList}>
-                    <View style={styles.superpowerItem}>
-                      <View style={styles.superpowerIconCircle}>
-                        <HugeiconsIcon icon={CheckmarkCircle02Icon} size={16} color={colors.primary} strokeWidth={2.5} />
-                      </View>
-                      <View style={styles.superpowerTextWrap}>
-                        <Text style={styles.superpowerTitle}>Grounded in your notes</Text>
-                        <Text style={styles.superpowerDesc}>
-                          Review source references and check answers against your material.
-                        </Text>
-                      </View>
-                    </View>
-
-                    <View style={styles.superpowerItem}>
-                      <View style={[styles.superpowerIconCircle, { backgroundColor: '#FEF3C7' }]}>
-                        <HugeiconsIcon icon={TrophyIcon} size={16} color="#B45309" strokeWidth={2.5} />
-                      </View>
-                      <View style={styles.superpowerTextWrap}>
-                        <Text style={styles.superpowerTitle}>Gamified Recall & XP</Text>
-                        <Text style={styles.superpowerDesc}>
-                          Practice what you remember and earn XP for correct answers.
-                        </Text>
-                      </View>
-                    </View>
-
-                    <View style={styles.superpowerItem}>
-                      <View style={[styles.superpowerIconCircle, { backgroundColor: '#E0E7FF' }]}>
-                        <HugeiconsIcon icon={FlashIcon} size={16} color="#4338CA" strokeWidth={2.5} />
-                      </View>
-                      <View style={styles.superpowerTextWrap}>
-                        <Text style={styles.superpowerTitle}>Study Offline Anywhere</Text>
-                        <Text style={styles.superpowerDesc}>
-                          Download generated sets to review when you are offline.
-                        </Text>
-                      </View>
-                    </View>
-                  </View>
+                <View style={styles.brandLockup}>
+                  <Text style={styles.brandName}>Momo</Text>
+                  <Text style={styles.brandLine}>your grounded study companion</Text>
                 </View>
               )}
 
-              {/* STAGE 2: EXPLORER NAME (FIRST + LAST NAME) */}
+              {/* Momo Capped at the Top of the Card with Speech Bubble on the Right */}
+              <View style={[styles.momoCapContainer, compactLayout && styles.momoCapContainerCompact]}>
+                <AnimatedMomo
+                  pose={getActiveMomoPose()}
+                  stage={stage}
+                  size={stage === 1 ? (compactLayout ? 210 : 250) : (compactLayout ? 96 : 128)}
+                />
+              </View>
+
+              {stage === 1 && (
+                <Animated.View
+                  entering={FadeInRight.delay(180).duration(260).reduceMotion(ReduceMotion.System)}
+                  style={styles.transformationVisual}
+                  accessibilityLabel="Your notes become a focused reviewer"
+                >
+                  <View style={styles.transformationPoint}>
+                    <HugeiconsIcon icon={BookOpen01Icon} size={18} color={onboardingColors.text} strokeWidth={2} />
+                    <Text style={styles.transformationText}>Your notes</Text>
+                  </View>
+                  <View style={styles.transformationLine} />
+                  <HugeiconsIcon icon={ArrowRight01Icon} size={18} color={onboardingColors.primary} strokeWidth={2.5} />
+                  <View style={styles.transformationLine} />
+                  <View style={styles.transformationPoint}>
+                    <HugeiconsIcon icon={CheckmarkCircle02Icon} size={18} color={onboardingColors.text} strokeWidth={2} />
+                    <Text style={styles.transformationText}>Your reviewer</Text>
+                  </View>
+                </Animated.View>
+              )}
+
+              {/* STAGE 1: MOMO VALUE INTRODUCTION */}
+              {stage === 1 && (
+                <View style={styles.stageCard}>
+                  <Text style={styles.welcomeHeading}>Make your notes work for you</Text>
+                  <Text style={styles.welcomeSub}>
+                    Turn material you trust into focused reviewers, practice, and source-backed explanations.
+                  </Text>
+                  <TouchableOpacity
+                    style={styles.welcomeContinue}
+                    onPress={() => goToStage(2)}
+                    accessibilityRole="button"
+                    accessibilityLabel="Meet Momo and continue"
+                    activeOpacity={0.82}
+                  >
+                    <HugeiconsIcon icon={ArrowRight01Icon} size={22} color="#FFFFFF" strokeWidth={2.5} />
+                  </TouchableOpacity>
+                </View>
+              )}
+
+              {/* STAGE 2: NAME */}
               {stage === 2 && (
                 <View style={styles.stageCard}>
                   <View style={styles.cardHeaderRow}>
@@ -513,77 +436,34 @@ export default function WelcomeScreen() {
                       accessibilityRole="button"
                       accessibilityLabel="Back to welcome"
                     >
-                      <HugeiconsIcon icon={ArrowLeft01Icon} size={20} color="#0F172A" strokeWidth={2} />
+                      <HugeiconsIcon icon={ArrowLeft01Icon} size={20} color={onboardingColors.text} strokeWidth={2} />
                     </TouchableOpacity>
                     <View style={{ flex: 1 }}>
-                      <Text style={styles.cardTitle}>Who are we locking in with?</Text>
-                      <Text style={styles.cardSub}>So Momo knows what to call you</Text>
+                      <Text style={styles.cardTitle}>What should Momo call you?</Text>
+                      <Text style={styles.cardSub}>So this feels like your study space.</Text>
                     </View>
                   </View>
 
-                  {/* Name Inputs */}
                   <View style={styles.inputGroup}>
-                    <Text style={styles.inputLabel}>First Name *</Text>
+                    <Text style={styles.inputLabel}>Your first name</Text>
                     <TextInput
                       style={styles.textInput}
                       value={firstName}
                       onChangeText={setFirstName}
-                      placeholder="e.g. Alex"
-                      placeholderTextColor="#94A3B8"
-                      autoCapitalize="words"
-                      autoCorrect={false}
-                      returnKeyType="next"
-                    />
-                  </View>
-
-                  <View style={[styles.inputGroup, { marginTop: spacing[12] }]}>
-                    <Text style={styles.inputLabel}>Last Name (Optional)</Text>
-                    <TextInput
-                      style={styles.textInput}
-                      value={lastName}
-                      onChangeText={setLastName}
-                      placeholder="e.g. Rivera"
-                      placeholderTextColor="#94A3B8"
+                      placeholder="Alex"
+                      placeholderTextColor={onboardingColors.textMuted}
                       autoCapitalize="words"
                       autoCorrect={false}
                       returnKeyType="done"
+                      onSubmitEditing={() => {
+                        if (firstName.trim().length > 0) goToStage(3, 'forward');
+                      }}
                     />
                   </View>
-
-                  <TouchableOpacity
-                    style={[
-                      styles.primaryButton,
-                      firstName.trim().length === 0 && styles.primaryButtonDisabled,
-                      { marginTop: spacing[20] },
-                    ]}
-                    onPress={() => {
-                      if (firstName.trim().length > 0) {
-                        goToStage(3, 'forward');
-                      }
-                    }}
-                    disabled={firstName.trim().length === 0}
-                    accessibilityRole="button"
-                    accessibilityLabel="Continue to age selector"
-                  >
-                    <Text
-                      style={[
-                        styles.primaryButtonText,
-                        firstName.trim().length === 0 && styles.primaryButtonTextDisabled,
-                      ]}
-                    >
-                      {firstName.trim().length === 0 ? 'Enter First Name to Continue' : 'Continue to Age'}
-                    </Text>
-                    <HugeiconsIcon
-                      icon={ArrowRight01Icon}
-                      size={18}
-                      color={firstName.trim().length === 0 ? '#94A3B8' : '#FFFFFF'}
-                      strokeWidth={2.5}
-                    />
-                  </TouchableOpacity>
                 </View>
               )}
 
-              {/* STAGE 3: EXPLORER AGE (CENTERED HORIZONTAL SCROLL) */}
+              {/* STAGE 3: LEARNING LEVEL CALIBRATION */}
               {stage === 3 && (
                 <View style={styles.stageCard}>
                   <View style={styles.cardHeaderRow}>
@@ -593,11 +473,11 @@ export default function WelcomeScreen() {
                       accessibilityRole="button"
                       accessibilityLabel="Back to name"
                     >
-                      <HugeiconsIcon icon={ArrowLeft01Icon} size={20} color="#0F172A" strokeWidth={2} />
+                      <HugeiconsIcon icon={ArrowLeft01Icon} size={20} color={onboardingColors.text} strokeWidth={2} />
                     </TouchableOpacity>
                     <View style={{ flex: 1 }}>
-                      <Text style={styles.cardTitle}>How old are you?</Text>
-                      <Text style={styles.cardSub}>This helps tailor your study experience</Text>
+                      <Text style={styles.cardTitle}>What’s your age?</Text>
+                      <Text style={styles.cardSub}>Momo matches the pace to you.</Text>
                     </View>
                   </View>
 
@@ -607,20 +487,10 @@ export default function WelcomeScreen() {
                     minAge={13}
                     maxAge={80}
                   />
-
-                  <TouchableOpacity
-                    style={[styles.primaryButton, { marginTop: spacing[16] }]}
-                    onPress={() => goToStage(4, 'forward')}
-                    accessibilityRole="button"
-                    accessibilityLabel="Confirm age and continue"
-                  >
-                    <Text style={styles.primaryButtonText}>Confirm Age & Continue</Text>
-                    <HugeiconsIcon icon={ArrowRight01Icon} size={18} color="#FFFFFF" strokeWidth={2.5} />
-                  </TouchableOpacity>
                 </View>
               )}
 
-              {/* STAGE 4: ACADEMIC QUEST (TRACK + LEVEL/MAJOR) */}
+              {/* STAGE 4: CURRENT STUDY CONTEXT */}
               {stage === 4 && (
                 <View style={styles.stageCard}>
                   <View style={styles.cardHeaderRow}>
@@ -630,11 +500,11 @@ export default function WelcomeScreen() {
                       accessibilityRole="button"
                       accessibilityLabel="Back to age"
                     >
-                      <HugeiconsIcon icon={ArrowLeft01Icon} size={20} color="#0F172A" strokeWidth={2} />
+                      <HugeiconsIcon icon={ArrowLeft01Icon} size={20} color={onboardingColors.text} strokeWidth={2} />
                     </TouchableOpacity>
                     <View style={{ flex: 1 }}>
-                      <Text style={styles.cardTitle}>What are you conquering?</Text>
-                      <Text style={styles.cardSub}>Choose the path that fits your studies</Text>
+                      <Text style={styles.cardTitle}>What are you studying?</Text>
+                      <Text style={styles.cardSub}>Pick the path closest to you.</Text>
                     </View>
                   </View>
 
@@ -659,7 +529,7 @@ export default function WelcomeScreen() {
                             <HugeiconsIcon
                               icon={IconComp}
                               size={18}
-                              color={isSelected ? colors.primary : '#64748B'}
+                              color={isSelected ? onboardingColors.primary : onboardingColors.textSecondary}
                               strokeWidth={2}
                             />
                           </View>
@@ -667,7 +537,6 @@ export default function WelcomeScreen() {
                             <Text style={[styles.trackCardTitle, isSelected && styles.trackCardTitleSelected]}>
                               {t.label}
                             </Text>
-                            <Text style={styles.trackCardDesc}>{t.desc}</Text>
                           </View>
                           <View style={[styles.radioCircle, isSelected && styles.radioCircleSelected]}>
                             {isSelected && <View style={styles.radioInner} />}
@@ -677,10 +546,30 @@ export default function WelcomeScreen() {
                     })}
                   </View>
 
-                  {/* Contextual Sub-Fields based on selected track */}
+                </View>
+              )}
+
+              {/* STAGE 5: STUDY DETAILS */}
+              {stage === 5 && (
+                <View style={styles.stageCard}>
+                  <View style={styles.cardHeaderRow}>
+                    <TouchableOpacity
+                      onPress={() => goToStage(4, 'backward')}
+                      style={styles.backButton}
+                      accessibilityRole="button"
+                      accessibilityLabel="Back to study path"
+                    >
+                      <HugeiconsIcon icon={ArrowLeft01Icon} size={20} color={onboardingColors.text} strokeWidth={2} />
+                    </TouchableOpacity>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.cardTitle}>Make it specific to you</Text>
+                      <Text style={styles.cardSub}>This tunes your examples.</Text>
+                    </View>
+                  </View>
+
                   {selectedTrack === 'high_school' && (
                     <View style={styles.subFieldCard}>
-                      <Text style={styles.subFieldLabel}>High School Grade Level</Text>
+                      <Text style={styles.subFieldLabel}>Your grade level</Text>
                       <View style={styles.chipsWrap}>
                         {HIGH_SCHOOL_GRADES.map((g) => {
                           const isGradeSelected = highSchoolGrade === g.id;
@@ -705,7 +594,7 @@ export default function WelcomeScreen() {
 
                   {selectedTrack !== 'high_school' && selectedTrack !== 'boards' && selectedTrack !== 'general' && (
                     <View style={styles.subFieldCard}>
-                      <Text style={styles.subFieldLabel}>College Year</Text>
+                      <Text style={styles.subFieldLabel}>Your college year</Text>
                       <View style={styles.chipsWrap}>
                         {COLLEGE_YEARS.map((y) => {
                           const isYearSelected = collegeYear === y.id;
@@ -727,14 +616,14 @@ export default function WelcomeScreen() {
                       </View>
 
                       <Text style={[styles.subFieldLabel, { marginTop: spacing[12] }]}>
-                        Major / Program of Study
+                        Your program
                       </Text>
                       <TextInput
                         style={styles.textInput}
                         value={collegeCourse}
                         onChangeText={setCollegeCourse}
                         placeholder="e.g. BS Nursing, Computer Science..."
-                        placeholderTextColor="#94A3B8"
+                        placeholderTextColor={onboardingColors.textMuted}
                         autoCapitalize="words"
                       />
 
@@ -765,7 +654,7 @@ export default function WelcomeScreen() {
                         value={collegeCourse}
                         onChangeText={setCollegeCourse}
                         placeholder="e.g. NCLEX-RN, CPA Board, Bar Exam..."
-                        placeholderTextColor="#94A3B8"
+                        placeholderTextColor={onboardingColors.textMuted}
                       />
                       <View style={styles.popularRow}>
                         {POPULAR_BOARD_EXAMS.slice(0, 4).map((m) => (
@@ -794,7 +683,7 @@ export default function WelcomeScreen() {
                         value={collegeCourse}
                         onChangeText={setCollegeCourse}
                         placeholder="e.g. Tech & Coding, Spanish, Investing..."
-                        placeholderTextColor="#94A3B8"
+                        placeholderTextColor={onboardingColors.textMuted}
                       />
                       <View style={styles.popularRow}>
                         {POPULAR_GENERAL_TOPICS.slice(0, 3).map((m) => (
@@ -817,21 +706,21 @@ export default function WelcomeScreen() {
                 </View>
               )}
 
-              {/* STAGE 5: STUDY WEAPONS & DAILY HABIT */}
-              {stage === 5 && (
+              {/* STAGE 6: STUDY FORMAT */}
+              {stage === 6 && (
                 <View style={styles.stageCard}>
                   <View style={styles.cardHeaderRow}>
                     <TouchableOpacity
-                      onPress={() => goToStage(4, 'backward')}
+                      onPress={() => goToStage(5, 'backward')}
                       style={styles.backButton}
                       accessibilityRole="button"
-                      accessibilityLabel="Back to academic quest"
+                      accessibilityLabel="Back to study details"
                     >
-                      <HugeiconsIcon icon={ArrowLeft01Icon} size={20} color="#0F172A" strokeWidth={2} />
+                      <HugeiconsIcon icon={ArrowLeft01Icon} size={20} color={onboardingColors.text} strokeWidth={2} />
                     </TouchableOpacity>
                     <View style={{ flex: 1 }}>
                       <Text style={styles.cardTitle}>How do you like to study?</Text>
-                      <Text style={styles.cardSub}>Choose one or more formats for your reviewers</Text>
+                      <Text style={styles.cardSub}>Pick one or more. Change them anytime.</Text>
                     </View>
                   </View>
 
@@ -858,17 +747,14 @@ export default function WelcomeScreen() {
                             <HugeiconsIcon
                               icon={IconComp}
                               size={18}
-                              color={isSelected ? colors.primary : '#64748B'}
+                              color={isSelected ? onboardingColors.primary : onboardingColors.textSecondary}
                               strokeWidth={2}
                             />
                           </View>
                           <View style={{ flex: 1 }}>
-                            <View style={styles.formatHeaderRow}>
-                              <Text style={[styles.formatTitle, isSelected && styles.formatTitleSelected]}>
-                                {f.label}
-                              </Text>
-                            </View>
-                            <Text style={styles.formatDesc}>{f.desc}</Text>
+                            <Text style={[styles.formatTitle, isSelected && styles.formatTitleSelected]}>
+                              {f.label}
+                            </Text>
                           </View>
                           <View
                             style={[
@@ -885,47 +771,62 @@ export default function WelcomeScreen() {
                     })}
                   </View>
 
-                  {/* Daily Target Section */}
-                  <View style={{ marginTop: spacing[16] }}>
-                    <Text style={styles.subFieldLabel}>Daily Target Pacing</Text>
-                    <View style={styles.goalVerticalList}>
-                      {GOAL_OPTIONS.map((g) => {
-                        const isSelected = selectedGoal === g.minutes;
-                        return (
-                          <TouchableOpacity
-                            key={g.minutes}
-                            style={[styles.goalFullCard, isSelected && styles.goalFullCardSelected]}
-                            onPress={() => {
-                              triggerHaptic();
-                              setSelectedGoal(g.minutes);
-                            }}
-                            accessibilityRole="radio"
-                            accessibilityState={{ selected: isSelected }}
-                            accessibilityLabel={`${g.label}. ${g.desc}`}
-                          >
-                            <View style={{ flex: 1 }}>
-                              <View style={styles.goalTitleRow}>
-                                <Text style={[styles.goalFullLabel, isSelected && styles.goalFullLabelSelected]}>
-                                  {g.label}
-                                </Text>
-                                <View style={[styles.goalTagBadge, isSelected && styles.goalTagBadgeSelected]}>
-                                  <Text style={[styles.goalTagBadgeText, isSelected && styles.goalTagBadgeTextSelected]}>
-                                    {g.tag}
-                                  </Text>
-                                </View>
-                              </View>
-                              <Text style={styles.goalFullDesc}>{g.desc}</Text>
-                            </View>
-                            <View style={[styles.radioCircle, isSelected && styles.radioCircleSelected]}>
-                              {isSelected && <View style={styles.radioInner} />}
-                            </View>
-                          </TouchableOpacity>
-                        );
-                      })}
+                </View>
+              )}
+
+              {/* STAGE 7: DAILY RHYTHM */}
+              {stage === 7 && (
+                <View style={styles.stageCard}>
+                  <View style={styles.cardHeaderRow}>
+                    <TouchableOpacity
+                      onPress={() => goToStage(6, 'backward')}
+                      style={styles.backButton}
+                      accessibilityRole="button"
+                      accessibilityLabel="Back to study formats"
+                    >
+                      <HugeiconsIcon icon={ArrowLeft01Icon} size={20} color={onboardingColors.text} strokeWidth={2} />
+                    </TouchableOpacity>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.cardTitle}>Choose a rhythm you can keep</Text>
+                      <Text style={styles.cardSub}>Start with something realistic.</Text>
                     </View>
                   </View>
 
-                  {/* Study Reminders Toggle */}
+                  <View style={styles.goalVerticalList}>
+                    {GOAL_OPTIONS.map((g) => {
+                      const isSelected = selectedGoal === g.minutes;
+                      return (
+                        <TouchableOpacity
+                          key={g.minutes}
+                          style={[styles.goalFullCard, isSelected && styles.goalFullCardSelected]}
+                          onPress={() => {
+                            triggerHaptic();
+                            setSelectedGoal(g.minutes);
+                          }}
+                          accessibilityRole="radio"
+                          accessibilityState={{ selected: isSelected }}
+                          accessibilityLabel={`${g.label}. ${g.desc}`}
+                        >
+                          <View style={{ flex: 1 }}>
+                            <View style={styles.goalTitleRow}>
+                              <Text style={[styles.goalFullLabel, isSelected && styles.goalFullLabelSelected]}>
+                                {g.label}
+                              </Text>
+                              <View style={[styles.goalTagBadge, isSelected && styles.goalTagBadgeSelected]}>
+                                <Text style={[styles.goalTagBadgeText, isSelected && styles.goalTagBadgeTextSelected]}>
+                                  {g.tag}
+                                </Text>
+                              </View>
+                            </View>
+                          </View>
+                          <View style={[styles.radioCircle, isSelected && styles.radioCircleSelected]}>
+                            {isSelected && <View style={styles.radioInner} />}
+                          </View>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+
                   <TouchableOpacity
                     style={[
                       styles.reminderCard,
@@ -950,45 +851,38 @@ export default function WelcomeScreen() {
                       )}
                     </View>
                     <View style={{ flex: 1 }}>
-                      <Text style={styles.reminderTitle}>Study reminders</Text>
-                      <Text style={styles.reminderDesc}>
-                        Save my preference for daily reminders.
-                      </Text>
+                      <Text style={styles.reminderTitle}>Remind me to return</Text>
                     </View>
                   </TouchableOpacity>
                 </View>
               )}
 
-              {/* STAGE 6: LOCK IN / LAUNCH MODE */}
-              {stage === 6 && (
+              {/* STAGE 8: PERSONALIZED PREVIEW */}
+              {stage === 8 && (
                 <View style={styles.stageCard}>
                   <View style={styles.cardHeaderRow}>
                     <TouchableOpacity
-                      onPress={() => goToStage(5, 'backward')}
+                      onPress={() => goToStage(7, 'backward')}
                       style={styles.backButton}
                       accessibilityRole="button"
-                      accessibilityLabel="Back to study weapons"
+                      accessibilityLabel="Back to study preferences"
                     >
-                      <HugeiconsIcon icon={ArrowLeft01Icon} size={20} color="#0F172A" strokeWidth={2} />
+                      <HugeiconsIcon icon={ArrowLeft01Icon} size={20} color={onboardingColors.text} strokeWidth={2} />
                     </TouchableOpacity>
                     <View style={{ flex: 1 }}>
                       <Text style={styles.cardTitle}>
-                        You're Ready{firstName ? `, ${firstName}` : ''}!
+                        Your first reviewer is ready{firstName ? `, ${firstName}` : ''}
                       </Text>
-                      <Text style={styles.cardSub}>Try a sample set or continue to your library</Text>
+                      <Text style={styles.cardSub}>Open it now or save your setup.</Text>
                     </View>
                   </View>
 
                   {/* Option A Highlight: Instant Sample Deck */}
                   <View style={styles.launchCardHighlighted}>
                     <View style={styles.launchBadge}>
-                      <HugeiconsIcon icon={SparklesIcon} size={12} color={colors.primary} strokeWidth={2.5} />
-                      <Text style={styles.launchBadgeText}>No upload needed</Text>
+                      <Text style={styles.launchBadgeText}>READY NOW</Text>
                     </View>
                     <Text style={styles.launchCardTitle}>{preview.title}</Text>
-                    <Text style={styles.launchCardDesc}>
-                      Get a feel for flashcards and quizzes with a ready-made biology set.
-                    </Text>
                     <TouchableOpacity
                       style={styles.sampleActionButton}
                       onPress={handleFinishGuest}
@@ -997,7 +891,7 @@ export default function WelcomeScreen() {
                     >
                       <HugeiconsIcon icon={BookOpen01Icon} size={18} color="#FFFFFF" strokeWidth={2.5} />
                       <Text style={styles.sampleActionText}>
-                        {isSeeding ? 'Preparing sample...' : 'Try Sample Deck'}
+                        {isSeeding ? 'Preparing...' : 'Open my sample'}
                       </Text>
                     </TouchableOpacity>
                   </View>
@@ -1010,10 +904,7 @@ export default function WelcomeScreen() {
 
                   {/* Option B: Google Sign-In */}
                   <View style={styles.launchCardGoogle}>
-                    <Text style={styles.googleCardTitle}>Sign In with Google</Text>
-                    <Text style={styles.googleCardDesc}>
-                      Continue to your study library and add your own materials.
-                    </Text>
+                    <Text style={styles.googleCardTitle}>Save my study space</Text>
                     <TouchableOpacity
                       style={styles.googleButton}
                       onPress={handleFinishGoogle}
@@ -1028,25 +919,47 @@ export default function WelcomeScreen() {
               )}
             </View>
           </Animated.View>
-        </ScrollView>
-        {(stage === 1 || stage === 4 || stage === 5) && (
+        {stage >= 2 && stage <= 7 && (
           <View style={styles.stickyFooter}>
             <TouchableOpacity
-              style={styles.primaryButton}
-              onPress={() => goToStage((stage + 1) as 2 | 5 | 6)}
+              style={[
+                styles.primaryButton,
+                stage === 2 && firstName.trim().length === 0 && styles.primaryButtonDisabled,
+              ]}
+              onPress={() => {
+                if (stage !== 2 || firstName.trim().length > 0) {
+                  goToStage((stage + 1) as OnboardingStage);
+                }
+              }}
+              disabled={stage === 2 && firstName.trim().length === 0}
               accessibilityRole="button"
-              accessibilityLabel={stage === 1 ? 'Start setup' : 'Continue to next step'}
+              accessibilityLabel={stage === 2 ? 'Continue to age selector' : 'Continue to next step'}
               activeOpacity={0.85}
             >
-              <Text style={styles.primaryButtonText}>
-                {stage === 1 ? 'Get started' : stage === 4 ? 'Continue to study plan' : 'Review my choices'}
+              <Text
+                style={[
+                  styles.primaryButtonText,
+                  stage === 2 && firstName.trim().length === 0 && styles.primaryButtonTextDisabled,
+                ]}
+              >
+                {stage === 2 && firstName.trim().length === 0
+                  ? 'Enter your first name'
+                  : stage === 7
+                    ? 'Build my preview'
+                    : 'Continue'}
               </Text>
-              <HugeiconsIcon icon={ArrowRight01Icon} size={18} color="#FFFFFF" strokeWidth={2.5} />
+              <HugeiconsIcon
+                icon={ArrowRight01Icon}
+                size={18}
+                color={stage === 2 && firstName.trim().length === 0 ? onboardingColors.textMuted : '#FFFFFF'}
+                strokeWidth={2.5}
+              />
             </TouchableOpacity>
           </View>
         )}
+        </KeyboardAvoidingView>
       </SafeAreaView>
-    </JungleBackdrop>
+    </MomoBackdrop>
   );
 }
 
@@ -1074,26 +987,23 @@ const styles = StyleSheet.create({
     marginBottom: spacing[4],
   },
   progressLabel: {
-    color: '#F8FAFC',
+    color: onboardingColors.textSecondary,
     fontSize: typography.fontSize[11],
     fontWeight: typography.fontWeight.bold,
     letterSpacing: 0.8,
-    textShadowColor: 'rgba(0,0,0,0.5)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 3,
   },
   headerSkipBtn: {
     paddingVertical: 6,
     paddingHorizontal: 12,
-    backgroundColor: colors.primary,
+    backgroundColor: onboardingColors.primarySoft,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: colors.primaryLight,
+    borderColor: onboardingColors.primaryBorder,
   },
   headerSkipText: {
     fontSize: typography.fontSize[12],
     fontWeight: typography.fontWeight.bold,
-    color: '#FFFFFF',
+    color: onboardingColors.primary,
   },
   progressContainer: {
     flexDirection: 'row',
@@ -1104,23 +1014,18 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 5,
     borderRadius: 3,
-    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+    backgroundColor: onboardingColors.border,
   },
   progressDotActive: {
-    backgroundColor: '#818CF8',
-    shadowColor: '#818CF8',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.9,
-    shadowRadius: 6,
-    elevation: 4,
+    backgroundColor: onboardingColors.primary,
   },
   progressDotCompleted: {
-    backgroundColor: colors.primary,
+    backgroundColor: onboardingColors.primary,
   },
-  scrollContent: {
-    flexGrow: 1,
+  pageContent: {
+    flex: 1,
     paddingHorizontal: spacing[16],
-    paddingBottom: spacing[32],
+    paddingBottom: spacing[8],
   },
   stickyFooter: {
     paddingHorizontal: spacing[16],
@@ -1130,100 +1035,108 @@ const styles = StyleSheet.create({
   },
   animatedStepWrapper: {
     width: '100%',
+    flexGrow: 1,
   },
   cardWrapper: {
     width: '100%',
-    marginTop: spacing[20],
+    flexGrow: 1,
+    marginTop: spacing[4],
+  },
+  cardWrapperCompact: {
+    marginTop: 0,
+  },
+  brandLockup: {
+    alignItems: 'center',
+    marginTop: spacing[12],
+    marginBottom: spacing[4],
+  },
+  brandName: {
+    fontFamily: typography.fontFamily.bold,
+    fontSize: 34,
+    lineHeight: 40,
+    color: onboardingColors.text,
+    letterSpacing: -1.2,
+  },
+  brandLine: {
+    fontFamily: typography.fontFamily.medium,
+    fontSize: typography.fontSize[12],
+    color: onboardingColors.textSecondary,
+    marginTop: -2,
   },
   momoCapContainer: {
     width: '100%',
-    height: 155,
-    alignItems: 'center',
-    justifyContent: 'flex-end',
-    marginBottom: 0, // Capped flush on top of the card (zero gap, zero overlap)
-    zIndex: 10,
-  },
-  stageCard: {
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
-    borderRadius: 24,
-    borderCurve: 'continuous',
-    padding: spacing[20],
-    paddingTop: spacing[22],
-    borderWidth: 1.5,
-    borderColor: 'rgba(255, 255, 255, 0.8)',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.18,
-    shadowRadius: 16,
-    elevation: 6,
-  },
-  welcomeHeading: {
-    fontSize: 22,
-    fontWeight: typography.fontWeight.bold,
-    color: '#0F172A',
-    textAlign: 'center',
-    marginBottom: spacing[6],
-  },
-  welcomeSub: {
-    fontSize: typography.fontSize[13],
-    color: '#475569',
-    textAlign: 'center',
-    lineHeight: 19,
-    marginBottom: spacing[16],
-    paddingHorizontal: spacing[4],
-  },
-  superpowerList: {
-    backgroundColor: '#F8FAFC',
-    borderRadius: 18,
-    borderCurve: 'continuous',
-    padding: spacing[14],
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    marginBottom: spacing[20],
-    gap: spacing[12],
-  },
-  superpowerItem: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 10,
-  },
-  superpowerIconCircle: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: colors.primarySoftStrong,
+    minHeight: 156,
     alignItems: 'center',
     justifyContent: 'center',
+    marginBottom: spacing[4],
+    zIndex: 10,
   },
-  superpowerTextWrap: {
-    flex: 1,
+  momoCapContainerCompact: {
+    minHeight: 112,
+    marginBottom: 0,
   },
-  superpowerTitle: {
-    fontSize: typography.fontSize[13],
+  stageCard: {
+    backgroundColor: 'transparent',
+    padding: spacing[20],
+    paddingTop: spacing[8],
+  },
+  welcomeHeading: {
+    fontSize: 28,
     fontWeight: typography.fontWeight.bold,
-    color: '#0F172A',
-    marginBottom: 2,
+    color: onboardingColors.text,
+    textAlign: 'center',
+    lineHeight: 36,
+    marginBottom: spacing[8],
   },
-  superpowerDesc: {
-    fontSize: typography.fontSize[11.5],
-    color: '#64748B',
-    lineHeight: 16,
+  welcomeSub: {
+    fontSize: typography.fontSize[14],
+    color: onboardingColors.textSecondary,
+    textAlign: 'center',
+    lineHeight: 22,
+    marginBottom: spacing[20],
+    paddingHorizontal: spacing[4],
+  },
+  welcomeContinue: {
+    width: 58,
+    height: 58,
+    borderRadius: 29,
+    alignSelf: 'center',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: onboardingColors.primary,
+  },
+  transformationVisual: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: spacing[20],
+    marginBottom: spacing[8],
+  },
+  transformationPoint: {
+    alignItems: 'center',
+    gap: spacing[4],
+  },
+  transformationText: {
+    fontSize: typography.fontSize[11],
+    fontFamily: typography.fontFamily.semiBold,
+    color: onboardingColors.textSecondary,
+  },
+  transformationLine: {
+    width: 28,
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: onboardingColors.primaryBorder,
+    marginHorizontal: spacing[6],
   },
   primaryButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.primary,
+    backgroundColor: onboardingColors.primary,
     paddingVertical: spacing[14],
     paddingHorizontal: spacing[20],
     borderRadius: 16,
     borderCurve: 'continuous',
     gap: 8,
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
   },
   primaryButtonDisabled: {
     backgroundColor: '#CBD5E1',
@@ -1236,7 +1149,7 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   primaryButtonTextDisabled: {
-    color: '#94A3B8',
+    color: onboardingColors.textMuted,
   },
   cardHeaderRow: {
     flexDirection: 'row',
@@ -1248,19 +1161,21 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: onboardingColors.surfaceMuted,
     alignItems: 'center',
     justifyContent: 'center',
   },
   cardTitle: {
-    fontSize: 18,
+    fontSize: 24,
     fontWeight: typography.fontWeight.bold,
-    color: '#0F172A',
+    color: onboardingColors.text,
+    lineHeight: 31,
   },
   cardSub: {
-    fontSize: typography.fontSize[12],
-    color: '#64748B',
-    marginTop: 2,
+    fontSize: typography.fontSize[13],
+    color: onboardingColors.textSecondary,
+    lineHeight: 20,
+    marginTop: 4,
   },
   inputGroup: {
     marginBottom: spacing[4],
@@ -1268,60 +1183,52 @@ const styles = StyleSheet.create({
   inputLabel: {
     fontSize: typography.fontSize[12.5],
     fontWeight: typography.fontWeight.bold,
-    color: '#334155',
+    color: onboardingColors.text,
     marginBottom: spacing[6],
   },
   textInput: {
-    backgroundColor: '#F8FAFC',
-    borderWidth: 1.5,
-    borderColor: '#E2E8F0',
-    borderRadius: 14,
-    borderCurve: 'continuous',
-    paddingHorizontal: spacing[14],
+    backgroundColor: 'transparent',
+    borderBottomWidth: 1.5,
+    borderBottomColor: onboardingColors.primaryBorder,
+    paddingHorizontal: 0,
     paddingVertical: Platform.OS === 'ios' ? spacing[12] : spacing[10],
-    fontSize: typography.fontSize[14],
-    color: '#0F172A',
+    fontSize: typography.fontSize[16],
+    color: onboardingColors.text,
   },
   trackList: {
-    gap: spacing[8],
+    gap: 0,
   },
   trackCard: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    padding: spacing[12],
-    borderRadius: 16,
-    borderCurve: 'continuous',
-    backgroundColor: '#F8FAFC',
-    borderWidth: 1.5,
-    borderColor: '#E2E8F0',
+    paddingVertical: spacing[14],
+    paddingHorizontal: 0,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: onboardingColors.border,
   },
   trackCardSelected: {
-    backgroundColor: colors.primarySoft,
-    borderColor: colors.primary,
+    borderBottomWidth: 2,
+    borderBottomColor: onboardingColors.primary,
   },
   trackIconCircle: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#E2E8F0',
+    backgroundColor: 'transparent',
     alignItems: 'center',
     justifyContent: 'center',
   },
   trackIconCircleSelected: {
-    backgroundColor: colors.primarySoftStrong,
+    backgroundColor: onboardingColors.primarySoft,
   },
   trackCardTitle: {
     fontSize: typography.fontSize[13.5],
     fontWeight: typography.fontWeight.bold,
-    color: '#0F172A',
+    color: onboardingColors.text,
   },
   trackCardTitleSelected: {
-    color: colors.primary,
-  },
-  trackCardDesc: {
-    fontSize: typography.fontSize[11],
-    color: '#64748B',
+    color: onboardingColors.primary,
   },
   radioCircle: {
     width: 20,
@@ -1333,26 +1240,24 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   radioCircleSelected: {
-    borderColor: colors.primary,
+    borderColor: onboardingColors.primary,
   },
   radioInner: {
     width: 10,
     height: 10,
     borderRadius: 5,
-    backgroundColor: colors.primary,
+    backgroundColor: onboardingColors.primary,
   },
   subFieldCard: {
-    marginTop: spacing[12],
-    padding: spacing[14],
-    backgroundColor: '#F8FAFC',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
+    marginTop: spacing[20],
+    paddingTop: spacing[16],
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: onboardingColors.border,
   },
   subFieldLabel: {
     fontSize: typography.fontSize[12],
     fontWeight: typography.fontWeight.bold,
-    color: '#334155',
+    color: onboardingColors.text,
     marginBottom: spacing[6],
   },
   chipsWrap: {
@@ -1364,18 +1269,18 @@ const styles = StyleSheet.create({
     paddingVertical: 7,
     paddingHorizontal: 12,
     borderRadius: 12,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: onboardingColors.surface,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: onboardingColors.border,
   },
   subChipSelected: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
+    backgroundColor: onboardingColors.primary,
+    borderColor: onboardingColors.primary,
   },
   subChipText: {
     fontSize: typography.fontSize[12],
     fontWeight: typography.fontWeight.medium,
-    color: '#334155',
+    color: onboardingColors.text,
   },
   subChipTextSelected: {
     color: '#FFFFFF',
@@ -1391,64 +1296,51 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     paddingHorizontal: 10,
     borderRadius: 10,
-    backgroundColor: '#E2E8F0',
+    backgroundColor: onboardingColors.surfaceMuted,
   },
   miniChipActive: {
-    backgroundColor: colors.primarySoftStrong,
+    backgroundColor: onboardingColors.primarySoft,
     borderWidth: 1,
-    borderColor: colors.primaryLight,
+    borderColor: onboardingColors.primaryBorder,
   },
   miniChipText: {
     fontSize: typography.fontSize[11],
-    color: '#475569',
+    color: onboardingColors.textSecondary,
     fontWeight: typography.fontWeight.medium,
   },
   miniChipTextActive: {
-    color: colors.primary,
+    color: onboardingColors.primary,
     fontWeight: typography.fontWeight.bold,
   },
   formatList: {
-    gap: spacing[8],
+    gap: 0,
   },
   formatCard: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    padding: spacing[12],
-    borderRadius: 16,
-    borderCurve: 'continuous',
-    backgroundColor: '#F8FAFC',
-    borderWidth: 1.5,
-    borderColor: '#E2E8F0',
+    paddingVertical: spacing[14],
+    paddingHorizontal: 0,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: onboardingColors.border,
   },
   formatCardSelected: {
-    backgroundColor: colors.primarySoft,
-    borderColor: colors.primary,
+    borderBottomWidth: 2,
+    borderBottomColor: onboardingColors.primary,
   },
   formatCardAll: {
-    borderColor: '#FDE68A',
-    backgroundColor: '#FFFBEB',
+    borderBottomColor: onboardingColors.border,
   },
   formatCardAllSelected: {
-    borderColor: '#F59E0B',
-    backgroundColor: '#FEF3C7',
-  },
-  formatHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    borderBottomColor: onboardingColors.primary,
   },
   formatTitle: {
     fontSize: typography.fontSize[13],
     fontWeight: typography.fontWeight.bold,
-    color: '#0F172A',
+    color: onboardingColors.text,
   },
   formatTitleSelected: {
-    color: colors.primary,
-  },
-  formatDesc: {
-    fontSize: typography.fontSize[11],
-    color: '#64748B',
-    marginTop: 1,
+    color: onboardingColors.primary,
   },
   checkboxSquare: {
     width: 22,
@@ -1461,26 +1353,24 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
   },
   checkboxSquareSelected: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
+    backgroundColor: onboardingColors.primary,
+    borderColor: onboardingColors.primary,
   },
   goalVerticalList: {
-    gap: spacing[8],
+    gap: 0,
   },
   goalFullCard: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    padding: spacing[12],
-    borderRadius: 14,
-    borderCurve: 'continuous',
-    backgroundColor: '#F8FAFC',
-    borderWidth: 1.5,
-    borderColor: '#E2E8F0',
+    paddingVertical: spacing[14],
+    paddingHorizontal: 0,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: onboardingColors.border,
   },
   goalFullCardSelected: {
-    backgroundColor: colors.primarySoft,
-    borderColor: colors.primary,
+    borderBottomWidth: 2,
+    borderBottomColor: onboardingColors.primary,
   },
   goalTitleRow: {
     flexDirection: 'row',
@@ -1491,100 +1381,77 @@ const styles = StyleSheet.create({
   goalFullLabel: {
     fontSize: typography.fontSize[13],
     fontWeight: typography.fontWeight.bold,
-    color: '#0F172A',
+    color: onboardingColors.text,
   },
   goalFullLabelSelected: {
-    color: colors.primary,
+    color: onboardingColors.primary,
   },
   goalTagBadge: {
-    backgroundColor: '#E2E8F0',
+    backgroundColor: onboardingColors.surfaceMuted,
     paddingVertical: 2,
     paddingHorizontal: 8,
     borderRadius: 8,
   },
   goalTagBadgeSelected: {
-    backgroundColor: colors.primarySoftStrong,
+    backgroundColor: onboardingColors.primarySoft,
   },
   goalTagBadgeText: {
     fontSize: typography.fontSize[10.5],
     fontWeight: typography.fontWeight.bold,
-    color: '#475569',
+    color: onboardingColors.textSecondary,
   },
   goalTagBadgeTextSelected: {
-    color: colors.primary,
-  },
-  goalFullDesc: {
-    fontSize: typography.fontSize[11],
-    color: '#64748B',
+    color: onboardingColors.primary,
   },
   reminderCard: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
     marginTop: spacing[14],
-    padding: spacing[12],
-    borderRadius: 14,
-    backgroundColor: '#F8FAFC',
-    borderWidth: 1.5,
-    borderColor: '#E2E8F0',
+    paddingVertical: spacing[16],
+    paddingHorizontal: 0,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: onboardingColors.border,
   },
   reminderCardActive: {
-    backgroundColor: colors.primarySoft,
-    borderColor: colors.primary,
+    borderTopColor: onboardingColors.primary,
   },
   reminderTitle: {
     fontSize: typography.fontSize[12.5],
     fontWeight: typography.fontWeight.bold,
-    color: '#0F172A',
-  },
-  reminderDesc: {
-    fontSize: typography.fontSize[11],
-    color: '#64748B',
-    marginTop: 1,
+    color: onboardingColors.text,
   },
   launchCardHighlighted: {
-    backgroundColor: colors.primarySoft,
-    borderRadius: 18,
-    borderCurve: 'continuous',
-    borderWidth: 1.5,
-    borderColor: colors.primaryLight,
-    padding: spacing[16],
-    marginBottom: spacing[14],
+    paddingVertical: spacing[20],
+    borderTopWidth: 2,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderColor: onboardingColors.primary,
   },
   launchBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
     alignSelf: 'flex-start',
-    backgroundColor: colors.primarySoftStrong,
     paddingVertical: 3,
-    paddingHorizontal: 8,
-    borderRadius: 8,
     marginBottom: spacing[6],
   },
   launchBadgeText: {
     fontSize: typography.fontSize[10.5],
     fontWeight: typography.fontWeight.bold,
-    color: colors.primary,
+    color: onboardingColors.primary,
   },
   launchCardTitle: {
     fontSize: 16,
     fontWeight: typography.fontWeight.bold,
-    color: '#0F172A',
+    color: onboardingColors.text,
     marginBottom: 4,
-  },
-  launchCardDesc: {
-    fontSize: typography.fontSize[12],
-    color: '#475569',
-    lineHeight: 17,
-    marginBottom: spacing[12],
   },
   sampleActionButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    backgroundColor: colors.primary,
+    backgroundColor: onboardingColors.primary,
     paddingVertical: spacing[12],
     borderRadius: 14,
     borderCurve: 'continuous',
@@ -1603,32 +1470,23 @@ const styles = StyleSheet.create({
   dividerLine: {
     flex: 1,
     height: 1,
-    backgroundColor: '#E2E8F0',
+    backgroundColor: onboardingColors.border,
   },
   orText: {
     fontSize: typography.fontSize[11],
     fontWeight: typography.fontWeight.bold,
-    color: '#94A3B8',
+    color: onboardingColors.textMuted,
   },
   launchCardGoogle: {
-    backgroundColor: '#F8FAFC',
-    borderRadius: 18,
-    borderCurve: 'continuous',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    padding: spacing[16],
+    paddingVertical: spacing[20],
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: onboardingColors.border,
   },
   googleCardTitle: {
     fontSize: 15,
     fontWeight: typography.fontWeight.bold,
-    color: '#0F172A',
+    color: onboardingColors.text,
     marginBottom: 4,
-  },
-  googleCardDesc: {
-    fontSize: typography.fontSize[12],
-    color: '#64748B',
-    lineHeight: 17,
-    marginBottom: spacing[12],
   },
   googleButton: {
     flexDirection: 'row',
@@ -1650,7 +1508,7 @@ const styles = StyleSheet.create({
   googleButtonText: {
     fontSize: typography.fontSize[13],
     fontWeight: typography.fontWeight.bold,
-    color: '#0F172A',
+    color: onboardingColors.text,
   },
   completionError: {
     color: colors.danger,

@@ -10,7 +10,6 @@ import { AppText as Text } from '@/components/common/app-text';
 import { useRouter } from 'expo-router';
 import { HugeiconsIcon } from '@hugeicons/react-native';
 import {
-  SparklesIcon,
   Upload01Icon,
   BookOpen01Icon,
 } from '@hugeicons/core-free-icons';
@@ -52,7 +51,6 @@ export const SampleDeckCard: React.FC<SampleDeckCardProps> = ({ onDeckSeeded }) 
     <View style={styles.container}>
       <View style={styles.topRow}>
         <View style={styles.badge}>
-          <HugeiconsIcon icon={SparklesIcon} size={12} color={colors.primary} strokeWidth={2.5} />
           <Text style={styles.badgeText}>Taste Test • Ready to Study</Text>
         </View>
         <Text style={styles.readyText}>Ready in 1 tap</Text>

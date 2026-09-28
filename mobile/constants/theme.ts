@@ -87,6 +87,33 @@ export const mascotColors = {
   pinkSoft: '#FBCFE8',
 } as const;
 
+/**
+ * Momo's onboarding palette is intentionally warm and optimistic: violet for
+ * focus, peach for friendliness, and soft cream instead of the former jungle
+ * photography. Keep onboarding surfaces sourced from this palette so the
+ * first-run experience still feels like the same product as the mascot.
+ */
+export const onboardingColors = {
+  background: '#F8F5FF',
+  backgroundWarm: '#FFF8F1',
+  surface: '#FFFFFF',
+  surfaceMuted: '#F4F0FF',
+  primary: '#6D5CE7',
+  primaryPressed: '#5847D2',
+  primarySoft: '#EEEAFE',
+  primaryBorder: '#D8D0FB',
+  peach: '#FFBE98',
+  peachSoft: '#FFF0E6',
+  gold: '#F5B942',
+  text: '#241F3A',
+  textSecondary: '#69627C',
+  textMuted: '#8A8499',
+  border: '#E8E2F2',
+  success: '#2F9D78',
+  successSoft: '#E8F7F1',
+  overlay: 'rgba(36, 31, 58, 0.08)',
+} as const;
+
 export const fonts = {
   regular: 'Poppins-Regular',
   medium: 'Poppins-Medium',
@@ -221,6 +248,7 @@ export const typography = {
 export const theme = {
   colors,
   mascotColors,
+  onboardingColors,
   fonts,
   spacing,
   typography,

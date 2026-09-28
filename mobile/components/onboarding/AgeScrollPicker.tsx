@@ -11,7 +11,7 @@ import {
 import * as Haptics from 'expo-haptics';
 import { createAudioPlayer, setAudioModeAsync, AudioPlayer } from 'expo-audio';
 import { AppText as Text } from '@/components/common/app-text';
-import { colors, spacing, typography } from '@/constants/theme';
+import { onboardingColors, spacing, typography } from '@/constants/theme';
 
 interface AgeScrollPickerProps {
   value: number;
@@ -159,15 +159,12 @@ export const AgeScrollPicker: React.FC<AgeScrollPickerProps> = ({
         if (event.nativeEvent.actionName === 'decrement') handleStep(-1);
       }}
     >
-      {/* Centered Hero Number Display */}
       <View style={styles.heroDisplay}>
         <Text style={styles.heroAgeNumber}>{value}</Text>
         <Text style={styles.heroAgeLabel}>years old</Text>
       </View>
 
-      {/* Stepper Controls & Ruler Reel */}
       <View style={styles.stepperContainer}>
-        {/* Decrement Button */}
         <TouchableOpacity
           onPress={() => handleStep(-1)}
           disabled={value <= minAge}
@@ -179,12 +176,10 @@ export const AgeScrollPicker: React.FC<AgeScrollPickerProps> = ({
           <Text style={[styles.stepButtonText, value <= minAge && styles.stepButtonTextDisabled]}>-</Text>
         </TouchableOpacity>
 
-        {/* Horizontal Scrolling Ruler Reel with Clean Keyboard Block Switch (No Underline) */}
         <View
           style={styles.reelContainer}
           onLayout={(e) => setContainerWidth(e.nativeEvent.layout.width)}
         >
-          {/* Mechanical Keyboard Block Switch Frame Cursor (Clean keycap border, zero underline) */}
           <View pointerEvents="none" style={styles.centerCursorWrap}>
             <View style={styles.switchBlockFrame} />
           </View>
@@ -230,7 +225,6 @@ export const AgeScrollPicker: React.FC<AgeScrollPickerProps> = ({
                   >
                     {age}
                   </Text>
-                  {/* Ruler Tick Notch */}
                   <View
                     style={[
                       styles.rulerTick,
@@ -244,7 +238,6 @@ export const AgeScrollPicker: React.FC<AgeScrollPickerProps> = ({
           </ScrollView>
         </View>
 
-        {/* Increment Button */}
         <TouchableOpacity
           onPress={() => handleStep(1)}
           disabled={value >= maxAge}
@@ -257,10 +250,7 @@ export const AgeScrollPicker: React.FC<AgeScrollPickerProps> = ({
         </TouchableOpacity>
       </View>
 
-      {/* Validation / Compliance Notice */}
-      <Text style={styles.complianceNote}>
-        Minimum study age is {minAge} · Maximum is {maxAge}
-      </Text>
+      <Text style={styles.complianceNote}>Ages {minAge}–{maxAge}</Text>
     </View>
   );
 };
@@ -270,24 +260,24 @@ const styles = StyleSheet.create({
     width: '100%',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: spacing[12],
+    paddingVertical: spacing[8],
   },
   heroDisplay: {
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: spacing[16],
+    marginBottom: spacing[12],
   },
   heroAgeNumber: {
     fontSize: 54,
     fontWeight: typography.fontWeight.bold,
-    color: colors.primary,
+    color: onboardingColors.primary,
     letterSpacing: -1,
     lineHeight: 60,
   },
   heroAgeLabel: {
     fontSize: typography.fontSize[13],
     fontWeight: typography.fontWeight.medium,
-    color: '#64748B',
+    color: onboardingColors.textSecondary,
     marginTop: -2,
   },
   stepperContainer: {
@@ -301,39 +291,30 @@ const styles = StyleSheet.create({
     width: 42,
     height: 42,
     borderRadius: 21,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: 'transparent',
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1.5,
-    borderColor: '#E2E8F0',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
   },
   stepButtonDisabled: {
-    opacity: 0.35,
-    backgroundColor: '#F8FAFC',
-    borderColor: '#F1F5F9',
+    opacity: 0.3,
   },
   stepButtonText: {
     fontSize: 22,
     fontWeight: typography.fontWeight.bold,
-    color: '#0F172A',
+    color: onboardingColors.text,
     lineHeight: 24,
   },
   stepButtonTextDisabled: {
-    color: '#94A3B8',
+    color: onboardingColors.textMuted,
   },
   reelContainer: {
     flex: 1,
-    height: 84,
+    height: 78,
     position: 'relative',
-    backgroundColor: '#F8FAFC',
-    borderRadius: 18,
-    borderWidth: 1.5,
-    borderColor: '#E2E8F0',
+    backgroundColor: 'transparent',
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderColor: onboardingColors.border,
     overflow: 'hidden',
     justifyContent: 'center',
   },
@@ -353,17 +334,11 @@ const styles = StyleSheet.create({
     zIndex: 0,
   },
   switchBlockFrame: {
-    width: ITEM_WIDTH - 6,
-    height: 64,
-    borderRadius: 14,
-    borderWidth: 2,
-    borderColor: colors.primary,
-    backgroundColor: 'rgba(79, 70, 229, 0.08)',
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 5,
-    elevation: 2,
+    width: ITEM_WIDTH - 12,
+    height: 58,
+    borderBottomWidth: 3,
+    borderColor: onboardingColors.primary,
+    backgroundColor: onboardingColors.primarySoft,
   },
   reelItem: {
     width: ITEM_WIDTH,
@@ -375,38 +350,38 @@ const styles = StyleSheet.create({
   reelText: {
     fontSize: typography.fontSize[14],
     fontWeight: typography.fontWeight.medium,
-    color: '#94A3B8',
+    color: onboardingColors.textMuted,
   },
   reelTextNear: {
     fontSize: typography.fontSize[15],
     fontWeight: typography.fontWeight.semiBold,
-    color: '#475569',
+    color: onboardingColors.textSecondary,
   },
   reelTextSelected: {
     fontSize: 24,
     fontWeight: typography.fontWeight.bold,
-    color: colors.primary,
+    color: onboardingColors.primary,
   },
   rulerTick: {
     width: 2,
     height: 8,
     borderRadius: 1,
-    backgroundColor: '#CBD5E1',
+    backgroundColor: onboardingColors.border,
   },
   rulerTickNear: {
     height: 12,
-    backgroundColor: '#94A3B8',
+    backgroundColor: onboardingColors.textMuted,
   },
   rulerTickSelected: {
     width: 3,
     height: 18,
     borderRadius: 1.5,
-    backgroundColor: colors.primary,
+    backgroundColor: onboardingColors.primary,
   },
   complianceNote: {
     fontSize: typography.fontSize[11.5],
-    color: '#64748B',
+    color: onboardingColors.textMuted,
     textAlign: 'center',
-    marginTop: spacing[14],
+    marginTop: spacing[10],
   },
 });

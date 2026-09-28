@@ -32,13 +32,13 @@ function InitialGate({
   const [minTimeElapsed, setMinTimeElapsed] = useState(false);
 
   useEffect(() => {
-    // Hide the native splash screen immediately so the animated Momo loading begins
+    // Hand off from the native splash to the quiet Momo wordmark.
     SplashScreen.hideAsync().catch(() => {});
 
-    // Duration for the 3D jungle leaves slide-in and Momo bounce-in animation at the opening of the app
+    // Keep the brand beat brief; never hold the learner behind a long intro.
     const timer = setTimeout(() => {
       setMinTimeElapsed(true);
-    }, 2000);
+    }, 900);
     return () => clearTimeout(timer);
   }, []);
 
@@ -58,8 +58,9 @@ function InitialGate({
     return (
       <MomoLoadingScreen
         title="momo"
-        mascotSize={250}
-        mascotType="loading"
+        showMascot={false}
+        showSpinner={false}
+        variant="splash"
       />
     );
   }

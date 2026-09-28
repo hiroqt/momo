@@ -1,14 +1,14 @@
-import React, { useEffect, useRef } from 'react';
+import React from 'react';
 import { Platform, 
   View,
   StyleSheet,
   TouchableOpacity,
-  Animated,
   ViewStyle,
  } from 'react-native';
+import Animated, { FadeIn, ReduceMotion } from 'react-native-reanimated';
 import { AppText as Text } from '@/components/common/app-text';
 import { HugeiconsIcon } from '@hugeicons/react-native';
-import { SparklesIcon, Cancel01Icon } from '@hugeicons/core-free-icons';
+import { Cancel01Icon } from '@hugeicons/core-free-icons';
 import { colors, spacing, typography } from '@/constants/theme';
 
 interface CoachmarkTooltipProps {
@@ -30,39 +30,6 @@ export const CoachmarkTooltip: React.FC<CoachmarkTooltipProps> = ({
   actionLabel = 'Got it',
   onAction,
 }) => {
-  const pulseAnim = useRef(new Animated.Value(1)).current;
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    // Fade in
-    Animated.timing(fadeAnim, {
-      toValue: 1,
-      duration: 300,
-      useNativeDriver: true,
-    }).start();
-
-    // Subtle breathing/pulse animation
-    const pulse = Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulseAnim, {
-          toValue: 1.02,
-          duration: 1200,
-          useNativeDriver: true,
-        }),
-        Animated.timing(pulseAnim, {
-          toValue: 1,
-          duration: 1200,
-          useNativeDriver: true,
-        }),
-      ])
-    );
-    pulse.start();
-
-    return () => {
-      pulse.stop();
-    };
-  }, [fadeAnim, pulseAnim]);
-
   const handleAction = () => {
     if (onAction) {
       onAction();
@@ -73,24 +40,15 @@ export const CoachmarkTooltip: React.FC<CoachmarkTooltipProps> = ({
 
   return (
     <Animated.View
+      entering={FadeIn.duration(180).reduceMotion(ReduceMotion.System)}
       renderToHardwareTextureAndroid={true}
       needsOffscreenAlphaCompositing={true}
-      style={[
-        styles.container,
-        style,
-        {
-          opacity: fadeAnim,
-          transform: [{ scale: pulseAnim }],
-        },
-      ]}
+      style={[styles.container, style]}
     >
       {arrowPosition === 'top' && <View style={styles.arrowTop} />}
 
       <View style={styles.content}>
         <View style={styles.headerRow}>
-          <View style={styles.iconBadge}>
-            <HugeiconsIcon icon={SparklesIcon} size={14} color={colors.primary} strokeWidth={2.5} />
-          </View>
           <Text style={styles.title}>{title}</Text>
           <TouchableOpacity
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}

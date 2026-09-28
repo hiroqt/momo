@@ -214,10 +214,12 @@ The platform uses a coordinated 4-tier monorepo architecture:
 5. Academic Weapon social sharing (`AcademicWeaponStoryCard.tsx`, `shareStory.ts`): Students generate branded Instagram story visual cards showcasing mastery percentages, streak days, and reviewer titles.
 
 ### 6.8 Mobile Onboarding and Sensory Experience
-1. Immersive backdrop: `JungleBackdrop.tsx` with animated 3D leaf transforms (`Jungle3DLeaves.tsx`) using React Native Reanimated.
-2. Audio-haptic age picker (`AgeScrollPicker.tsx`): Pre-warmed audio player pool playing low-latency mechanical tick sounds (`age_tick.wav`) synchronized with device haptics.
-3. Academic track onboarding (`welcome.tsx`): Students select track (STEM, ABM, HUMSS, TVL, College Major), year level, and target exam.
-4. Dynamic starter decks (`sampleDeck.ts`): Instantly generates tailored starter review decks matching selected discipline before any user document upload.
+1. Momo-led visual system: onboarding uses a calm violet, peach, cream, and white palette derived from the Momo mascot and product brand. Nature/jungle imagery is not part of the onboarding experience.
+2. Progressive, user-first setup: each step explains how the requested choice improves the learner's experience, keeps optional information visibly optional, and previews the personalized outcome before completion.
+3. Restrained motion language: Momo's character animation provides personality while navigation uses short directional transitions for spatial continuity. Onboarding must support Reduced Motion and must not use decorative sparkle layers, pulsing UI, speech-bubble gimmicks, or ornamental looping effects.
+4. Audio-haptic age picker (`AgeScrollPicker.tsx`): Pre-warmed audio player pool playing low-latency mechanical tick sounds (`age_tick.wav`) synchronized with device haptics.
+5. Academic track onboarding (`welcome.tsx`): Students select their current learning path, level, program or target exam, preferred study formats, and a realistic daily goal.
+6. Dynamic starter decks (`sampleDeck.ts`): Instantly generates tailored starter review decks matching selected discipline before any user document upload.
 
 ### 6.9 Web Showcase and Interactive Preview Chat
 1. Platform: Next.js 15 App Router located in `web/`.

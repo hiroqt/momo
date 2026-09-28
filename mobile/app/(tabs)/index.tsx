@@ -22,6 +22,7 @@ import {
   CheckmarkCircle02Icon,
   HelpCircleIcon,
   Upload01Icon,
+  Book02Icon,
   Coins01Icon,
   Share01Icon,
   AiChat02Icon,
@@ -488,50 +489,75 @@ export default function HomeScreen() {
           </View>
 
           <View style={styles.aiCardsGrid}>
-            {/* Card 1: AI Math & Problem Solver */}
+            {/* Card 1: AI Document Reviewer */}
             <TouchableOpacity
-              style={[styles.aiFeatureCard, styles.aiMathCard]}
-              onPress={() => router.push('/math/solve')}
+              style={[styles.aiFeatureCard, styles.aiReviewerCard]}
+              onPress={() => router.push({ pathname: '/documents/upload', params: { mode: 'reviewer' } })}
               activeOpacity={0.82}
             >
               <View style={styles.aiCardTopRow}>
-                <View style={styles.aiMathIconWrap}>
-                  <HugeiconsIcon icon={Camera01Icon} size={20} color="#D97706" strokeWidth={2.4} />
+                <View style={styles.aiReviewerIconWrap}>
+                  <HugeiconsIcon icon={Book02Icon} size={20} color="#4F46E5" strokeWidth={2.4} />
                 </View>
-                <View style={[styles.aiPillBadge, { backgroundColor: '#FEF3C7' }]}>
-                  <Text style={[styles.aiPillText, { color: '#B45309' }]}>Vision AI</Text>
-                </View>
-              </View>
-              <Text style={styles.aiCardTitle}>Solve a Problem</Text>
-              <Text style={styles.aiCardSub}>Snap photo or enter equation for instant breakdown</Text>
-              <View style={styles.aiCardFooter}>
-                <Text style={[styles.aiCardActionText, { color: '#D97706' }]}>Scan now</Text>
-                <HugeiconsIcon icon={ArrowRight01Icon} size={14} color="#D97706" />
-              </View>
-            </TouchableOpacity>
-
-            {/* Card 2: AI Document Reviewer */}
-            <TouchableOpacity
-              style={[styles.aiFeatureCard, styles.aiUploadCard]}
-              onPress={() => router.push('/documents/upload')}
-              activeOpacity={0.82}
-            >
-              <View style={styles.aiCardTopRow}>
-                <View style={styles.aiUploadIconWrap}>
-                  <HugeiconsIcon icon={Upload01Icon} size={20} color="#059669" strokeWidth={2.4} />
-                </View>
-                <View style={[styles.aiPillBadge, { backgroundColor: '#D1FAE5' }]}>
-                  <Text style={[styles.aiPillText, { color: '#047857' }]}>Doc → Decks</Text>
+                <View style={[styles.aiPillBadge, { backgroundColor: '#EEF2FF' }]}>
+                  <Text style={[styles.aiPillText, { color: '#4338CA' }]}>Study Guide</Text>
                 </View>
               </View>
               <Text style={styles.aiCardTitle}>Generate Reviewer</Text>
-              <Text style={styles.aiCardSub}>Upload PDF, DOCX, PPTX for instant flashcards & quiz</Text>
+              <Text style={styles.aiCardSub}>Summaries, technical terms, outlines & cheat sheets</Text>
               <View style={styles.aiCardFooter}>
-                <Text style={[styles.aiCardActionText, { color: '#059669' }]}>Upload file</Text>
+                <Text style={[styles.aiCardActionText, { color: '#4F46E5' }]}>Create guide</Text>
+                <HugeiconsIcon icon={ArrowRight01Icon} size={14} color="#4F46E5" />
+              </View>
+            </TouchableOpacity>
+
+            {/* Card 2: AI Document Quiz */}
+            <TouchableOpacity
+              style={[styles.aiFeatureCard, styles.aiQuizCard]}
+              onPress={() => router.push({ pathname: '/documents/upload', params: { mode: 'quiz' } })}
+              activeOpacity={0.82}
+            >
+              <View style={styles.aiCardTopRow}>
+                <View style={styles.aiQuizIconWrap}>
+                  <HugeiconsIcon icon={CheckmarkCircle02Icon} size={20} color="#059669" strokeWidth={2.4} />
+                </View>
+                <View style={[styles.aiPillBadge, { backgroundColor: '#D1FAE5' }]}>
+                  <Text style={[styles.aiPillText, { color: '#047857' }]}>Active Recall</Text>
+                </View>
+              </View>
+              <Text style={styles.aiCardTitle}>Generate Quiz</Text>
+              <Text style={styles.aiCardSub}>Turn notes into practice questions, tests & flashcards</Text>
+              <View style={styles.aiCardFooter}>
+                <Text style={[styles.aiCardActionText, { color: '#059669' }]}>Create quiz</Text>
                 <HugeiconsIcon icon={ArrowRight01Icon} size={14} color="#059669" />
               </View>
             </TouchableOpacity>
           </View>
+
+          {/* Card 3: AI Math & Problem Solver */}
+          <TouchableOpacity
+            style={[styles.aiFeatureCard, styles.aiMathCardFull]}
+            onPress={() => router.push('/math/solve')}
+            activeOpacity={0.82}
+          >
+            <View style={styles.aiMathFullRow}>
+              <View style={styles.aiMathIconWrap}>
+                <HugeiconsIcon icon={Camera01Icon} size={22} color="#D97706" strokeWidth={2.4} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                  <Text style={styles.aiCardTitle}>Solve a Problem</Text>
+                  <View style={[styles.aiPillBadge, { backgroundColor: '#FEF3C7' }]}>
+                    <Text style={[styles.aiPillText, { color: '#B45309' }]}>Vision AI</Text>
+                  </View>
+                </View>
+                <Text style={styles.aiCardSub}>Snap photo or enter equation for instant breakdown</Text>
+              </View>
+              <View style={styles.aiMathArrow}>
+                <HugeiconsIcon icon={ArrowRight01Icon} size={16} color="#D97706" strokeWidth={2.4} />
+              </View>
+            </View>
+          </TouchableOpacity>
         </View>
 
         {/* Study Stats Widget (2 Cards) */}
@@ -906,6 +932,59 @@ const styles = StyleSheet.create({
         elevation: 2,
       },
     }),
+  },
+  aiReviewerCard: {
+    backgroundColor: '#EEF2FF',
+    borderColor: '#C7D2FE',
+    ...Platform.select({
+      ios: { shadowColor: '#4F46E5' },
+    }),
+  },
+  aiReviewerIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#E0E7FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  aiQuizCard: {
+    backgroundColor: '#ECFDF5',
+    borderColor: '#A7F3D0',
+    ...Platform.select({
+      ios: { shadowColor: '#059669' },
+    }),
+  },
+  aiQuizIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#D1FAE5',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  aiMathCardFull: {
+    backgroundColor: '#FFFBEB',
+    borderColor: '#FDE68A',
+    marginTop: 10,
+    minHeight: 76,
+    padding: 14,
+    ...Platform.select({
+      ios: { shadowColor: '#D97706' },
+    }),
+  },
+  aiMathFullRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  aiMathArrow: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#FEF3C7',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   aiMathCard: {
     backgroundColor: '#FFFBEB',

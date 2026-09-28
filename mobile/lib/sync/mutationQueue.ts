@@ -109,8 +109,14 @@ export class MutationQueue {
         this.lastError = err?.message || 'Sync failed. Will retry.';
         console.warn(`[MutationQueue] Sync attempt ${current.retryCount} failed for ${current.type}:`, err);
 
-        // If exceeded 3 retries, discard or keep for manual retry
-        if (current.retryCount >= 3) {
+        const isNonRetryable =
+          err?.message?.includes('FOLDER_NOT_FOUND') ||
+          err?.message?.includes('NOT_FOUND') ||
+          err?.status === 404 ||
+          err?.statusCode === 404;
+
+        // If exceeded 3 retries or non-retryable 404, discard
+        if (current.retryCount >= 3 || isNonRetryable) {
           this.queue.shift();
         } else {
           // Pause queue execution with exponential backoff

@@ -3,6 +3,10 @@ import { GenerationJob } from '../../types';
 
 export interface GenerationRequest {
   document_id: string;
+  document_ids?: string[];
+  generation_mode?: 'reviewer' | 'quiz' | 'both';
+  content_level?: 'light' | 'moderate' | 'detailed';
+  reviewer_types?: string[];
   title?: string;
   topic?: string;
   count?: number;

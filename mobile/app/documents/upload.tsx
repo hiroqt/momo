@@ -12,7 +12,7 @@ import {
   Easing,
 } from 'react-native';
 import { AppText as Text } from '@/components/common/app-text';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as DocumentPicker from 'expo-document-picker';
 import { HugeiconsIcon } from '@hugeicons/react-native';
@@ -24,6 +24,7 @@ import {
   Delete02Icon,
   Shield01Icon,
   BookOpen01Icon,
+  Book02Icon,
   Search01Icon,
   Clock01Icon,
   AlertCircleIcon,
@@ -99,9 +100,13 @@ const PROCESSING_STAGES = [
 
 export default function UploadScreen() {
   const router = useRouter();
+  const { mode } = useLocalSearchParams<{ mode?: 'reviewer' | 'quiz' }>();
   const insets = useSafeAreaInsets();
+  const isQuizMode = mode === 'quiz';
+  const isReviewerMode = mode === 'reviewer';
 
-  const [selectedFile, setSelectedFile] = useState<DocumentPicker.DocumentPickerAsset | null>(null);
+  const [selectedFiles, setSelectedFiles] = useState<DocumentPicker.DocumentPickerAsset[]>([]);
+  const selectedFile = selectedFiles[0] || null;
   const [statusMessage, setStatusMessage] = useState<string>('');
   const [currentStageIdx, setCurrentStageIdx] = useState<number>(0);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -194,6 +199,10 @@ export default function UploadScreen() {
     return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
   };
 
+  const totalSizeBytes = selectedFiles.reduce((acc, f) => acc + (f.size || 0), 0);
+  const MAX_TOTAL_BYTES = 15 * 1024 * 1024;
+  const remainingBytes = Math.max(0, MAX_TOTAL_BYTES - totalSizeBytes);
+
   const handlePickDocument = async () => {
     try {
       setErrorMsg(null);
@@ -205,17 +214,25 @@ export default function UploadScreen() {
           'text/plain',
         ],
         copyToCacheDirectory: true,
+        multiple: true,
       });
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
-        const file = result.assets[0];
-        // 15MB limit check (PRD Section 10)
-        const maxBytes = 15 * 1024 * 1024;
-        if (file.size && file.size > maxBytes) {
-          Alert.alert('File Too Large', 'Please select a document under 15MB.');
+        const incoming = result.assets;
+        const incomingTotal = incoming.reduce((acc, f) => acc + (f.size || 0), 0);
+        if (totalSizeBytes + incomingTotal > MAX_TOTAL_BYTES) {
+          Alert.alert(
+            'Maximum Size Exceeded',
+            `Combined file size cannot exceed 15MB. You have ${formatFileSize(remainingBytes)} remaining.`
+          );
           return;
         }
-        setSelectedFile(file);
+        // Avoid duplicate files by name
+        setSelectedFiles((prev) => {
+          const existingNames = new Set(prev.map((f) => f.name));
+          const fresh = incoming.filter((f) => !existingNames.has(f.name));
+          return [...prev, ...fresh];
+        });
       }
     } catch (err: any) {
       Alert.alert('Unable to Open File', 'Please try choosing a document again: ' + err.message);
@@ -223,8 +240,12 @@ export default function UploadScreen() {
   };
 
   const handleRemoveFile = () => {
-    setSelectedFile(null);
+    setSelectedFiles([]);
     setErrorMsg(null);
+  };
+
+  const handleRemoveFileAt = (idx: number) => {
+    setSelectedFiles((prev) => prev.filter((_, i) => i !== idx));
   };
 
   const updateProgress = (val: number, stageIdx: number, message: string) => {
@@ -237,82 +258,113 @@ export default function UploadScreen() {
     }).start();
   };
 
-  const handleUploadAndProcess = async () => {
-    if (!selectedFile) return;
+  const handleUploadAndProcess = async (targetMode: 'reviewer' | 'quiz' = 'reviewer') => {
+    if (selectedFiles.length === 0) return;
 
     setIsProcessing(true);
     setErrorMsg(null);
     progressAnim.setValue(5);
-    updateProgress(15, 0, 'Getting ready...');
+    updateProgress(
+      15,
+      0,
+      targetMode === 'quiz' ? 'Getting ready to generate quiz...' : 'Getting ready to generate reviewer...'
+    );
 
     try {
-      const ext = getFileExtension(selectedFile.name);
-      const uploadData = await requestUploadUrl({
-        filename: selectedFile.name,
-        file_type: ext,
-        file_size: selectedFile.size || 1024,
-        mime_type: selectedFile.mimeType || 'application/pdf',
-      });
+      const uploadedDocIds: string[] = [];
 
-      updateProgress(35, 0, 'Uploading your notes...');
-      try {
-        await uploadFileToS3(
-          uploadData.upload_url,
-          selectedFile.uri,
-          selectedFile.mimeType || 'application/pdf'
+      for (let i = 0; i < selectedFiles.length; i++) {
+        const file = selectedFiles[i];
+        const stepProgress = 15 + Math.floor(((i + 1) / selectedFiles.length) * 35);
+        updateProgress(
+          stepProgress,
+          0,
+          selectedFiles.length > 1
+            ? `Uploading document ${i + 1} of ${selectedFiles.length}: ${file.name}...`
+            : 'Uploading your notes...'
         );
-      } catch (uploadErr) {
-        console.warn('Storage upload note:', uploadErr);
+
+        const ext = getFileExtension(file.name);
+        const uploadData = await requestUploadUrl({
+          filename: file.name,
+          file_type: ext,
+          file_size: file.size || 1024,
+          mime_type: file.mimeType || 'application/pdf',
+        });
+
+        try {
+          await uploadFileToS3(
+            uploadData.upload_url,
+            file.uri,
+            file.mimeType || 'application/pdf'
+          );
+        } catch (uploadErr) {
+          console.warn('Storage upload note:', uploadErr);
+        }
+
+        await registerDocument({
+          document_id: uploadData.document_id,
+          original_filename: file.name,
+          file_type: ext,
+          mime_type: file.mimeType || 'application/pdf',
+          file_size: file.size || 1024,
+          s3_object_key: uploadData.s3_object_key,
+        });
+
+        uploadedDocIds.push(uploadData.document_id);
       }
 
-      updateProgress(55, 1, 'Reading your pages...');
-      await registerDocument({
-        document_id: uploadData.document_id,
-        original_filename: selectedFile.name,
-        file_type: ext,
-        mime_type: selectedFile.mimeType || 'application/pdf',
-        file_size: selectedFile.size || 1024,
-        s3_object_key: uploadData.s3_object_key,
-      });
-
-      // Poll document status until ready
-      updateProgress(75, 2, 'Finding key study topics...');
-      let isReady = false;
-      for (let i = 0; i < 20; i++) {
-        await new Promise((r) => setTimeout(r, 1200));
-        const st = await getDocumentStatus(uploadData.document_id);
-        if (st.stage) {
-          // Replace technical backend status with friendly copy if needed
-          const friendlyStage = st.stage.toLowerCase().includes('topic')
-            ? 'Finding key study topics...'
-            : st.stage.toLowerCase().includes('chunk') || st.stage.toLowerCase().includes('extract')
-            ? 'Reading pages & chapters...'
-            : st.stage;
-          setStatusMessage(friendlyStage);
-        }
-        if (st.progress) {
-          Animated.timing(progressAnim, {
-            toValue: Math.max(75, st.progress),
-            duration: 300,
-            useNativeDriver: false,
-          }).start();
-        }
-        if (st.status === 'READY') {
-          isReady = true;
-          break;
-        }
-        if (st.status === 'FAILED') {
-          throw new Error('We could not read this document. Please try a different file.');
+      // Poll document status until all documents are ready
+      updateProgress(65, 1, 'Reading pages and chapters...');
+      for (const dId of uploadedDocIds) {
+        let isReady = false;
+        for (let i = 0; i < 25; i++) {
+          await new Promise((r) => setTimeout(r, 1200));
+          const st = await getDocumentStatus(dId);
+          if (st.stage) {
+            const friendlyStage = st.stage.toLowerCase().includes('topic')
+              ? 'Finding key study topics...'
+              : st.stage.toLowerCase().includes('chunk') || st.stage.toLowerCase().includes('extract')
+              ? 'Reading pages & chapters...'
+              : st.stage;
+            setStatusMessage(friendlyStage);
+          }
+          if (st.progress) {
+            Animated.timing(progressAnim, {
+              toValue: Math.max(65, Math.min(95, st.progress)),
+              duration: 300,
+              useNativeDriver: false,
+            }).start();
+          }
+          if (st.status === 'READY') {
+            isReady = true;
+            break;
+          }
+          if (st.status === 'FAILED') {
+            throw new Error('We could not read one of your documents. Please check file format.');
+          }
         }
       }
 
-      updateProgress(100, 3, 'Almost ready! Opening your reviewer...');
+      updateProgress(
+        100,
+        3,
+        mode === 'quiz' ? 'Opening Quiz Builder...' : 'Opening Reviewer Builder...'
+      );
       await new Promise((r) => setTimeout(r, 400));
 
-      // Navigate to Reviewer Configuration
-      router.replace(`/create/${uploadData.document_id}`);
+      // Navigate to Configuration with primary ID, secondary IDs, and mode
+      const primaryDocId = uploadedDocIds[0];
+      const otherDocIds = uploadedDocIds.slice(1).join(',');
+      router.replace({
+        pathname: `/create/${primaryDocId}`,
+        params: {
+          ...(otherDocIds ? { otherDocIds } : {}),
+          mode: mode || 'reviewer',
+        },
+      });
     } catch (err: any) {
-      setErrorMsg(err.message || 'Something went wrong while preparing your file. Please try again.');
+      setErrorMsg(err.message || 'Something went wrong while preparing your files. Please try again.');
       setIsProcessing(false);
     }
   };
@@ -328,8 +380,20 @@ export default function UploadScreen() {
   return (
     <View style={styles.screen}>
       <PageHeader
-        title="Upload Material"
-        subtitle="Turn your notes & slides into study decks"
+        title={
+          isQuizMode
+            ? 'Upload for Quiz'
+            : isReviewerMode
+            ? 'Upload for Reviewer'
+            : 'Upload Material'
+        }
+        subtitle={
+          isQuizMode
+            ? 'Turn your notes into practice questions & flashcards'
+            : isReviewerMode
+            ? 'Turn your notes into study summaries & cheat sheets'
+            : 'Turn your notes & slides into study decks'
+        }
         isModal={true}
         onBack={() => router.back()}
       />
@@ -499,79 +563,175 @@ export default function UploadScreen() {
                 </View>
               </TouchableOpacity>
             ) : (
-              /* Selected File Card */
+              /* Selected Files List */
               <View style={styles.selectedFileContainer}>
                 <View style={styles.selectedFileHeader}>
-                  <Text style={styles.sectionLabel}>SELECTED DOCUMENT</Text>
+                  <Text style={styles.sectionLabel}>
+                    SELECTED DOCUMENTS ({selectedFiles.length})
+                  </Text>
                   <TouchableOpacity
                     onPress={handleRemoveFile}
                     style={styles.removeFileBtn}
                     activeOpacity={0.7}
                   >
                     <HugeiconsIcon icon={Delete02Icon} size={15} color={colors.danger} strokeWidth={2} />
-                    <Text style={styles.removeFileText}>Remove</Text>
+                    <Text style={styles.removeFileText}>Clear all</Text>
                   </TouchableOpacity>
                 </View>
 
-                <View style={styles.fileCard}>
-                  {/* File Type Badge Icon */}
-                  <View
-                    style={[
-                      styles.fileBadgeIconBox,
-                      { backgroundColor: formatConfig.badgeBg, borderColor: formatConfig.badgeBorder },
-                    ]}
-                  >
-                    <HugeiconsIcon icon={File01Icon} size={28} color={formatConfig.textColor} strokeWidth={2} />
-                    <View
-                      style={[
-                        styles.fileExtTag,
-                        { backgroundColor: formatConfig.textColor },
-                      ]}
-                    >
-                      <Text style={styles.fileExtTagText}>{formatConfig.name}</Text>
-                    </View>
-                  </View>
-
-                  {/* File Details */}
-                  <View style={styles.fileCardDetails}>
-                    <Text style={styles.fileCardName} numberOfLines={2}>
-                      {selectedFile.name}
-                    </Text>
-                    <View style={styles.fileCardMetaRow}>
-                      <Text style={styles.fileCardSize}>
-                        {formatFileSize(selectedFile.size)}
-                      </Text>
-                      <View style={styles.metaDot} />
-                      <View style={styles.readyBadge}>
-                        <HugeiconsIcon icon={CheckmarkCircle02Icon} size={12} color={colors.success} strokeWidth={2.5} />
-                        <Text style={styles.readyBadgeText}>Ready to study</Text>
+                {/* List of picked files */}
+                {selectedFiles.map((file, idx) => {
+                  const ext = getFileExtension(file.name);
+                  const fConf = getFormatDetails(ext);
+                  return (
+                    <View key={`${file.name}-${idx}`} style={[styles.fileCard, { marginBottom: 8 }]}>
+                      <View
+                        style={[
+                          styles.fileBadgeIconBox,
+                          { backgroundColor: fConf.badgeBg, borderColor: fConf.badgeBorder },
+                        ]}
+                      >
+                        <HugeiconsIcon icon={File01Icon} size={24} color={fConf.textColor} strokeWidth={2} />
+                        <View style={[styles.fileExtTag, { backgroundColor: fConf.textColor }]}>
+                          <Text style={styles.fileExtTagText}>{fConf.name}</Text>
+                        </View>
                       </View>
-                    </View>
-                  </View>
-                </View>
 
-                <TouchableOpacity
-                  style={styles.changeFileButton}
-                  onPress={handlePickDocument}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.changeFileButtonText}>Choose a different file</Text>
-                </TouchableOpacity>
+                      <View style={styles.fileCardDetails}>
+                        <Text style={styles.fileCardName} numberOfLines={1}>
+                          {file.name}
+                        </Text>
+                        <View style={styles.fileCardMetaRow}>
+                          <Text style={styles.fileCardSize}>{formatFileSize(file.size)}</Text>
+                          <View style={styles.metaDot} />
+                          <View style={styles.readyBadge}>
+                            <HugeiconsIcon icon={CheckmarkCircle02Icon} size={12} color={colors.success} strokeWidth={2.5} />
+                            <Text style={styles.readyBadgeText}>Included</Text>
+                          </View>
+                        </View>
+                      </View>
+
+                      <TouchableOpacity
+                        onPress={() => handleRemoveFileAt(idx)}
+                        style={{ padding: 6 }}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      >
+                        <HugeiconsIcon icon={Delete02Icon} size={16} color={colors.textMuted} strokeWidth={2} />
+                      </TouchableOpacity>
+                    </View>
+                  );
+                })}
+
+                {/* Total Size & Add More Button */}
+                <View style={{ marginTop: 4, marginBottom: 8, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Text style={{ fontSize: 12, color: colors.textSecondary, fontFamily: typography.fontFamily.medium }}>
+                    Total: {formatFileSize(totalSizeBytes)} / 15 MB
+                  </Text>
+                  {remainingBytes > 100 * 1024 && (
+                    <TouchableOpacity
+                      style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}
+                      onPress={handlePickDocument}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={{ fontSize: 13, color: colors.primary, fontFamily: typography.fontFamily.semiBold }}>
+                        + Add another file
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
               </View>
             )}
 
-            {/* Primary Action Button (When File is Selected) */}
-            {selectedFile && (
-              <PlatformPressable
-                style={styles.primaryActionButton}
-                onPress={handleUploadAndProcess}
-              >
-                <View style={styles.primaryActionContent}>
-                  <HugeiconsIcon icon={SparklesIcon} size={20} color={colors.onPrimary} strokeWidth={2.2} />
-                  <Text style={styles.primaryActionText}>Create Study Reviewer</Text>
-                  <HugeiconsIcon icon={ArrowRight01Icon} size={18} color={colors.onPrimary} strokeWidth={2.2} />
-                </View>
-              </PlatformPressable>
+            {/* Dedicated Action Button based on Mode */}
+            {selectedFiles.length > 0 && (
+              <View style={styles.actionButtonsContainer}>
+                {isReviewerMode ? (
+                  /* Dedicated Reviewer Button */
+                  <PlatformPressable
+                    style={styles.reviewerActionButton}
+                    onPress={() => handleUploadAndProcess('reviewer')}
+                    accessibilityRole="button"
+                    accessibilityLabel="Continue to Reviewer Options"
+                  >
+                    <View style={styles.actionButtonContent}>
+                      <View style={styles.actionButtonIconBadgeReviewer}>
+                        <HugeiconsIcon icon={Book02Icon} size={22} color="#FFFFFF" strokeWidth={2.4} />
+                      </View>
+                      <View style={styles.actionButtonTextCol}>
+                        <Text style={styles.actionButtonTitle}>Continue to Reviewer Options</Text>
+                        <Text style={styles.actionButtonSubtitle}>
+                          Next: Choose topic focus, content level & study formats
+                        </Text>
+                      </View>
+                      <HugeiconsIcon icon={ArrowRight01Icon} size={18} color="#FFFFFF" strokeWidth={2.4} />
+                    </View>
+                  </PlatformPressable>
+                ) : isQuizMode ? (
+                  /* Dedicated Quiz Button */
+                  <PlatformPressable
+                    style={styles.reviewerActionButton}
+                    onPress={() => handleUploadAndProcess('quiz')}
+                    accessibilityRole="button"
+                    accessibilityLabel="Continue to Quiz Options"
+                  >
+                    <View style={styles.actionButtonContent}>
+                      <View style={styles.actionButtonIconBadgeReviewer}>
+                        <HugeiconsIcon icon={CheckmarkCircle02Icon} size={22} color="#FFFFFF" strokeWidth={2.4} />
+                      </View>
+                      <View style={styles.actionButtonTextCol}>
+                        <Text style={styles.actionButtonTitle}>Continue to Quiz Options</Text>
+                        <Text style={styles.actionButtonSubtitle}>
+                          Next: Choose topic, question count, difficulty & timer
+                        </Text>
+                      </View>
+                      <HugeiconsIcon icon={ArrowRight01Icon} size={18} color="#FFFFFF" strokeWidth={2.4} />
+                    </View>
+                  </PlatformPressable>
+                ) : (
+                  /* Both Options when general upload */
+                  <>
+                    <PlatformPressable
+                      style={styles.reviewerActionButton}
+                      onPress={() => handleUploadAndProcess('reviewer')}
+                      accessibilityRole="button"
+                      accessibilityLabel="Generate Reviewer"
+                    >
+                      <View style={styles.actionButtonContent}>
+                        <View style={styles.actionButtonIconBadgeReviewer}>
+                          <HugeiconsIcon icon={Book02Icon} size={22} color="#FFFFFF" strokeWidth={2.4} />
+                        </View>
+                        <View style={styles.actionButtonTextCol}>
+                          <Text style={styles.actionButtonTitle}>Generate Reviewer</Text>
+                          <Text style={styles.actionButtonSubtitle}>
+                            Summaries, key terms, outlines & cheat sheets
+                          </Text>
+                        </View>
+                        <HugeiconsIcon icon={ArrowRight01Icon} size={18} color="#FFFFFF" strokeWidth={2.4} />
+                      </View>
+                    </PlatformPressable>
+
+                    <PlatformPressable
+                      style={styles.quizActionButton}
+                      onPress={() => handleUploadAndProcess('quiz')}
+                      accessibilityRole="button"
+                      accessibilityLabel="Generate Quiz"
+                    >
+                      <View style={styles.actionButtonContent}>
+                        <View style={styles.actionButtonIconBadgeQuiz}>
+                          <HugeiconsIcon icon={CheckmarkCircle02Icon} size={22} color={colors.primary} strokeWidth={2.4} />
+                        </View>
+                        <View style={styles.actionButtonTextCol}>
+                          <Text style={[styles.actionButtonTitle, { color: colors.text }]}>Generate Quiz</Text>
+                          <Text style={styles.actionButtonSubtitleQuiz}>
+                            Practice questions, flashcards & active recall
+                          </Text>
+                        </View>
+                        <HugeiconsIcon icon={ArrowRight01Icon} size={18} color={colors.primary} strokeWidth={2.4} />
+                      </View>
+                    </PlatformPressable>
+                  </>
+                )}
+              </View>
             )}
 
             {/* Trust, Security & Grounding Highlights Card */}
@@ -881,35 +1041,87 @@ const styles = StyleSheet.create({
     color: colors.primary,
   },
 
-  /* Primary Action CTA Button */
-  primaryActionButton: {
+  /* Primary Action CTA Buttons */
+  actionButtonsContainer: {
+    gap: spacing[12],
+    marginVertical: spacing[4],
+  },
+  reviewerActionButton: {
     backgroundColor: colors.primary,
     borderRadius: isPadDevice ? 20 : 16,
     ...Platform.select({
       ios: {
         shadowColor: colors.primary,
-        shadowOffset: { width: 0, height: 6 },
-        shadowOpacity: 0.35,
-        shadowRadius: 12,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.32,
+        shadowRadius: 10,
       },
       android: {
         elevation: 4,
       },
     }),
   },
-  primaryActionContent: {
+  quizActionButton: {
+    backgroundColor: colors.surface,
+    borderRadius: isPadDevice ? 20 : 16,
+    borderWidth: 1.5,
+    borderColor: colors.primaryBorder,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.06,
+        shadowRadius: 6,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
+  },
+  actionButtonContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: isPadDevice ? spacing[20] : spacing[16],
-    paddingHorizontal: spacing[20],
-    gap: spacing[10],
+    paddingVertical: isPadDevice ? spacing[16] : spacing[14],
+    paddingHorizontal: spacing[16],
+    gap: spacing[12],
   },
-  primaryActionText: {
-    fontSize: isPadDevice ? typography.fontSize[18] : typography.fontSize[16],
+  actionButtonIconBadgeReviewer: {
+    width: 42,
+    height: 42,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  actionButtonIconBadgeQuiz: {
+    width: 42,
+    height: 42,
+    borderRadius: 12,
+    backgroundColor: colors.primarySoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  actionButtonTextCol: {
+    flex: 1,
+  },
+  actionButtonTitle: {
+    fontSize: isPadDevice ? typography.fontSize[17] : typography.fontSize[15],
     fontWeight: typography.fontWeight.bold,
     color: colors.onPrimary,
-    letterSpacing: typography.letterSpacing[-0.2],
+  },
+  actionButtonSubtitle: {
+    fontSize: isPadDevice ? typography.fontSize[13] : typography.fontSize[11.5],
+    color: 'rgba(255, 255, 255, 0.85)',
+    marginTop: 2,
+  },
+  actionButtonSubtitleQuiz: {
+    fontSize: isPadDevice ? typography.fontSize[13] : typography.fontSize[11.5],
+    color: colors.textSecondary,
+    marginTop: 2,
+  },
+  primaryActionButton: {
+    backgroundColor: colors.primary,
+    borderRadius: isPadDevice ? 20 : 16,
   },
 
   /* Features & Privacy Card */

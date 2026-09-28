@@ -18,6 +18,7 @@ import { HugeiconsIcon } from '@hugeicons/react-native';
 import {
   TrophyIcon,
   BookOpen01Icon,
+  Book02Icon,
   Delete02Icon,
   Edit02Icon,
   RefreshIcon,
@@ -29,6 +30,7 @@ import { getStudySet, getStudyItems, deleteStudySet, updateStudySet } from '../.
 import { localDb } from '../../lib/storage/localDb';
 import { FlashcardDeck } from '../../components/study/FlashcardDeck';
 import { QuizRunner, QuizRunnerRef } from '../../components/study/QuizRunner';
+import { ReviewerGuideView } from '../../components/study/ReviewerGuideView';
 import { PageHeader } from '../../components/common/PageHeader';
 import { PlatformPressable } from '../../components/common/PlatformPressable';
 import { ConfirmationModal } from '../../components/common/ConfirmationModal';
@@ -67,6 +69,15 @@ function randomizeStudyItems(rawItems: StudyItem[]): StudyItem[] {
   });
 }
 
+const REVIEWER_SET = new Set([
+  'glossary',
+  'concept_outline',
+  'cheat_sheet',
+  'compare_contrast',
+  'qa_study_sheet',
+  'timeline_process',
+]);
+
 export default function StudySessionScreen() {
   const { studySetId, initialMode } = useLocalSearchParams<{
     studySetId: string;
@@ -77,7 +88,7 @@ export default function StudySessionScreen() {
 
   const [studySet, setStudySet] = useState<StudySet | null>(null);
   const [items, setItems] = useState<StudyItem[]>([]);
-  const [mode, setMode] = useState<'flashcard' | 'quiz'>('flashcard');
+  const [mode, setMode] = useState<'reviewer' | 'flashcard' | 'quiz'>('reviewer');
   const [isLoading, setIsLoading] = useState(true);
   const [isDeleting, setIsDeleting] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -135,11 +146,20 @@ export default function StudySessionScreen() {
 
         // Intelligently set initial mode based on available study formats
         const qTypes = setData?.generation_config?.question_types || [];
+        const rTypes = setData?.generation_config?.reviewer_types || [];
+        const genMode = setData?.generation_config?.generation_mode;
+        const hasRev = randomized.some((i) => REVIEWER_SET.has(i.type)) || rTypes.length > 0 || genMode === 'reviewer';
         const hasFc = qTypes.includes('flashcard') || randomized.some((i) => i.type === 'flashcard');
-        const hasQz = randomized.some((i) => i.type !== 'flashcard') || qTypes.some((f: string) => f !== 'flashcard');
+        const hasQz = randomized.some((i) => ['multiple_choice', 'true_false', 'identification', 'fill_in_the_blank'].includes(i.type)) || qTypes.some((f: string) => f !== 'flashcard');
 
         if (initialMode === 'quiz' && hasQz) {
           setMode('quiz');
+        } else if (initialMode === 'flashcard' && hasFc) {
+          setMode('flashcard');
+        } else if (initialMode === 'reviewer' && hasRev) {
+          setMode('reviewer');
+        } else if (hasRev) {
+          setMode('reviewer');
         } else if (hasFc) {
           setMode('flashcard');
         } else if (hasQz) {
@@ -158,11 +178,20 @@ export default function StudySessionScreen() {
           setItems(randomized);
 
           const qTypes = localSet?.generation_config?.question_types || [];
+          const rTypes = localSet?.generation_config?.reviewer_types || [];
+          const genMode = localSet?.generation_config?.generation_mode;
+          const hasRev = randomized.some((i) => REVIEWER_SET.has(i.type)) || rTypes.length > 0 || genMode === 'reviewer';
           const hasFc = qTypes.includes('flashcard') || randomized.some((i) => i.type === 'flashcard');
-          const hasQz = randomized.some((i) => i.type !== 'flashcard') || qTypes.some((f: string) => f !== 'flashcard');
+          const hasQz = randomized.some((i) => ['multiple_choice', 'true_false', 'identification', 'fill_in_the_blank'].includes(i.type)) || qTypes.some((f: string) => f !== 'flashcard');
 
           if (initialMode === 'quiz' && hasQz) {
             setMode('quiz');
+          } else if (initialMode === 'flashcard' && hasFc) {
+            setMode('flashcard');
+          } else if (initialMode === 'reviewer' && hasRev) {
+            setMode('reviewer');
+          } else if (hasRev) {
+            setMode('reviewer');
           } else if (hasFc) {
             setMode('flashcard');
           } else if (hasQz) {
@@ -314,19 +343,25 @@ export default function StudySessionScreen() {
   }
 
   const configuredTypes: string[] = studySet?.generation_config?.question_types || [];
+  const configuredRevTypes: string[] = studySet?.generation_config?.reviewer_types || [];
+  const genMode = studySet?.generation_config?.generation_mode;
+
+  const reviewerItems = items.filter((i) => REVIEWER_SET.has(i.type));
   const flashcardSpecificItems = items.filter((i) => i.type === 'flashcard');
-  const otherQuestionItems = items.filter((i) => i.type !== 'flashcard');
-  // Combine all items so that in Flashcard mode, users have as many flashcards as possible covering every question in the set
-  const actualFlashcardItems = items.length > 0
-    ? [...flashcardSpecificItems, ...otherQuestionItems]
-    : [];
-  const hasFlashcards = items.length > 0;
+  const quizSpecificItems = items.filter((i) => ['multiple_choice', 'true_false', 'identification', 'fill_in_the_blank'].includes(i.type));
 
-  const quizItems = otherQuestionItems.length > 0 ? otherQuestionItems : items;
-  const hasQuiz = otherQuestionItems.length > 0 || configuredTypes.some((f) => f !== 'flashcard');
-  const actualQuizItems = otherQuestionItems.length > 0 ? otherQuestionItems : items;
+  const hasReviewer = reviewerItems.length > 0 || configuredRevTypes.length > 0 || genMode === 'reviewer' || genMode === 'both' || (items.length > 0 && flashcardSpecificItems.length === 0 && quizSpecificItems.length === 0);
+  const hasFlashcards = flashcardSpecificItems.length > 0 || configuredTypes.includes('flashcard');
+  const hasQuiz = quizSpecificItems.length > 0 || configuredTypes.some((f) => f !== 'flashcard');
 
-  const availableModes: { key: 'flashcard' | 'quiz'; label: string; icon: any }[] = [];
+  const actualReviewerItems = reviewerItems.length > 0 ? reviewerItems : items;
+  const actualFlashcardItems = flashcardSpecificItems.length > 0 ? flashcardSpecificItems : items;
+  const actualQuizItems = quizSpecificItems.length > 0 ? quizSpecificItems : items;
+
+  const availableModes: { key: 'reviewer' | 'flashcard' | 'quiz'; label: string; icon: any }[] = [];
+  if (hasReviewer) {
+    availableModes.push({ key: 'reviewer', label: 'Reviewer Guide', icon: Book02Icon });
+  }
   if (hasFlashcards) {
     availableModes.push({ key: 'flashcard', label: 'Flashcards', icon: BookOpen01Icon });
   }
@@ -334,7 +369,9 @@ export default function StudySessionScreen() {
     availableModes.push({ key: 'quiz', label: 'Quiz', icon: CheckmarkCircle02Icon });
   }
 
-  const screenSubtitle = mode === 'flashcard'
+  const screenSubtitle = mode === 'reviewer'
+    ? `${actualReviewerItems.length} study topics & notes`
+    : mode === 'flashcard'
     ? `${actualFlashcardItems.length} flashcards`
     : `${actualQuizItems.length} questions`;
 
@@ -402,7 +439,13 @@ export default function StudySessionScreen() {
 
       {/* Content Runner */}
       <View style={styles.contentArea}>
-        {mode === 'flashcard' ? (
+        {mode === 'reviewer' ? (
+          <ReviewerGuideView
+            items={actualReviewerItems}
+            title={studySet?.title}
+            onTakeQuiz={hasQuiz ? () => setMode('quiz') : undefined}
+          />
+        ) : mode === 'flashcard' ? (
           <FlashcardDeck
             key={`fc-${sessionKey}-${actualFlashcardItems.length}`}
             items={actualFlashcardItems}

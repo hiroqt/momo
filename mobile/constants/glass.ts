@@ -53,12 +53,12 @@ export const glassTokens: Record<GlassVariant, GlassStyleConfig> = {
   },
   primary: {
     glassEffectStyle: 'regular',
-    tintColor: 'rgba(79, 70, 229, 0.45)',
+    tintColor: 'rgba(67, 56, 202, 0.55)',
     fallbackIntensity: 80,
     fallbackTint: 'systemMaterial',
-    borderColor: 'rgba(199, 210, 254, 0.6)',
+    borderColor: 'rgba(165, 180, 252, 0.5)',
     borderWidth: 1.2,
-    backgroundColor: 'rgba(79, 70, 229, 0.88)',
+    backgroundColor: 'rgba(67, 56, 202, 0.92)',
   },
 };
 

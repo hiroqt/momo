@@ -35,17 +35,37 @@ class GenerationWorker:
             custom_instruction = generation_spec.get("custom_instruction")
             target_count = generation_spec.get("count", 15)
             section_filter = generation_spec.get("focus_sections")
-            question_types = generation_spec.get("question_types")
+            mode = generation_spec.get("generation_mode", "reviewer")
+            content_level = generation_spec.get("content_level", "moderate")
+            document_ids = generation_spec.get("document_ids")
+
+            if mode == "reviewer":
+                if content_level == "light":
+                    target_count = 12
+                elif content_level == "detailed":
+                    target_count = 35
+                else:
+                    target_count = 20
+                effective_types = generation_spec.get("reviewer_types") or [
+                    "glossary", "concept_outline", "cheat_sheet", "compare_contrast", "qa_study_sheet", "timeline_process"
+                ]
+            elif mode == "both":
+                rev_types = generation_spec.get("reviewer_types") or ["glossary", "concept_outline", "cheat_sheet"]
+                quiz_types = generation_spec.get("question_types") or ["flashcard", "multiple_choice"]
+                effective_types = rev_types + quiz_types
+            else:
+                effective_types = generation_spec.get("question_types") or ["flashcard", "multiple_choice"]
 
             # Build rich semantic search query combining topic + custom user instructions
             search_query = retrieval_service.build_search_query(topic, custom_instruction)
 
-            # Rich signal density window (up to 35 diverse non-redundant chunks to maximize question coverage)
+            # Rich signal density window (up to 40 diverse non-redundant chunks to maximize coverage)
             evidence_chunks = await retrieval_service.retrieve_evidence(
                 document_id=document_id,
                 query=search_query,
-                top_k=min(max(10, target_count), 35),
-                section_filter=section_filter
+                top_k=min(max(10, target_count), 40),
+                section_filter=section_filter,
+                document_ids=document_ids
             )
 
             # 2. Synthesize Grounded Context
@@ -54,7 +74,7 @@ class GenerationWorker:
                 status="PROCESSING",
                 stage="Preparing study material",
                 progress=40,
-                message="Extracting key study concepts from your document..."
+                message="Extracting key study concepts and facts from your document..."
             )
 
             synthesized = synthesis_service.synthesize_context(evidence_chunks)
@@ -82,19 +102,28 @@ class GenerationWorker:
                 return
 
             # 3. Model Generation (Fast parallel batching)
+            is_reviewer = mode in ("reviewer", "both")
+            stage_title = "Cooking your reviewer" if is_reviewer else "Crafting your quiz"
+            gen_msg = "Momo is compiling your high-yield reviewer study guide..." if is_reviewer else "Momo is crafting your questions and flashcards..."
+
             await generation_repo.update_job(
                 job_id=job_id,
                 status="GENERATING",
-                stage="Cooking your reviewer",
+                stage=stage_title,
                 progress=65,
-                message="Momo is crafting your questions and flashcards..."
+                message=gen_msg
             )
 
             # Pass generation buffer (+20%) so deduplication yields the maximum requested target count
             buffered_spec = dict(generation_spec)
             buffered_spec["count"] = target_count + max(2, target_count // 5)
+            buffered_spec["effective_types"] = effective_types
 
-            system_instruction = "You are an expert educational reviewer generator strictly bound to the supplied study evidence."
+            system_instruction = (
+                "You are an expert educational reviewer and study guide synthesizer strictly bound to the supplied study evidence."
+                if is_reviewer else
+                "You are an expert educational quiz generator strictly bound to the supplied study evidence."
+            )
             raw_items = await ai_provider.generate_study_material(
                 system_instruction=system_instruction,
                 generation_spec=buffered_spec,
@@ -108,7 +137,7 @@ class GenerationWorker:
                     status="FAILED",
                     stage="Generation Failed",
                     progress=100,
-                    message="Could not generate study questions from the material.",
+                    message="Could not generate study reviewer from the material.",
                     error="EMPTY_AI_RESPONSE"
                 )
                 return
@@ -117,15 +146,15 @@ class GenerationWorker:
             await generation_repo.update_job(
                 job_id=job_id,
                 status="VALIDATING",
-                stage="Fact-checking answers",
+                stage="Fact-checking content",
                 progress=85,
-                message="Fact-checking answers and verifying questions..."
+                message="Fact-checking concepts and verifying grounded material..."
             )
 
             valid_items = grounding_validator.validate_and_deduplicate(
                 raw_items=raw_items,
                 target_count=target_count,
-                allowed_types=question_types
+                allowed_types=effective_types
             )
 
             if not valid_items:

@@ -24,6 +24,7 @@ export interface GlassButtonProps extends Omit<PressableProps, 'style'> {
   variant?: GlassVariant;
   size?: GlassButtonSize;
   radius?: number;
+  tintColor?: string;
   haptic?: HapticFeedbackType | false;
   activeScale?: number;
   style?: StyleProp<ViewStyle>;
@@ -35,6 +36,7 @@ export const GlassButton: React.FC<GlassButtonProps> = ({
   variant = 'regular',
   size = 'md',
   radius,
+  tintColor,
   haptic = 'light',
   activeScale = 0.94,
   disabled,
@@ -107,6 +109,7 @@ export const GlassButton: React.FC<GlassButtonProps> = ({
     >
       <GlassSurface
         variant={variant}
+        tintColor={tintColor}
         radius={defaultRadius}
         isInteractive={!disabled}
         style={styles.surfaceWrapper}

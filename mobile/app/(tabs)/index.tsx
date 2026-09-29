@@ -1,50 +1,25 @@
 import React, { useEffect, useState } from 'react';
-import { colors, spacing, typography } from '@/constants/theme';
-import {
-  View,
-  StyleSheet,
-  TouchableOpacity,
-  ScrollView,
-  RefreshControl,
-  Platform,
-  StatusBar as RNStatusBar,
-} from 'react-native';
-import { AppText as Text } from '@/components/common/app-text';
+import { Platform, RefreshControl, StatusBar as RNStatusBar, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { HugeiconsIcon } from '@hugeicons/react-native';
-import {
-  BookOpen01Icon,
-  ArrowRight01Icon,
-  Delete02Icon,
-  Edit02Icon,
-  FlashIcon,
-  CheckmarkCircle02Icon,
-  HelpCircleIcon,
-  Upload01Icon,
-  Book02Icon,
-  Coins01Icon,
-  Share01Icon,
-  AiChat02Icon,
-  Camera01Icon,
-  Add01Icon,
-} from '@hugeicons/core-free-icons';
-import { listStudySets, deleteStudySet, updateStudySet } from '../../lib/api/studySets';
-import { getStreak } from '../../lib/api/stats';
-import { localDb } from '../../lib/storage/localDb';
-import { PlatformPressable } from '../../components/common/PlatformPressable';
-import { ConfirmationModal } from '../../components/common/ConfirmationModal';
-import { RenameModal } from '../../components/common/RenameModal';
-import { AcademicWeaponShareModal } from '../../components/social/AcademicWeaponShareModal';
-import { SmoothScrollView } from '../../components/common/SmoothScrollView';
-import { TabTransitionView } from '../../components/common/TabTransitionView';
-import { StudySet } from '../../types';
-import { DynamicMomoHead } from '../../components/mascot/DynamicMomoHead';
-import { getRandomStudyQuote, StudyQuote } from '../../lib/data/studyQuotes';
-import { useCredits } from '../../context/CreditsContext';
-import { SampleDeckCard } from '../../components/onboarding/SampleDeckCard';
+import { Coins01Icon } from '@hugeicons/core-free-icons';
+
+import { AppText as Text } from '@/components/common/app-text';
+import { SmoothScrollView } from '@/components/common/SmoothScrollView';
+import { TabTransitionView } from '@/components/common/TabTransitionView';
+import { DynamicMomoHead } from '@/components/mascot/DynamicMomoHead';
+import { colors, spacing, typography } from '@/constants/theme';
+import { useCredits } from '@/context/CreditsContext';
+import { getStreak } from '@/lib/api/stats';
+import { listStudySets } from '@/lib/api/studySets';
+import { getRandomStudyQuote, StudyQuote } from '@/lib/data/studyQuotes';
+import { localDb } from '@/lib/storage/localDb';
+import { StudySet } from '@/types';
 import { isIpad } from '@/utils/device';
-import { mutationQueue } from '../../lib/sync/mutationQueue';
+
+const WEEKDAY_LABELS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+const LIBRARY_PREVIEW_LIMIT = 4;
 
 function getGreeting(): string {
   const hour = new Date().getHours();
@@ -54,20 +29,28 @@ function getGreeting(): string {
 }
 
 function getFormattedDate(): string {
-  const now = new Date();
-  return now.toLocaleDateString('en-US', {
+  return new Date().toLocaleDateString('en-US', {
     weekday: 'long',
     month: 'short',
     day: 'numeric',
   });
 }
 
-const PROMPT_SHORTCUTS = [
-  { label: 'Quiz me on notes', prompt: 'Quiz me on my uploaded notes with multiple choice questions', emoji: '🎯' },
-  { label: 'Explain key concepts', prompt: 'Explain the core concepts from my study materials simply', emoji: '💡' },
-  { label: 'Solve math problem', prompt: 'Help me solve and understand a math problem step-by-step', emoji: '📐' },
-  { label: 'Make 10 flashcards', prompt: 'Build a quick 10-card study deck from my notes', emoji: '⚡' },
-];
+function getWeekDate(index: number): { date: string; isToday: boolean } {
+  const today = new Date();
+  const currentDayIndex = today.getDay() === 0 ? 6 : today.getDay() - 1;
+  const date = new Date(today);
+  date.setDate(today.getDate() - currentDayIndex + index);
+
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+
+  return {
+    date: `${year}-${month}-${day}`,
+    isToday: index === currentDayIndex,
+  };
+}
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -75,45 +58,30 @@ export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const [sets, setSets] = useState<StudySet[]>([]);
   const [refreshing, setRefreshing] = useState(false);
-  const [deleteTarget, setDeleteTarget] = useState<StudySet | null>(null);
-  const [isDeleting, setIsDeleting] = useState(false);
-  const [renameTarget, setRenameTarget] = useState<StudySet | null>(null);
-  const [isRenaming, setIsRenaming] = useState(false);
-  const [streakData, setStreakData] = useState<{ active_dates: string[]; current_streak: number }>({ active_dates: [], current_streak: 0 });
-  const [showStreakStoryModal, setShowStreakStoryModal] = useState(false);
-
+  const [streakData, setStreakData] = useState<{
+    active_dates: string[];
+    current_streak: number;
+  }>({ active_dates: [], current_streak: 0 });
   const [momoVisible, setMomoVisible] = useState(true);
   const [momoQuote, setMomoQuote] = useState<StudyQuote>(() => getRandomStudyQuote());
 
-  const handleConfirmRename = async (newTitle: string) => {
-    if (!renameTarget) return;
-    const target = renameTarget;
-    setRenameTarget(null); // Instant modal dismiss
-
-    // 0ms Optimistic State & Local DB Update
-    setSets((prev) =>
-      prev.map((s) => (s.id === target.id ? { ...s, title: newTitle } : s))
-    );
-    await localDb.updateStudySetTitle(target.id, newTitle);
-
-    // Enqueue background network task
-    mutationQueue.enqueue('RENAME_STUDY_SET', { id: target.id, title: newTitle });
-  };
-
   const loadData = async () => {
     try {
-      const [setsData, streakRes, localSets] = await Promise.all([
+      const [setsData, streakResponse, localSets] = await Promise.all([
         listStudySets().catch(() => localDb.listStudySets()),
         getStreak().catch(() => ({ active_dates: [], current_streak: 0 })),
         localDb.listStudySets(),
       ]);
+      const remoteSets = setsData || [];
       const previews = localSets.filter((set) => set.generation_config?.preview === true);
-      setSets([...(setsData || []), ...previews.filter((set) => !setsData?.some((remote) => remote.id === set.id))]);
-      if (streakRes) {
-        setStreakData(streakRes);
-      }
-    } catch (err) {
-      console.warn('Error loading home data:', err);
+
+      setSets([
+        ...remoteSets,
+        ...previews.filter((preview) => !remoteSets.some((remote) => remote.id === preview.id)),
+      ]);
+      setStreakData(streakResponse);
+    } catch (error) {
+      console.warn('Error loading home data:', error);
     }
   };
 
@@ -127,25 +95,7 @@ export default function HomeScreen() {
     setRefreshing(false);
   };
 
-  const handleConfirmDelete = async () => {
-    if (!deleteTarget) return;
-    const target = deleteTarget;
-    setDeleteTarget(null); // Instant modal dismiss
-
-    // 0ms Optimistic State & Local DB Update
-    setSets((prev) => prev.filter((s) => s.id !== target.id));
-    await localDb.deleteStudySet(target.id);
-
-    // Enqueue background delete
-    mutationQueue.enqueue('DELETE_STUDY_SET', { id: target.id });
-  };
-
-  const featured = sets.length > 0 ? sets[0] : null;
-  // Eliminate card redundancy: Library carousel only renders non-featured sets
-  const otherSets = sets.slice(1, 7);
-  const totalCards = sets.reduce((sum, s) => sum + (s.item_count || 0), 0);
-
-  const isTablet = isIpad();
+  const visibleSets = sets.slice(0, LIBRARY_PREVIEW_LIMIT);
 
   return (
     <TabTransitionView style={styles.screen} tabName="index">
@@ -154,9 +104,10 @@ export default function HomeScreen() {
         contentContainerStyle={[
           styles.content,
           {
-            paddingTop: Platform.OS === 'android'
-              ? Math.max(insets.top, RNStatusBar.currentHeight || spacing[0], spacing[28]) + spacing[14]
-              : Math.max(insets.top, spacing[20]),
+            paddingTop:
+              Platform.OS === 'android'
+                ? Math.max(insets.top, RNStatusBar.currentHeight || spacing[0], spacing[28]) + spacing[14]
+                : Math.max(insets.top, spacing[20]),
             paddingBottom: Math.max(insets.bottom, spacing[24]) + spacing[88],
           },
         ]}
@@ -169,119 +120,105 @@ export default function HomeScreen() {
           />
         }
       >
-        {/* Modular Header */}
         <View style={styles.header}>
-          <View style={styles.headerTextCol}>
+          <View style={styles.headerTextColumn}>
             <Text style={styles.dateLabel}>{getFormattedDate()}</Text>
             <Text style={styles.greeting}>{getGreeting()}</Text>
           </View>
-          <View style={styles.headerActions}>
-            <TouchableOpacity
-              style={styles.headerXpBadge}
-              onPress={() => router.push('/shop')}
-              activeOpacity={0.8}
-              accessibilityLabel={`${xp} XP`}
-              accessibilityRole="button"
-            >
-              <HugeiconsIcon icon={Coins01Icon} size={isTablet ? 24 : 18} color="#D97706" />
-              <Text style={styles.headerXpBadgeText}>{xp} XP</Text>
-            </TouchableOpacity>
-          </View>
+          <TouchableOpacity
+            style={styles.xpBadge}
+            onPress={() => router.push('/shop')}
+            activeOpacity={0.75}
+            accessibilityRole="button"
+            accessibilityLabel={`${xp} XP, open shop`}
+          >
+            <HugeiconsIcon icon={Coins01Icon} size={isPadDevice ? 24 : 18} color={colors.warning} />
+            <Text style={styles.xpBadgeText}>{xp} XP</Text>
+          </TouchableOpacity>
         </View>
 
-        {/* Day Streak Section - Momo Mascot Caps the Top of the Streak Card */}
         <View style={styles.streakSection}>
-          {/* Momo Mascot Header Anchor (Capping the Streak Card, Zero Gap, Non-Overlapping) */}
-          <View style={styles.momoMascotAnchorRow}>
+          <View style={styles.momoRow}>
             <TouchableOpacity
-              style={styles.momoAvatarBtn}
+              style={styles.momoButton}
               activeOpacity={0.75}
               onPress={() => {
                 setMomoQuote(getRandomStudyQuote(momoQuote.id));
                 setMomoVisible(true);
               }}
-              accessibilityLabel="Tap Momo for study tip"
+              accessibilityRole="button"
+              accessibilityLabel="Tap Momo for another study tip"
             >
-              <DynamicMomoHead quote={momoQuote} size={isTablet ? 140 : 105} />
+              <DynamicMomoHead quote={momoQuote} size={isPadDevice ? 140 : 105} />
             </TouchableOpacity>
 
             {momoVisible && (
-              <View style={styles.chatBubble}>
-                <View style={styles.chatBubbleTailOuter} />
-                <View style={styles.chatBubbleTail} />
+              <View style={styles.quoteBubble}>
+                <View style={styles.quoteBubbleTailBorder} />
+                <View style={styles.quoteBubbleTail} />
                 <TouchableOpacity
-                  style={styles.chatBubbleContent}
+                  style={styles.quoteContent}
                   activeOpacity={0.7}
                   onPress={() => setMomoQuote(getRandomStudyQuote(momoQuote.id))}
+                  accessibilityRole="button"
+                  accessibilityLabel="Show another study tip"
                 >
-                  <Text style={styles.momoTipTitle} numberOfLines={1}>{momoQuote.categoryLabel}</Text>
-                  <Text style={styles.momoTipDesc} numberOfLines={2}>{momoQuote.quote}</Text>
+                  <Text style={styles.quoteCategory} numberOfLines={1}>
+                    {momoQuote.categoryLabel}
+                  </Text>
+                  <Text style={styles.quoteText} numberOfLines={2}>
+                    {momoQuote.quote}
+                  </Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.momoCloseBtn} onPress={() => setMomoVisible(false)}>
-                  <Text style={styles.momoCloseText}>✕</Text>
+                <TouchableOpacity
+                  style={styles.quoteCloseButton}
+                  onPress={() => setMomoVisible(false)}
+                  accessibilityRole="button"
+                  accessibilityLabel="Hide study tip"
+                >
+                  <Text style={styles.quoteCloseText}>✕</Text>
                 </TouchableOpacity>
               </View>
             )}
           </View>
 
-          {/* Horizontal Streak Timeline */}
-          <View style={styles.streakTimelineContainer}>
-            <View style={styles.streakHeader}>
-              <View>
-                <Text style={styles.streakTitle}>
-                  🔥 {streakData.current_streak} {streakData.current_streak === 1 ? 'Day' : 'Days'} Streak
-                </Text>
-                <Text style={styles.streakSub}>You're on a roll!</Text>
-              </View>
-              <TouchableOpacity
-                style={styles.streakShareBtn}
-                onPress={() => setShowStreakStoryModal(true)}
-                activeOpacity={0.75}
-              >
-                <HugeiconsIcon icon={Share01Icon} size={14} color="#EF4444" strokeWidth={2.4} />
-                <Text style={styles.streakShareText}>Share</Text>
-              </TouchableOpacity>
+          <View style={styles.streakCard}>
+            <Text style={styles.streakEyebrow}>CURRENT STREAK</Text>
+            <View style={styles.streakHeading}>
+              <Text style={styles.streakCount}>{streakData.current_streak}</Text>
+              <Text style={styles.streakUnit}>
+                {streakData.current_streak === 1 ? 'day' : 'days'}
+              </Text>
             </View>
+            <Text style={styles.streakMessage}>
+              {streakData.current_streak > 0 ? 'Keep your learning rhythm going.' : 'Study today to begin your streak.'}
+            </Text>
+
             <View style={styles.streakDays}>
-              {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((day, idx) => {
-                const today = new Date();
-                const currentDayOfWeek = today.getDay() === 0 ? 6 : today.getDay() - 1;
-                const dateForDay = new Date(today);
-                dateForDay.setDate(today.getDate() - currentDayOfWeek + idx);
-                
-                const yyyy = dateForDay.getFullYear();
-                const mm = String(dateForDay.getMonth() + 1).padStart(2, '0');
-                const dd = String(dateForDay.getDate()).padStart(2, '0');
-                const dateStr = `${yyyy}-${mm}-${dd}`;
-                
-                const isActive = streakData.active_dates.includes(dateStr);
-                const isToday = idx === currentDayOfWeek;
-                
+              {WEEKDAY_LABELS.map((label, index) => {
+                const { date, isToday } = getWeekDate(index);
+                const isActive = streakData.active_dates.includes(date);
+
                 return (
-                  <View key={idx} style={styles.streakDayWrapper}>
-                    <View style={[
-                      styles.streakDayCircle,
-                      isActive && !isToday && { backgroundColor: colors.warningSoft },
-                      isToday && { backgroundColor: isActive ? colors.warningAccent : colors.surfaceMuted },
-                      isToday && !isActive && { borderWidth: 1, borderColor: colors.borderStrong }
-                    ]}>
-                      {isActive ? (
-                        <HugeiconsIcon
-                          icon={CheckmarkCircle02Icon}
-                          size={isTablet ? 22 : 16}
-                          color={isToday ? colors.onPrimary : colors.warningAccent}
-                        />
-                      ) : (
-                        <Text style={[
+                  <View key={`${label}-${index}`} style={styles.streakDay}>
+                    <View
+                      style={[
+                        styles.streakDayCircle,
+                        isActive && styles.streakDayCircleActive,
+                        isToday && styles.streakDayCircleToday,
+                        isActive && isToday && styles.streakDayCircleActiveToday,
+                      ]}
+                    >
+                      <Text
+                        style={[
                           styles.streakDayText,
-                          isToday && { color: colors.text, fontWeight: typography.fontWeight.black }
-                        ]}>{day}</Text>
-                      )}
+                          isActive && styles.streakDayTextActive,
+                          isActive && isToday && styles.streakDayTextActiveToday,
+                        ]}
+                      >
+                        {label}
+                      </Text>
                     </View>
-                    <Text style={[
-                      styles.streakDayLabel,
-                      isActive && { color: colors.warningAccent, fontWeight: typography.fontWeight.bold }
-                    ]}>{day}</Text>
                   </View>
                 );
               })}
@@ -289,319 +226,52 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        {/* Resume Study Widget - Active Deck */}
-        {featured ? (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Pick up where you left off</Text>
-
-            <View style={styles.resumeWidget}>
-              <View style={styles.resumeHeader}>
-                <View style={styles.resumeActiveBadge}>
-                  <View style={styles.pulseDot} />
-                  <Text style={styles.resumeActiveText}>ACTIVE</Text>
-                </View>
-                <Text style={styles.resumeCountText}>{featured.item_count} Items</Text>
-              </View>
-
-              <Text style={styles.resumeTitle} numberOfLines={2}>{featured.title}</Text>
-
-              <View style={styles.resumeActionGrid}>
-                <PlatformPressable
-                  style={styles.resumePrimaryBtn}
-                  onPress={() =>
-                    router.push({
-                      pathname: '/study/[studySetId]',
-                      params: { studySetId: featured.id, initialMode: 'flashcard' },
-                    })
-                  }
-                >
-                  <View style={styles.resumeBtnContent}>
-                    <HugeiconsIcon icon={FlashIcon} size={isTablet ? 22 : 16} color={colors.onPrimary} strokeWidth={2.5} />
-                    <Text style={styles.resumePrimaryBtnText}>Flashcards</Text>
-                  </View>
-                </PlatformPressable>
-
-                <PlatformPressable
-                  style={styles.resumeSecondaryBtn}
-                  onPress={() =>
-                    router.push({
-                      pathname: '/study/[studySetId]',
-                      params: { studySetId: featured.id, initialMode: 'quiz' },
-                    })
-                  }
-                >
-                  <View style={styles.resumeBtnContent}>
-                    <HugeiconsIcon icon={HelpCircleIcon} size={isTablet ? 22 : 16} color={colors.primaryDark} strokeWidth={2.2} />
-                    <Text style={styles.resumeSecondaryBtnText}>Quiz</Text>
-                  </View>
-                </PlatformPressable>
-              </View>
-            </View>
-          </View>
-        ) : null}
-
-        {/* Library Carousel Widget - Non-Redundant (Shows other decks or invite card) */}
-        <View style={styles.section}>
+        <View style={styles.librarySection}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Your Library</Text>
             <TouchableOpacity
               onPress={() => router.push('/(tabs)/library')}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              accessibilityRole="button"
+              accessibilityLabel="View your full library"
             >
-              <Text style={styles.seeAllText}>View All ({sets.length})</Text>
+              <Text style={styles.viewAllText}>View all</Text>
             </TouchableOpacity>
           </View>
 
-          {sets.length === 0 ? (
-            <SampleDeckCard onDeckSeeded={loadData} />
-          ) : otherSets.length > 0 ? (
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.carouselContainer}
-              snapToInterval={(isTablet ? 420 : 280) + spacing[12]}
-              decelerationRate="fast"
-            >
-              {otherSets.map((s) => (
+          {visibleSets.length > 0 ? (
+            <View style={styles.libraryList}>
+              {visibleSets.map((studySet, index) => (
                 <TouchableOpacity
-                  key={s.id}
-                  style={styles.carouselCard}
-                  onPress={() => router.push(`/study/${s.id}`)}
-                  activeOpacity={0.8}
+                  key={studySet.id}
+                  style={[
+                    styles.libraryRow,
+                    index < visibleSets.length - 1 && styles.libraryRowDivider,
+                  ]}
+                  onPress={() => router.push(`/study/${studySet.id}`)}
+                  activeOpacity={0.65}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${studySet.title}, ${studySet.item_count} items`}
                 >
-                  <View style={styles.carouselCardTop}>
-                    <Text style={styles.carouselTitle} numberOfLines={2}>
-                      {s.title}
-                    </Text>
-                  </View>
-                  <View style={styles.carouselCardBottom}>
-                    <Text style={styles.carouselMeta}>{s.item_count} items</Text>
-                    <View style={styles.carouselActions}>
-                      <TouchableOpacity
-                        onPress={() => setRenameTarget(s)}
-                        style={styles.iconBtn}
-                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                      >
-                        <HugeiconsIcon icon={Edit02Icon} size={isTablet ? 20 : 16} color={colors.textSecondary} />
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        onPress={() => setDeleteTarget(s)}
-                        style={styles.iconBtn}
-                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                      >
-                        <HugeiconsIcon icon={Delete02Icon} size={isTablet ? 20 : 16} color={colors.dangerAccent} />
-                      </TouchableOpacity>
-                    </View>
-                  </View>
+                  <Text style={styles.libraryTitle} numberOfLines={2}>
+                    {studySet.title}
+                  </Text>
+                  <Text style={styles.libraryMeta}>
+                    {studySet.item_count} {studySet.item_count === 1 ? 'item' : 'items'}
+                  </Text>
                 </TouchableOpacity>
               ))}
-            </ScrollView>
+            </View>
           ) : (
-            <TouchableOpacity
-              style={styles.createDeckPromptCard}
-              onPress={() => router.push('/documents/upload')}
-              activeOpacity={0.8}
-            >
-              <View style={styles.createDeckPromptLeft}>
-                <View style={styles.createDeckPromptIconCircle}>
-                  <HugeiconsIcon icon={Add01Icon} size={20} color={colors.primary} />
-                </View>
-                <View style={styles.createDeckPromptTextCol}>
-                  <Text style={styles.createDeckPromptTitle}>Add Another Reviewer</Text>
-                  <Text style={styles.createDeckPromptSub}>
-                    Upload more study notes to grow your revision library
-                  </Text>
-                </View>
-              </View>
-              <View style={styles.createDeckPromptArrow}>
-                <HugeiconsIcon icon={ArrowRight01Icon} size={16} color={colors.primary} />
-              </View>
-            </TouchableOpacity>
+            <View style={styles.emptyLibrary}>
+              <Text style={styles.emptyLibraryTitle}>Your library is ready</Text>
+              <Text style={styles.emptyLibraryText}>
+                Study sets you create will appear here.
+              </Text>
+            </View>
           )}
         </View>
-        {/* Momo AI Tutor Suite */}
-        <View style={styles.momoTutorSection}>
-          {/* Momo AI Tutor Card */}
-          <View style={styles.momoAiWidgetCard}>
-            <TouchableOpacity
-              style={styles.momoAiWidgetHeader}
-              onPress={() => router.push('/chat' as any)}
-              activeOpacity={0.85}
-              accessibilityLabel="Open Momo AI chat"
-              accessibilityRole="button"
-            >
-              <View style={styles.momoAiWidgetTextCol}>
-                <View style={styles.momoAiTagRow}>
-                  <Text style={styles.momoAiWidgetTitle}>Momo AI Tutor</Text>
-                  {/* Clean Grounded AI Badge WITHOUT Sparkle Icon */}
-                  <View style={styles.momoAiGroundedPill}>
-                    <Text style={styles.momoAiGroundedText}>Grounded AI</Text>
-                  </View>
-                </View>
-                <Text style={styles.momoAiWidgetDesc}>
-                  Ask questions from your study materials, generate diagrams, or get instant review help.
-                </Text>
-              </View>
-            </TouchableOpacity>
-
-            {/* Quick Prompt Shortcut Grid (Non-scrolling 2x2 grid) */}
-            <View style={styles.momoPromptGrid}>
-              {PROMPT_SHORTCUTS.map((chip, i) => (
-                <TouchableOpacity
-                  key={i}
-                  style={styles.momoPromptGridItem}
-                  onPress={() => router.push({ pathname: '/chat', params: { initialPrompt: chip.prompt } } as any)}
-                  activeOpacity={0.75}
-                >
-                  <Text style={styles.momoPromptChipEmoji}>{chip.emoji}</Text>
-                  <Text style={styles.momoPromptChipText} numberOfLines={1}>
-                    {chip.label}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            {/* Bottom Action Bar */}
-            <TouchableOpacity
-              style={styles.momoChatCtaBtn}
-              onPress={() => router.push('/chat' as any)}
-              activeOpacity={0.85}
-            >
-              <View style={styles.momoChatCtaLeft}>
-                <HugeiconsIcon icon={AiChat02Icon} size={18} color="#FFFFFF" strokeWidth={2.2} />
-                <Text style={styles.momoChatCtaText}>Start Chat with Momo</Text>
-              </View>
-              <View style={styles.momoChatCtaArrow}>
-                <HugeiconsIcon icon={ArrowRight01Icon} size={14} color={colors.primary} strokeWidth={2.4} />
-              </View>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* Prominent AI Study Tools Suite */}
-        <View style={styles.aiCardsSection}>
-          <View style={styles.aiCardsSectionHeader}>
-            <Text style={styles.sectionTitle}>AI Study Tools</Text>
-            {/* Clean AI Powered Badge WITHOUT Sparkle Icon */}
-            <View style={styles.aiSectionBadge}>
-              <Text style={styles.aiSectionBadgeText}>AI Powered</Text>
-            </View>
-          </View>
-
-          <View style={styles.aiCardsGrid}>
-            {/* Card 1: AI Document Reviewer */}
-            <TouchableOpacity
-              style={[styles.aiFeatureCard, styles.aiReviewerCard]}
-              onPress={() => router.push({ pathname: '/documents/upload', params: { mode: 'reviewer' } })}
-              activeOpacity={0.82}
-            >
-              <View style={styles.aiCardTopRow}>
-                <View style={styles.aiReviewerIconWrap}>
-                  <HugeiconsIcon icon={Book02Icon} size={20} color="#4F46E5" strokeWidth={2.4} />
-                </View>
-                <View style={[styles.aiPillBadge, { backgroundColor: '#EEF2FF' }]}>
-                  <Text style={[styles.aiPillText, { color: '#4338CA' }]}>Study Guide</Text>
-                </View>
-              </View>
-              <Text style={styles.aiCardTitle}>Generate Reviewer</Text>
-              <Text style={styles.aiCardSub}>Summaries, technical terms, outlines & cheat sheets</Text>
-              <View style={styles.aiCardFooter}>
-                <Text style={[styles.aiCardActionText, { color: '#4F46E5' }]}>Create guide</Text>
-                <HugeiconsIcon icon={ArrowRight01Icon} size={14} color="#4F46E5" />
-              </View>
-            </TouchableOpacity>
-
-            {/* Card 2: AI Document Quiz */}
-            <TouchableOpacity
-              style={[styles.aiFeatureCard, styles.aiQuizCard]}
-              onPress={() => router.push({ pathname: '/documents/upload', params: { mode: 'quiz' } })}
-              activeOpacity={0.82}
-            >
-              <View style={styles.aiCardTopRow}>
-                <View style={styles.aiQuizIconWrap}>
-                  <HugeiconsIcon icon={CheckmarkCircle02Icon} size={20} color="#059669" strokeWidth={2.4} />
-                </View>
-                <View style={[styles.aiPillBadge, { backgroundColor: '#D1FAE5' }]}>
-                  <Text style={[styles.aiPillText, { color: '#047857' }]}>Active Recall</Text>
-                </View>
-              </View>
-              <Text style={styles.aiCardTitle}>Generate Quiz</Text>
-              <Text style={styles.aiCardSub}>Turn notes into practice questions, tests & flashcards</Text>
-              <View style={styles.aiCardFooter}>
-                <Text style={[styles.aiCardActionText, { color: '#059669' }]}>Create quiz</Text>
-                <HugeiconsIcon icon={ArrowRight01Icon} size={14} color="#059669" />
-              </View>
-            </TouchableOpacity>
-          </View>
-
-          {/* Card 3: AI Math & Problem Solver */}
-          <TouchableOpacity
-            style={[styles.aiFeatureCard, styles.aiMathCardFull]}
-            onPress={() => router.push('/math/solve')}
-            activeOpacity={0.82}
-          >
-            <View style={styles.aiMathFullRow}>
-              <View style={styles.aiMathIconWrap}>
-                <HugeiconsIcon icon={Camera01Icon} size={22} color="#D97706" strokeWidth={2.4} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 }}>
-                  <Text style={styles.aiCardTitle}>Solve a Problem</Text>
-                  <View style={[styles.aiPillBadge, { backgroundColor: '#FEF3C7' }]}>
-                    <Text style={[styles.aiPillText, { color: '#B45309' }]}>Vision AI</Text>
-                  </View>
-                </View>
-                <Text style={styles.aiCardSub}>Snap photo or enter equation for instant breakdown</Text>
-              </View>
-              <View style={styles.aiMathArrow}>
-                <HugeiconsIcon icon={ArrowRight01Icon} size={16} color="#D97706" strokeWidth={2.4} />
-              </View>
-            </View>
-          </TouchableOpacity>
-        </View>
-
-        {/* Study Stats Widget (2 Cards) */}
-        <View style={styles.statsRow}>
-          <View style={styles.statCard}>
-            <Text style={styles.statValue}>{totalCards}</Text>
-            <Text style={styles.statLabel}>Total Cards</Text>
-          </View>
-          <View style={styles.statCard}>
-            <Text style={styles.statValue}>{sets.length}</Text>
-            <Text style={styles.statLabel}>Study Sets</Text>
-          </View>
-        </View>
-
       </SmoothScrollView>
-
-      {/* Modals */}
-      <ConfirmationModal
-        visible={deleteTarget !== null}
-        title="Delete Reviewer?"
-        message={`Are you sure you want to delete "${deleteTarget?.title}"? All generated flashcards and questions will be permanently deleted.`}
-        confirmText="Delete Reviewer"
-        isDestructive={true}
-        isLoading={isDeleting}
-        onConfirm={handleConfirmDelete}
-        onCancel={() => setDeleteTarget(null)}
-      />
-
-      <RenameModal
-        visible={renameTarget !== null}
-        initialTitle={renameTarget?.title || ''}
-        isLoading={isRenaming}
-        onSave={handleConfirmRename}
-        onCancel={() => setRenameTarget(null)}
-      />
-
-      <AcademicWeaponShareModal
-        visible={showStreakStoryModal}
-        onClose={() => setShowStreakStoryModal(false)}
-        inputData={{
-          mode: 'streak',
-          streak: streakData.current_streak,
-        }}
-      />
     </TabTransitionView>
   );
 }
@@ -617,571 +287,211 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
-    paddingHorizontal: isPadDevice ? spacing[36] : spacing[18],
-    maxWidth: 920,
-    alignSelf: 'center',
     width: '100%',
+    maxWidth: 760,
+    alignSelf: 'center',
+    paddingHorizontal: isPadDevice ? spacing[36] : spacing[18],
   },
   header: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    justifyContent: 'space-between',
     marginBottom: isPadDevice ? spacing[20] : spacing[14],
   },
-  headerTextCol: {
+  headerTextColumn: {
     flex: 1,
     marginRight: spacing[12],
   },
-  headerActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing[8],
-  },
-  headerXpBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FEF3C7',
-    paddingHorizontal: isPadDevice ? spacing[16] : spacing[12],
-    paddingVertical: isPadDevice ? spacing[10] : spacing[8],
-    borderRadius: isPadDevice ? 24 : 20,
-    borderWidth: 1,
-    borderColor: '#FDE68A',
-    gap: spacing[6],
-  },
-  headerXpBadgeText: {
-    fontSize: isPadDevice ? typography.fontSize[17] : typography.fontSize[14],
-    fontWeight: typography.fontWeight.bold,
-    color: '#B45309',
-  },
   dateLabel: {
+    color: colors.primary,
     fontSize: isPadDevice ? typography.fontSize[15] : typography.fontSize[12],
     fontWeight: typography.fontWeight.bold,
-    color: colors.primary,
-    textTransform: 'uppercase',
     letterSpacing: typography.letterSpacing[0.6],
+    textTransform: 'uppercase',
     marginBottom: spacing[2],
   },
   greeting: {
+    color: colors.text,
     fontSize: isPadDevice ? typography.fontSize[34] : typography.fontSize[26],
     fontWeight: typography.fontWeight.extraBold,
-    color: colors.text,
     letterSpacing: -0.5,
   },
-
-  // Momo AI Tutor Suite (Anchored by Momo Mascot at the top, non-overlapping)
-  momoTutorSection: {
-    marginBottom: 20,
-  },
-  momoMascotAnchorRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    marginBottom: 0,
-    paddingHorizontal: 6,
-    zIndex: 10,
-  },
-  momoAvatarBtn: {
-    marginRight: isPadDevice ? 14 : 10,
-    marginBottom: 0,
-    position: 'relative',
-    zIndex: 2,
-  },
-  chatBubble: {
-    flex: 1,
-    minHeight: isPadDevice ? 90 : 72,
-    backgroundColor: '#FEF3C7',
-    paddingHorizontal: isPadDevice ? 16 : 12,
-    paddingVertical: isPadDevice ? 12 : 8,
-    borderRadius: isPadDevice ? 20 : 16,
-    borderWidth: 1,
-    borderColor: '#FDE68A',
-    position: 'relative',
+  xpBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 8,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#B45309',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.06,
-        shadowRadius: 6,
-      },
-      android: {
-        elevation: 2,
-      },
-    }),
+    gap: spacing[6],
+    backgroundColor: colors.warningSoft,
+    borderWidth: 1,
+    borderColor: colors.warningBorder,
+    borderRadius: isPadDevice ? 24 : 20,
+    paddingHorizontal: isPadDevice ? spacing[16] : spacing[12],
+    paddingVertical: isPadDevice ? spacing[10] : spacing[8],
   },
-  chatBubbleTailOuter: {
+  xpBadgeText: {
+    color: colors.warning,
+    fontSize: isPadDevice ? typography.fontSize[17] : typography.fontSize[14],
+    fontWeight: typography.fontWeight.bold,
+  },
+  streakSection: {
+    marginBottom: 0,
+  },
+  momoRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    paddingHorizontal: spacing[6],
+    zIndex: 1,
+  },
+  momoButton: {
+    marginRight: isPadDevice ? spacing[14] : spacing[10],
+  },
+  quoteBubble: {
+    flex: 1,
+    minHeight: isPadDevice ? 90 : 72,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.warningSoft,
+    borderWidth: 1,
+    borderColor: colors.warningBorder,
+    borderRadius: isPadDevice ? 20 : 16,
+    paddingHorizontal: isPadDevice ? spacing[16] : spacing[12],
+    paddingVertical: isPadDevice ? spacing[12] : spacing[8],
+    marginBottom: spacing[8],
+    position: 'relative',
+  },
+  quoteBubbleTailBorder: {
     position: 'absolute',
     left: -8,
     top: '50%',
     marginTop: -7,
     width: 0,
     height: 0,
-    backgroundColor: 'transparent',
     borderStyle: 'solid',
     borderTopWidth: 7,
     borderBottomWidth: 7,
     borderRightWidth: 8,
     borderTopColor: 'transparent',
     borderBottomColor: 'transparent',
-    borderRightColor: '#FDE68A',
-    zIndex: 1,
+    borderRightColor: colors.warningBorder,
   },
-  chatBubbleTail: {
+  quoteBubbleTail: {
     position: 'absolute',
     left: -7,
     top: '50%',
     marginTop: -7,
     width: 0,
     height: 0,
-    backgroundColor: 'transparent',
     borderStyle: 'solid',
     borderTopWidth: 7,
     borderBottomWidth: 7,
     borderRightWidth: 8,
     borderTopColor: 'transparent',
     borderBottomColor: 'transparent',
-    borderRightColor: '#FEF3C7',
-    zIndex: 2,
+    borderRightColor: colors.warningSoft,
   },
-  chatBubbleContent: {
+  quoteContent: {
     flex: 1,
-    paddingRight: 6,
     justifyContent: 'center',
+    paddingRight: spacing[6],
   },
-  momoTipTitle: {
-    fontSize: isPadDevice ? 13 : 11,
-    fontWeight: '800',
-    color: '#92400E',
-    marginBottom: 2,
-    textTransform: 'uppercase',
+  quoteCategory: {
+    color: colors.warning,
+    fontSize: isPadDevice ? typography.fontSize[13] : typography.fontSize[11],
+    fontWeight: typography.fontWeight.extraBold,
     letterSpacing: 0.3,
+    textTransform: 'uppercase',
+    marginBottom: spacing[2],
   },
-  momoTipDesc: {
-    fontSize: isPadDevice ? 14.5 : 12,
-    fontWeight: '600',
-    color: '#78350F',
+  quoteText: {
+    color: colors.textSecondary,
+    fontSize: isPadDevice ? typography.fontSize[14] : typography.fontSize[12],
+    fontWeight: typography.fontWeight.semiBold,
     lineHeight: isPadDevice ? 20 : 16,
   },
-  momoCloseBtn: {
-    padding: 6,
-    marginLeft: 2,
+  quoteCloseButton: {
+    padding: spacing[6],
+    marginLeft: spacing[2],
   },
-  momoCloseText: {
-    fontSize: isPadDevice ? 15 : 13,
-    color: '#B45309',
-    fontWeight: 'bold',
-  },
-
-  // Momo AI Tutor Card (Sitting cleanly below the anchor, non-overlapping)
-  momoAiWidgetCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: isPadDevice ? 26 : 20,
-    paddingHorizontal: isPadDevice ? 22 : 16,
-    paddingTop: isPadDevice ? 20 : 18,
-    paddingBottom: isPadDevice ? 20 : 16,
-    borderWidth: 1.5,
-    borderColor: '#E9D7FE',
-    marginTop: 0,
-    ...Platform.select({
-      ios: {
-        shadowColor: colors.primary,
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.08,
-        shadowRadius: 12,
-      },
-      android: {
-        elevation: 3,
-      },
-    }),
-  },
-  momoAiWidgetHeader: {
-    marginBottom: 12,
-  },
-  momoAiWidgetTextCol: {
-    width: '100%',
-  },
-  momoAiTagRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 4,
-  },
-  momoAiWidgetTitle: {
-    fontSize: isPadDevice ? 19 : 16.5,
-    fontFamily: typography.fontFamily.bold,
-    color: colors.text,
-  },
-  momoAiGroundedPill: {
-    backgroundColor: '#F4EBFF',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 8,
-    borderWidth: 0.5,
-    borderColor: '#D6BBFB',
-  },
-  momoAiGroundedText: {
-    fontSize: 10.5,
-    fontFamily: typography.fontFamily.bold,
-    color: colors.primary,
-  },
-  momoAiWidgetDesc: {
-    fontSize: isPadDevice ? 13.5 : 12,
-    fontFamily: typography.fontFamily.regular,
-    color: colors.textSecondary,
-    lineHeight: 17,
-  },
-  momoPromptGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    gap: 8,
-    marginBottom: 14,
-  },
-  momoPromptGridItem: {
-    width: '48.5%',
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F9FAFB',
-    borderWidth: 1,
-    borderColor: '#EAECF0',
-    paddingHorizontal: 10,
-    paddingVertical: 9,
-    borderRadius: 12,
-    gap: 6,
-  },
-  momoPromptChipEmoji: {
-    fontSize: 13,
-  },
-  momoPromptChipText: {
-    fontSize: isPadDevice ? 13 : 11.5,
-    fontFamily: typography.fontFamily.medium,
-    color: colors.text,
-    flex: 1,
-  },
-  momoChatCtaBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: colors.primary,
-    borderRadius: 14,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  momoChatCtaLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  momoChatCtaText: {
-    fontSize: 14,
-    fontFamily: typography.fontFamily.bold,
-    color: '#FFFFFF',
-  },
-  momoChatCtaArrow: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    backgroundColor: '#FFFFFF',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-
-  // AI Study Tools Grid
-  aiCardsSection: {
-    marginBottom: 20,
-  },
-  aiCardsSectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 10,
-  },
-  aiSectionBadge: {
-    backgroundColor: '#F4EBFF',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 8,
-    borderWidth: 0.5,
-    borderColor: '#D6BBFB',
-  },
-  aiSectionBadgeText: {
-    fontSize: 11,
-    fontFamily: typography.fontFamily.bold,
-    color: colors.primary,
-  },
-  aiCardsGrid: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  aiFeatureCard: {
-    flex: 1,
-    borderRadius: 16,
-    padding: 14,
-    borderWidth: 1,
-    justifyContent: 'space-between',
-    minHeight: 136,
-    ...Platform.select({
-      ios: {
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.06,
-        shadowRadius: 6,
-      },
-      android: {
-        elevation: 2,
-      },
-    }),
-  },
-  aiReviewerCard: {
-    backgroundColor: '#EEF2FF',
-    borderColor: '#C7D2FE',
-    ...Platform.select({
-      ios: { shadowColor: '#4F46E5' },
-    }),
-  },
-  aiReviewerIconWrap: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#E0E7FF',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  aiQuizCard: {
-    backgroundColor: '#ECFDF5',
-    borderColor: '#A7F3D0',
-    ...Platform.select({
-      ios: { shadowColor: '#059669' },
-    }),
-  },
-  aiQuizIconWrap: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#D1FAE5',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  aiMathCardFull: {
-    backgroundColor: '#FFFBEB',
-    borderColor: '#FDE68A',
-    marginTop: 10,
-    minHeight: 76,
-    padding: 14,
-    ...Platform.select({
-      ios: { shadowColor: '#D97706' },
-    }),
-  },
-  aiMathFullRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  aiMathArrow: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: '#FEF3C7',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  aiMathCard: {
-    backgroundColor: '#FFFBEB',
-    borderColor: '#FDE68A',
-    ...Platform.select({
-      ios: { shadowColor: '#D97706' },
-    }),
-  },
-  aiUploadCard: {
-    backgroundColor: '#ECFDF5',
-    borderColor: '#A7F3D0',
-    ...Platform.select({
-      ios: { shadowColor: '#059669' },
-    }),
-  },
-  aiCardTopRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  aiMathIconWrap: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#FEF3C7',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  aiUploadIconWrap: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#D1FAE5',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  aiPillBadge: {
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
-  },
-  aiPillText: {
-    fontSize: 10,
-    fontFamily: typography.fontFamily.bold,
-  },
-  aiCardTitle: {
-    fontSize: 14.5,
-    fontFamily: typography.fontFamily.bold,
-    color: colors.text,
-    marginBottom: 3,
-  },
-  aiCardSub: {
-    fontSize: 11,
-    fontFamily: typography.fontFamily.regular,
-    color: colors.textSecondary,
-    lineHeight: 15,
-    marginBottom: 8,
-  },
-  aiCardFooter: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  aiCardActionText: {
-    fontSize: 11.5,
-    fontFamily: typography.fontFamily.bold,
-  },
-
-  // Streak Section with Momo Mascot Capping the Top
-  streakSection: {
-    marginBottom: 20,
-  },
-  streakTimelineContainer: {
-    backgroundColor: colors.surface,
-    borderRadius: isPadDevice ? 22 : 18,
-    paddingHorizontal: isPadDevice ? spacing[22] : spacing[16],
-    paddingTop: isPadDevice ? spacing[20] : 16,
-    paddingBottom: isPadDevice ? spacing[20] : 16,
-    marginBottom: 0,
-    marginTop: 0,
-    borderWidth: 1.5,
-    borderColor: '#FDE68A',
-    ...Platform.select({
-      ios: {
-        shadowColor: '#D97706',
-        shadowOffset: { width: 0, height: 3 },
-        shadowOpacity: 0.06,
-        shadowRadius: 10,
-      },
-      android: {
-        elevation: 2,
-      },
-    }),
-  },
-  streakHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: isPadDevice ? spacing[20] : spacing[16],
-  },
-  streakShareBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: 'rgba(239, 68, 68, 0.1)',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(239, 68, 68, 0.2)',
-  },
-  streakShareText: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: '#EF4444',
-  },
-  streakTitle: {
-    fontSize: isPadDevice ? typography.fontSize[20] : typography.fontSize[16],
-    fontWeight: typography.fontWeight.bold,
-    color: colors.text,
-  },
-  streakSub: {
+  quoteCloseText: {
+    color: colors.warning,
     fontSize: isPadDevice ? typography.fontSize[15] : typography.fontSize[13],
-    color: colors.primary,
-    fontWeight: typography.fontWeight.medium,
+    fontWeight: typography.fontWeight.bold,
+  },
+  streakCard: {
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: isPadDevice ? 24 : 20,
+    padding: isPadDevice ? spacing[28] : spacing[20],
+  },
+  streakEyebrow: {
+    color: colors.textMuted,
+    fontSize: isPadDevice ? typography.fontSize[13] : typography.fontSize[11],
+    fontWeight: typography.fontWeight.bold,
+    letterSpacing: typography.letterSpacing[0.6],
+    marginBottom: spacing[6],
+  },
+  streakHeading: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: spacing[6],
+  },
+  streakCount: {
+    color: colors.text,
+    fontSize: isPadDevice ? typography.fontSize[40] : typography.fontSize[34],
+    fontWeight: typography.fontWeight.extraBold,
+    letterSpacing: -1,
+  },
+  streakUnit: {
+    color: colors.textSecondary,
+    fontSize: isPadDevice ? typography.fontSize[20] : typography.fontSize[17],
+    fontWeight: typography.fontWeight.semiBold,
+  },
+  streakMessage: {
+    color: colors.textSecondary,
+    fontSize: isPadDevice ? typography.fontSize[15] : typography.fontSize[13],
+    lineHeight: isPadDevice ? 22 : 19,
+    marginTop: spacing[2],
+    marginBottom: isPadDevice ? spacing[24] : spacing[20],
   },
   streakDays: {
     flexDirection: 'row',
     justifyContent: 'space-between',
   },
-  streakDayWrapper: {
+  streakDay: {
     alignItems: 'center',
-    gap: spacing[6],
   },
   streakDayCircle: {
-    width: isPadDevice ? 46 : 32,
-    height: isPadDevice ? 46 : 32,
-    borderRadius: isPadDevice ? 23 : 16,
+    width: isPadDevice ? 46 : 34,
+    height: isPadDevice ? 46 : 34,
+    borderRadius: isPadDevice ? 23 : 17,
     backgroundColor: colors.surfaceMuted,
     alignItems: 'center',
     justifyContent: 'center',
   },
+  streakDayCircleActive: {
+    backgroundColor: colors.warningSoft,
+  },
+  streakDayCircleToday: {
+    borderWidth: 1,
+    borderColor: colors.borderStrong,
+  },
+  streakDayCircleActiveToday: {
+    backgroundColor: colors.warningAccent,
+    borderColor: colors.warningAccent,
+  },
   streakDayText: {
+    color: colors.textMuted,
     fontSize: isPadDevice ? typography.fontSize[15] : typography.fontSize[12],
     fontWeight: typography.fontWeight.bold,
-    color: colors.textMuted,
   },
-  streakDayLabel: {
-    fontSize: isPadDevice ? typography.fontSize[13] : typography.fontSize[11],
-    fontWeight: typography.fontWeight.medium,
-    color: colors.textMuted,
+  streakDayTextActive: {
+    color: colors.warningAccent,
   },
-
-  // Stats Row
-  statsRow: {
-    flexDirection: 'row',
-    gap: isPadDevice ? spacing[16] : spacing[12],
-    marginBottom: isPadDevice ? spacing[28] : spacing[20],
+  streakDayTextActiveToday: {
+    color: colors.onPrimary,
   },
-  statCard: {
-    flex: 1,
-    backgroundColor: colors.surface,
-    paddingVertical: isPadDevice ? spacing[20] : spacing[14],
-    paddingHorizontal: isPadDevice ? spacing[18] : spacing[12],
-    borderRadius: isPadDevice ? 20 : 16,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.border,
-    ...Platform.select({
-      ios: {
-        shadowColor: colors.shadow,
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 8,
-      },
-      android: {
-        elevation: 2,
-      },
-    }),
-  },
-  statValue: {
-    fontSize: isPadDevice ? typography.fontSize[34] : typography.fontSize[24],
-    fontWeight: typography.fontWeight.black,
-    color: colors.primary,
-    marginBottom: spacing[2],
-  },
-  statLabel: {
-    fontSize: isPadDevice ? typography.fontSize[13] : typography.fontSize[11],
-    fontWeight: typography.fontWeight.semiBold,
-    color: colors.textMuted,
-    textTransform: 'uppercase',
-  },
-
-  // Section Styles
-  section: {
-    marginBottom: isPadDevice ? spacing[32] : spacing[24],
+  librarySection: {
+    marginTop: isPadDevice ? spacing[36] : spacing[28],
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -1190,210 +500,62 @@ const styles = StyleSheet.create({
     marginBottom: spacing[12],
   },
   sectionTitle: {
-    fontSize: isPadDevice ? typography.fontSize[24] : typography.fontSize[19],
-    fontWeight: typography.fontWeight.bold,
     color: colors.text,
+    fontSize: isPadDevice ? typography.fontSize[24] : typography.fontSize[20],
+    fontWeight: typography.fontWeight.bold,
     letterSpacing: -0.3,
   },
-  seeAllText: {
-    fontSize: isPadDevice ? typography.fontSize[15] : typography.fontSize[13],
+  viewAllText: {
     color: colors.primary,
+    fontSize: isPadDevice ? typography.fontSize[15] : typography.fontSize[13],
     fontWeight: typography.fontWeight.semiBold,
   },
-
-  // Resume Widget
-  resumeWidget: {
-    backgroundColor: colors.primaryDark,
-    borderRadius: isPadDevice ? 24 : 20,
-    padding: isPadDevice ? spacing[28] : spacing[20],
-    ...Platform.select({
-      ios: {
-        shadowColor: colors.primaryDark,
-        shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.25,
-        shadowRadius: 16,
-      },
-      android: {
-        elevation: 8,
-      },
-    }),
-  },
-  resumeHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: spacing[12],
-  },
-  resumeActiveBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(16, 185, 129, 0.2)',
-    paddingHorizontal: spacing[8],
-    paddingVertical: spacing[4],
-    borderRadius: 8,
-    gap: spacing[6],
-  },
-  pulseDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: colors.successAccent,
-  },
-  resumeActiveText: {
-    fontSize: isPadDevice ? typography.fontSize[12] : typography.fontSize[10],
-    fontWeight: typography.fontWeight.bold,
-    color: colors.successBorder,
-    letterSpacing: 0.5,
-  },
-  resumeCountText: {
-    fontSize: isPadDevice ? typography.fontSize[14] : typography.fontSize[12],
-    fontWeight: typography.fontWeight.semiBold,
-    color: colors.primaryBorder,
-  },
-  resumeTitle: {
-    fontSize: isPadDevice ? typography.fontSize[28] : typography.fontSize[22],
-    fontWeight: typography.fontWeight.extraBold,
-    color: colors.onPrimary,
-    marginBottom: spacing[20],
-    lineHeight: isPadDevice ? 36 : typography.lineHeight[26],
-    letterSpacing: -0.3,
-  },
-  resumeActionGrid: {
-    flexDirection: 'row',
-    gap: spacing[12],
-  },
-  resumePrimaryBtn: {
-    flex: 1,
-    backgroundColor: colors.primary,
-    borderRadius: isPadDevice ? 16 : 12,
-  },
-  resumeSecondaryBtn: {
-    flex: 1,
+  libraryList: {
     backgroundColor: colors.surface,
-    borderRadius: isPadDevice ? 16 : 12,
-  },
-  resumeBtnContent: {
-    paddingVertical: isPadDevice ? spacing[18] : spacing[14],
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: spacing[8],
-  },
-  resumePrimaryBtnText: {
-    color: colors.onPrimary,
-    fontWeight: typography.fontWeight.bold,
-    fontSize: isPadDevice ? typography.fontSize[16] : typography.fontSize[14],
-  },
-  resumeSecondaryBtnText: {
-    color: colors.primaryDark,
-    fontWeight: typography.fontWeight.bold,
-    fontSize: isPadDevice ? typography.fontSize[16] : typography.fontSize[14],
-  },
-
-  // Carousel
-  carouselContainer: {
-    gap: isPadDevice ? spacing[16] : spacing[12],
-    paddingRight: isPadDevice ? spacing[36] : spacing[18],
-  },
-  carouselCard: {
-    width: isPadDevice ? 420 : 280,
-    backgroundColor: colors.surface,
-    borderRadius: isPadDevice ? 20 : 16,
-    padding: isPadDevice ? spacing[22] : spacing[16],
     borderWidth: 1,
     borderColor: colors.border,
-    justifyContent: 'space-between',
-    minHeight: isPadDevice ? 160 : 120,
-    ...Platform.select({
-      ios: {
-        shadowColor: colors.shadow,
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 6,
-      },
-      android: {
-        elevation: 1,
-      },
-    }),
+    borderRadius: isPadDevice ? 20 : 16,
+    overflow: 'hidden',
   },
-  carouselCardTop: {
-    marginBottom: spacing[12],
+  libraryRow: {
+    minHeight: isPadDevice ? 88 : 72,
+    paddingHorizontal: isPadDevice ? spacing[22] : spacing[16],
+    paddingVertical: isPadDevice ? spacing[18] : spacing[14],
+    justifyContent: 'center',
   },
-  carouselTitle: {
-    fontSize: isPadDevice ? typography.fontSize[20] : typography.fontSize[16],
-    fontWeight: typography.fontWeight.bold,
+  libraryRowDivider: {
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
+  },
+  libraryTitle: {
     color: colors.text,
-    lineHeight: isPadDevice ? 28 : typography.lineHeight[22],
+    fontSize: isPadDevice ? typography.fontSize[18] : typography.fontSize[15],
+    fontWeight: typography.fontWeight.semiBold,
+    lineHeight: isPadDevice ? 25 : 21,
   },
-  carouselCardBottom: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-    paddingTop: spacing[12],
-  },
-  carouselMeta: {
-    fontSize: isPadDevice ? typography.fontSize[15] : typography.fontSize[13],
-    fontWeight: typography.fontWeight.medium,
+  libraryMeta: {
     color: colors.textMuted,
+    fontSize: isPadDevice ? typography.fontSize[14] : typography.fontSize[12],
+    fontWeight: typography.fontWeight.medium,
+    marginTop: spacing[4],
   },
-  carouselActions: {
-    flexDirection: 'row',
-    gap: spacing[12],
+  emptyLibrary: {
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: isPadDevice ? 20 : 16,
+    paddingHorizontal: isPadDevice ? spacing[22] : spacing[18],
+    paddingVertical: isPadDevice ? spacing[28] : spacing[24],
   },
-  iconBtn: {
-    padding: spacing[2],
-  },
-
-  // Create another deck card (Non-redundant state when 1 deck exists)
-  createDeckPromptCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 16,
-    borderWidth: 1.5,
-    borderColor: '#E9D7FE',
-    borderStyle: 'dashed',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  createDeckPromptLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-    marginRight: 12,
-  },
-  createDeckPromptIconCircle: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: colors.primarySoft,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-  },
-  createDeckPromptTextCol: {
-    flex: 1,
-  },
-  createDeckPromptTitle: {
-    fontSize: 14.5,
-    fontFamily: typography.fontFamily.bold,
+  emptyLibraryTitle: {
     color: colors.text,
-    marginBottom: 2,
+    fontSize: isPadDevice ? typography.fontSize[18] : typography.fontSize[15],
+    fontWeight: typography.fontWeight.semiBold,
   },
-  createDeckPromptSub: {
-    fontSize: 11.5,
-    fontFamily: typography.fontFamily.regular,
+  emptyLibraryText: {
     color: colors.textSecondary,
-    lineHeight: 16,
-  },
-  createDeckPromptArrow: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: colors.primarySoft,
-    alignItems: 'center',
-    justifyContent: 'center',
+    fontSize: isPadDevice ? typography.fontSize[15] : typography.fontSize[13],
+    lineHeight: isPadDevice ? 22 : 19,
+    marginTop: spacing[4],
   },
 });

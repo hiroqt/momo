@@ -45,7 +45,11 @@ export function getAuthToken(): string | null {
   return authToken;
 }
 
-export async function apiFetch<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+export async function apiFetch<T>(
+  endpoint: string,
+  options: RequestInit = {},
+  timeoutMs = 15000
+): Promise<T> {
   const currentBase = BASE_URL;
   const url = `${currentBase}${endpoint}`;
   const headers: Record<string, string> = {
@@ -59,7 +63,7 @@ export async function apiFetch<T>(endpoint: string, options: RequestInit = {}): 
 
   const controller = new AbortController();
   // Responsive timeout: 15 seconds for general requests
-  const timeoutId = setTimeout(() => controller.abort(), 15000);
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
     const response = await fetch(url, {

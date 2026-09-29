@@ -42,6 +42,7 @@ import {
   ArrowRight01Icon,
   Book02Icon,
   CheckmarkCircle02Icon,
+  AiChat02Icon,
 } from "@hugeicons/core-free-icons";
 
 export interface TabConfig {
@@ -71,7 +72,7 @@ export interface FloatingNavBarProps {
   activeIndex?: number;
   progressAnim?: SharedValue<number>;
   onTabPress?: (index: number) => void;
-  onFabAction?: (action: 'upload' | 'reviewer' | 'quiz' | 'solve' | 'studysets') => void;
+  onFabAction?: (action: 'upload' | 'reviewer' | 'quiz' | 'solve' | 'studysets' | 'ai') => void;
 }
 
 export const FloatingNavBar: React.FC<FloatingNavBarProps> = ({
@@ -198,6 +199,15 @@ export const FloatingNavBar: React.FC<FloatingNavBarProps> = ({
       onFabAction('reviewer');
     } else {
       router.push({ pathname: '/documents/upload', params: { mode: 'reviewer' } });
+    }
+  };
+
+  const handleAiPress = () => {
+    closeFabMenu();
+    if (onFabAction) {
+      onFabAction('ai');
+    } else {
+      router.push('/ai');
     }
   };
 
@@ -419,31 +429,57 @@ export const FloatingNavBar: React.FC<FloatingNavBarProps> = ({
 
             {/* Action Tiles List */}
             <View style={styles.drawerActionsList}>
-              {/* Tile 1: Upload Document */}
-              {/* Tile 1: Generate Reviewer */}
+              {/* Primary AI workspace */}
               <Pressable
                 style={[styles.drawerActionTile, styles.drawerPrimaryAction]}
-                onPress={handleReviewerPress}
+                onPress={handleAiPress}
                 android_ripple={{ color: 'rgba(255,255,255,0.24)' }}
                 accessibilityRole="button"
-                accessibilityLabel="Generate Reviewer from notes"
+                accessibilityLabel="Open Momo AI"
               >
                 <View style={[styles.drawerActionIconWrap, styles.primaryIconWrap]}>
-                  <HugeiconsIcon icon={Book02Icon} size={22} color={colors.onPrimary} strokeWidth={2.4} />
+                  <HugeiconsIcon icon={AiChat02Icon} size={23} color={colors.onPrimary} strokeWidth={2.4} />
                 </View>
                 <View style={styles.drawerActionTextCol}>
                   <View style={styles.drawerActionTitleRow}>
-                    <Text style={[styles.drawerActionTitle, styles.primaryActionText]}>Generate Reviewer</Text>
+                    <Text style={[styles.drawerActionTitle, styles.primaryActionText]}>Momo AI</Text>
                     <View style={[styles.drawerBadge, styles.primaryBadge]}>
-                      <Text style={[styles.drawerBadgeText, styles.primaryActionText]}>STUDY GUIDE</Text>
+                      <Text style={[styles.drawerBadgeText, styles.primaryActionText]}>CHAT + CREATE</Text>
                     </View>
                   </View>
                   <Text style={[styles.drawerActionDesc, styles.primaryActionDesc]}>
-                    Summaries, key terms, outlines & high-yield cheat sheets
+                    Ask questions, create study material, and generate original images
                   </Text>
                 </View>
                 <View style={styles.drawerActionArrow}>
                   <HugeiconsIcon icon={ArrowRight01Icon} size={18} color={colors.onPrimary} strokeWidth={2.2} />
+                </View>
+              </Pressable>
+
+              {/* Generate Reviewer */}
+              <Pressable
+                style={styles.drawerActionTile}
+                onPress={handleReviewerPress}
+                android_ripple={{ color: colors.primaryRipple }}
+                accessibilityRole="button"
+                accessibilityLabel="Generate Reviewer from notes"
+              >
+                <View style={[styles.drawerActionIconWrap, styles.studySetsIconWrap]}>
+                  <HugeiconsIcon icon={Book02Icon} size={22} color={colors.primary} strokeWidth={2.4} />
+                </View>
+                <View style={styles.drawerActionTextCol}>
+                  <View style={styles.drawerActionTitleRow}>
+                    <Text style={styles.drawerActionTitle}>Generate Reviewer</Text>
+                    <View style={[styles.drawerBadge, { backgroundColor: colors.primarySoft }]}>
+                      <Text style={[styles.drawerBadgeText, { color: colors.primary }]}>STUDY GUIDE</Text>
+                    </View>
+                  </View>
+                  <Text style={styles.drawerActionDesc}>
+                    Summaries, key terms, outlines & high-yield cheat sheets
+                  </Text>
+                </View>
+                <View style={styles.drawerActionArrow}>
+                  <HugeiconsIcon icon={ArrowRight01Icon} size={18} color={colors.textMuted} strokeWidth={2.2} />
                 </View>
               </Pressable>
 

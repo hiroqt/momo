@@ -190,11 +190,13 @@ The platform uses a coordinated 4-tier monorepo architecture:
    - Pedagogical conceptual explanation.
 5. Safety: Output is filtered by `guardrails_service.py` to prevent credential exposure or command execution.
 
-### 6.5 2D Educational Concept Diagrams and Illustrations
+### 6.5 AI Images, Educational Concept Diagrams, and Illustrations
 1. Endpoint: `POST /api/images/generate`.
-2. Purpose: Visual generation for complex biological pathways, data structures, network topologies, and cycle mechanisms.
-3. Synthesizer: `diagram_synthesizer.py` compiles visual descriptions into structured vector diagrams (Mermaid, SVG, or Matplotlib charts) and renders high-resolution base64 PNG images.
-4. Grounding: Diagram prompts accept topic, context notes, and specific student requirements to ensure visual elements match course materials.
+2. Modes: `image` creates an original image through a replaceable server-side image provider; `diagram` creates a structured educational visual through the deterministic diagram renderer.
+3. General image provider: OpenRouter's dedicated Image API is the default implementation and is selected through `OPENROUTER_IMAGE_MODEL`. Provider credentials remain server-side.
+4. Diagram synthesizer: `diagram_synthesizer.py` compiles visual descriptions into structured vector diagrams and renders high-resolution base64 PNG images.
+5. Grounding: Diagram prompts accept topic, context notes, and specific student requirements to align visual elements with course materials. Creative images must not be presented as source-grounded factual evidence.
+6. Safety: All prompt, topic, context, and requirement fields are validated as untrusted input before provider execution.
 
 ### 6.6 Library, Folders, and Progressive Economics
 1. Endpoints: `GET /api/folders`, `POST /api/folders`, `GET /api/folders/{id}`, `PATCH /api/folders/{id}`, `DELETE /api/folders/{id}`.
@@ -509,10 +511,11 @@ Uniform Error Response Structure:
 - `POST /api/chat/sessions/{id}/messages`: Submits student question. Executes semantic retrieval, prompt synthesis, dynamic tool execution, and returns Momo's structured answer with citation pills and generated study cards.
 - `POST /api/chat/import-card`: 1-tap import of generated study card directly into a library study set.
 
-### 8.10 Educational Diagrams & Visualizations
+### 8.10 AI Images, Educational Diagrams & Visualizations
 - `POST /api/images/generate`
-  - Request: `{ "prompt": "Krebs Cycle pathway", "topic": "Cellular Respiration", "context": "Focus on acetyl-CoA entry and NADH generation" }`
-  - Response: `{ "image_base64": "...", "provider": "matplotlib_renderer", "prompt": "..." }`
+  - General image request: `{ "prompt": "A calm futuristic study room", "mode": "image", "aspect_ratio": "16:9" }`
+  - Diagram request: `{ "prompt": "Krebs Cycle pathway", "topic": "Cellular Respiration", "context": "Focus on acetyl-CoA entry and NADH generation", "mode": "diagram" }`
+  - Response: `{ "image_base64": "...", "provider": "openrouter", "prompt": "...", "mime_type": "image/png", "mode": "image" }`
   - Rate limit: 5 requests per minute.
 
 ---

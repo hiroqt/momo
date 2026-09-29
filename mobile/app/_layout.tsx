@@ -104,10 +104,10 @@ export default function RootLayout() {
                   name="(auth)/welcome"
                   options={{
                     headerShown: false,
-                    animation: isIOS ? "fade" : "default",
+                    animation: "none",
                   }}
                 />
-                <Stack.Screen name="(auth)/momo-intro" options={{ animation: isIOS ? 'fade' : 'default' }} />
+                <Stack.Screen name="(auth)/momo-intro" options={{ animation: 'none' }} />
                 <Stack.Screen
                   name="(tabs)"
                   options={{
@@ -161,6 +161,14 @@ export default function RootLayout() {
                   options={{
                     headerShown: false,
                     animation: isIOS ? "slide_from_right" : "default",
+                    animationDuration: 300,
+                  }}
+                />
+                <Stack.Screen
+                  name="ai"
+                  options={{
+                    headerShown: false,
+                    animation: isIOS ? "slide_from_bottom" : "default",
                     animationDuration: 300,
                   }}
                 />

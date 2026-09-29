@@ -24,6 +24,7 @@ class Settings(BaseSettings):
     OPENROUTER_API_KEY: str = "mock-openrouter-key"
     OPENROUTER_BASE_URL: str = "https://openrouter.ai/api/v1"
     NEMOTRON_MODEL: str = "nvidia/nemotron-4-340b-instruct"
+    OPENROUTER_IMAGE_MODEL: str = "google/gemini-3.1-flash-image"
 
     # Embedding Provider ('local', 'openrouter', 'supabase')
     EMBEDDING_PROVIDER: str = "local"

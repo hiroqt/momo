@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { StyleSheet, TouchableOpacity, useWindowDimensions, View } from 'react-native';
-import Animated, { FadeInUp, ReduceMotion } from 'react-native-reanimated';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppText as Text } from '@/components/common/app-text';
@@ -39,12 +38,9 @@ export default function MomoIntroScreen() {
   return (
     <MomoBackdrop>
       <SafeAreaView style={styles.safeArea}>
-        <Animated.View
-          entering={FadeInUp.duration(220).reduceMotion(ReduceMotion.System)}
-          style={styles.content}
-        >
+        <View style={styles.content}>
           <View style={styles.visualArea}>
-            <AnimatedMomo pose="cheer" stage={9} size={compactLayout ? 170 : 225} />
+            <AnimatedMomo pose="welcome" stage={9} size={compactLayout ? 170 : 225} />
           </View>
 
           <View style={styles.copyArea}>
@@ -73,7 +69,7 @@ export default function MomoIntroScreen() {
               <Text style={styles.buttonText}>{busy ? 'Opening...' : 'Open my study space'}</Text>
             </TouchableOpacity>
           </View>
-        </Animated.View>
+        </View>
       </SafeAreaView>
     </MomoBackdrop>
   );

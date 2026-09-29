@@ -1,7 +1,6 @@
-import React, { useEffect, useState } from 'react';
-import { AccessibilityInfo, Image, StyleSheet } from 'react-native';
-import Animated, { FadeIn, ReduceMotion } from 'react-native-reanimated';
-import LottieView, { type AnimationObject } from 'lottie-react-native';
+import React from 'react';
+import { Image, StyleSheet } from 'react-native';
+import Animated, { FadeIn, FadeOut, ReduceMotion } from 'react-native-reanimated';
 
 export type MomoPose =
   | 'welcome'
@@ -14,19 +13,7 @@ export type MomoPose =
   | 'cool'
   | 'cheer';
 
-const MOMO_ANIMATIONS: Record<MomoPose, AnimationObject> = {
-  welcome: require('@/assets/animations/welcome_momo.lottie.json'),
-  thinking: require('@/assets/animations/happy_momo.lottie.json'),
-  happy: require('@/assets/animations/happy_momo.lottie.json'),
-  document: require('@/assets/animations/document_momo.lottie.json'),
-  creating: require('@/assets/animations/creating_momo.lottie.json'),
-  xp: require('@/assets/animations/cheer_momo.lottie.json'),
-  focus: require('@/assets/animations/creating_momo.lottie.json'),
-  cool: require('@/assets/animations/cool_momo.lottie.json'),
-  cheer: require('@/assets/animations/cheer_momo.lottie.json'),
-};
-
-const MOMO_FALLBACKS: Record<MomoPose, number> = {
+const MOMO_POSES: Record<MomoPose, number> = {
   welcome: require('@/assets/animations/welcome_momo.png'),
   thinking: require('@/assets/animations/happy_momo.png'),
   happy: require('@/assets/animations/happy_momo.png'),
@@ -44,38 +31,18 @@ interface AnimatedMomoProps {
   size?: number;
 }
 
-/** Momo is the only animated illustration; the surrounding interface stays quiet. */
+/** Momo stays still. Only opacity changes as a pose enters or leaves. */
 export function AnimatedMomo({ pose, stage = 1, size = 205 }: AnimatedMomoProps) {
-  const [reduceMotion, setReduceMotion] = useState(false);
-  const [animationFailed, setAnimationFailed] = useState(false);
-
-  useEffect(() => {
-    AccessibilityInfo.isReduceMotionEnabled().then(setReduceMotion).catch(() => {});
-    const subscription = AccessibilityInfo.addEventListener('reduceMotionChanged', setReduceMotion);
-    return () => subscription.remove();
-  }, []);
-
-  useEffect(() => setAnimationFailed(false), [pose]);
-
   return (
     <Animated.View
       key={`${stage}-${pose}`}
-      entering={FadeIn.duration(180).reduceMotion(ReduceMotion.System)}
+      entering={FadeIn.duration(240).reduceMotion(ReduceMotion.System)}
+      exiting={FadeOut.duration(160).reduceMotion(ReduceMotion.System)}
       style={[styles.container, { width: size, height: size }]}
       accessibilityRole="image"
       accessibilityLabel="Momo, your study companion"
     >
-      {reduceMotion || animationFailed ? (
-        <Image source={MOMO_FALLBACKS[pose]} resizeMode="contain" style={styles.media} />
-      ) : (
-        <LottieView
-          source={MOMO_ANIMATIONS[pose]}
-          autoPlay
-          loop
-          onAnimationFailure={() => setAnimationFailed(true)}
-          style={styles.media}
-        />
-      )}
+      <Image source={MOMO_POSES[pose]} resizeMode="contain" style={styles.media} />
     </Animated.View>
   );
 }

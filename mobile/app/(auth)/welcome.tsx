@@ -8,13 +8,6 @@ import {
   Platform,
   useWindowDimensions,
 } from 'react-native';
-import Animated, {
-  FadeInRight,
-  FadeInLeft,
-  FadeOutLeft,
-  FadeOutRight,
-  ReduceMotion,
-} from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { AppText as Text } from '@/components/common/app-text';
@@ -22,7 +15,6 @@ import { useRouter } from 'expo-router';
 import { HugeiconsIcon } from '@hugeicons/react-native';
 import {
   ArrowRight01Icon,
-  ArrowLeft01Icon,
   CheckmarkCircle02Icon,
   BookOpen01Icon,
   FlashIcon,
@@ -160,7 +152,6 @@ export default function WelcomeScreen() {
 
   // Each page asks for one understandable decision and keeps the next action visible.
   const [stage, setStage] = useState<OnboardingStage>(1);
-  const [transitionDirection, setTransitionDirection] = useState<'forward' | 'backward'>('forward');
 
   // Profile data
   const [firstName, setFirstName] = useState<string>('');
@@ -199,16 +190,15 @@ export default function WelcomeScreen() {
   const [isSeeding, setIsSeeding] = useState<boolean>(false);
   const [completionError, setCompletionError] = useState<string | null>(null);
 
-  // Transitions
-  // Dynamic Momo Pose: Stage 2 uses 'happy' with clean, un-furrowed brows
+  // Each step gets a static Momo pose. The pose only fades during replacement.
   const getActiveMomoPose = (): MomoPose => {
     switch (stage) {
       case 1:
         return 'welcome';
       case 2:
-        return 'happy'; // Clean, friendly, zero furrowed eyebrows
+        return 'happy';
       case 3:
-        return 'cool';
+        return 'welcome';
       case 4:
         return 'document';
       case 5:
@@ -218,7 +208,7 @@ export default function WelcomeScreen() {
       case 7:
         return 'focus';
       case 8:
-        return 'cheer';
+        return 'happy';
       default:
         return 'welcome';
     }
@@ -230,10 +220,9 @@ export default function WelcomeScreen() {
     } catch {}
   };
 
-  const goToStage = (nextStage: OnboardingStage, direction: 'forward' | 'backward' = 'forward') => {
+  const goToStage = (nextStage: OnboardingStage) => {
     setCompletionError(null);
     triggerHaptic();
-    setTransitionDirection(direction);
     setStage(nextStage);
   };
 
@@ -315,16 +304,13 @@ export default function WelcomeScreen() {
   return (
     <MomoBackdrop>
       <SafeAreaView style={styles.safeArea}>
-        {stage > 1 && <View style={styles.topHeader}>
+        <View style={styles.topHeader}>
           <View style={styles.progressContent}>
-            <View style={styles.stageTitleRow}>
-              <Text style={styles.progressLabel}>{stage} of 8 · {STAGE_LABELS[stage - 1]}</Text>
-            </View>
             <View
               style={styles.progressContainer}
               accessible
               accessibilityRole="progressbar"
-              accessibilityValue={{ min: 1, max: 8, now: stage }}
+              accessibilityValue={{ min: 0, max: 8, now: stage }}
               accessibilityLabel={`Onboarding progress, step ${stage} of 8, ${STAGE_LABELS[stage - 1]}`}
             >
               {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
@@ -347,9 +333,9 @@ export default function WelcomeScreen() {
             accessibilityLabel="Skip setup and try a sample deck"
             activeOpacity={0.7}
           >
-            <Text style={styles.headerSkipText}>Try Momo</Text>
+            <Text style={styles.headerSkipText}>Skip</Text>
           </TouchableOpacity>
-        </View>}
+        </View>
 
         {completionError && (
           <Text style={styles.completionError} accessibilityRole="alert">{completionError}</Text>
@@ -360,16 +346,7 @@ export default function WelcomeScreen() {
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           keyboardVerticalOffset={Platform.OS === 'ios' ? 8 : 0}
         >
-          <Animated.View
-            key={stage}
-            entering={(transitionDirection === 'forward' ? FadeInRight : FadeInLeft)
-              .duration(220)
-              .reduceMotion(ReduceMotion.System)}
-            exiting={(transitionDirection === 'forward' ? FadeOutLeft : FadeOutRight)
-              .duration(160)
-              .reduceMotion(ReduceMotion.System)}
-            style={styles.animatedStepWrapper}
-          >
+          <View style={styles.animatedStepWrapper}>
             <View style={[styles.cardWrapper, compactLayout && styles.cardWrapperCompact]}>
               {stage === 1 && (
                 <View style={styles.brandLockup}>
@@ -378,18 +355,30 @@ export default function WelcomeScreen() {
                 </View>
               )}
 
-              {/* Momo Capped at the Top of the Card with Speech Bubble on the Right */}
+              {stage === 2 && (
+                <Text style={styles.momoGreeting}>
+                  Hi, I’m <Text style={styles.momoGreetingAccent}>Momo.</Text>{'\n'}It’s great to meet you!
+                </Text>
+              )}
+
+              {stage === 3 && (
+                <View style={styles.heroMessage}>
+                  <Text style={styles.heroMessageTitle}>Nice to meet you, {firstName.trim()}!</Text>
+                  <Text style={styles.heroMessageSub}>Let’s find the pace that feels right.</Text>
+                </View>
+              )}
+
               <View style={[styles.momoCapContainer, compactLayout && styles.momoCapContainerCompact]}>
                 <AnimatedMomo
+                  key={stage}
                   pose={getActiveMomoPose()}
                   stage={stage}
-                  size={stage === 1 ? (compactLayout ? 210 : 250) : (compactLayout ? 96 : 128)}
+                  size={compactLayout ? 170 : 200}
                 />
               </View>
 
               {stage === 1 && (
-                <Animated.View
-                  entering={FadeInRight.delay(180).duration(260).reduceMotion(ReduceMotion.System)}
+                <View
                   style={styles.transformationVisual}
                   accessibilityLabel="Your notes become a focused reviewer"
                 >
@@ -404,7 +393,7 @@ export default function WelcomeScreen() {
                     <HugeiconsIcon icon={CheckmarkCircle02Icon} size={18} color={onboardingColors.text} strokeWidth={2} />
                     <Text style={styles.transformationText}>Your reviewer</Text>
                   </View>
-                </Animated.View>
+                </View>
               )}
 
               {/* STAGE 1: MOMO VALUE INTRODUCTION */}
@@ -414,49 +403,29 @@ export default function WelcomeScreen() {
                   <Text style={styles.welcomeSub}>
                     Turn material you trust into focused reviewers, practice, and source-backed explanations.
                   </Text>
-                  <TouchableOpacity
-                    style={styles.welcomeContinue}
-                    onPress={() => goToStage(2)}
-                    accessibilityRole="button"
-                    accessibilityLabel="Meet Momo and continue"
-                    activeOpacity={0.82}
-                  >
-                    <HugeiconsIcon icon={ArrowRight01Icon} size={22} color="#FFFFFF" strokeWidth={2.5} />
-                  </TouchableOpacity>
                 </View>
               )}
 
               {/* STAGE 2: NAME */}
               {stage === 2 && (
                 <View style={styles.stageCard}>
-                  <View style={styles.cardHeaderRow}>
-                    <TouchableOpacity
-                      onPress={() => goToStage(1, 'backward')}
-                      style={styles.backButton}
-                      accessibilityRole="button"
-                      accessibilityLabel="Back to welcome"
-                    >
-                      <HugeiconsIcon icon={ArrowLeft01Icon} size={20} color={onboardingColors.text} strokeWidth={2} />
-                    </TouchableOpacity>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.cardTitle}>What should Momo call you?</Text>
-                      <Text style={styles.cardSub}>So this feels like your study space.</Text>
-                    </View>
+                  <View style={styles.questionHeader}>
+                    <Text style={styles.cardTitle}>What’s your name?</Text>
+                    <Text style={styles.cardSub}>Choose the name you want to see around the app.</Text>
                   </View>
 
                   <View style={styles.inputGroup}>
-                    <Text style={styles.inputLabel}>Your first name</Text>
                     <TextInput
                       style={styles.textInput}
                       value={firstName}
                       onChangeText={setFirstName}
-                      placeholder="Alex"
+                      placeholder="Your name"
                       placeholderTextColor={onboardingColors.textMuted}
                       autoCapitalize="words"
                       autoCorrect={false}
                       returnKeyType="done"
                       onSubmitEditing={() => {
-                        if (firstName.trim().length > 0) goToStage(3, 'forward');
+                        if (firstName.trim().length > 0) goToStage(3);
                       }}
                     />
                   </View>
@@ -466,19 +435,9 @@ export default function WelcomeScreen() {
               {/* STAGE 3: LEARNING LEVEL CALIBRATION */}
               {stage === 3 && (
                 <View style={styles.stageCard}>
-                  <View style={styles.cardHeaderRow}>
-                    <TouchableOpacity
-                      onPress={() => goToStage(2, 'backward')}
-                      style={styles.backButton}
-                      accessibilityRole="button"
-                      accessibilityLabel="Back to name"
-                    >
-                      <HugeiconsIcon icon={ArrowLeft01Icon} size={20} color={onboardingColors.text} strokeWidth={2} />
-                    </TouchableOpacity>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.cardTitle}>What’s your age?</Text>
-                      <Text style={styles.cardSub}>Momo matches the pace to you.</Text>
-                    </View>
+                  <View style={styles.questionHeader}>
+                    <Text style={styles.cardTitle}>How old are you?</Text>
+                    <Text style={styles.cardSub}>Momo uses this to match your pace.</Text>
                   </View>
 
                   <AgeScrollPicker
@@ -493,19 +452,9 @@ export default function WelcomeScreen() {
               {/* STAGE 4: CURRENT STUDY CONTEXT */}
               {stage === 4 && (
                 <View style={styles.stageCard}>
-                  <View style={styles.cardHeaderRow}>
-                    <TouchableOpacity
-                      onPress={() => goToStage(3, 'backward')}
-                      style={styles.backButton}
-                      accessibilityRole="button"
-                      accessibilityLabel="Back to age"
-                    >
-                      <HugeiconsIcon icon={ArrowLeft01Icon} size={20} color={onboardingColors.text} strokeWidth={2} />
-                    </TouchableOpacity>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.cardTitle}>What are you studying?</Text>
-                      <Text style={styles.cardSub}>Pick the path closest to you.</Text>
-                    </View>
+                  <View style={styles.questionHeader}>
+                    <Text style={styles.cardTitle}>What are you studying?</Text>
+                    <Text style={styles.cardSub}>Pick the path closest to you.</Text>
                   </View>
 
                   {/* Track Cards */}
@@ -552,19 +501,9 @@ export default function WelcomeScreen() {
               {/* STAGE 5: STUDY DETAILS */}
               {stage === 5 && (
                 <View style={styles.stageCard}>
-                  <View style={styles.cardHeaderRow}>
-                    <TouchableOpacity
-                      onPress={() => goToStage(4, 'backward')}
-                      style={styles.backButton}
-                      accessibilityRole="button"
-                      accessibilityLabel="Back to study path"
-                    >
-                      <HugeiconsIcon icon={ArrowLeft01Icon} size={20} color={onboardingColors.text} strokeWidth={2} />
-                    </TouchableOpacity>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.cardTitle}>Make it specific to you</Text>
-                      <Text style={styles.cardSub}>This tunes your examples.</Text>
-                    </View>
+                  <View style={styles.questionHeader}>
+                    <Text style={styles.cardTitle}>Make it specific to you</Text>
+                    <Text style={styles.cardSub}>This tunes your examples.</Text>
                   </View>
 
                   {selectedTrack === 'high_school' && (
@@ -709,19 +648,9 @@ export default function WelcomeScreen() {
               {/* STAGE 6: STUDY FORMAT */}
               {stage === 6 && (
                 <View style={styles.stageCard}>
-                  <View style={styles.cardHeaderRow}>
-                    <TouchableOpacity
-                      onPress={() => goToStage(5, 'backward')}
-                      style={styles.backButton}
-                      accessibilityRole="button"
-                      accessibilityLabel="Back to study details"
-                    >
-                      <HugeiconsIcon icon={ArrowLeft01Icon} size={20} color={onboardingColors.text} strokeWidth={2} />
-                    </TouchableOpacity>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.cardTitle}>How do you like to study?</Text>
-                      <Text style={styles.cardSub}>Pick one or more. Change them anytime.</Text>
-                    </View>
+                  <View style={styles.questionHeader}>
+                    <Text style={styles.cardTitle}>How do you like to study?</Text>
+                    <Text style={styles.cardSub}>Pick one or more. Change them anytime.</Text>
                   </View>
 
                   {/* Format Cards */}
@@ -777,19 +706,9 @@ export default function WelcomeScreen() {
               {/* STAGE 7: DAILY RHYTHM */}
               {stage === 7 && (
                 <View style={styles.stageCard}>
-                  <View style={styles.cardHeaderRow}>
-                    <TouchableOpacity
-                      onPress={() => goToStage(6, 'backward')}
-                      style={styles.backButton}
-                      accessibilityRole="button"
-                      accessibilityLabel="Back to study formats"
-                    >
-                      <HugeiconsIcon icon={ArrowLeft01Icon} size={20} color={onboardingColors.text} strokeWidth={2} />
-                    </TouchableOpacity>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.cardTitle}>Choose a rhythm you can keep</Text>
-                      <Text style={styles.cardSub}>Start with something realistic.</Text>
-                    </View>
+                  <View style={styles.questionHeader}>
+                    <Text style={styles.cardTitle}>Choose a rhythm you can keep</Text>
+                    <Text style={styles.cardSub}>Start with something realistic.</Text>
                   </View>
 
                   <View style={styles.goalVerticalList}>
@@ -860,21 +779,11 @@ export default function WelcomeScreen() {
               {/* STAGE 8: PERSONALIZED PREVIEW */}
               {stage === 8 && (
                 <View style={styles.stageCard}>
-                  <View style={styles.cardHeaderRow}>
-                    <TouchableOpacity
-                      onPress={() => goToStage(7, 'backward')}
-                      style={styles.backButton}
-                      accessibilityRole="button"
-                      accessibilityLabel="Back to study preferences"
-                    >
-                      <HugeiconsIcon icon={ArrowLeft01Icon} size={20} color={onboardingColors.text} strokeWidth={2} />
-                    </TouchableOpacity>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.cardTitle}>
-                        Your first reviewer is ready{firstName ? `, ${firstName}` : ''}
-                      </Text>
-                      <Text style={styles.cardSub}>Open it now or save your setup.</Text>
-                    </View>
+                  <View style={styles.questionHeader}>
+                    <Text style={styles.cardTitle}>
+                      Your first reviewer is ready{firstName ? `, ${firstName}` : ''}
+                    </Text>
+                    <Text style={styles.cardSub}>Open it now or save your setup.</Text>
                   </View>
 
                   {/* Option A Highlight: Instant Sample Deck */}
@@ -915,15 +824,37 @@ export default function WelcomeScreen() {
                       <Text style={styles.googleButtonText}>Continue with Google</Text>
                     </TouchableOpacity>
                   </View>
+
+                  <TouchableOpacity
+                    style={styles.finalBackButton}
+                    onPress={() => goToStage(7)}
+                    accessibilityRole="button"
+                    accessibilityLabel="Back to daily rhythm"
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.footerBackText}>Back</Text>
+                  </TouchableOpacity>
                 </View>
               )}
             </View>
-          </Animated.View>
-        {stage >= 2 && stage <= 7 && (
+          </View>
+        {stage <= 7 && (
           <View style={styles.stickyFooter}>
+            {stage > 1 && (
+              <TouchableOpacity
+                style={styles.footerBackButton}
+                onPress={() => goToStage((stage - 1) as OnboardingStage)}
+                accessibilityRole="button"
+                accessibilityLabel="Go back"
+                activeOpacity={0.7}
+              >
+                <Text style={styles.footerBackText}>Back</Text>
+              </TouchableOpacity>
+            )}
             <TouchableOpacity
               style={[
                 styles.primaryButton,
+                stage === 1 && styles.primaryButtonFull,
                 stage === 2 && firstName.trim().length === 0 && styles.primaryButtonDisabled,
               ]}
               onPress={() => {
@@ -933,7 +864,7 @@ export default function WelcomeScreen() {
               }}
               disabled={stage === 2 && firstName.trim().length === 0}
               accessibilityRole="button"
-              accessibilityLabel={stage === 2 ? 'Continue to age selector' : 'Continue to next step'}
+              accessibilityLabel={stage === 1 ? 'Begin setup' : stage === 2 ? 'Continue to age selector' : 'Continue to next step'}
               activeOpacity={0.85}
             >
               <Text
@@ -944,9 +875,11 @@ export default function WelcomeScreen() {
               >
                 {stage === 2 && firstName.trim().length === 0
                   ? 'Enter your first name'
-                  : stage === 7
-                    ? 'Build my preview'
-                    : 'Continue'}
+                  : stage === 1
+                    ? 'Let’s begin'
+                    : stage === 7
+                      ? 'Build my preview'
+                      : 'Next'}
               </Text>
               <HugeiconsIcon
                 icon={ArrowRight01Icon}
@@ -971,49 +904,35 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: spacing[20],
-    paddingTop: spacing[6],
-    paddingBottom: spacing[6],
+    paddingHorizontal: spacing[24],
+    paddingTop: spacing[14],
+    paddingBottom: spacing[12],
     zIndex: 10,
   },
   progressContent: {
     flex: 1,
-    marginRight: spacing[16],
-  },
-  stageTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    marginBottom: spacing[4],
-  },
-  progressLabel: {
-    color: onboardingColors.textSecondary,
-    fontSize: typography.fontSize[11],
-    fontWeight: typography.fontWeight.bold,
-    letterSpacing: 0.8,
+    marginRight: spacing[20],
   },
   headerSkipBtn: {
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    backgroundColor: onboardingColors.primarySoft,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: onboardingColors.primaryBorder,
+    minWidth: 48,
+    minHeight: 44,
+    alignItems: 'flex-end',
+    justifyContent: 'center',
   },
   headerSkipText: {
-    fontSize: typography.fontSize[12],
+    fontSize: typography.fontSize[14],
     fontWeight: typography.fontWeight.bold,
-    color: onboardingColors.primary,
+    color: onboardingColors.textSecondary,
   },
   progressContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
+    gap: spacing[6],
   },
   progressDot: {
     flex: 1,
-    height: 5,
-    borderRadius: 3,
+    height: 7,
+    borderRadius: 4,
     backgroundColor: onboardingColors.border,
   },
   progressDotActive: {
@@ -1024,13 +943,18 @@ const styles = StyleSheet.create({
   },
   pageContent: {
     flex: 1,
-    paddingHorizontal: spacing[16],
-    paddingBottom: spacing[8],
+    width: '100%',
+    maxWidth: 480,
+    alignSelf: 'center',
+    paddingHorizontal: spacing[8],
   },
   stickyFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing[14],
     paddingHorizontal: spacing[16],
-    paddingTop: spacing[10],
-    paddingBottom: spacing[10],
+    paddingTop: spacing[12],
+    paddingBottom: spacing[12],
     backgroundColor: 'transparent',
   },
   animatedStepWrapper: {
@@ -1040,14 +964,14 @@ const styles = StyleSheet.create({
   cardWrapper: {
     width: '100%',
     flexGrow: 1,
-    marginTop: spacing[4],
+    marginTop: 0,
   },
   cardWrapperCompact: {
     marginTop: 0,
   },
   brandLockup: {
     alignItems: 'center',
-    marginTop: spacing[12],
+    marginTop: spacing[8],
     marginBottom: spacing[4],
   },
   brandName: {
@@ -1065,20 +989,54 @@ const styles = StyleSheet.create({
   },
   momoCapContainer: {
     width: '100%',
-    minHeight: 156,
+    minHeight: 200,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: spacing[4],
     zIndex: 10,
   },
   momoCapContainerCompact: {
-    minHeight: 112,
+    minHeight: 170,
     marginBottom: 0,
   },
   stageCard: {
     backgroundColor: 'transparent',
-    padding: spacing[20],
-    paddingTop: spacing[8],
+    paddingHorizontal: spacing[24],
+    paddingTop: spacing[4],
+  },
+  momoGreeting: {
+    color: onboardingColors.text,
+    fontFamily: typography.fontFamily.bold,
+    fontSize: typography.fontSize[16],
+    lineHeight: 23,
+    textAlign: 'center',
+    marginTop: spacing[8],
+    marginBottom: spacing[4],
+  },
+  momoGreetingAccent: {
+    color: onboardingColors.primary,
+  },
+  heroMessage: {
+    alignItems: 'center',
+    marginTop: spacing[8],
+    marginBottom: spacing[4],
+    paddingHorizontal: spacing[20],
+  },
+  heroMessageTitle: {
+    color: onboardingColors.text,
+    fontFamily: typography.fontFamily.bold,
+    fontSize: 25,
+    lineHeight: 32,
+    textAlign: 'center',
+    letterSpacing: -0.4,
+  },
+  heroMessageSub: {
+    color: onboardingColors.textSecondary,
+    fontFamily: typography.fontFamily.regular,
+    fontSize: typography.fontSize[13],
+    lineHeight: 20,
+    textAlign: 'center',
+    marginTop: spacing[4],
   },
   welcomeHeading: {
     fontSize: 28,
@@ -1093,17 +1051,8 @@ const styles = StyleSheet.create({
     color: onboardingColors.textSecondary,
     textAlign: 'center',
     lineHeight: 22,
-    marginBottom: spacing[20],
+    marginBottom: spacing[8],
     paddingHorizontal: spacing[4],
-  },
-  welcomeContinue: {
-    width: 58,
-    height: 58,
-    borderRadius: 29,
-    alignSelf: 'center',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: onboardingColors.primary,
   },
   transformationVisual: {
     flexDirection: 'row',
@@ -1128,13 +1077,15 @@ const styles = StyleSheet.create({
     marginHorizontal: spacing[6],
   },
   primaryButton: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: onboardingColors.primary,
     paddingVertical: spacing[14],
     paddingHorizontal: spacing[20],
-    borderRadius: 16,
+    minHeight: 54,
+    borderRadius: 18,
     borderCurve: 'continuous',
     gap: 8,
   },
@@ -1151,31 +1102,44 @@ const styles = StyleSheet.create({
   primaryButtonTextDisabled: {
     color: onboardingColors.textMuted,
   },
-  cardHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    marginBottom: spacing[16],
+  primaryButtonFull: {
+    flex: 1,
   },
-  backButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: onboardingColors.surfaceMuted,
+  footerBackButton: {
+    minWidth: 76,
+    minHeight: 54,
     alignItems: 'center',
     justifyContent: 'center',
   },
+  footerBackText: {
+    color: onboardingColors.text,
+    fontSize: typography.fontSize[14],
+    fontFamily: typography.fontFamily.bold,
+  },
+  finalBackButton: {
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: spacing[8],
+  },
+  questionHeader: {
+    alignItems: 'center',
+    marginBottom: spacing[16],
+  },
   cardTitle: {
-    fontSize: 24,
+    fontSize: 28,
     fontWeight: typography.fontWeight.bold,
     color: onboardingColors.text,
-    lineHeight: 31,
+    lineHeight: 35,
+    textAlign: 'center',
+    letterSpacing: -0.5,
   },
   cardSub: {
-    fontSize: typography.fontSize[13],
+    fontSize: typography.fontSize[14],
     color: onboardingColors.textSecondary,
-    lineHeight: 20,
-    marginTop: 4,
+    lineHeight: 21,
+    marginTop: spacing[6],
+    textAlign: 'center',
   },
   inputGroup: {
     marginBottom: spacing[4],
@@ -1187,12 +1151,16 @@ const styles = StyleSheet.create({
     marginBottom: spacing[6],
   },
   textInput: {
-    backgroundColor: 'transparent',
-    borderBottomWidth: 1.5,
-    borderBottomColor: onboardingColors.primaryBorder,
-    paddingHorizontal: 0,
-    paddingVertical: Platform.OS === 'ios' ? spacing[12] : spacing[10],
+    minHeight: 62,
+    backgroundColor: onboardingColors.surfaceMuted,
+    borderWidth: 1,
+    borderColor: onboardingColors.border,
+    borderRadius: 20,
+    borderCurve: 'continuous',
+    paddingHorizontal: spacing[18],
+    paddingVertical: Platform.OS === 'ios' ? spacing[14] : spacing[12],
     fontSize: typography.fontSize[16],
+    fontFamily: typography.fontFamily.semiBold,
     color: onboardingColors.text,
   },
   trackList: {
@@ -1202,7 +1170,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    paddingVertical: spacing[14],
+    paddingVertical: spacing[12],
     paddingHorizontal: 0,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: onboardingColors.border,

@@ -218,7 +218,7 @@ The platform uses a coordinated 4-tier monorepo architecture:
 ### 6.8 Mobile Onboarding and Sensory Experience
 1. Momo-led visual system: onboarding uses a calm violet, peach, cream, and white palette derived from the Momo mascot and product brand. Nature/jungle imagery is not part of the onboarding experience.
 2. Progressive, user-first setup: each step explains how the requested choice improves the learner's experience, keeps optional information visibly optional, and previews the personalized outcome before completion.
-3. Restrained motion language: Momo's character animation provides personality while navigation uses short directional transitions for spatial continuity. Onboarding must support Reduced Motion and must not use decorative sparkle layers, pulsing UI, speech-bubble gimmicks, or ornamental looping effects.
+3. Restrained motion language: Momo uses static character poses that only fade in and out when a step changes. The onboarding interface does not animate as a whole and must not use looping mascot motion, decorative sparkle layers, pulsing UI, speech-bubble gimmicks, or ornamental effects. Fades must support Reduced Motion.
 4. Audio-haptic age picker (`AgeScrollPicker.tsx`): Pre-warmed audio player pool playing low-latency mechanical tick sounds (`age_tick.wav`) synchronized with device haptics.
 5. Academic track onboarding (`welcome.tsx`): Students select their current learning path, level, program or target exam, preferred study formats, and a realistic daily goal.
 6. Dynamic starter decks (`sampleDeck.ts`): Instantly generates tailored starter review decks matching selected discipline before any user document upload.

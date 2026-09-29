@@ -94,6 +94,7 @@ export const mascotColors = {
  * first-run experience still feels like the same product as the mascot.
  */
 export const onboardingColors = {
+  canvas: '#FFFEFC',
   background: '#F8F5FF',
   backgroundWarm: '#FFF8F1',
   surface: '#FFFFFF',

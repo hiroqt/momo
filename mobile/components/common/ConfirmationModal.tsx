@@ -116,10 +116,11 @@ export const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
       onRequestClose={onCancel}
       statusBarTranslucent
     >
-      <TouchableWithoutFeedback onPress={isLoading ? undefined : onCancel}>
+      <TouchableWithoutFeedback accessible={false} onPress={isLoading ? undefined : onCancel}>
         <View style={styles.backdrop}>
-          <TouchableWithoutFeedback>
+          <TouchableWithoutFeedback accessible={false}>
             <Animated.View
+              accessibilityViewIsModal
               style={[
                 styles.dialogCard,
                 {

@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import { Platform, RefreshControl, StatusBar as RNStatusBar, StyleSheet, TouchableOpacity, View } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { HugeiconsIcon } from '@hugeicons/react-native';
 import { Coins01Icon } from '@hugeicons/core-free-icons';
@@ -65,8 +65,10 @@ export default function HomeScreen() {
   const [momoVisible, setMomoVisible] = useState(true);
   const [momoQuote, setMomoQuote] = useState<StudyQuote>(() => getRandomStudyQuote());
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
+      // Show the onboarding preview immediately, even while the network waits.
+      setSets(await localDb.listStudySets());
       const [setsData, streakResponse, localSets] = await Promise.all([
         listStudySets().catch(() => localDb.listStudySets()),
         getStreak().catch(() => ({ active_dates: [], current_streak: 0 })),
@@ -83,11 +85,11 @@ export default function HomeScreen() {
     } catch (error) {
       console.warn('Error loading home data:', error);
     }
-  };
-
-  useEffect(() => {
-    loadData();
   }, []);
+
+  useFocusEffect(useCallback(() => {
+    void loadData();
+  }, [loadData]));
 
   const onRefresh = async () => {
     setRefreshing(true);

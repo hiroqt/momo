@@ -28,6 +28,7 @@ import {
 } from '@hugeicons/core-free-icons';
 import { getStudySet, getStudyItems, deleteStudySet, updateStudySet } from '../../lib/api/studySets';
 import { localDb } from '../../lib/storage/localDb';
+import { loadStudyContent } from '../../lib/data/loadStudyContent';
 import { FlashcardDeck } from '../../components/study/FlashcardDeck';
 import { QuizRunner, QuizRunnerRef } from '../../components/study/QuizRunner';
 import { ReviewerGuideView } from '../../components/study/ReviewerGuideView';
@@ -137,9 +138,12 @@ export default function StudySessionScreen() {
     const load = async () => {
       setIsLoading(true);
       try {
-        // Try network
-        const setData = await getStudySet(studySetId);
-        const itemData = await getStudyItems(studySetId);
+        const { set: setData, items: itemData } = await loadStudyContent(studySetId, {
+          getCachedSet: (id) => localDb.getStudySet(id),
+          getCachedItems: (id) => localDb.getStudyItems(id),
+          getRemoteSet: getStudySet,
+          getRemoteItems: getStudyItems,
+        });
         const randomized = randomizeStudyItems(itemData);
         setStudySet(setData);
         setItems(randomized);

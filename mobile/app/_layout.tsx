@@ -51,6 +51,8 @@ function InitialGate({
       router.replace('/(auth)/welcome');
     } else if (hasCompletedWelcome && !hasSeenMomoIntro && !segments.join('/').includes('momo-intro')) {
       router.replace('/(auth)/momo-intro');
+    } else if (hasCompletedWelcome && hasSeenMomoIntro && inAuth) {
+      router.replace('/(tabs)');
     }
   }, [isReady, hasCompletedWelcome, hasSeenMomoIntro, segments, router]);
 

@@ -108,7 +108,7 @@ export const onboardingColors = {
   gold: '#F5B942',
   text: '#241F3A',
   textSecondary: '#69627C',
-  textMuted: '#8A8499',
+  textMuted: '#69627C',
   border: '#E8E2F2',
   success: '#2F9D78',
   successSoft: '#E8F7F1',

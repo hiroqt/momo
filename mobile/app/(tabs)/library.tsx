@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useDeferredValue } from 'react';
+import React, { useState, useCallback, useMemo, useDeferredValue } from 'react';
 import { colors, spacing, typography } from '@/constants/theme';
 import {
   View,
@@ -13,7 +13,7 @@ import {
   Modal,
 } from 'react-native';
 import { AppText as Text, AppTextInput as TextInput } from '@/components/common/app-text';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { HugeiconsIcon } from '@hugeicons/react-native';
 import {
@@ -156,24 +156,29 @@ export default function LibraryScreen() {
     mutationQueue.enqueue('RENAME_STUDY_SET', { id: target.id, title: newTitle });
   };
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
-      const [setsData, docsData, foldersData] = await Promise.all([
+      setSets(await localDb.listStudySets());
+      const [setsData, docsData, foldersData, localSets] = await Promise.all([
         listStudySets().catch(() => localDb.listStudySets()),
         listDocuments().catch(() => []),
         listFolders().catch(() => localDb.listFolders()),
+        localDb.listStudySets(),
       ]);
-      setSets(setsData || []);
+      const remoteSets = setsData || [];
+      setSets([
+        ...remoteSets,
+        ...localSets.filter((set) => set.generation_config?.preview === true &&
+          !remoteSets.some((remote) => remote.id === set.id)),
+      ]);
       setDocs(docsData || []);
       setFolders(foldersData || []);
     } catch (err) {
       console.warn('Failed to load library:', err);
     }
-  };
-
-  useEffect(() => {
-    loadData();
   }, []);
+
+  useFocusEffect(useCallback(() => { void loadData(); }, [loadData]));
 
   const onRefresh = async () => {
     setRefreshing(true);

@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { buildSampleDeck, seedSampleDeck } from '../lib/data/sampleDeck';
 import { localDb } from '../lib/storage/localDb';
+import { loadStudyContent } from '../lib/data/loadStudyContent';
 
 test('starter deck matches a nursing choice and college year', () => {
   const first = buildSampleDeck({ studyTrack: 'college', collegeYear: '1st Year', collegeCourse: 'BS Nursing' });
@@ -28,4 +29,30 @@ test('unknown interests receive an honestly labeled study-skills preview', async
   assert.match(set.title, /Ancient History Study Skills/);
   assert.match(set.description || '', /Curated preview/);
   assert.equal((await localDb.getStudyItems(set.id)).length, set.item_count);
+});
+
+test('onboarding preview opens offline without requesting a nonexistent remote record', async () => {
+  const preview = buildSampleDeck({ studyTrack: 'med_nursing', collegeYear: '1st Year' });
+  const result = await loadStudyContent(preview.set.id, {
+    getCachedSet: async () => preview.set,
+    getCachedItems: async () => preview.items,
+    getRemoteSet: async () => { throw new Error('Preview must not contact the server'); },
+    getRemoteItems: async () => { throw new Error('Preview must not contact the server'); },
+  });
+  assert.equal(result.set.id, preview.set.id);
+  assert.equal(result.items.length, preview.set.item_count);
+});
+
+test('ordinary study sets retain the remote retrieval path', async () => {
+  const content = buildSampleDeck({ studyTrack: 'general' });
+  const set = { ...content.set, id: 'remote-set', generation_config: {} };
+  let requestedItems = false;
+  const result = await loadStudyContent(set.id, {
+    getCachedSet: async () => set,
+    getCachedItems: async () => { throw new Error('Ordinary set should load remote items'); },
+    getRemoteSet: async (id) => { assert.equal(id, set.id); return set; },
+    getRemoteItems: async () => { requestedItems = true; return content.items; },
+  });
+  assert.equal(requestedItems, true);
+  assert.equal(result.set.id, set.id);
 });

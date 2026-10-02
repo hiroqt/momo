@@ -87,7 +87,8 @@
           "savePhotosPermission": "Save Academic Weapon streak and study cards to your photo library."
         }
       ],
-      "expo-audio"
+      "expo-audio",
+      "expo-video"
     ]
   }
 }

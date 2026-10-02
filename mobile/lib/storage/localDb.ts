@@ -1,45 +1,55 @@
 import { StudySet, StudyItem, SyncEvent, Folder } from '../../types';
+import { previewStore } from './previewStore';
+import type { PreviewStore } from './previewStore.types';
 
-class LocalDatabase {
+export class LocalDatabase {
+  constructor(private readonly previews: PreviewStore = previewStore) {}
   private sets: Map<string, StudySet> = new Map();
   private items: Map<string, StudyItem[]> = new Map();
   private folders: Map<string, Folder> = new Map();
   private syncQueue: SyncEvent[] = [];
+  private restoredPreviews: Promise<void> | undefined;
 
   async init(): Promise<void> {
-    // Database initialization (memory / SQLite)
-    return Promise.resolve();
+    await this.restorePreviews();
   }
 
   async saveStudySet(set: StudySet, items: StudyItem[]): Promise<void> {
+    await this.restorePreviews();
+    await this.previews.save(set, items);
     this.sets.set(set.id, set);
     this.items.set(set.id, items);
   }
 
   async getStudySet(setId: string): Promise<StudySet | null> {
+    await this.restorePreviews();
     return this.sets.get(setId) || null;
   }
 
   async deleteStudySet(setId: string): Promise<void> {
+    await this.restorePreviews();
+    await this.previews.remove(setId);
     this.sets.delete(setId);
     this.items.delete(setId);
   }
 
   async updateStudySetTitle(setId: string, newTitle: string): Promise<void> {
+    await this.restorePreviews();
     const s = this.sets.get(setId);
     if (s) {
-      s.title = newTitle;
-      s.updated_at = new Date().toISOString();
-      this.sets.set(setId, s);
+      const updated = { ...s, title: newTitle, updated_at: new Date().toISOString() };
+      await this.previews.save(updated, this.items.get(setId) || []);
+      this.sets.set(setId, updated);
     }
   }
 
   async updateStudySetFolder(setId: string, folderId?: string | null): Promise<void> {
+    await this.restorePreviews();
     const s = this.sets.get(setId);
     if (s) {
-      s.folder_id = folderId ?? null;
-      s.updated_at = new Date().toISOString();
-      this.sets.set(setId, s);
+      const updated = { ...s, folder_id: folderId ?? null, updated_at: new Date().toISOString() };
+      await this.previews.save(updated, this.items.get(setId) || []);
+      this.sets.set(setId, updated);
     }
   }
 
@@ -48,11 +58,28 @@ class LocalDatabase {
   }
 
   async listStudySets(): Promise<StudySet[]> {
+    await this.restorePreviews();
     return Array.from(this.sets.values());
   }
 
   async getStudyItems(setId: string): Promise<StudyItem[]> {
+    await this.restorePreviews();
     return this.items.get(setId) || [];
+  }
+
+  private async restorePreviews(): Promise<void> {
+    this.restoredPreviews ??= (async () => {
+      for (const { set, items } of await this.previews.list()) {
+        if (!this.sets.has(set.id)) {
+          this.sets.set(set.id, set);
+          this.items.set(set.id, items);
+        }
+      }
+    })().catch((error: unknown) => {
+      this.restoredPreviews = undefined;
+      throw error;
+    });
+    await this.restoredPreviews;
   }
 
   // Folder local storage operations

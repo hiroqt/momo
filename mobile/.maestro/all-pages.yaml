@@ -1,0 +1,6 @@
+appId: com.aistudy.platform
+name: Momo full study journey
+---
+- runFlow: pages.yaml
+- runFlow: shop-confirmations.yaml
+- runFlow: study-share.yaml

@@ -1,0 +1,50 @@
+appId: com.aistudy.platform
+name: Study cards and notes flow
+---
+- launchApp:
+    stopApp: false
+- tapOn:
+    text: "Awesome, Let's Keep Going!"
+    optional: true
+- extendedWaitUntil:
+    visible:
+      id: dashboard-screen|library-screen|study-screen|quiz-screen
+    timeout: 45000
+- tapOn:
+    text: 'Open'
+    optional: true
+- openLink: 'aistudy://study/sample-deck-ui-validation-mixed?initialMode=flashcard'
+- waitForAnimationToEnd:
+    timeout: 3000
+- tapOn:
+    text: 'Open'
+    optional: true
+- extendedWaitUntil:
+    visible:
+      id: flashcard-reveal
+    timeout: 30000
+- takeScreenshot: study-question
+- tapOn:
+    id: flashcard-reveal
+- assertVisible:
+    id: flashcard-answer
+- takeScreenshot: study-answer
+- scrollUntilVisible:
+    element:
+      id: flashcard-correct
+    direction: DOWN
+- takeScreenshot: study-self-check
+- tapOn:
+    id: flashcard-correct
+- assertVisible: 'Card 2 of 4'
+- tapOn:
+    id: session-mode-reviewer
+- assertVisible: 'Switch mode'
+- tapOn: 'Switch mode'
+- assertVisible: 'Recall and spacing'
+- takeScreenshot: study-notes
+- tapOn:
+    id: session-mode-quiz
+- assertVisible:
+    id: quiz-question-card
+- takeScreenshot: quiz-ready

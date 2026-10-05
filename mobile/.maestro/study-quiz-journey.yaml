@@ -1,0 +1,7 @@
+appId: com.aistudy.platform
+name: Momo pages, cards, quiz, timer, and sharing
+---
+- runFlow: all-pages.yaml
+- runFlow: study-session.yaml
+- runFlow: quiz-session.yaml
+- runFlow: quiz-timer.yaml

@@ -1,0 +1,52 @@
+appId: com.aistudy.platform
+name: Momo study pages together
+---
+- runFlow: bootstrap.yaml
+- takeScreenshot: dashboard
+- tapOn:
+    id: tab-library
+- assertVisible:
+    id: library-screen
+- takeScreenshot: library
+- tapOn:
+    id: library-search
+- inputText: 'zzzz'
+- hideKeyboard
+- assertVisible: 'No matching study sets'
+- tapOn: 'Clear search'
+- assertNotVisible: 'No matching study sets'
+- tapOn:
+    id: tab-shop
+- assertVisible:
+    id: shop-screen
+- takeScreenshot: shop
+- tapOn:
+    id: shop-category-lives
+- assertVisible: '.*[Ll]ives.*|.*[Hh]earts.*'
+- tapOn:
+    id: shop-category-xp
+- tapOn:
+    id: tab-profile
+- assertVisible:
+    id: settings-screen
+- takeScreenshot: settings
+- tapOn:
+    id: tab-index
+- tapOn:
+    id: dashboard-tutor
+- assertVisible:
+    id: ai-screen
+- takeScreenshot: ai
+- tapOn:
+    id: ai-mode-study
+- tapOn:
+    id: ai-suggestion-review
+- assertVisible: 'Make a concise reviewer for my next exam.'
+- tapOn:
+    id: ai-mode-image
+- assertVisible: 'Study diagram'
+- tapOn: 'Study diagram'
+- assertVisible: 'Square.*'
+- tapOn: 'Go back'
+- assertVisible:
+    id: dashboard-screen

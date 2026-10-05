@@ -1,0 +1,41 @@
+appId: com.aistudy.platform
+---
+- launchApp:
+    stopApp: false
+- extendedWaitUntil:
+    visible: 'Skip setup and try a sample deck|Open my study space|Home|Library|Settings|Momo AI|Study shop|Go back|Back to Library'
+    timeout: 45000
+- runFlow:
+    when:
+      visible: 'Back to Library'
+    commands:
+      - tapOn: 'Back to Library'
+- runFlow:
+    when:
+      visible: 'Go back'
+    commands:
+      - tapOn: 'Go back'
+- runFlow:
+    when:
+      visible: 'Skip setup and try a sample deck'
+    commands:
+      - tapOn: 'Skip setup and try a sample deck'
+      - extendedWaitUntil:
+          visible: 'Open my study space'
+          timeout: 30000
+- runFlow:
+    when:
+      visible: 'Open my study space'
+    commands:
+      - tapOn: 'Open my study space'
+- runFlow:
+    when:
+      visible:
+        id: tab-index
+    commands:
+      - tapOn:
+          id: tab-index
+- extendedWaitUntil:
+    visible:
+      id: dashboard-screen
+    timeout: 30000

@@ -1,0 +1,34 @@
+appId: com.aistudy.platform
+name: Shop preview and XP guard
+---
+- runFlow: bootstrap.yaml
+- tapOn:
+    id: tab-shop
+- tapOn:
+    id: shop-category-credits
+- scrollUntilVisible:
+    element:
+      id: shop-pack-shop-credit-pouch
+    direction: DOWN
+- tapOn:
+    id: shop-pack-shop-credit-pouch
+- assertVisible: 'Preview this pack'
+- takeScreenshot: shop-confirmation
+- tapOn:
+    id: shop-cancel-purchase
+- assertNotVisible: 'Preview this pack'
+- tapOn:
+    id: shop-category-xp
+- scrollUntilVisible:
+    element:
+      id: shop-trade-shop-hint-credits
+    direction: DOWN
+- tapOn:
+    id: shop-trade-shop-hint-credits
+- assertVisible: 'More XP Needed'
+- assertVisible: 'Keep Studying!'
+- takeScreenshot: shop-xp-guard
+- tapOn:
+    id: shop-continue-studying
+- assertVisible:
+    id: dashboard-screen

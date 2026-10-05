@@ -1,0 +1,38 @@
+appId: com.aistudy.platform
+name: Compact study layouts
+---
+- runFlow: bootstrap.yaml
+- takeScreenshot: compact-dashboard
+- tapOn:
+    id: tab-library
+- assertVisible:
+    id: library-screen
+- takeScreenshot: compact-library
+- tapOn:
+    id: tab-shop
+- assertVisible:
+    id: shop-screen
+- takeScreenshot: compact-shop
+- tapOn:
+    id: tab-profile
+- assertVisible:
+    id: settings-screen
+- takeScreenshot: compact-settings
+- scrollUntilVisible:
+    element:
+      id: settings-open-library
+    direction: DOWN
+- tapOn:
+    id: settings-open-library
+- assertVisible:
+    id: library-screen
+- tapOn:
+    id: tab-index
+- tapOn:
+    id: dashboard-tutor
+- assertVisible:
+    id: ai-screen
+- takeScreenshot: compact-ai
+- tapOn: Go back
+- assertVisible:
+    id: dashboard-screen

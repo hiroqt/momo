@@ -1,0 +1,51 @@
+appId: com.aistudy.platform
+name: Compact long study cards
+---
+- launchApp:
+    stopApp: true
+- tapOn:
+    text: "Awesome, Let's Keep Going!"
+    optional: true
+- extendedWaitUntil:
+    visible:
+      id: dashboard-screen|library-screen|study-screen|quiz-screen
+    timeout: 45000
+- openLink: 'aistudy://study/sample-deck-ui-validation-mixed?initialMode=flashcard'
+- waitForAnimationToEnd:
+    timeout: 3000
+- tapOn:
+    text: 'Open'
+    optional: true
+- repeat:
+    times: 4
+    commands:
+      - scrollUntilVisible:
+          element:
+            id: flashcard-reveal
+          direction: DOWN
+      - tapOn:
+          id: flashcard-reveal
+      - scrollUntilVisible:
+          element:
+            id: flashcard-correct
+          direction: DOWN
+      - takeScreenshot: compact-self-check
+      - tapOn:
+          id: flashcard-correct
+- runFlow:
+    when:
+      visible:
+        id: celebration-modal
+    commands:
+      - takeScreenshot: compact-celebration
+      - scrollUntilVisible:
+          element:
+            id: celebration-continue
+          direction: DOWN
+      - tapOn:
+          id: celebration-continue
+- scrollUntilVisible:
+    element: '100% Self-check'
+    direction: DOWN
+- assertVisible: '100% Self-check'
+- takeScreenshot: compact-study-results

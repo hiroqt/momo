@@ -1,0 +1,32 @@
+appId: com.aistudy.platform
+name: Timed quiz keeps explanation visible
+---
+- launchApp:
+    stopApp: false
+- tapOn:
+    text: "Awesome, Let's Keep Going!"
+    optional: true
+- extendedWaitUntil:
+    visible:
+      id: dashboard-screen|library-screen|study-screen|quiz-screen
+    timeout: 45000
+- openLink: 'aistudy://study/sample-deck-ui-validation-timed?initialMode=quiz'
+- waitForAnimationToEnd:
+    timeout: 3000
+- tapOn:
+    text: 'Open'
+    optional: true
+- extendedWaitUntil:
+    visible: 'Time expired'
+    timeout: 45000
+- assertNotVisible:
+    id: quiz-results
+- takeScreenshot: quiz-timeout
+- scrollUntilVisible:
+    element:
+      id: quiz-next
+    direction: DOWN
+- tapOn:
+    id: quiz-next
+- assertVisible: '0 of 1 correct.*0 XP earned'
+- takeScreenshot: quiz-timeout-results

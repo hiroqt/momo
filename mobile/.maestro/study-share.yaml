@@ -1,0 +1,99 @@
+appId: com.aistudy.platform
+name: Offline study to story preview
+---
+- runFlow: bootstrap.yaml
+- tapOn:
+    id: dashboard-start-study
+- runFlow:
+    when:
+      visible: 'Flashcards'
+    commands:
+      - tapOn: 'Flashcards'
+- extendedWaitUntil:
+    visible:
+      id: flashcard-reveal
+    timeout: 30000
+- runFlow:
+    when:
+      visible: 'Dismiss tip'
+    commands:
+      - tapOn: 'Dismiss tip'
+- repeat:
+    times: 3
+    commands:
+      - scrollUntilVisible:
+          element:
+            id: flashcard-reveal
+          direction: DOWN
+      - tapOn:
+          id: flashcard-reveal
+      - runFlow:
+          when:
+            visible: 'Dismiss tip'
+          commands:
+            - tapOn: 'Dismiss tip'
+      - scrollUntilVisible:
+          element:
+            id: flashcard-correct
+          direction: DOWN
+      - tapOn:
+          id: flashcard-correct
+      - extendedWaitUntil:
+          visible:
+            id: flashcard-reveal
+          timeout: 5000
+- tapOn:
+    id: flashcard-reveal
+- scrollUntilVisible:
+    element:
+      id: flashcard-review-again
+    direction: DOWN
+- tapOn:
+    id: flashcard-review-again
+- runFlow:
+    when:
+      visible: "Awesome, Let's Keep Going!"
+    commands:
+      - tapOn: "Awesome, Let's Keep Going!"
+- assertVisible: '75% Self-check'
+- tapOn: 'Share to Instagram Story'
+- assertVisible:
+    id: share-story-modal
+- takeScreenshot: story-preview
+- assertVisible:
+    id: share-story-instagram
+- assertVisible:
+    id: share-story-save
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - tapOn:
+          id: share-story-instagram
+      - assertVisible: 'Copy|Save Image'
+      - takeScreenshot: native-story-export
+      - tapOn:
+          point: '95%, 35%'
+      - assertVisible:
+          id: share-story-modal
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - tapOn:
+          id: share-story-instagram
+      - takeScreenshot: native-story-export
+      - back
+- runFlow:
+    when:
+      visible:
+        id: share-story-close
+    commands:
+      - tapOn:
+          id: share-story-close
+- assertNotVisible:
+    id: share-story-modal
+- tapOn:
+    id: results-library
+- assertVisible:
+    id: library-screen

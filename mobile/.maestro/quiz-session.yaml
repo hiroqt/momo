@@ -1,0 +1,103 @@
+appId: com.aistudy.platform
+name: Mixed quiz answer and results flow
+---
+- launchApp:
+    stopApp: false
+- tapOn:
+    text: "Awesome, Let's Keep Going!"
+    optional: true
+- extendedWaitUntil:
+    visible:
+      id: dashboard-screen|library-screen|study-screen|quiz-screen
+    timeout: 45000
+- openLink: 'aistudy://study/sample-deck-ui-validation-mixed?initialMode=quiz'
+- waitForAnimationToEnd:
+    timeout: 3000
+- tapOn:
+    text: 'Open'
+    optional: true
+- extendedWaitUntil:
+    visible:
+      id: quiz-question-card
+    timeout: 30000
+- takeScreenshot: quiz-question
+- repeat:
+    times: 4
+    commands:
+      - runFlow:
+          when:
+            visible:
+              id: quiz-type-multiple_choice
+          commands:
+            - scrollUntilVisible:
+                element: 'Highlighting'
+                direction: DOWN
+            - tapOn: 'Highlighting'
+      - runFlow:
+          when:
+            visible:
+              id: quiz-type-true_false
+          commands:
+            - scrollUntilVisible:
+                element: 'True'
+                direction: DOWN
+            - tapOn: 'True'
+      - runFlow:
+          when:
+            visible:
+              id: quiz-type-identification
+          commands:
+            - scrollUntilVisible:
+                element:
+                  id: quiz-answer-input
+                direction: DOWN
+            - tapOn:
+                id: quiz-answer-input
+            - inputText: 'Spacing'
+            - hideKeyboard
+      - runFlow:
+          when:
+            visible:
+              id: quiz-type-fill_in_the_blank
+          commands:
+            - scrollUntilVisible:
+                element:
+                  id: quiz-answer-input
+                direction: DOWN
+            - tapOn:
+                id: quiz-answer-input
+            - inputText: 'Recall'
+            - hideKeyboard
+      - scrollUntilVisible:
+          element:
+            id: quiz-check-answer
+          direction: DOWN
+      - tapOn:
+          id: quiz-check-answer
+      - scrollUntilVisible:
+          element:
+            id: quiz-feedback
+          direction: DOWN
+      - takeScreenshot: quiz-feedback
+      - scrollUntilVisible:
+          element:
+            id: quiz-next
+          direction: DOWN
+      - tapOn:
+          id: quiz-next
+- assertVisible:
+    id: quiz-results
+- assertVisible: '3 of 4 correct.*'
+- takeScreenshot: quiz-results
+- tapOn:
+    id: quiz-review-missed
+- assertVisible: '.*(Needs another look|NEEDS ANOTHER LOOK).*'
+- scrollUntilVisible:
+    element:
+      id: quiz-restart
+    direction: DOWN
+- tapOn:
+    id: quiz-restart
+- assertVisible: 'Question 1 of 4'
+- assertNotVisible:
+    id: quiz-results

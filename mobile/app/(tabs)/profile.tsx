@@ -1,633 +1,161 @@
 import React, { useEffect, useState } from 'react';
-import { colors, spacing, typography } from '@/constants/theme';
-import {
-  Platform,
-  View,
-  StyleSheet,
-  ScrollView,
-  Alert,
-  TouchableOpacity,
-  StatusBar as RNStatusBar,
-} from 'react-native';
-import { AppText as Text } from '@/components/common/app-text';
+import { ActivityIndicator, Platform, Pressable, StyleSheet, View, StatusBar as RNStatusBar } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { HugeiconsIcon } from '@hugeicons/react-native';
-import {
-  UserCircleIcon,
-  InformationCircleIcon,
-  CheckmarkCircle02Icon,
-  Shield01Icon,
-  Logout01Icon,
-  FlashIcon,
-  SparklesIcon,
-  RefreshIcon,
-  BookOpen01Icon,
-} from '@hugeicons/core-free-icons';
-import { apiFetch } from '../../lib/api/client';
-import { PlatformPressable } from '../../components/common/PlatformPressable';
-import { ConfirmationModal } from '../../components/common/ConfirmationModal';
-import { SmoothScrollView } from '../../components/common/SmoothScrollView';
-import { TabTransitionView } from '../../components/common/TabTransitionView';
-import { UserProfile } from '../../types';
-import { useOnboarding } from '../../context/OnboardingContext';
-import { isIpad } from '@/utils/device';
+import { ArrowRight01Icon, RefreshIcon, Logout01Icon } from '@hugeicons/core-free-icons';
+import { AppText as Text } from '@/components/common/app-text';
+import { StudyIcon } from '@/components/common/StudyIcon';
+import { MomoAnimation } from '@/components/mascot/MomoAnimation';
+import { ConfirmationModal } from '@/components/common/ConfirmationModal';
+import { SmoothScrollView } from '@/components/common/SmoothScrollView';
+import { colors, spacing } from '@/constants/theme';
+import { apiFetch } from '@/lib/api/client';
+import { formatStudyFormats, formatStudyTrack, getQuotaSummary } from '@/lib/screens/settings';
+import { useOnboarding } from '@/context/OnboardingContext';
+import type { UserProfile } from '@/types';
 
 export default function ProfileScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const {
-    studyTrack,
-    preferredFormat,
-    preferredFormats,
-    dailyGoalMinutes,
-    isGuestMode,
-    resetOnboarding,
-    firstName,
-    lastName,
-    age,
-    highSchoolGrade,
-    collegeYear,
-    collegeCourse,
-    studyRemindersEnabled,
-  } = useOnboarding();
+  const preferences = useOnboarding();
   const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [showSignOutModal, setShowSignOutModal] = useState(false);
+  const [profileState, setProfileState] = useState<'loading' | 'ready' | 'unavailable'>('loading');
+  const [retry, setRetry] = useState(0);
   const [showResetModal, setShowResetModal] = useState(false);
+  const [showSignOutModal, setShowSignOutModal] = useState(false);
 
   useEffect(() => {
+    let active = true;
+    if (preferences.isGuestMode) {
+      setProfile(null);
+      setProfileState('ready');
+      return;
+    }
+    setProfileState('loading');
     apiFetch<UserProfile>('/api/me')
-      .then(setProfile)
-      .catch(() => {
-        setProfile({
-          id: 'dev-user-001',
-          email: 'student@example.com',
-          documents_used_this_month: 2,
-          monthly_limit: 10,
-          quota_resets_at: new Date(Date.now() + 86400000 * 12).toISOString(),
-        });
-      });
-  }, []);
+      .then(value => { if (active) { setProfile(value); setProfileState('ready'); } })
+      .catch(() => { if (active) { setProfile(null); setProfileState('unavailable'); } });
+    return () => { active = false; };
+  }, [retry, preferences.isGuestMode]);
 
-  const used = profile?.documents_used_this_month || 0;
-  const limit = profile?.monthly_limit || 10;
-  const percent = Math.min(100, Math.round((used / limit) * 100));
-  const remaining = Math.max(0, limit - used);
-
-  const getBarColor = () => {
-    if (percent > 85) return colors.dangerAccent;
-    if (percent > 60) return colors.warningAccent;
-    return colors.successAccent;
-  };
-
-  const confirmSignOut = () => {
-    setShowSignOutModal(false);
-    Alert.alert('Signed Out', 'You have been signed out successfully.');
-  };
+  const quota = getQuotaSummary(profile);
+  const name = [preferences.firstName, preferences.lastName].filter(Boolean).join(' ') || profile?.full_name || 'Your study space';
+  const studyTrack = formatStudyTrack(preferences.studyTrack, preferences.highSchoolGrade ?? '', preferences.collegeYear ?? '', preferences.collegeCourse ?? '');
+  const formats = formatStudyFormats(preferences.preferredFormats ?? [], preferences.preferredFormat ?? '');
 
   return (
-    <TabTransitionView style={styles.screen} tabName="profile">
-      <SmoothScrollView
-        style={styles.container}
-        contentContainerStyle={[
-          styles.contentContainer,
-          {
-            paddingTop: Platform.OS === 'android'
-              ? Math.max(insets.top, RNStatusBar.currentHeight || spacing[0], spacing[28]) + spacing[14]
-              : Math.max(insets.top, spacing[20]),
-            paddingBottom: Math.max(insets.bottom, spacing[24]) + spacing[88], // Floating nav clearance
-          },
-        ]}
-      >
-        {/* Page Title */}
+    <View style={styles.screen} testID="settings-screen">
+      <SmoothScrollView style={styles.scroll} contentContainerStyle={[
+        styles.content,
+        { paddingTop: Platform.OS === 'android' ? Math.max(insets.top, RNStatusBar.currentHeight || 0, 28) + 14 : Math.max(insets.top, 20), paddingBottom: Math.max(insets.bottom, 24) + spacing[88] },
+      ]}>
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>Account & Settings</Text>
-          <Text style={styles.headerSub}>Manage your study plan, quota, and storage</Text>
+          <Text style={styles.eyebrow}>MAKE IT YOURS</Text>
+          <Text style={styles.title}>Settings</Text>
+          <Text style={styles.subtitle}>Your space for a calmer study routine.</Text>
         </View>
 
-        {/* Account Info Card */}
+        <View style={styles.accountCard}>
+          <View style={styles.identity}>
+            <Text style={styles.accountName}>{name}</Text>
+            <Text style={styles.accountDetail}>{preferences.isGuestMode ? 'Guest preview · stored on this device' : profile?.email || 'Account details unavailable'}</Text>
+            <View style={styles.pill}><Text style={styles.pillText}>{preferences.isGuestMode ? 'Exploring with Momo' : 'Learning with Momo'}</Text></View>
+          </View>
+          <MomoAnimation name="momo-rest" size={96} />
+        </View>
+
+        <Text style={styles.sectionTitle}>Your study routine</Text>
         <View style={styles.card}>
-          <View style={styles.avatarCircle}>
-            <HugeiconsIcon icon={UserCircleIcon} size={48} color={colors.primary} strokeWidth={1.5} />
-          </View>
-          <Text style={styles.name}>
-            {firstName ? `${firstName} ${lastName}`.trim() : (profile?.full_name || 'Student Account')}
-          </Text>
-          <Text style={styles.email}>{profile?.email}</Text>
-          <View style={styles.badgeRow}>
-            <View style={styles.roleBadge}>
-              <HugeiconsIcon icon={CheckmarkCircle02Icon} size={12} color={colors.success} strokeWidth={2.5} />
-              <Text style={styles.roleBadgeText}>Active Student</Text>
-            </View>
-            <View style={styles.cloudBadge}>
-              <HugeiconsIcon icon={FlashIcon} size={12} color={colors.primary} strokeWidth={2.5} />
-              <Text style={styles.cloudBadgeText}>Offline Ready</Text>
-            </View>
-          </View>
+          <View style={styles.cardHeading}><StudyIcon name="settings" size={44} /><View style={styles.headingCopy}><Text style={styles.cardTitle}>Study preferences</Text><Text style={styles.cardSubtitle}>A plan that fits your day</Text></View></View>
+          <PreferenceRow label="Study track" value={studyTrack} />
+          <PreferenceRow label="Study formats" value={formats} />
+          <PreferenceRow label="Daily goal" value={`${preferences.dailyGoalMinutes} minutes`} />
+          <PreferenceRow label="Reminders" value={preferences.studyRemindersEnabled ? 'Enabled in your preferences' : 'Off'} />
+          <Pressable testID="settings-replay-onboarding" accessibilityRole="button" accessibilityLabel="Review your study preferences" onPress={() => setShowResetModal(true)} style={({ pressed }) => [styles.actionRow, pressed && styles.pressed]}>
+            <HugeiconsIcon icon={RefreshIcon} size={18} color={colors.primary} /><Text style={styles.actionText}>Review my preferences</Text><HugeiconsIcon icon={ArrowRight01Icon} size={18} color={colors.primary} />
+          </Pressable>
+          <Text style={styles.footnote}>Reopens the welcome guide and resets helpful tips.</Text>
         </View>
 
-        {/* Monthly Quota Card (PRD Rule 19) */}
-        <View style={styles.quotaCard}>
-          <View style={styles.quotaHeaderRow}>
-            <Text style={styles.quotaHeader}>Monthly Document Limit</Text>
-            <View style={styles.quotaPill}>
-              <Text style={styles.quotaPillText}>{percent}% Used</Text>
-            </View>
-          </View>
-
-          <View style={styles.quotaNumbers}>
-            <Text style={[styles.usedNum, { color: getBarColor() }]}>{used}</Text>
-            <Text style={styles.limitNum}> / {limit} documents</Text>
-          </View>
-
-          {/* Progress bar */}
-          <View style={styles.barBackground}>
-            <View
-              style={[
-                styles.barFill,
-                {
-                  width: `${percent}%`,
-                  backgroundColor: getBarColor(),
-                },
-              ]}
-            />
-          </View>
-
-          <Text style={styles.quotaHint}>
-            {remaining > 0
-              ? `You have ${remaining} document uploads remaining this billing period.`
-              : 'You have reached your monthly document limit.'}
-          </Text>
+        <Text style={styles.sectionTitle}>Documents & privacy</Text>
+        <View style={styles.card} testID="settings-quota">
+          <View style={styles.cardHeading}><StudyIcon name="folder" size={44} /><View style={styles.headingCopy}><Text style={styles.cardTitle}>Monthly uploads</Text><Text style={styles.cardSubtitle}>10 accepted documents each month</Text></View></View>
+          {quota ? <>
+            <View style={styles.quotaNumbers}><Text style={styles.quotaUsed}>{quota.used}</Text><Text style={styles.quotaLimit}> / {quota.limit} used</Text><Text style={styles.quotaRemaining}>{quota.remaining} left</Text></View>
+            <View style={styles.track} accessibilityRole="progressbar" accessibilityLabel="Monthly uploads used" accessibilityValue={{ min: 0, max: quota.limit, now: quota.used }}><View style={[styles.fill, { width: `${quota.percent}%` }]} /></View>
+            <Text style={styles.footnote}>{quota.remaining ? 'Your next reviewer starts with your notes.' : 'You have reached your monthly upload limit.'}</Text>
+          </> : profileState === 'loading' ? <View style={styles.loading} accessibilityLiveRegion="polite"><ActivityIndicator color={colors.primary} /><Text style={styles.cardSubtitle}>Checking your account…</Text></View> : <>
+            <Text style={styles.body}>{preferences.isGuestMode ? 'Upload availability is checked on your account when you upload a document.' : 'We could not check your upload usage. Connect and try again.'}</Text>
+            {!preferences.isGuestMode && <Pressable testID="settings-retry-profile" accessibilityRole="button" onPress={() => setRetry(value => value + 1)} style={({ pressed }) => [styles.retryButton, pressed && styles.pressed]}><Text style={styles.actionText}>Try again</Text></Pressable>}
+          </>}
         </View>
 
-        {/* Storage Retention Policy Notice (PRD Section 7 & Rule 8) */}
-        <View style={styles.retentionNotice}>
-          <View style={styles.noticeHeader}>
-            <HugeiconsIcon icon={InformationCircleIcon} size={18} color={colors.primaryDark} strokeWidth={2} />
-            <Text style={styles.noticeTitle}>3-Day Document Retention Policy</Text>
-          </View>
-          <Text style={styles.noticeText}>
-            Original uploaded documents are securely retained on AWS S3 for 3 days and then automatically deleted to preserve privacy.
-            All your generated flashcards, questions, and reviewers persist permanently!
-          </Text>
+        <View style={styles.privacyCard}>
+          <View style={styles.cardHeading}><StudyIcon name="shield" size={44} /><View style={styles.headingCopy}><Text style={styles.cardTitle}>Your notes, thoughtfully kept</Text><Text style={styles.cardSubtitle}>Temporary files. Lasting learning.</Text></View></View>
+          <Text style={styles.body}>Original files are deleted after 3 days. Your generated reviewers and study progress stay with you.</Text>
+          <View style={styles.divider} />
+          <Text style={styles.privacyTitle}>Study answers start with your sources</Text>
+          <Text style={styles.body}>Momo uses your uploaded material for study content. If the source is missing information, Momo asks for more.</Text>
         </View>
 
-        {/* Privacy & Security Card */}
-        <View style={styles.securityCard}>
-          <View style={styles.securityHeader}>
-            <HugeiconsIcon icon={Shield01Icon} size={18} color={colors.success} strokeWidth={2} />
-            <Text style={styles.securityTitle}>Document-Verified Guarantee</Text>
-          </View>
-          <Text style={styles.securityText}>
-            Content is generated strictly from your uploaded files with source provenance. Missing information is never hallucinated.
-          </Text>
+        <View style={styles.card}>
+          <View style={styles.cardHeading}><StudyIcon name="book" size={44} /><View style={styles.headingCopy}><Text style={styles.cardTitle}>Study anywhere</Text><Text style={styles.cardSubtitle}>Keep a reviewer close</Text></View></View>
+          <Text style={styles.body}>Open a downloaded reviewer without a connection. Creating new material needs internet.</Text>
+          <Pressable testID="settings-open-library" accessibilityRole="button" onPress={() => router.push('/(tabs)/library')} style={({ pressed }) => [styles.actionRow, pressed && styles.pressed]}><Text style={styles.actionText}>Go to my library</Text><HugeiconsIcon icon={ArrowRight01Icon} size={18} color={colors.primary} /></Pressable>
         </View>
 
-        {/* Study Preferences & Onboarding Calibration */}
-        <View style={styles.preferencesCard}>
-          <View style={styles.preferencesHeader}>
-            <View style={styles.prefIconBadge}>
-              <HugeiconsIcon icon={SparklesIcon} size={16} color={colors.primary} strokeWidth={2.4} />
-            </View>
-            <Text style={styles.preferencesTitle}>Study Calibration</Text>
-            {isGuestMode && (
-              <View style={styles.guestPill}>
-                <Text style={styles.guestPillText}>Guest Preview</Text>
-              </View>
-            )}
-          </View>
-
-          {firstName ? (
-            <View style={styles.prefRow}>
-              <Text style={styles.prefKey}>Student Name</Text>
-              <Text style={styles.prefVal}>{`${firstName} ${lastName}`.trim()}</Text>
-            </View>
-          ) : null}
-
-          <View style={styles.prefRow}>
-            <Text style={styles.prefKey}>Age</Text>
-            <Text style={styles.prefVal}>{age ? `${age} yrs old` : '13+ yrs old'}</Text>
-          </View>
-
-          <View style={styles.prefRow}>
-            <Text style={styles.prefKey}>Study Track</Text>
-            <Text style={styles.prefVal}>
-              {studyTrack === 'high_school' && highSchoolGrade
-                ? `HIGH SCHOOL (${highSchoolGrade.toUpperCase()})`
-                : ['college', 'med_nursing', 'stem'].includes(studyTrack) && collegeYear
-                ? `${studyTrack.toUpperCase()} (${collegeYear.toUpperCase()}${collegeCourse ? ` • ${collegeCourse.toUpperCase()}` : ''})`
-                : collegeCourse
-                ? `${studyTrack ? studyTrack.toUpperCase() : 'COLLEGE'} (${collegeCourse.toUpperCase()})`
-                : studyTrack ? studyTrack.toUpperCase() : 'COLLEGE'}
-            </Text>
-          </View>
-
-          <View style={styles.prefRow}>
-            <Text style={styles.prefKey}>Preferred Format</Text>
-            <Text style={styles.prefVal}>
-              {preferredFormats && preferredFormats.length > 0
-                ? preferredFormats.includes('all')
-                  ? 'ALL FORMATS'
-                  : preferredFormats.map((f) => f.toUpperCase()).join(', ')
-                : preferredFormat
-                ? preferredFormat.toUpperCase()
-                : 'ALL FORMATS'}
-            </Text>
-          </View>
-
-          <View style={styles.prefRow}>
-            <Text style={styles.prefKey}>Daily Commitment</Text>
-            <Text style={styles.prefVal}>{dailyGoalMinutes} mins / day</Text>
-          </View>
-
-          <View style={styles.prefRow}>
-            <Text style={styles.prefKey}>Daily Reminders</Text>
-            <Text
-              style={[
-                styles.prefVal,
-                { color: studyRemindersEnabled ? colors.success : colors.textMuted },
-              ]}
-            >
-              {studyRemindersEnabled ? 'ENABLED' : 'DISABLED'}
-            </Text>
-          </View>
-
-          <TouchableOpacity
-            style={styles.replayButton}
-            onPress={() => setShowResetModal(true)}
-            accessibilityRole="button"
-            accessibilityLabel="Replay Onboarding & Reset Tips"
-          >
-            <HugeiconsIcon icon={RefreshIcon} size={14} color={colors.primary} strokeWidth={2.2} />
-            <Text style={styles.replayButtonText}>Replay Onboarding & Reset Tips</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Sign Out Button */}
-        <PlatformPressable style={styles.logoutBtn} onPress={() => setShowSignOutModal(true)}>
-          <View style={styles.logoutContent}>
-            <HugeiconsIcon icon={Logout01Icon} size={18} color={colors.danger} strokeWidth={2} />
-            <Text style={styles.logoutText}>Sign Out</Text>
-          </View>
-        </PlatformPressable>
+        {!preferences.isGuestMode && <Pressable testID="settings-sign-out" accessibilityRole="button" onPress={() => setShowSignOutModal(true)} style={({ pressed }) => [styles.signOut, pressed && styles.pressed]}><HugeiconsIcon icon={Logout01Icon} size={18} color={colors.textSecondary} /><Text style={styles.signOutText}>Account options</Text></Pressable>}
       </SmoothScrollView>
-
-      {/* Confirmation Modal for Resetting Onboarding */}
-      <ConfirmationModal
-        visible={showResetModal}
-        icon="thinking"
-        title="Replay Onboarding?"
-        message="This will reset all in-app contextual tips and return you to the Momo welcome experience."
-        confirmText="Replay Guide"
-        isDestructive={false}
-        onConfirm={async () => {
-          setShowResetModal(false);
-          await resetOnboarding();
-          router.replace('/(auth)/welcome');
-        }}
-        onCancel={() => setShowResetModal(false)}
-      />
-
-      {/* Confirmation Modal for Sign Out */}
-      <ConfirmationModal
-        visible={showSignOutModal}
-        icon="logout"
-        title="Sign Out?"
-        message="Are you sure you want to sign out of your student account on this device?"
-        confirmText="Sign Out"
-        isDestructive={true}
-        onConfirm={confirmSignOut}
-        onCancel={() => setShowSignOutModal(false)}
-      />
-    </TabTransitionView>
+      <ConfirmationModal visible={showResetModal} icon="thinking" title="Review your preferences?" message="This reopens the welcome guide and resets helpful tips. Your saved study sets stay in your library." confirmText="Open guide" isDestructive={false} onConfirm={async () => { setShowResetModal(false); await preferences.resetOnboarding(); router.replace('/(auth)/welcome'); }} onCancel={() => setShowResetModal(false)} />
+      <ConfirmationModal visible={showSignOutModal} icon="logout" title="Account preview" message="Account sign-out is not connected in this preview. Your study materials are kept on this device." confirmText="Got it" isDestructive={false} onConfirm={() => setShowSignOutModal(false)} onCancel={() => setShowSignOutModal(false)} />
+    </View>
   );
 }
 
-const isPadDevice = isIpad();
+function PreferenceRow({ label, value }: { label: string; value: string }) {
+  return <View style={styles.preferenceRow}><Text style={styles.preferenceLabel}>{label}</Text><Text style={styles.preferenceValue}>{value}</Text></View>;
+}
 
 const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  container: {
-    flex: 1,
-  },
-  contentContainer: {
-    paddingHorizontal: isPadDevice ? spacing[36] : spacing[16],
-    maxWidth: 920,
-    alignSelf: 'center',
-    width: '100%',
-  },
-  header: {
-    marginBottom: isPadDevice ? spacing[22] : spacing[16],
-  },
-  headerTitle: {
-    fontSize: isPadDevice ? typography.fontSize[34] : typography.fontSize[24],
-    fontWeight: typography.fontWeight.extraBold,
-    color: colors.text,
-    letterSpacing: typography.letterSpacing[-0.4],
-  },
-  headerSub: {
-    fontSize: isPadDevice ? typography.fontSize[16] : typography.fontSize[13],
-    color: colors.textMuted,
-    marginTop: spacing[2],
-  },
-  card: {
-    backgroundColor: colors.surface,
-    borderRadius: isPadDevice ? 22 : 18,
-    borderCurve: 'continuous',
-    padding: isPadDevice ? spacing[28] : spacing[22],
-    alignItems: 'center',
-    marginBottom: isPadDevice ? spacing[20] : spacing[16],
-    borderWidth: 1,
-    borderColor: colors.border,
-    ...Platform.select({
-      ios: {
-        shadowColor: colors.shadow || '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.04,
-        shadowRadius: 8,
-      },
-      android: {
-        elevation: 2,
-      },
-    }),
-  },
-  avatarCircle: {
-    width: isPadDevice ? 84 : 68,
-    height: isPadDevice ? 84 : 68,
-    borderRadius: isPadDevice ? 42 : 34,
-    backgroundColor: colors.primarySoft,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: spacing[10],
-    borderWidth: 2,
-    borderColor: colors.primaryBorder,
-  },
-  name: {
-    fontSize: isPadDevice ? typography.fontSize[24] : typography.fontSize[18],
-    fontWeight: typography.fontWeight.bold,
-    color: colors.text,
-  },
-  email: {
-    fontSize: isPadDevice ? typography.fontSize[16] : typography.fontSize[13],
-    color: colors.textMuted,
-    marginTop: spacing[2],
-  },
-  badgeRow: {
-    flexDirection: 'row',
-    gap: spacing[8],
-    marginTop: spacing[12],
-  },
-  roleBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.successSoft,
-    paddingHorizontal: isPadDevice ? spacing[12] : spacing[8],
-    paddingVertical: isPadDevice ? spacing[5] : spacing[3],
-    borderRadius: 8,
-    borderCurve: 'continuous',
-    gap: spacing[4],
-  },
-  roleBadgeText: {
-    fontSize: isPadDevice ? typography.fontSize[13] : typography.fontSize[11],
-    fontWeight: typography.fontWeight.bold,
-    color: colors.success,
-  },
-  cloudBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.primarySoft,
-    paddingHorizontal: isPadDevice ? spacing[12] : spacing[8],
-    paddingVertical: isPadDevice ? spacing[5] : spacing[3],
-    borderRadius: 8,
-    borderCurve: 'continuous',
-    gap: spacing[4],
-  },
-  cloudBadgeText: {
-    fontSize: isPadDevice ? typography.fontSize[13] : typography.fontSize[11],
-    fontWeight: typography.fontWeight.bold,
-    color: colors.primary,
-  },
-  quotaCard: {
-    backgroundColor: colors.surface,
-    borderRadius: isPadDevice ? 22 : 18,
-    borderCurve: 'continuous',
-    padding: isPadDevice ? spacing[26] : spacing[20],
-    marginBottom: isPadDevice ? spacing[20] : spacing[16],
-    borderWidth: 1,
-    borderColor: colors.border,
-    ...Platform.select({
-      ios: {
-        shadowColor: colors.shadow || '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.04,
-        shadowRadius: 8,
-      },
-      android: {
-        elevation: 2,
-      },
-    }),
-  },
-  quotaHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  quotaHeader: {
-    fontSize: isPadDevice ? typography.fontSize[15] : typography.fontSize[13],
-    fontWeight: typography.fontWeight.bold,
-    color: colors.textSecondary,
-    textTransform: 'uppercase',
-    letterSpacing: typography.letterSpacing[0.5],
-  },
-  quotaPill: {
-    backgroundColor: colors.surfaceMuted,
-    paddingHorizontal: spacing[8],
-    paddingVertical: spacing[2],
-    borderRadius: 6,
-    borderCurve: 'continuous',
-  },
-  quotaPillText: {
-    fontSize: isPadDevice ? typography.fontSize[13] : typography.fontSize[11],
-    fontWeight: typography.fontWeight.bold,
-    color: colors.textSecondary,
-  },
-  quotaNumbers: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    marginVertical: spacing[10],
-  },
-  usedNum: {
-    fontSize: isPadDevice ? typography.fontSize[42] : typography.fontSize[32],
-    fontWeight: typography.fontWeight.extraBold,
-    fontVariant: ['tabular-nums'],
-  },
-  limitNum: {
-    fontSize: isPadDevice ? typography.fontSize[24] : typography.fontSize[18],
-    fontWeight: typography.fontWeight.semiBold,
-    fontVariant: ['tabular-nums'],
-    color: colors.textMuted,
-  },
-  barBackground: {
-    height: isPadDevice ? 14 : 10,
-    backgroundColor: colors.surfaceMuted,
-    borderRadius: isPadDevice ? 7 : 5,
-    borderCurve: 'continuous',
-    overflow: 'hidden',
-    marginBottom: spacing[8],
-  },
-  barFill: {
-    height: '100%',
-    borderRadius: 5,
-    borderCurve: 'continuous',
-  },
-  quotaHint: {
-    fontSize: typography.fontSize[12],
-    color: colors.textMuted,
-    lineHeight: typography.lineHeight[18],
-  },
-  retentionNotice: {
-    backgroundColor: colors.primarySoft,
-    padding: spacing[16],
-    borderRadius: 16,
-    borderCurve: 'continuous',
-    marginBottom: spacing[14],
-    borderWidth: 1,
-    borderColor: colors.primarySoftStrong,
-  },
-  noticeHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing[8],
-    marginBottom: spacing[6],
-  },
-  noticeTitle: {
-    fontSize: typography.fontSize[13],
-    fontWeight: typography.fontWeight.bold,
-    color: colors.primaryDark,
-  },
-  noticeText: {
-    fontSize: typography.fontSize[12],
-    color: colors.primaryPressed,
-    lineHeight: typography.lineHeight[18],
-  },
-  securityCard: {
-    backgroundColor: colors.successSoft,
-    padding: spacing[16],
-    borderRadius: 16,
-    borderCurve: 'continuous',
-    marginBottom: spacing[24],
-    borderWidth: 1,
-    borderColor: colors.successBorder,
-  },
-  securityHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing[8],
-    marginBottom: spacing[6],
-  },
-  securityTitle: {
-    fontSize: typography.fontSize[13],
-    fontWeight: typography.fontWeight.bold,
-    color: colors.success,
-  },
-  securityText: {
-    fontSize: typography.fontSize[12],
-    color: colors.success,
-    lineHeight: typography.lineHeight[18],
-  },
-  logoutBtn: {
-    backgroundColor: colors.dangerSoft,
-    borderRadius: 14,
-    borderCurve: 'continuous',
-  },
-  logoutContent: {
-    paddingVertical: spacing[14],
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: spacing[8],
-  },
-  logoutText: {
-    color: colors.danger,
-    fontWeight: typography.fontWeight.bold,
-    fontSize: typography.fontSize[15],
-  },
-  preferencesCard: {
-    backgroundColor: colors.surface,
-    borderRadius: 18,
-    borderCurve: 'continuous',
-    padding: spacing[18],
-    marginBottom: spacing[16],
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  preferencesHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: spacing[12],
-    gap: 8,
-  },
-  prefIconBadge: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    borderCurve: 'continuous',
-    backgroundColor: colors.primarySoft,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  preferencesTitle: {
-    flex: 1,
-    fontSize: typography.fontSize[14],
-    fontWeight: typography.fontWeight.bold,
-    color: colors.text,
-  },
-  guestPill: {
-    backgroundColor: '#FEF3C7',
-    paddingVertical: 2,
-    paddingHorizontal: 8,
-    borderRadius: 8,
-    borderCurve: 'continuous',
-  },
-  guestPillText: {
-    fontSize: typography.fontSize[10.5],
-    fontWeight: typography.fontWeight.bold,
-    color: '#92400E',
-  },
-  prefRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: spacing[6],
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  prefKey: {
-    fontSize: typography.fontSize[12.5],
-    color: colors.textSecondary,
-  },
-  prefVal: {
-    fontSize: typography.fontSize[12],
-    fontWeight: typography.fontWeight.bold,
-    color: colors.text,
-  },
-  replayButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.primarySoft,
-    borderRadius: 12,
-    borderCurve: 'continuous',
-    paddingVertical: spacing[10],
-    marginTop: spacing[14],
-    gap: 6,
-  },
-  replayButtonText: {
-    fontSize: typography.fontSize[12.5],
-    fontWeight: typography.fontWeight.bold,
-    color: colors.primary,
-  },
+  screen: { flex: 1, backgroundColor: colors.background },
+  scroll: { flex: 1 },
+  content: { paddingHorizontal: 20, width: '100%', maxWidth: 760, alignSelf: 'center' },
+  header: { marginBottom: 24 },
+  eyebrow: { fontSize: 11, letterSpacing: 1, fontWeight: '700', color: colors.primary, marginBottom: 6 },
+  title: { fontSize: 30, fontWeight: '800', letterSpacing: -0.5, color: colors.text },
+  subtitle: { fontSize: 13, lineHeight: 20, color: colors.textSecondary, marginTop: 4 },
+  accountCard: { padding: 20, borderRadius: 24, borderCurve: 'continuous', backgroundColor: colors.primarySoft, borderWidth: 1, borderColor: colors.primaryBorder, flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 24 },
+  identity: { flex: 1 },
+  accountName: { fontSize: 20, lineHeight: 28, fontWeight: '700', color: colors.text },
+  accountDetail: { fontSize: 12, lineHeight: 18, color: colors.textSecondary, marginTop: 4 },
+  pill: { alignSelf: 'flex-start', backgroundColor: colors.surface, paddingVertical: 6, paddingHorizontal: 10, borderRadius: 12, marginTop: 12 },
+  pillText: { color: colors.primary, fontSize: 10, fontWeight: '600' },
+  sectionTitle: { color: colors.text, fontSize: 16, fontWeight: '700', marginBottom: 12 },
+  card: { backgroundColor: colors.surface, borderRadius: 24, borderCurve: 'continuous', padding: 20, borderWidth: 1, borderColor: colors.border, marginBottom: 16 },
+  privacyCard: { backgroundColor: colors.primarySoft, borderRadius: 24, borderCurve: 'continuous', padding: 20, borderWidth: 1, borderColor: colors.primaryBorder, marginBottom: 16 },
+  cardHeading: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12 },
+  headingCopy: { flex: 1 },
+  cardTitle: { color: colors.text, fontSize: 15, lineHeight: 21, fontWeight: '700' },
+  cardSubtitle: { color: colors.textSecondary, fontSize: 11, lineHeight: 17, marginTop: 2 },
+  preferenceRow: { paddingVertical: 12, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border, flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
+  preferenceLabel: { width: '34%', color: colors.textSecondary, fontSize: 12, lineHeight: 18 },
+  preferenceValue: { flex: 1, color: colors.text, fontSize: 12, lineHeight: 18, fontWeight: '600', textAlign: 'right' },
+  actionRow: { minHeight: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginTop: 8 },
+  actionText: { flexShrink: 1, fontSize: 12, color: colors.primary, fontWeight: '700' },
+  footnote: { color: colors.textSecondary, fontSize: 11, lineHeight: 17, marginTop: 8 },
+  quotaNumbers: { flexDirection: 'row', alignItems: 'baseline', marginBottom: 12 },
+  quotaUsed: { color: colors.primary, fontSize: 32, fontWeight: '800', fontVariant: ['tabular-nums'] },
+  quotaLimit: { color: colors.textSecondary, fontSize: 13 },
+  quotaRemaining: { flex: 1, textAlign: 'right', color: colors.primary, fontSize: 12, fontWeight: '600', fontVariant: ['tabular-nums'] },
+  track: { height: 8, borderRadius: 4, overflow: 'hidden', backgroundColor: colors.surfaceMuted },
+  fill: { height: '100%', backgroundColor: colors.primary, borderRadius: 4 },
+  body: { color: colors.textSecondary, fontSize: 12, lineHeight: 19 },
+  loading: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 48 },
+  retryButton: { alignSelf: 'flex-start', minHeight: 44, justifyContent: 'center', paddingHorizontal: 16, backgroundColor: colors.primarySoft, borderRadius: 12, marginTop: 12 },
+  divider: { height: StyleSheet.hairlineWidth, backgroundColor: colors.primaryBorder, marginVertical: 16 },
+  privacyTitle: { color: colors.text, fontSize: 13, fontWeight: '600', marginBottom: 6 },
+  signOut: { minHeight: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
+  signOutText: { color: colors.textSecondary, fontSize: 13, fontWeight: '600' },
+  pressed: { opacity: 0.65 },
 });

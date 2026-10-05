@@ -1,0 +1,676 @@
+{
+  "version": 1,
+  "canvas": 512,
+  "animations": [
+    {
+      "id": "momo-wave",
+      "title": "Momo \u00b7 Wave",
+      "category": "mascot",
+      "duration": 4,
+      "fps": 30,
+      "loop": true,
+      "stillFrame": 0,
+      "purpose": "Welcome and greetings \u00b7 Local gesture: Waving hand. Body and feet remain fixed.",
+      "source": "mobile/assets/onboarding/momo-wave.png",
+      "json": "mobile/assets/animations/momo-motion/momo-wave.json",
+      "dotLottie": "design/momo-motion/lottie/momo-wave.lottie",
+      "bytes": 508282,
+      "sha256": "06ede2a80468e0c98ea3843d5246b2ac62425886f02efb6145e93313cd42e6fd",
+      "motionParts": [
+        {
+          "name": "Waving hand",
+          "region": [
+            344,
+            170,
+            468,
+            304
+          ],
+          "pivot": [
+            500,
+            315
+          ],
+          "maxDegrees": 4
+        }
+      ]
+    },
+    {
+      "id": "momo-welcome",
+      "title": "Momo \u00b7 Welcome",
+      "category": "mascot",
+      "duration": 4,
+      "fps": 30,
+      "loop": true,
+      "stillFrame": 0,
+      "purpose": "First launch and sign in \u00b7 Local gesture: Welcome hand. Body and feet remain fixed.",
+      "source": "mobile/assets/onboarding/momo-welcome.png",
+      "json": "mobile/assets/animations/momo-motion/momo-welcome.json",
+      "dotLottie": "design/momo-motion/lottie/momo-welcome.lottie",
+      "bytes": 504254,
+      "sha256": "5be041a83bb99bd97fb862fa98692fc27915be2c62afc8c1152b59a295e05736",
+      "motionParts": [
+        {
+          "name": "Welcome hand",
+          "region": [
+            356,
+            223,
+            467,
+            337
+          ],
+          "pivot": [
+            514,
+            384
+          ],
+          "maxDegrees": 4
+        }
+      ]
+    },
+    {
+      "id": "momo-ready",
+      "title": "Momo \u00b7 Ready",
+      "category": "mascot",
+      "duration": 4,
+      "fps": 30,
+      "loop": true,
+      "stillFrame": 0,
+      "purpose": "Study session ready \u00b7 Local gesture: Thumbs-up hand. Body and feet remain fixed.",
+      "source": "mobile/assets/onboarding/momo-ready.png",
+      "json": "mobile/assets/animations/momo-motion/momo-ready.json",
+      "dotLottie": "design/momo-motion/lottie/momo-ready.lottie",
+      "bytes": 492472,
+      "sha256": "2dcfc94a2cd0688cf63a5f675449d83d5520f2f3e2b6b91b3405e03cd80190d8",
+      "motionParts": [
+        {
+          "name": "Thumbs-up hand",
+          "region": [
+            328,
+            209,
+            422,
+            316
+          ],
+          "pivot": [
+            480,
+            350
+          ],
+          "maxDegrees": 2.4
+        }
+      ]
+    },
+    {
+      "id": "momo-reading",
+      "title": "Momo \u00b7 Reading",
+      "category": "mascot",
+      "duration": 4,
+      "fps": 30,
+      "loop": true,
+      "stillFrame": 0,
+      "purpose": "Library and studying \u00b7 Local gesture: Reading hand. Body and feet remain fixed.",
+      "source": "mobile/assets/onboarding/momo-reading.png",
+      "json": "mobile/assets/animations/momo-motion/momo-reading.json",
+      "dotLottie": "design/momo-motion/lottie/momo-reading.lottie",
+      "bytes": 475582,
+      "sha256": "f790855551d0c458539c4e2cb2d3a102d49ce2121b9a585aed8588177bee2a62",
+      "motionParts": [
+        {
+          "name": "Reading hand",
+          "region": [
+            346,
+            280,
+            415,
+            357
+          ],
+          "pivot": [
+            515,
+            429
+          ],
+          "maxDegrees": 1.8
+        }
+      ]
+    },
+    {
+      "id": "momo-bow",
+      "title": "Momo \u00b7 Bow",
+      "category": "mascot",
+      "duration": 4,
+      "fps": 30,
+      "loop": true,
+      "stillFrame": 0,
+      "purpose": "Introduction and thank you \u00b7 Local gesture: Bowing head. Body and feet remain fixed.",
+      "source": "mobile/assets/onboarding/steps/momo-bow.png",
+      "json": "mobile/assets/animations/momo-motion/momo-bow.json",
+      "dotLottie": "design/momo-motion/lottie/momo-bow.lottie",
+      "bytes": 258162,
+      "sha256": "02a24ea11564f164125d4d6d2abd1635b178f65c8103aa4f098eb8b51032e743",
+      "motionParts": [
+        {
+          "name": "Bowing head",
+          "region": [
+            127,
+            50,
+            455,
+            309
+          ],
+          "pivot": [
+            252,
+            255
+          ],
+          "maxDegrees": 1.2
+        }
+      ]
+    },
+    {
+      "id": "momo-cheer",
+      "title": "Momo \u00b7 Cheer",
+      "category": "mascot",
+      "duration": 4,
+      "fps": 30,
+      "loop": true,
+      "stillFrame": 0,
+      "purpose": "Quiz completion and milestones \u00b7 Local gesture: Left cheering fist, Right cheering fist. Body and feet remain fixed.",
+      "source": "mobile/assets/onboarding/steps/momo-cheer.png",
+      "json": "mobile/assets/animations/momo-motion/momo-cheer.json",
+      "dotLottie": "design/momo-motion/lottie/momo-cheer.lottie",
+      "bytes": 279568,
+      "sha256": "5138a56d1baa2c64222072aeb579534da0da8ba429d8ee33353ce7656914871a",
+      "motionParts": [
+        {
+          "name": "Left cheering fist",
+          "region": [
+            58,
+            147,
+            172,
+            265
+          ],
+          "pivot": [
+            97,
+            187
+          ],
+          "maxDegrees": 3.0
+        },
+        {
+          "name": "Right cheering fist",
+          "region": [
+            344,
+            131,
+            448,
+            245
+          ],
+          "pivot": [
+            359,
+            172
+          ],
+          "maxDegrees": 3.0
+        }
+      ]
+    },
+    {
+      "id": "momo-listen",
+      "title": "Momo \u00b7 Listen",
+      "category": "mascot",
+      "duration": 4,
+      "fps": 30,
+      "loop": true,
+      "stillFrame": 0,
+      "purpose": "Tutor listening and learner choices \u00b7 Local gesture: Listening hand. Body and feet remain fixed.",
+      "source": "mobile/assets/onboarding/steps/momo-listen.png",
+      "json": "mobile/assets/animations/momo-motion/momo-listen.json",
+      "dotLottie": "design/momo-motion/lottie/momo-listen.lottie",
+      "bytes": 273416,
+      "sha256": "53d1c8dc5b54bc5c377744d1ef7c90c08cdeea90edfd57b8ebd268353b5a420c",
+      "motionParts": [
+        {
+          "name": "Listening hand",
+          "region": [
+            156,
+            214,
+            233,
+            321
+          ],
+          "pivot": [
+            165,
+            257
+          ],
+          "maxDegrees": 1.5
+        }
+      ]
+    },
+    {
+      "id": "momo-point",
+      "title": "Momo \u00b7 Point",
+      "category": "mascot",
+      "duration": 4,
+      "fps": 30,
+      "loop": true,
+      "stillFrame": 0,
+      "purpose": "Guide to the next action \u00b7 Local gesture: Pointing hand and cuff. Body and feet remain fixed.",
+      "source": "mobile/assets/onboarding/steps/momo-point.png",
+      "json": "mobile/assets/animations/momo-motion/momo-point.json",
+      "dotLottie": "design/momo-motion/lottie/momo-point.lottie",
+      "bytes": 297966,
+      "sha256": "af6f13f45a5e0198934925f538dbbc943fc3fbb173478c077cc5d58cd9f7e3d4",
+      "motionParts": [
+        {
+          "name": "Pointing hand and cuff",
+          "region": [
+            358,
+            189,
+            470,
+            307
+          ],
+          "pivot": [
+            373,
+            238
+          ],
+          "maxDegrees": 2.5
+        }
+      ]
+    },
+    {
+      "id": "momo-present",
+      "title": "Momo \u00b7 Present",
+      "category": "mascot",
+      "duration": 4,
+      "fps": 30,
+      "loop": true,
+      "stillFrame": 0,
+      "purpose": "Present a generated reviewer \u00b7 Local gesture: Left book grip, Right book grip. Body and feet remain fixed.",
+      "source": "mobile/assets/onboarding/steps/momo-present.png",
+      "json": "mobile/assets/animations/momo-motion/momo-present.json",
+      "dotLottie": "design/momo-motion/lottie/momo-present.lottie",
+      "bytes": 279264,
+      "sha256": "0dd54d79b98da50e749df616944ea0037e39ac9e7ed543fcd02b5b1046a5dbe7",
+      "motionParts": [
+        {
+          "name": "Left book grip",
+          "region": [
+            147,
+            263,
+            213,
+            345
+          ],
+          "pivot": [
+            127,
+            283
+          ],
+          "maxDegrees": 1.1
+        },
+        {
+          "name": "Right book grip",
+          "region": [
+            312,
+            262,
+            377,
+            347
+          ],
+          "pivot": [
+            336,
+            281
+          ],
+          "maxDegrees": 1.1
+        }
+      ]
+    },
+    {
+      "id": "momo-proud",
+      "title": "Momo \u00b7 Proud",
+      "category": "mascot",
+      "duration": 4,
+      "fps": 30,
+      "loop": true,
+      "stillFrame": 0,
+      "purpose": "Achievement and review completion \u00b7 Local gesture: Left proud grip, Right proud grip. Body and feet remain fixed.",
+      "source": "mobile/assets/onboarding/steps/momo-proud.png",
+      "json": "mobile/assets/animations/momo-motion/momo-proud.json",
+      "dotLottie": "design/momo-motion/lottie/momo-proud.lottie",
+      "bytes": 260369,
+      "sha256": "857a127b13165d5b25158ee6093b983ae418c8419c172f67156f093519ede095",
+      "motionParts": [
+        {
+          "name": "Left proud grip",
+          "region": [
+            171,
+            277,
+            242,
+            350
+          ],
+          "pivot": [
+            156,
+            286
+          ],
+          "maxDegrees": 1.1
+        },
+        {
+          "name": "Right proud grip",
+          "region": [
+            264,
+            279,
+            331,
+            352
+          ],
+          "pivot": [
+            287,
+            287
+          ],
+          "maxDegrees": 1.1
+        }
+      ]
+    },
+    {
+      "id": "momo-rest",
+      "title": "Momo \u00b7 Rest",
+      "category": "mascot",
+      "duration": 4,
+      "fps": 30,
+      "loop": true,
+      "stillFrame": 0,
+      "purpose": "Study break and calm empty state \u00b7 Local gesture: Resting tail tip. Body and feet remain fixed.",
+      "source": "mobile/assets/onboarding/steps/momo-rest.png",
+      "json": "mobile/assets/animations/momo-motion/momo-rest.json",
+      "dotLottie": "design/momo-motion/lottie/momo-rest.lottie",
+      "bytes": 267050,
+      "sha256": "acb5cd6e6b3fc959e61cbb86a893f3bd9dbc7fcc5a3655691a16dd7faaacf0d3",
+      "motionParts": [
+        {
+          "name": "Resting tail tip",
+          "region": [
+            76,
+            286,
+            191,
+            383
+          ],
+          "pivot": [
+            81,
+            325
+          ],
+          "maxDegrees": 3.2
+        }
+      ]
+    },
+    {
+      "id": "momo-thinking",
+      "title": "Momo \u00b7 Thinking",
+      "category": "mascot",
+      "duration": 4,
+      "fps": 30,
+      "loop": true,
+      "stillFrame": 0,
+      "purpose": "Tutor thinking and solving \u00b7 Local gesture: Thinking hand. Body and feet remain fixed.",
+      "source": "mobile/assets/onboarding/steps/momo-thinking.png",
+      "json": "mobile/assets/animations/momo-motion/momo-thinking.json",
+      "dotLottie": "design/momo-motion/lottie/momo-thinking.lottie",
+      "bytes": 269262,
+      "sha256": "70bae024c5760f36920a4d650115d24095cbfd6d5984def8f2f0541ba88b2cf4",
+      "motionParts": [
+        {
+          "name": "Thinking hand",
+          "region": [
+            265,
+            239,
+            334,
+            327
+          ],
+          "pivot": [
+            283,
+            272
+          ],
+          "maxDegrees": 1.7
+        }
+      ]
+    },
+    {
+      "id": "momo-hero",
+      "title": "Momo \u00b7 Hero",
+      "category": "mascot",
+      "duration": 4,
+      "fps": 30,
+      "loop": true,
+      "stillFrame": 0,
+      "purpose": "Marketing hero and app welcome \u00b7 Local gesture: Hero waving hand. Body and feet remain fixed.",
+      "source": "web/public/assets/momo-full-body-cutout.png",
+      "json": "mobile/assets/animations/momo-motion/momo-hero.json",
+      "dotLottie": "design/momo-motion/lottie/momo-hero.lottie",
+      "bytes": 2377678,
+      "sha256": "fecfb05042d8e8d5d3996fd89b076ed7a38d1bc144be81f99642614b7d224d5e",
+      "motionParts": [
+        {
+          "name": "Hero waving hand",
+          "region": [
+            303,
+            198,
+            375,
+            276
+          ],
+          "pivot": [
+            787,
+            774
+          ],
+          "maxDegrees": 2.4
+        }
+      ]
+    },
+    {
+      "id": "streak-fire",
+      "title": "Streak \u00b7 Fire",
+      "category": "app",
+      "duration": 2,
+      "fps": 30,
+      "loop": true,
+      "stillFrame": 0,
+      "purpose": "Anchored flame contour flicker, rising embers; ignition grows once without bounce.",
+      "source": null,
+      "json": "mobile/assets/animations/momo-motion/streak-fire.json",
+      "dotLottie": "design/momo-motion/lottie/streak-fire.lottie",
+      "bytes": 29522,
+      "sha256": "2b25d491dfc236004162d1c1664253b5d524268a914868e604844822245876a1"
+    },
+    {
+      "id": "streak-ignite",
+      "title": "Streak \u00b7 Ignite",
+      "category": "app",
+      "duration": 1.4,
+      "fps": 30,
+      "loop": false,
+      "stillFrame": 34,
+      "purpose": "Anchored flame contour flicker, rising embers; ignition grows once without bounce.",
+      "source": null,
+      "json": "mobile/assets/animations/momo-motion/streak-ignite.json",
+      "dotLottie": "design/momo-motion/lottie/streak-ignite.lottie",
+      "bytes": 22797,
+      "sha256": "a5f63f0f7778b1fb4a5ed81e167af2b6e95eb31f83e3e2f803d289caf00c0877"
+    },
+    {
+      "id": "confetti-burst",
+      "title": "Celebration \u00b7 Confetti",
+      "category": "app",
+      "duration": 3.2,
+      "fps": 30,
+      "loop": false,
+      "stillFrame": 0,
+      "purpose": "One burst for quiz completion, onboarding completion, or level up.",
+      "source": null,
+      "json": "mobile/assets/animations/momo-motion/confetti-burst.json",
+      "dotLottie": "design/momo-motion/lottie/confetti-burst.lottie",
+      "bytes": 136206,
+      "sha256": "b579c98c88f52a46de1e9ef16f90dd65a0467bcd97948e43924c423d52c6ee98"
+    },
+    {
+      "id": "confetti-gentle",
+      "title": "Celebration \u00b7 Gentle",
+      "category": "app",
+      "duration": 2.8,
+      "fps": 30,
+      "loop": false,
+      "stillFrame": 0,
+      "purpose": "One burst for quiz completion, onboarding completion, or level up.",
+      "source": null,
+      "json": "mobile/assets/animations/momo-motion/confetti-gentle.json",
+      "dotLottie": "design/momo-motion/lottie/confetti-gentle.lottie",
+      "bytes": 69879,
+      "sha256": "a42bf7ce2345020fe9579f1bbcfdbdeed89e7ff287a606b20efa7098509ad461"
+    },
+    {
+      "id": "book-loading",
+      "title": "Preparing study material",
+      "category": "app",
+      "duration": 2.4,
+      "fps": 30,
+      "loop": true,
+      "stillFrame": 0,
+      "purpose": "Preparing study material",
+      "source": null,
+      "json": "mobile/assets/animations/momo-motion/book-loading.json",
+      "dotLottie": "design/momo-motion/lottie/book-loading.lottie",
+      "bytes": 6679,
+      "sha256": "8017ca0e5f199b3168b28c4838126e456bff2418d705274e7cfbd71d325f8e32"
+    },
+    {
+      "id": "document-upload",
+      "title": "Uploading a document",
+      "category": "app",
+      "duration": 2,
+      "fps": 30,
+      "loop": true,
+      "stillFrame": 0,
+      "purpose": "Uploading a document",
+      "source": null,
+      "json": "mobile/assets/animations/momo-motion/document-upload.json",
+      "dotLottie": "design/momo-motion/lottie/document-upload.lottie",
+      "bytes": 5217,
+      "sha256": "46274694aebbb69f454b415b6a025a10581eabb32fee9e57b2e5bb5c0592e08b"
+    },
+    {
+      "id": "document-scan",
+      "title": "Reading a document",
+      "category": "app",
+      "duration": 2,
+      "fps": 30,
+      "loop": true,
+      "stillFrame": 0,
+      "purpose": "Reading a document",
+      "source": null,
+      "json": "mobile/assets/animations/momo-motion/document-scan.json",
+      "dotLottie": "design/momo-motion/lottie/document-scan.lottie",
+      "bytes": 4980,
+      "sha256": "9ebe412b42b8db8cf4440fdbd7f67a1b987e6dd22e08a9c080261c0d78808bca"
+    },
+    {
+      "id": "reviewer-ready",
+      "title": "Reviewer completed",
+      "category": "app",
+      "duration": 1.4,
+      "fps": 30,
+      "loop": false,
+      "stillFrame": 41,
+      "purpose": "Reviewer completed",
+      "source": null,
+      "json": "mobile/assets/animations/momo-motion/reviewer-ready.json",
+      "dotLottie": "design/momo-motion/lottie/reviewer-ready.lottie",
+      "bytes": 5174,
+      "sha256": "3d048d702579ab9082bc40b565971df8f8df75ca7be45d8ab20e77dfb2e79b00"
+    },
+    {
+      "id": "answer-correct",
+      "title": "Correct answer feedback",
+      "category": "app",
+      "duration": 0.8,
+      "fps": 30,
+      "loop": false,
+      "stillFrame": 23,
+      "purpose": "Correct answer feedback",
+      "source": null,
+      "json": "mobile/assets/animations/momo-motion/answer-correct.json",
+      "dotLottie": "design/momo-motion/lottie/answer-correct.lottie",
+      "bytes": 1387,
+      "sha256": "dfa837d7715c9049c4022c5b8813919eda3d88bea3881a2fb15b6d88c843bef3"
+    },
+    {
+      "id": "answer-retry",
+      "title": "Supportive retry feedback",
+      "category": "app",
+      "duration": 0.8,
+      "fps": 30,
+      "loop": false,
+      "stillFrame": 23,
+      "purpose": "Supportive retry feedback",
+      "source": null,
+      "json": "mobile/assets/animations/momo-motion/answer-retry.json",
+      "dotLottie": "design/momo-motion/lottie/answer-retry.lottie",
+      "bytes": 1729,
+      "sha256": "27564b9db93208843b1d157ce5203cdc1068a0f6e54bdb80930e3af3f76f11d3"
+    },
+    {
+      "id": "xp-reward",
+      "title": "XP awarded after a study session",
+      "category": "app",
+      "duration": 1.4,
+      "fps": 30,
+      "loop": false,
+      "stillFrame": 41,
+      "purpose": "XP awarded after a study session",
+      "source": null,
+      "json": "mobile/assets/animations/momo-motion/xp-reward.json",
+      "dotLottie": "design/momo-motion/lottie/xp-reward.lottie",
+      "bytes": 2080,
+      "sha256": "684331943e6b4f3e48c1d4e2a6081185c56b22a470a353f8aa409340e77a50c3"
+    },
+    {
+      "id": "coin-reward",
+      "title": "Momo Coins earned",
+      "category": "app",
+      "duration": 1.4,
+      "fps": 30,
+      "loop": false,
+      "stillFrame": 41,
+      "purpose": "Momo Coins earned",
+      "source": null,
+      "json": "mobile/assets/animations/momo-motion/coin-reward.json",
+      "dotLottie": "design/momo-motion/lottie/coin-reward.lottie",
+      "bytes": 9125,
+      "sha256": "3cb7ebebb92549677fdf89751ca11b935fc8bd2df166f3a95577939b39274ccb"
+    },
+    {
+      "id": "heart-refill",
+      "title": "Heart restored",
+      "category": "app",
+      "duration": 2,
+      "fps": 30,
+      "loop": false,
+      "stillFrame": 59,
+      "purpose": "Heart restored",
+      "source": null,
+      "json": "mobile/assets/animations/momo-motion/heart-refill.json",
+      "dotLottie": "design/momo-motion/lottie/heart-refill.lottie",
+      "bytes": 6169,
+      "sha256": "c5f6129357c56afa59e99f456d62c4a1ce166a06dba9305d6f7b7c45dccca8a5"
+    },
+    {
+      "id": "offline-saved",
+      "title": "Study set available offline",
+      "category": "app",
+      "duration": 1.4,
+      "fps": 30,
+      "loop": false,
+      "stillFrame": 41,
+      "purpose": "Study set available offline",
+      "source": null,
+      "json": "mobile/assets/animations/momo-motion/offline-saved.json",
+      "dotLottie": "design/momo-motion/lottie/offline-saved.lottie",
+      "bytes": 2740,
+      "sha256": "fe57650e3d36eb4634ae7f74e8d6cb3e695eb3b381cc85636af7b38248354dfe"
+    },
+    {
+      "id": "sync-working",
+      "title": "Pending study progress syncing",
+      "category": "app",
+      "duration": 2,
+      "fps": 30,
+      "loop": true,
+      "stillFrame": 0,
+      "purpose": "Pending study progress syncing",
+      "source": null,
+      "json": "mobile/assets/animations/momo-motion/sync-working.json",
+      "dotLottie": "design/momo-motion/lottie/sync-working.lottie",
+      "bytes": 1460,
+      "sha256": "9ded6e0db0f13e6251f0b10d1ac2a8b8b9a50f496ed5d23426423de11ecee3c5"
+    }
+  ]
+}

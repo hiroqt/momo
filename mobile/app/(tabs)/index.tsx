@@ -3,12 +3,11 @@ import React, { useCallback, useState, useRef } from 'react';
 import { Platform, RefreshControl, StatusBar as RNStatusBar, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { HugeiconsIcon } from '@hugeicons/react-native';
-import { Coins01Icon } from '@hugeicons/core-free-icons';
 
 import { AppText as Text } from '@/components/common/app-text';
 import { SmoothScrollView } from '@/components/common/SmoothScrollView';
-import { TabTransitionView } from '@/components/common/TabTransitionView';
+import { StudyIcon } from '@/components/common/StudyIcon';
+import { dashboardStudyAction, getWeekDate } from '@/lib/screens/dashboardModel';
 import { DynamicMomoHead } from '@/components/mascot/DynamicMomoHead';
 import { colors, spacing, typography } from '@/constants/theme';
 import { useCredits } from '@/context/CreditsContext';
@@ -35,22 +34,6 @@ function getFormattedDate(): string {
     month: 'short',
     day: 'numeric',
   });
-}
-
-function getWeekDate(index: number): { date: string; isToday: boolean } {
-  const today = new Date();
-  const currentDayIndex = today.getDay() === 0 ? 6 : today.getDay() - 1;
-  const date = new Date(today);
-  date.setDate(today.getDate() - currentDayIndex + index);
-
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-
-  return {
-    date: `${year}-${month}-${day}`,
-    isToday: index === currentDayIndex,
-  };
 }
 
 export default function HomeScreen() {
@@ -104,10 +87,11 @@ export default function HomeScreen() {
     setRefreshing(false);
   };
 
-  const visibleSets = sets.slice(0, LIBRARY_PREVIEW_LIMIT);
+  const visibleSets = sets.filter(set => set.item_count > 0).slice(0, LIBRARY_PREVIEW_LIMIT);
+  const studyAction = dashboardStudyAction(sets);
 
   return (
-    <TabTransitionView style={styles.screen} tabName="index">
+    <View style={styles.screen} testID="dashboard-screen">
       <SmoothScrollView
         style={styles.container}
         contentContainerStyle={[
@@ -136,13 +120,39 @@ export default function HomeScreen() {
           </View>
           <TouchableOpacity
             style={styles.xpBadge}
-            onPress={() => router.push('/shop')}
+            testID="dashboard-shop"
+            onPress={() => router.push('/(tabs)/shop')}
             activeOpacity={0.75}
             accessibilityRole="button"
             accessibilityLabel={`${xp} XP, open shop`}
           >
-            <HugeiconsIcon icon={Coins01Icon} size={isPadDevice ? 24 : 18} color={colors.warning} />
+            <StudyIcon name="coin" size={28} />
             <Text style={styles.xpBadgeText}>{xp} XP</Text>
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.studyHero}>
+          <View style={styles.heroCopy}>
+            <Text style={styles.heroEyebrow}>YOUR NEXT STUDY SESSION</Text>
+            <Text style={styles.heroTitle}>{visibleSets.length ? 'A little focus.\nA little progress.' : 'Make room for\nyour next big idea.'}</Text>
+            <Text style={styles.heroDescription}>{studyAction.description}</Text>
+          </View>
+          <MomoAnimation name="momo-reading" active={false} size={118} accessibilityLabel="Momo holding a study book" />
+          <TouchableOpacity style={styles.heroButton} testID="dashboard-start-study" accessibilityRole="button"
+            accessibilityLabel={studyAction.label} onPress={() => router.push(studyAction.route)} activeOpacity={0.8}>
+            <StudyIcon name={visibleSets.length ? 'cards' : 'book'} size={28} />
+            <Text style={styles.heroButtonText}>{studyAction.label}</Text>
+            <Text style={styles.heroArrow}>→</Text>
+          </TouchableOpacity>
+        </View>
+        <View style={styles.quickActions}>
+          <TouchableOpacity style={styles.quickAction} testID="dashboard-upload" accessibilityRole="button" accessibilityLabel="Upload study notes"
+            onPress={() => router.push('/documents/upload')} activeOpacity={0.75}>
+            <StudyIcon name="folder" size={40} /><Text style={styles.quickActionText}>Add notes</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.quickAction} testID="dashboard-tutor" accessibilityRole="button" accessibilityLabel="Ask Momo AI tutor"
+            onPress={() => router.push('/ai')} activeOpacity={0.75}>
+            <StudyIcon name="brain" size={40} /><Text style={styles.quickActionText}>Ask Momo</Text>
           </TouchableOpacity>
         </View>
 
@@ -210,7 +220,7 @@ export default function HomeScreen() {
                 const isActive = streakData.active_dates.includes(date);
 
                 return (
-                  <View key={`${label}-${index}`} style={styles.streakDay}>
+                  <View key={`${label}-${index}`} style={styles.streakDay} accessible accessibilityLabel={`${date}${isToday ? ", today" : ""}, ${isActive ? "studied" : "no study recorded"}`}>
                     <View
                       style={[
                         styles.streakDayCircle,
@@ -238,8 +248,9 @@ export default function HomeScreen() {
 
         <View style={styles.librarySection}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Your Library</Text>
+            <Text style={styles.sectionTitle}>Ready to review</Text>
             <TouchableOpacity
+              testID="dashboard-library"
               onPress={() => router.push('/(tabs)/library')}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               accessibilityRole="button"
@@ -254,6 +265,7 @@ export default function HomeScreen() {
               {visibleSets.map((studySet, index) => (
                 <TouchableOpacity
                   key={studySet.id}
+                  testID={`dashboard-study-${studySet.id}`}
                   style={[
                     styles.libraryRow,
                     index < visibleSets.length - 1 && styles.libraryRowDivider,
@@ -263,12 +275,16 @@ export default function HomeScreen() {
                   accessibilityRole="button"
                   accessibilityLabel={`${studySet.title}, ${studySet.item_count} items`}
                 >
-                  <Text style={styles.libraryTitle} numberOfLines={2}>
-                    {studySet.title}
-                  </Text>
-                  <Text style={styles.libraryMeta}>
-                    {studySet.item_count} {studySet.item_count === 1 ? 'item' : 'items'}
-                  </Text>
+                  <StudyIcon name="cards" size={44} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.libraryTitle} numberOfLines={2}>
+                      {studySet.title}
+                    </Text>
+                    <Text style={styles.libraryMeta}>
+                      {studySet.item_count} {studySet.item_count === 1 ? 'item' : 'items'}
+                    </Text>
+                  </View>
+                  <Text style={styles.rowArrow}>→</Text>
                 </TouchableOpacity>
               ))}
             </View>
@@ -282,13 +298,25 @@ export default function HomeScreen() {
           )}
         </View>
       </SmoothScrollView>
-    </TabTransitionView>
+    </View>
   );
 }
 
 const isPadDevice = isIpad();
 
 const styles = StyleSheet.create({
+  studyHero: { backgroundColor: colors.primarySoft, borderRadius: 28, borderCurve: 'continuous', borderWidth: 1, borderColor: colors.primaryBorder, padding: 20, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', marginBottom: 12 },
+  heroCopy: { flex: 1, minWidth: 155 },
+  heroEyebrow: { color: colors.primary, fontSize: 10, fontWeight: '800', letterSpacing: 1, marginBottom: 8 },
+  heroTitle: { color: colors.text, fontSize: 24, lineHeight: 30, fontWeight: '800', letterSpacing: -0.6 },
+  heroDescription: { color: colors.textSecondary, fontSize: 13, lineHeight: 19, marginTop: 10 },
+  heroButton: { backgroundColor: colors.primary, borderRadius: 16, borderCurve: 'continuous', padding: 12, minHeight: 52, flexDirection: 'row', alignItems: 'center', gap: 8, width: '100%', marginTop: 16 },
+  heroButtonText: { color: colors.onPrimary, fontSize: 14, fontWeight: '700', flex: 1 },
+  heroArrow: { color: colors.onPrimary, fontSize: 22 },
+  quickActions: { flexDirection: 'row', gap: 12, marginBottom: 24 },
+  quickAction: { flex: 1, minHeight: 64, flexDirection: 'row', alignItems: 'center', gap: 8, borderRadius: 18, borderCurve: 'continuous', padding: 12, backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1 },
+  quickActionText: { flex: 1, color: colors.text, fontSize: 13, fontWeight: '700' },
+  rowArrow: { color: colors.primary, fontSize: 22 },
   screen: {
     flex: 1,
     backgroundColor: colors.background,
@@ -334,6 +362,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.warningBorder,
     borderRadius: isPadDevice ? 24 : 20,
+    borderCurve: 'continuous',
     paddingHorizontal: isPadDevice ? spacing[16] : spacing[12],
     paddingVertical: isPadDevice ? spacing[10] : spacing[8],
   },
@@ -363,6 +392,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.warningBorder,
     borderRadius: isPadDevice ? 20 : 16,
+    borderCurve: 'continuous',
     paddingHorizontal: isPadDevice ? spacing[16] : spacing[12],
     paddingVertical: isPadDevice ? spacing[12] : spacing[8],
     marginBottom: spacing[8],
@@ -418,6 +448,7 @@ const styles = StyleSheet.create({
     lineHeight: isPadDevice ? 20 : 16,
   },
   quoteCloseButton: {
+    minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center',
     padding: spacing[6],
     marginLeft: spacing[2],
   },
@@ -431,6 +462,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: isPadDevice ? 24 : 20,
+    borderCurve: 'continuous',
     padding: isPadDevice ? spacing[28] : spacing[20],
   },
   streakEyebrow: {
@@ -474,6 +506,7 @@ const styles = StyleSheet.create({
     width: isPadDevice ? 46 : 34,
     height: isPadDevice ? 46 : 34,
     borderRadius: isPadDevice ? 23 : 17,
+    borderCurve: 'continuous',
     backgroundColor: colors.surfaceMuted,
     alignItems: 'center',
     justifyContent: 'center',
@@ -525,13 +558,16 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: isPadDevice ? 20 : 16,
+    borderCurve: 'continuous',
     overflow: 'hidden',
   },
   libraryRow: {
     minHeight: isPadDevice ? 88 : 72,
     paddingHorizontal: isPadDevice ? spacing[22] : spacing[16],
     paddingVertical: isPadDevice ? spacing[18] : spacing[14],
-    justifyContent: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
   },
   libraryRowDivider: {
     borderBottomWidth: StyleSheet.hairlineWidth,
@@ -554,6 +590,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: isPadDevice ? 20 : 16,
+    borderCurve: 'continuous',
     paddingHorizontal: isPadDevice ? spacing[22] : spacing[18],
     paddingVertical: isPadDevice ? spacing[28] : spacing[24],
   },

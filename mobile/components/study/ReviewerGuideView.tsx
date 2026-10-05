@@ -1,3 +1,7 @@
+import { StudyIcon } from '@/components/common/StudyIcon';
+import { MomoAnimation } from '@/components/mascot/MomoAnimation';
+import { filterReviewerNotes } from '@/utils/studySession';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import React, { useState, useMemo } from 'react';
 import { colors, spacing, typography } from '@/constants/theme';
 import {
@@ -34,10 +38,13 @@ interface Props {
   onTakeQuiz?: () => void;
 }
 
-type FilterCategory = 'all' | 'glossary' | 'concept_outline' | 'cheat_sheet' | 'compare_contrast' | 'qa_study_sheet' | 'timeline_process';
+type FilterCategory = 'all' | 'glossary' | 'concept_outline' | 'cheat_sheet' | 'compare_contrast' | 'qa_study_sheet' | 'timeline_process' | 'summary' | 'qa' | 'topic_explanation';
 
 const FILTER_TABS: { key: FilterCategory; label: string; icon: any }[] = [
   { key: 'all', label: 'All Notes', icon: Book02Icon },
+  { key: 'summary', label: 'Summaries', icon: File01Icon },
+  { key: 'qa', label: 'Q&A', icon: HelpCircleIcon },
+  { key: 'topic_explanation', label: 'Explanations', icon: Book02Icon },
   { key: 'glossary', label: 'Terms & Meanings', icon: File01Icon },
   { key: 'concept_outline', label: 'Outlines', icon: Task01Icon },
   { key: 'cheat_sheet', label: 'Cheat Sheet', icon: FlashIcon },
@@ -49,6 +56,7 @@ const FILTER_TABS: { key: FilterCategory; label: string; icon: any }[] = [
 export const ReviewerGuideView: React.FC<Props> = ({ items, title, onTakeQuiz }) => {
   const [activeCategory, setActiveCategory] = useState<FilterCategory>('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const insets = useSafeAreaInsets();
 
   // Item counts per category
   const counts = useMemo(() => {
@@ -65,22 +73,7 @@ export const ReviewerGuideView: React.FC<Props> = ({ items, title, onTakeQuiz })
   }, [counts]);
 
   // Filtered items
-  const filteredItems = useMemo(() => {
-    let result = items;
-    if (activeCategory !== 'all') {
-      result = result.filter((i) => i.type === activeCategory);
-    }
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase().trim();
-      result = result.filter(
-        (i) =>
-          i.question.toLowerCase().includes(q) ||
-          i.answer.toLowerCase().includes(q) ||
-          (i.explanation && i.explanation.toLowerCase().includes(q))
-      );
-    }
-    return result;
-  }, [items, activeCategory, searchQuery]);
+  const filteredItems = useMemo(() => filterReviewerNotes(items, activeCategory, searchQuery), [items, activeCategory, searchQuery]);
 
   const renderBadge = (type: string) => {
     switch (type) {
@@ -136,12 +129,15 @@ export const ReviewerGuideView: React.FC<Props> = ({ items, title, onTakeQuiz })
   };
 
   return (
-    <View style={styles.container}>
+    <View testID="reviewer-guide" style={styles.container}>
       {/* Search Bar */}
       <View style={styles.searchContainer}>
+        <Text style={styles.searchLabel}>Find a concept in your source notes</Text>
         <View style={styles.searchBox}>
           <HugeiconsIcon icon={Search01Icon} size={16} color={colors.textMuted} strokeWidth={2} />
           <TextInput
+            testID="reviewer-search"
+            accessibilityLabel="Search saved reviewer notes"
             style={styles.searchInput}
             placeholder="Search concepts, terms, or definitions..."
             placeholderTextColor={colors.textMuted}
@@ -154,6 +150,7 @@ export const ReviewerGuideView: React.FC<Props> = ({ items, title, onTakeQuiz })
           />
           {searchQuery.length > 0 && (
             <TouchableOpacity
+              accessibilityRole="button" accessibilityLabel="Clear note search"
               onPress={() => {
                 setSearchQuery('');
                 Keyboard.dismiss();
@@ -180,6 +177,9 @@ export const ReviewerGuideView: React.FC<Props> = ({ items, title, onTakeQuiz })
             return (
               <TouchableOpacity
                 key={tab.key}
+                testID={`reviewer-filter-${tab.key}`}
+                accessibilityRole="button" accessibilityState={{ selected: isActive }}
+                accessibilityLabel={`${tab.label}, ${count} notes`}
                 style={[styles.tabPill, isActive && styles.activeTabPill]}
                 onPress={() => setActiveCategory(tab.key)}
                 activeOpacity={0.7}
@@ -210,20 +210,21 @@ export const ReviewerGuideView: React.FC<Props> = ({ items, title, onTakeQuiz })
       {/* Reviewer Content List */}
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: Math.max(insets.bottom, 24) + 24 }]}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
       >
         {filteredItems.length === 0 ? (
           <View style={styles.emptyContainer}>
-            <HugeiconsIcon icon={Book02Icon} size={48} color={colors.textMuted} strokeWidth={1.5} />
-            <Text style={styles.emptyTitle}>No Matching Notes Found</Text>
-            <Text style={styles.emptySubtitle}>Try changing your search query or switching categories.</Text>
+            <MomoAnimation name="momo-reading" size={120} active={false} />
+            <Text style={styles.emptyTitle}>No matching notes</Text>
+            <Text style={styles.emptySubtitle}>Try another word or choose All Notes. Your saved notes are still here.</Text>
           </View>
         ) : (
           filteredItems.map((item, idx) => (
             <View
               key={item.id || `item-${idx}`}
+              testID={`reviewer-note-${item.id}`}
               style={[
                 styles.itemCard,
                 item.type === 'cheat_sheet' && styles.itemCardCheat,
@@ -278,15 +279,15 @@ export const ReviewerGuideView: React.FC<Props> = ({ items, title, onTakeQuiz })
         {onTakeQuiz && (
           <View style={styles.quizCallout}>
             <View style={styles.quizCalloutIconBox}>
-              <HugeiconsIcon icon={CheckmarkCircle02Icon} size={28} color={colors.primary} strokeWidth={2.2} />
+              <StudyIcon name="brain" size={40} />
             </View>
             <View style={{ flex: 1 }}>
               <Text style={styles.quizCalloutTitle}>Done Reviewing?</Text>
               <Text style={styles.quizCalloutDesc}>
-                Test what you memorized with Momo's interactive active-recall practice quiz.
+                Check your understanding with the quiz questions in this reviewer.
               </Text>
             </View>
-            <PlatformPressable style={styles.quizCalloutBtn} onPress={onTakeQuiz}>
+            <PlatformPressable testID="reviewer-start-quiz" accessibilityRole="button" accessibilityLabel="Start quiz from these notes" style={styles.quizCalloutBtn} onPress={onTakeQuiz}>
               <Text style={styles.quizCalloutBtnText}>Take Quiz</Text>
               <HugeiconsIcon icon={ArrowRight01Icon} size={15} color="#FFFFFF" strokeWidth={2.4} />
             </PlatformPressable>
@@ -309,6 +310,7 @@ const styles = StyleSheet.create({
     paddingTop: spacing[8],
     paddingBottom: spacing[12],
   },
+  searchLabel: { fontSize: 12, color: colors.textSecondary, marginBottom: 8 },
   searchBox: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -343,7 +345,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 11,
     paddingVertical: 6,
-    minHeight: 32,
+    minHeight: 44,
     borderRadius: 16,
     backgroundColor: colors.surface,
     borderWidth: 1.5,
@@ -541,14 +543,13 @@ const styles = StyleSheet.create({
     marginTop: spacing[12],
   },
   quizCallout: {
-    backgroundColor: colors.surface,
+    backgroundColor: colors.primarySoft,
     borderRadius: 18,
     borderWidth: 1.5,
     borderColor: colors.primaryBorder,
     padding: spacing[16],
     marginTop: spacing[12],
-    flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     gap: 12,
   },
   quizCalloutIconBox: {
@@ -576,7 +577,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: colors.primary,
     paddingHorizontal: 12,
-    paddingVertical: 10,
+    paddingVertical: 12,
+    minHeight: 48,
+    justifyContent: "center",
+    width: "100%",
     borderRadius: 12,
     gap: 4,
   },

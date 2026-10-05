@@ -1,3 +1,6 @@
+import { StudyIcon } from '@/components/common/StudyIcon';
+import { initialStudyMode, selectStudyContent, sessionResult, restartStudySession, randomizeStudyItems, type StudyMode } from '@/utils/studySession';
+import type { FlashcardScore } from '@/utils/flashcardScore';
 import { MomoAnimation } from '@/components/mascot/MomoAnimation';
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { colors, spacing, typography } from '@/constants/theme';
@@ -47,39 +50,6 @@ import { MomoLoadingScreen } from '../../components/common/MomoLoadingScreen';
 import { isIpad } from '../../utils/device';
 import { GlassButton } from '../../components/glass';
 
-function shuffleArray<T>(array: T[]): T[] {
-  const shuffled = [...array];
-  for (let i = shuffled.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-  }
-  return shuffled;
-}
-
-function randomizeStudyItems(rawItems: StudyItem[]): StudyItem[] {
-  // 1. Shuffle question order
-  const shuffledQuestions = shuffleArray(rawItems);
-  // 2. Shuffle multiple-choice options for each question so correct answer is randomly positioned across A, B, C, D
-  return shuffledQuestions.map((item) => {
-    if (item.type === 'multiple_choice' && Array.isArray(item.options) && item.options.length > 1) {
-      return {
-        ...item,
-        options: shuffleArray(item.options),
-      };
-    }
-    return item;
-  });
-}
-
-const REVIEWER_SET = new Set([
-  'glossary',
-  'concept_outline',
-  'cheat_sheet',
-  'compare_contrast',
-  'qa_study_sheet',
-  'timeline_process',
-]);
-
 export default function StudySessionScreen() {
   const { studySetId, initialMode } = useLocalSearchParams<{
     studySetId: string;
@@ -90,7 +60,7 @@ export default function StudySessionScreen() {
 
   const [studySet, setStudySet] = useState<StudySet | null>(null);
   const [items, setItems] = useState<StudyItem[]>([]);
-  const [mode, setMode] = useState<'reviewer' | 'flashcard' | 'quiz'>('reviewer');
+  const [mode, setMode] = useState<StudyMode>('reviewer');
   const [isLoading, setIsLoading] = useState(true);
   const [isDeleting, setIsDeleting] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -98,7 +68,7 @@ export default function StudySessionScreen() {
   const [isRenaming, setIsRenaming] = useState(false);
   const [showActionMenu, setShowActionMenu] = useState(false);
   const quizRef = useRef<QuizRunnerRef>(null);
-  const [finishedScore, setFinishedScore] = useState<{ correct: number; total: number } | null>(null);
+  const [finishedScore, setFinishedScore] = useState<FlashcardScore | null>(null);
   const [isQuizCompleted, setIsQuizCompleted] = useState(false);
   const [quizScore, setQuizScore] = useState<{ correct: number; total: number; xp: number } | null>(null);
   const [sessionKey, setSessionKey] = useState(0);
@@ -113,9 +83,7 @@ export default function StudySessionScreen() {
   }, [finishedScore, isQuizCompleted]);
 
   const handleShuffleReset = () => {
-    setItems((prev) => randomizeStudyItems(prev));
-    setSessionKey((prev) => prev + 1);
-    Alert.alert('Quiz Reset', 'The questions and answer choices have been randomized.');
+    handleRestart();
   };
 
   const handleRename = async (newTitle: string) => {
@@ -152,27 +120,7 @@ export default function StudySessionScreen() {
         setStudySet(setData);
         setItems(randomized);
 
-        // Intelligently set initial mode based on available study formats
-        const qTypes = setData?.generation_config?.question_types || [];
-        const rTypes = setData?.generation_config?.reviewer_types || [];
-        const genMode = setData?.generation_config?.generation_mode;
-        const hasRev = randomized.some((i) => REVIEWER_SET.has(i.type)) || rTypes.length > 0 || genMode === 'reviewer';
-        const hasFc = qTypes.includes('flashcard') || randomized.some((i) => i.type === 'flashcard');
-        const hasQz = randomized.some((i) => ['multiple_choice', 'true_false', 'identification', 'fill_in_the_blank'].includes(i.type)) || qTypes.some((f: string) => f !== 'flashcard');
-
-        if (initialMode === 'quiz' && hasQz) {
-          setMode('quiz');
-        } else if (initialMode === 'flashcard' && hasFc) {
-          setMode('flashcard');
-        } else if (initialMode === 'reviewer' && hasRev) {
-          setMode('reviewer');
-        } else if (hasRev) {
-          setMode('reviewer');
-        } else if (hasFc) {
-          setMode('flashcard');
-        } else if (hasQz) {
-          setMode('quiz');
-        }
+        setMode(initialStudyMode(randomized, initialMode));
 
         // Cache to local database for offline use
         await localDb.saveStudySet(setData, itemData);
@@ -187,26 +135,7 @@ export default function StudySessionScreen() {
           setStudySet(localSet);
           setItems(randomized);
 
-          const qTypes = localSet?.generation_config?.question_types || [];
-          const rTypes = localSet?.generation_config?.reviewer_types || [];
-          const genMode = localSet?.generation_config?.generation_mode;
-          const hasRev = randomized.some((i) => REVIEWER_SET.has(i.type)) || rTypes.length > 0 || genMode === 'reviewer';
-          const hasFc = qTypes.includes('flashcard') || randomized.some((i) => i.type === 'flashcard');
-          const hasQz = randomized.some((i) => ['multiple_choice', 'true_false', 'identification', 'fill_in_the_blank'].includes(i.type)) || qTypes.some((f: string) => f !== 'flashcard');
-
-          if (initialMode === 'quiz' && hasQz) {
-            setMode('quiz');
-          } else if (initialMode === 'flashcard' && hasFc) {
-            setMode('flashcard');
-          } else if (initialMode === 'reviewer' && hasRev) {
-            setMode('reviewer');
-          } else if (hasRev) {
-            setMode('reviewer');
-          } else if (hasFc) {
-            setMode('flashcard');
-          } else if (hasQz) {
-            setMode('quiz');
-          }
+          setMode(initialStudyMode(randomized, initialMode));
         }
       } finally {
         setIsLoading(false);
@@ -214,7 +143,7 @@ export default function StudySessionScreen() {
     };
 
     load();
-  }, [studySetId]);
+  }, [studySetId, initialMode]);
 
   const confirmDelete = async () => {
     setIsDeleting(true);
@@ -224,40 +153,52 @@ export default function StudySessionScreen() {
       setShowDeleteModal(false);
       router.replace('/(tabs)/library');
     } catch (err: any) {
-      Alert.alert('Error', err.message || 'Failed to delete study set.');
+      Alert.alert('Could not delete reviewer', 'Connect to the internet and try again. Your study material is still available.');
     } finally {
       setIsDeleting(false);
     }
   };
 
   const handleRestart = () => {
+    const fresh = restartStudySession(sessionKey);
     setItems((prev) => randomizeStudyItems(prev));
-    setSessionKey((prev) => prev + 1);
-    setFinishedScore(null);
-    setIsQuizCompleted(false);
-    setQuizScore(null);
+    setSessionKey(fresh.sessionKey);
+    setFinishedScore(fresh.finishedScore);
+    setIsQuizCompleted(fresh.isQuizCompleted);
+    setQuizScore(fresh.quizScore);
+    setShowStoryModal(fresh.showStoryModal);
+  };
+
+  const changeMode = (next: StudyMode) => {
+    if (next === mode) return;
+    const start = () => { handleRestart(); setMode(next); };
+    if (mode === 'reviewer' || finishedScore || isQuizCompleted) start();
+    else Alert.alert('Start a different study mode?', 'Your current session will restart. Saved study answers stay in your history.', [
+      { text: 'Keep studying', style: 'cancel' }, { text: 'Switch mode', onPress: start },
+    ]);
   };
 
   if (isLoading) {
     return (
       <MomoLoadingScreen
-        title="Loading Study Reviewer..."
-        subtitle="Momo is getting your flashcards and questions ready!"
+        title="Opening your reviewer"
+        subtitle="Getting your saved study material ready."
         mascotSize={220}
       />
     );
   }
 
   if (finishedScore && mode === 'flashcard') {
-    const percent = Math.round((finishedScore.correct / finishedScore.total) * 100);
+    const result = sessionResult(finishedScore);
+    const percent = result.percent;
     const isMastered = percent >= 70;
     return (
-      <View style={styles.screen}>
+      <View testID="study-screen" style={styles.screen}>
         <CelebrationModal
           visible={!hasSeenCelebrationModal}
           onDismiss={dismissCelebration}
           onShareStory={() => setShowStoryModal(true)}
-          xpEarned={finishedScore.correct * 15}
+          xpEarned={finishedScore.xp}
           itemsCount={finishedScore.total}
         />
         <PageHeader
@@ -278,27 +219,16 @@ export default function StudySessionScreen() {
             },
           ]}
         >
-          <View style={styles.finishCard}>
-            <MomoAnimation name="momo-bow" size={150} />
+          <View testID="flashcard-results" style={styles.finishCard}>
+            <Text style={styles.resultEyebrow}>FLASHCARD SELF-CHECK</Text>
+            <MomoAnimation name="momo-bow" size={140} replayKey={sessionKey} />
             {finishedScore.correct > 0 && <MomoAnimation name="xp-reward" size={56} replayKey={studySetId} />}
-            <View
-              style={[
-                styles.finishBadgeCircle,
-                isMastered ? styles.trophyBadge : styles.bookBadge,
-              ]}
-            >
-              <HugeiconsIcon
-                icon={isMastered ? TrophyIcon : BookOpen01Icon}
-                size={42}
-                color={isMastered ? colors.warning : colors.primary}
-                strokeWidth={1.8}
-              />
-            </View>
+            <StudyIcon name="cards" size={48} />
             <Text style={styles.finishTitle}>
-              {isMastered ? 'Excellent Work!' : 'Session Complete!'}
+              {isMastered ? 'Practice is paying off' : 'A little progress today'}
             </Text>
             <Text style={styles.finishScore}>
-              {finishedScore.correct} of {finishedScore.total} Correct
+              {finishedScore.correct} of {finishedScore.total} marked “Got it”
             </Text>
             <View
               style={[
@@ -312,16 +242,24 @@ export default function StudySessionScreen() {
                   isMastered ? styles.masteryTextHigh : styles.masteryTextLow,
                 ]}
               >
-                {percent}% Mastery
+                {percent}% Self-check
               </Text>
             </View>
 
+            <Text style={styles.resultHelper}>Based on your own answers, not a graded quiz.</Text>
+            <View style={styles.resultStats}>
+              <View style={styles.resultStat}><StudyIcon name="book" size={32} /><Text style={styles.resultStatValue}>{result.reviewAgain}</Text><Text style={styles.resultHelper}>Review again</Text></View>
+              <View style={styles.resultStat}><StudyIcon name="coin" size={32} /><Text style={styles.resultStatValue}>+{result.xp}</Text><Text style={styles.resultHelper}>Study XP</Text></View>
+            </View>
             <View style={styles.finishActionCol}>
               <InstagramStoryButton
                 onPress={() => setShowStoryModal(true)}
               />
 
-              <PlatformPressable style={styles.restartBtn} onPress={handleRestart}>
+              {selectStudyContent(items).quiz.length > 0 && <PlatformPressable testID="results-start-quiz" accessibilityRole="button" accessibilityLabel="Start the quiz in this reviewer" style={styles.restartBtn} onPress={() => changeMode('quiz')}>
+                <View style={styles.btnRow}><StudyIcon name="brain" size={24} /><Text style={styles.restartBtnText}>Try the quiz</Text></View>
+              </PlatformPressable>}
+              <PlatformPressable testID="restart-session" accessibilityRole="button" accessibilityLabel="Practice these flashcards again" style={styles.restartBtn} onPress={handleRestart}>
                 <View style={styles.btnRow}>
                   <HugeiconsIcon icon={RefreshIcon} size={18} color={colors.primary} strokeWidth={2.2} />
                   <Text style={styles.restartBtnText}>Practice Again</Text>
@@ -329,6 +267,7 @@ export default function StudySessionScreen() {
               </PlatformPressable>
 
               <PlatformPressable
+                testID="results-library" accessibilityRole="button" accessibilityLabel="Back to library"
                 style={styles.doneBtn}
                 onPress={() => router.replace('/(tabs)/library')}
               >
@@ -347,39 +286,23 @@ export default function StudySessionScreen() {
             mode: 'flashcard',
             subject: studySet?.title || 'Flashcards',
             cardsCount: finishedScore.total,
-            xpEarned: finishedScore.correct * 15,
+            accuracy: percent,
+            correctCount: finishedScore.correct,
+            totalQuestions: finishedScore.total,
+            xpEarned: finishedScore.xp,
           }}
         />
       </View>
     );
   }
 
-  const configuredTypes: string[] = studySet?.generation_config?.question_types || [];
-  const configuredRevTypes: string[] = studySet?.generation_config?.reviewer_types || [];
-  const genMode = studySet?.generation_config?.generation_mode;
-
-  const reviewerItems = items.filter((i) => REVIEWER_SET.has(i.type));
-  const flashcardSpecificItems = items.filter((i) => i.type === 'flashcard');
-  const quizSpecificItems = items.filter((i) => ['multiple_choice', 'true_false', 'identification', 'fill_in_the_blank'].includes(i.type));
-
-  const hasReviewer = reviewerItems.length > 0 || configuredRevTypes.length > 0 || genMode === 'reviewer' || genMode === 'both' || (items.length > 0 && flashcardSpecificItems.length === 0 && quizSpecificItems.length === 0);
-  const hasFlashcards = flashcardSpecificItems.length > 0 || configuredTypes.includes('flashcard');
-  const hasQuiz = quizSpecificItems.length > 0 || configuredTypes.some((f) => f !== 'flashcard');
-
-  const actualReviewerItems = reviewerItems.length > 0 ? reviewerItems : items;
-  const actualFlashcardItems = flashcardSpecificItems.length > 0 ? flashcardSpecificItems : items;
-  const actualQuizItems = quizSpecificItems.length > 0 ? quizSpecificItems : items;
-
-  const availableModes: { key: 'reviewer' | 'flashcard' | 'quiz'; label: string; icon: any }[] = [];
-  if (hasReviewer) {
-    availableModes.push({ key: 'reviewer', label: 'Reviewer Guide', icon: Book02Icon });
-  }
-  if (hasFlashcards) {
-    availableModes.push({ key: 'flashcard', label: 'Flashcards', icon: BookOpen01Icon });
-  }
-  if (hasQuiz) {
-    availableModes.push({ key: 'quiz', label: 'Quiz', icon: CheckmarkCircle02Icon });
-  }
+  const content = selectStudyContent(items);
+  const actualReviewerItems = content.reviewer;
+  const actualFlashcardItems = content.flashcard;
+  const actualQuizItems = content.quiz;
+  const hasQuiz = actualQuizItems.length > 0;
+  const labels: Record<StudyMode, string> = { reviewer: 'Notes', flashcard: 'Cards', quiz: 'Quiz' };
+  const availableModes = content.modes.map(key => ({ key, label: labels[key] }));
 
   const screenSubtitle = mode === 'reviewer'
     ? `${actualReviewerItems.length} study topics & notes`
@@ -394,11 +317,12 @@ export default function StudySessionScreen() {
       radius={isIpad() ? 23 : 18}
       haptic="light"
       onPress={() => setShowActionMenu(true)}
+      testID="study-options"
       accessibilityLabel="Reviewer options: reset, edit, or delete"
       hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
       contentStyle={{
-        width: isIpad() ? 46 : 36,
-        height: isIpad() ? 46 : 36,
+        width: 48,
+        height: 48,
       }}
     >
       <HugeiconsIcon icon={MoreVerticalIcon} size={18} color={colors.text} strokeWidth={2.2} />
@@ -406,12 +330,12 @@ export default function StudySessionScreen() {
   );
 
   return (
-    <View style={styles.screen}>
+    <View testID="study-screen" style={styles.screen}>
       <CelebrationModal
         visible={!hasSeenCelebrationModal && isQuizCompleted}
         onDismiss={dismissCelebration}
         onShareStory={() => setShowStoryModal(true)}
-        xpEarned={quizScore?.xp || actualQuizItems.length * 15}
+        xpEarned={quizScore?.xp ?? 0}
         itemsCount={quizScore?.total || actualQuizItems.length}
       />
       <PageHeader
@@ -423,28 +347,26 @@ export default function StudySessionScreen() {
       />
 
       {offlineSaved && !isQuizCompleted && <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: spacing[20], gap: 6 }}>
-        <MomoAnimation name="offline-saved" size={32} replayKey={studySetId} />
+        <StudyIcon name="shield" size={28} />
         <Text style={{ color: colors.textMuted, fontSize: 12 }}>Available offline</Text>
       </View>}
 
       {/* Mode Switcher - Only shown if multiple modes exist and quiz is not completed */}
       {availableModes.length > 1 && !isQuizCompleted && (
-        <View style={styles.modeBar}>
+        <View style={styles.modeBar} accessibilityRole="tablist">
           {availableModes.map((m) => {
             const isActive = mode === m.key;
             return (
               <TouchableOpacity
                 key={m.key}
+                testID={`session-mode-${m.key}`}
+                accessibilityRole="tab" accessibilityLabel={m.label}
+                accessibilityState={{ selected: isActive }}
                 style={[styles.modeTab, isActive && styles.activeModeTab]}
-                onPress={() => setMode(m.key)}
+                onPress={() => changeMode(m.key)}
                 activeOpacity={0.7}
               >
-                <HugeiconsIcon
-                  icon={m.icon}
-                  size={14}
-                  color={isActive ? colors.primary : colors.textMuted}
-                  strokeWidth={isActive ? 2.4 : 2}
-                />
+                <StudyIcon name={m.key === 'reviewer' ? 'book' : m.key === 'flashcard' ? 'cards' : 'brain'} size={26} />
                 <Text style={[styles.modeTabText, isActive && styles.activeModeTabText]}>
                   {m.label}
                 </Text>
@@ -456,17 +378,24 @@ export default function StudySessionScreen() {
 
       {/* Content Runner */}
       <View style={styles.contentArea}>
-        {mode === 'reviewer' ? (
+        {content.modes.length === 0 ? (
+          <View style={styles.noContent}>
+            <StudyIcon name="book" size={64} />
+            <Text style={styles.finishTitle}>No study items available</Text>
+            <Text style={styles.resultHelper}>This reviewer does not contain ready-to-use notes, cards, or quiz questions.</Text>
+            <PlatformPressable accessibilityRole="button" accessibilityLabel="Return to library" style={styles.restartBtn} onPress={() => router.replace('/(tabs)/library')}><Text style={styles.restartBtnText}>Back to library</Text></PlatformPressable>
+          </View>
+        ) : mode === 'reviewer' ? (
           <ReviewerGuideView
             items={actualReviewerItems}
             title={studySet?.title}
-            onTakeQuiz={hasQuiz ? () => setMode('quiz') : undefined}
+            onTakeQuiz={hasQuiz ? () => changeMode('quiz') : undefined}
           />
         ) : mode === 'flashcard' ? (
           <FlashcardDeck
             key={`fc-${sessionKey}-${actualFlashcardItems.length}`}
             items={actualFlashcardItems}
-            onFinish={() => setFinishedScore({ correct: actualFlashcardItems.length, total: actualFlashcardItems.length })}
+            onFinish={setFinishedScore}
           />
         ) : (
           <QuizRunner ref={quizRef}
@@ -516,7 +445,7 @@ export default function StudySessionScreen() {
                 </View>
                 <View style={styles.actionItemTextCol}>
                   <Text style={styles.actionItemTitle}>Quiz Overview</Text>
-                  <Text style={styles.actionItemSubtitle}>View all questions and jump around</Text>
+                  <Text style={styles.actionItemSubtitle}>View your quiz progress</Text>
                 </View>
               </TouchableOpacity>
             )}
@@ -623,11 +552,11 @@ export default function StudySessionScreen() {
         inputData={{
           mode: quizScore ? 'quiz' : 'flashcard',
           subject: studySet?.title || 'Study Session',
-          accuracy: quizScore && quizScore.total > 0 ? Math.round((quizScore.correct / quizScore.total) * 100) : 100,
+          accuracy: quizScore && quizScore.total > 0 ? Math.round((quizScore.correct / quizScore.total) * 100) : undefined,
           correctCount: quizScore?.correct,
           totalQuestions: quizScore?.total,
           cardsCount: actualFlashcardItems.length,
-          xpEarned: quizScore?.xp || actualQuizItems.length * 15,
+          xpEarned: quizScore?.xp ?? 0,
         }}
       />
     </View>
@@ -762,6 +691,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    minHeight: 48,
     gap: isPadDevice ? spacing[8] : spacing[6],
     paddingVertical: isPadDevice ? spacing[14] : spacing[9],
     borderRadius: isPadDevice ? 12 : 9,
@@ -804,6 +734,12 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSize[14],
     color: colors.textMuted,
   },
+  resultEyebrow: { fontSize: 11, letterSpacing: 1, fontWeight: '700', color: colors.primary, marginBottom: 8 },
+  resultHelper: { fontSize: 12, lineHeight: 18, color: colors.textSecondary, textAlign: 'center' },
+  resultStats: { flexDirection: 'row', gap: 12, width: '100%', marginTop: 16, marginBottom: 24 },
+  resultStat: { flex: 1, alignItems: 'center', padding: 12, borderRadius: 18, backgroundColor: colors.primarySoft },
+  resultStatValue: { fontSize: 22, fontWeight: '800', color: colors.text },
+  noContent: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 16, padding: 24 },
   finishContainer: {
     flex: 1,
   },
@@ -871,7 +807,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: isPadDevice ? spacing[16] : spacing[12],
     paddingVertical: isPadDevice ? spacing[6] : spacing[4],
     borderRadius: 16,
-    marginBottom: isPadDevice ? spacing[28] : spacing[24],
+    marginBottom: spacing[8],
   },
   masteryPillHigh: {
     backgroundColor: colors.successSoft,

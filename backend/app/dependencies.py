@@ -1,63 +1,58 @@
-from fastapi import Header, HTTPException, status, Depends
-from typing import Optional
+"""Verify Supabase access tokens before deriving ownership identity."""
+import asyncio
+from functools import lru_cache
+from uuid import UUID
+
 import jwt
+from fastapi import Header, HTTPException
+
 from app.config import settings
+
 
 class AuthenticatedUser:
     def __init__(self, user_id: str, email: str = ""):
         self.id = user_id
         self.email = email
 
-async def get_current_user(
-    authorization: Optional[str] = Header(None)
-) -> AuthenticatedUser:
-    if not authorization:
-        # Development fallback only if configured
-        if settings.ENVIRONMENT == "development":
-            return AuthenticatedUser(user_id="dev-user-001", email="dev@example.com")
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail={"code": "AUTH_REQUIRED", "message": "Missing Authorization header"}
-        )
+@lru_cache(maxsize=4)
+def _jwks_client(url: str) -> jwt.PyJWKClient:
+    return jwt.PyJWKClient(url, cache_jwk_set=True, lifespan=300, timeout=5)
 
+def _verify_token(token: str) -> dict:
+    algorithm = jwt.get_unverified_header(token).get("alg")
+    if algorithm == "HS256":
+        key = settings.SUPABASE_JWT_SECRET
+        if not key or key == "mock-jwt-secret":
+            raise ValueError("Signing key unavailable")
+    elif algorithm in {"RS256", "ES256"}:
+        key = _jwks_client(f"{settings.SUPABASE_URL.rstrip('/')}/auth/v1/.well-known/jwks.json").get_signing_key_from_jwt(token).key
+    else:
+        raise ValueError("Unsupported signing algorithm")
+    payload = jwt.decode(token, key, algorithms=[algorithm],
+        audience=settings.SUPABASE_JWT_AUDIENCE,
+        issuer=f"{settings.SUPABASE_URL.rstrip('/')}/auth/v1",
+        options={"require": ["sub", "exp", "iat", "aud", "iss"]})
+    UUID(payload["sub"])
+    if payload.get("role") != "authenticated":
+        raise ValueError("User access token required")
+    return payload
+
+async def get_current_user(authorization: str | None = Header(None)) -> AuthenticatedUser:
+    local_auth = settings.ENABLE_DEV_AUTH and settings.DATABASE_BACKEND == "memory" and settings.ENVIRONMENT in {"development", "test"}
+    if not authorization:
+        if local_auth:
+            return AuthenticatedUser("dev-user-001", "dev@example.com")
+        raise HTTPException(401, detail={"code": "AUTH_REQUIRED", "message": "Authentication is required."})
+    if len(authorization) > 16384:
+        raise HTTPException(401, detail={"code": "INVALID_TOKEN", "message": "Invalid authentication token."})
     parts = authorization.split()
     if len(parts) != 2 or parts[0].lower() != "bearer":
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail={"code": "INVALID_TOKEN_FORMAT", "message": "Invalid Bearer token format"}
-        )
-
+        raise HTTPException(401, detail={"code": "INVALID_TOKEN_FORMAT", "message": "Invalid authentication token."})
     token = parts[1]
-
-    # In dev/test, support dummy test tokens like 'bearer test-token-user-123'
-    if settings.ENVIRONMENT == "development" and token.startswith("test-token-"):
-        user_id = token.replace("test-token-", "")
-        return AuthenticatedUser(user_id=user_id, email=f"{user_id}@test.com")
-
+    if local_auth and token.startswith("test-token-") and token[11:]:
+        return AuthenticatedUser(token[11:])
     try:
-        # Verify Supabase JWT
-        # If secret provided, decode and verify signature
-        if settings.SUPABASE_JWT_SECRET and settings.SUPABASE_JWT_SECRET != "mock-jwt-secret":
-            payload = jwt.decode(
-                token,
-                settings.SUPABASE_JWT_SECRET,
-                algorithms=["HS256"],
-                options={"verify_aud": False}
-            )
-        else:
-            # Fallback decode payload unverified for local development mock
-            payload = jwt.decode(token, options={"verify_signature": False})
-
-        user_id = payload.get("sub") or payload.get("id")
-        email = payload.get("email", "")
-        if not user_id:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail={"code": "INVALID_TOKEN", "message": "Token has no user subject"}
-            )
-        return AuthenticatedUser(user_id=str(user_id), email=email)
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail={"code": "INVALID_TOKEN", "message": f"Token verification failed: {str(e)}"}
-        )
+        payload = await asyncio.to_thread(_verify_token, token)
+        return AuthenticatedUser(payload["sub"], payload.get("email", ""))
+    except (jwt.PyJWTError, ValueError, TypeError, KeyError):
+        raise HTTPException(401, detail={"code": "INVALID_TOKEN", "message": "Authentication token is invalid or expired."}) from None

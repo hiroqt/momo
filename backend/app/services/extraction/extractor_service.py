@@ -33,8 +33,7 @@ class ExtractorService:
         # Check page count limit
         if len(pages) > settings.MAX_PAGE_COUNT:
             logger.warning(f"Document {document_id} exceeded max pages ({len(pages)} > {settings.MAX_PAGE_COUNT})")
-            # Cap pages to MAX_PAGE_COUNT for MVP safety
-            pages = pages[:settings.MAX_PAGE_COUNT]
+            raise ValueError("Document exceeds maximum page count")
 
         # Extract suggested study topics from content
         suggested_topics = self.extract_suggested_topics(pages, filename)

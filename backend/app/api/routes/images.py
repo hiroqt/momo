@@ -1,12 +1,13 @@
+import logging
+from typing import Literal
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
-from typing import Literal, Optional
-import logging
 
-from app.dependencies import get_current_user, AuthenticatedUser
-from app.services.security.rate_limiter import require_rate_limit
-from app.services.security.guardrails_service import guardrails_service
+from app.dependencies import AuthenticatedUser, get_current_user
 from app.services.ai.image_service import ImageProviderUnavailableError, image_service
+from app.services.security.guardrails_service import guardrails_service
+from app.services.security.rate_limiter import require_rate_limit
 
 logger = logging.getLogger(__name__)
 
@@ -14,9 +15,9 @@ router = APIRouter(prefix="/api/images", tags=["Images"])
 
 class ImageGenerateRequest(BaseModel):
     prompt: str = Field(..., min_length=2, max_length=1000, description="Image or educational diagram to create")
-    topic: Optional[str] = Field(None, max_length=150, description="Optional explicit concept or topic title")
-    context: Optional[str] = Field(None, max_length=2000, description="Optional contextual study notes for grounding")
-    requirements: Optional[str] = Field(None, max_length=500, description="Optional user requirements, sub-topics, or custom values")
+    topic: str | None = Field(None, max_length=150, description="Optional explicit concept or topic title")
+    context: str | None = Field(None, max_length=2000, description="Optional contextual study notes for grounding")
+    requirements: str | None = Field(None, max_length=500, description="Optional user requirements, sub-topics, or custom values")
     mode: Literal["image", "diagram"] = Field("diagram", description="General image generation or structured diagram rendering")
     aspect_ratio: Literal["1:1", "16:9", "9:16", "4:3", "3:4"] = "1:1"
 
@@ -76,14 +77,14 @@ async def generate_study_image(
             mime_type=result.get("mime_type", "image/png"),
             mode=result["mode"],
         )
-    except ImageProviderUnavailableError as exc:
+    except ImageProviderUnavailableError:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail={"code": "IMAGE_PROVIDER_UNAVAILABLE", "message": str(exc)},
-        ) from exc
-    except Exception as e:
+            detail={"code": "IMAGE_PROVIDER_UNAVAILABLE", "message": "Image generation is currently unavailable."},
+        ) from None
+    except Exception as e:  # noqa: BLE001 - expose only a safe provider failure
         logger.error("Error generating study image for user %s: %s", user.id, type(e).__name__)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail={"code": "IMAGE_GENERATION_FAILED", "message": "Failed to generate the requested image."},
-        )
+        ) from None

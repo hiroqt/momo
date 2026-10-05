@@ -1,12 +1,13 @@
-from typing import List, Dict, Any, Optional
-from app.services.embeddings.embedding_service import embedding_service
-from app.db.repositories.chunks_repo import chunks_repo
 import logging
+from typing import Any
+
+from app.db.repositories.chunks_repo import chunks_repo
+from app.services.embeddings.embedding_service import embedding_service
 
 logger = logging.getLogger(__name__)
 
 class RetrievalService:
-    def build_search_query(self, topic: str, custom_instruction: Optional[str] = None) -> str:
+    def build_search_query(self, topic: str, custom_instruction: str | None = None) -> str:
         base_topic = (topic or "").strip()
         if custom_instruction and custom_instruction.strip():
             instruction = custom_instruction.strip()
@@ -17,10 +18,11 @@ class RetrievalService:
         self,
         document_id: str,
         query: str,
+        user_id: str,
         top_k: int = 12,
-        section_filter: Optional[List[str]] = None,
-        document_ids: Optional[List[str]] = None
-    ) -> List[Dict[str, Any]]:
+        section_filter: list[str] | None = None,
+        document_ids: list[str] | None = None
+    ) -> list[dict[str, Any]]:
         # 1. Embed query
         query_embedding = await embedding_service.embed_query(query)
 
@@ -32,6 +34,7 @@ class RetrievalService:
                 continue
             doc_chunks = await chunks_repo.search_similar(
                 document_id=d_id,
+                user_id=user_id,
                 query_embedding=query_embedding,
                 top_k=max(top_k * 2, 16),
                 section_filter=section_filter
@@ -46,14 +49,14 @@ class RetrievalService:
         ]
 
         if query_keywords:
-            def keyword_score(chunk: Dict[str, Any]) -> int:
+            def keyword_score(chunk: dict[str, Any]) -> int:
                 text = (chunk.get("content", "") + " " + chunk.get("section", "")).lower()
                 return sum(1 for kw in query_keywords if kw in text)
 
             # Stable sort prioritizing chunks with topic keyword matches
             raw_chunks.sort(key=keyword_score, reverse=True)
 
-        selected_chunks: List[Dict[str, Any]] = []
+        selected_chunks: list[dict[str, Any]] = []
         seen_snippets: set = set()
 
         for c in raw_chunks:
@@ -76,9 +79,9 @@ class RetrievalService:
         self,
         user_id: str,
         query: str,
-        document_id: Optional[str] = None,
+        document_id: str | None = None,
         top_k: int = 8
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         from app.db.repositories.documents_repo import documents_repo
 
         # 1. Embed query
@@ -92,8 +95,8 @@ class RetrievalService:
             document_id=document_id
         )
 
-        doc_name_cache: Dict[str, str] = {}
-        enriched_results: List[Dict[str, Any]] = []
+        doc_name_cache: dict[str, str] = {}
+        enriched_results: list[dict[str, Any]] = []
 
         for c in chunks:
             doc_id = c.get("document_id", "")
@@ -113,4 +116,3 @@ class RetrievalService:
         return enriched_results
 
 retrieval_service = RetrievalService()
-

@@ -1,18 +1,31 @@
 from abc import ABC, abstractmethod
-from datetime import datetime, timezone, timedelta
-from typing import Optional
+from datetime import UTC, datetime, timedelta
+from uuid import UUID
+
 from app.config import settings
+
+
+class StorageUnavailableError(RuntimeError):
+    """A storage operation could not be completed safely."""
 
 class BaseStorageService(ABC):
     def build_object_key(self, user_id: str, document_id: str, extension: str) -> str:
         """Construct standard storage path: documents/{user_id}/{document_id}/original.{ext}"""
-        clean_ext = extension.lstrip(".")
+        clean_ext = extension.lower().lstrip(".")
+        if clean_ext not in {"pdf", "docx", "txt", "pptx"}:
+            raise ValueError("Unsupported document type")
+        UUID(user_id)
+        UUID(document_id)
         return f"documents/{user_id}/{document_id}/original.{clean_ext}"
 
-    def calculate_expiration(self, from_time: Optional[datetime] = None) -> datetime:
+    def calculate_expiration(self, from_time: datetime | None = None) -> datetime:
         """Calculate document expiration (default 3 days per PRD Rule 33)."""
-        base = from_time or datetime.now(timezone.utc)
+        base = from_time or datetime.now(UTC)
         return base + timedelta(days=settings.DOCUMENT_RETENTION_DAYS)
+
+    def get_object_size(self, object_key: str) -> int:
+        """Read storage metadata before accepting an uploaded document."""
+        raise NotImplementedError
 
     @abstractmethod
     def generate_presigned_upload_url(

@@ -378,6 +378,7 @@ class ChatService:
 
                 search_query = retrieval_service.build_search_query(topic, custom_instruction)
                 evidence_chunks = await retrieval_service.retrieve_evidence(
+                    user_id=user_id,
                     document_id=doc_id,
                     query=search_query,
                     top_k=min(max(10, count), 25)
@@ -531,6 +532,7 @@ Primary functional classification in {topic_title} categorizes essential compone
                 target_doc_id = context_document_id or ready_docs[0]["id"]
                 retrieval_query = f"{topic} {requirements or ''}".strip()
                 evidence_chunks = await retrieval_service.retrieve_evidence(
+                    user_id=user_id,
                     document_id=target_doc_id,
                     query=retrieval_query,
                     top_k=4
@@ -599,6 +601,7 @@ Primary functional classification in {topic_title} categorizes essential compone
                 saved_doc_id = target_doc["id"]
                 doc_name = target_doc.get("original_filename", "Source Notes")
                 evidence_chunks = await retrieval_service.retrieve_evidence(
+                    user_id=user_id,
                     document_id=saved_doc_id,
                     query=target_topic,
                     top_k=8

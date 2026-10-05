@@ -1,26 +1,27 @@
-from fastapi import APIRouter, HTTPException, Depends, status
-from pydantic import BaseModel
-from typing import Optional, List
 import logging
-from app.dependencies import get_current_user, AuthenticatedUser
+
+from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import BaseModel
+
+from app.dependencies import AuthenticatedUser, get_current_user
 from app.services.ai.ai_provider import ai_provider
-from app.services.security.rate_limiter import require_rate_limit
 from app.services.security.guardrails_service import guardrails_service
+from app.services.security.rate_limiter import require_rate_limit
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/math", tags=["math"])
 
 class MathSolveRequest(BaseModel):
-    base64_image: Optional[str] = None
-    equation_text: Optional[str] = None
+    base64_image: str | None = None
+    equation_text: str | None = None
 
 class MathSolveResponse(BaseModel):
     problem: str
-    category: Optional[str] = "General Math"
-    difficulty: Optional[str] = "Unknown"
-    key_concepts: Optional[List[str]] = []
-    steps: List[str]
+    category: str | None = "General Math"
+    difficulty: str | None = "Unknown"
+    key_concepts: list[str] | None = []
+    steps: list[str]
     final_answer: str
     explanation: str
 
@@ -48,9 +49,9 @@ async def solve_math_problem(
             if "steps" in result and isinstance(result["steps"], list):
                 result["steps"] = [guardrails_service.sanitize_model_output(s) for s in result["steps"]]
         return result
-    except Exception as e:
-        logger.error(f"Error solving math problem for user {user.id}: {e}")
+    except Exception as e:  # noqa: BLE001 - expose only a safe provider failure
+        logger.error("Math solving failed (%s)", type(e).__name__)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail={"code": "MATH_SOLVE_FAILED", "message": "Failed to analyze and solve the math problem."}
-        )
+        ) from None

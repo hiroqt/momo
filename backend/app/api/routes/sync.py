@@ -1,9 +1,12 @@
+from datetime import UTC, datetime
+
 from fastapi import APIRouter, Depends
-from datetime import datetime, timezone
-from app.dependencies import get_current_user, AuthenticatedUser
-from app.schemas.sync import SyncBatchRequest, SyncBatchResponse
-from app.db.repositories.sync_repo import sync_repo
+
 from app.db.repositories.learning_repo import learning_repo
+from app.db.repositories.sync_repo import sync_repo
+from app.db.session import supabase_session
+from app.dependencies import AuthenticatedUser, get_current_user
+from app.schemas.sync import SyncBatchRequest, SyncBatchResponse
 
 router = APIRouter(prefix="/api/sync", tags=["Sync"])
 
@@ -12,11 +15,13 @@ async def sync_offline_events(
     batch: SyncBatchRequest,
     user: AuthenticatedUser = Depends(get_current_user)
 ):
-    events_data = [e.model_dump() for e in batch.events]
-    accepted, ignored = await sync_repo.process_batch(user.id, events_data)
+    events_data = [e.model_dump(mode="json") for e in batch.events]
+    accepted, ignored, accepted_events = await sync_repo.process_batch(user.id, events_data)
 
     # Feed accepted study results into the auto-learning mastery engine
-    for ev in events_data:
+    for ev in accepted_events if supabase_session.use_memory else []:
+        if ev.get("result") == "skipped":
+            continue
         await learning_repo.record_study_event(
             user_id=user.id,
             item_id=ev.get("study_item_id"),
@@ -28,5 +33,5 @@ async def sync_offline_events(
     return SyncBatchResponse(
         accepted_count=accepted,
         ignored_duplicates_count=ignored,
-        processed_at=datetime.now(timezone.utc)
+        processed_at=datetime.now(UTC)
     )

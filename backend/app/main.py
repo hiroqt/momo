@@ -1,10 +1,36 @@
-from fastapi import FastAPI, Request, status
-from fastapi.responses import JSONResponse
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.exceptions import RequestValidationError
-from starlette.exceptions import HTTPException as StarletteHTTPException
-from app.api.routes import auth, documents, generations, study_sets, sync
 import logging
+from contextlib import asynccontextmanager
+
+from fastapi import FastAPI, Request, status
+from fastapi.exceptions import RequestValidationError
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from postgrest.exceptions import APIError
+from starlette.exceptions import HTTPException as StarletteHTTPException
+
+from app.api.routes import (
+    auth,
+    chat,
+    documents,
+    folders,
+    generations,
+    images,
+    math,
+    stats,
+    study_sets,
+    sync,
+)
+from app.config import settings
+from app.db.session import supabase_session
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    _ = supabase_session.is_configured
+    try:
+        yield
+    finally:
+        supabase_session.close()
 
 logging.basicConfig(
     level=logging.INFO,
@@ -15,13 +41,17 @@ logger = logging.getLogger("study_platform")
 app = FastAPI(
     title="AI Study Platform API",
     description="Grounded AI educational study reviewer generation API",
-    version="1.0.0"
+    version="1.0.0",
+    lifespan=lifespan,
+    docs_url="/docs" if settings.ENVIRONMENT in {"development", "test"} else None,
+    redoc_url=None,
+    openapi_url="/openapi.json" if settings.ENVIRONMENT in {"development", "test"} else None,
 )
 
 # CORS configuration for Expo mobile client
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=settings.CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -51,14 +81,14 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
             "error": {
                 "code": "VALIDATION_ERROR",
                 "message": "Invalid request parameters.",
-                "details": exc.errors()
+                "details": [{"location": list(err["loc"]), "type": err["type"]} for err in exc.errors()]
             }
         }
     )
 
 @app.exception_handler(Exception)
 async def generic_exception_handler(request: Request, exc: Exception):
-    logger.error(f"Unhandled server error: {exc}", exc_info=True)
+    logger.error("Unhandled server error (%s)", type(exc).__name__)
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         content={
@@ -69,7 +99,15 @@ async def generic_exception_handler(request: Request, exc: Exception):
         }
     )
 
-from app.api.routes import auth, documents, generations, study_sets, sync, math, folders, stats, chat, images
+@app.exception_handler(APIError)
+async def database_exception_handler(request: Request, exc: APIError):
+    statuses = {"42501": (404, "RESOURCE_NOT_FOUND", "Resource not found."),
+                "23505": (409, "RESOURCE_CONFLICT", "The requested record already exists."),
+                "23503": (409, "INVALID_REFERENCE", "A related record is unavailable."),
+                "23514": (422, "INVALID_RECORD", "The record contains invalid data.")}
+    status_code, code, message = statuses.get(exc.code, (503, "DATABASE_UNAVAILABLE", "Data service is temporarily unavailable."))
+    logger.warning("Database operation failed (%s)", exc.code)
+    return JSONResponse(status_code=status_code, content={"error": {"code": code, "message": message}})
 
 # Include API routes
 app.include_router(auth.router)

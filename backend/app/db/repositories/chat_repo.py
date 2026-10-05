@@ -1,21 +1,22 @@
-from typing import Optional, List, Dict, Any
-from datetime import datetime, timezone
-import uuid
-from app.db.session import supabase_session
 import logging
+import uuid
+from datetime import UTC, datetime
+from typing import Any
+
+from app.db.session import page_range, supabase_session
 
 logger = logging.getLogger(__name__)
 
 class ChatRepository:
-    def __init__(self):
+    def __init__(self) -> None:
         # In-memory store: session_id -> session dict
-        self._sessions: Dict[str, Dict[str, Any]] = {}
+        self._sessions: dict[str, dict[str, Any]] = {}
         # session_id -> list of message dicts
-        self._messages: Dict[str, List[Dict[str, Any]]] = {}
+        self._messages: dict[str, list[dict[str, Any]]] = {}
 
-    async def create_session(self, user_id: str, title: Optional[str] = None) -> Dict[str, Any]:
+    async def create_session(self, user_id: str, title: str | None = None) -> dict[str, Any]:
         session_id = str(uuid.uuid4())
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(UTC).isoformat()
         session_data = {
             "id": session_id,
             "user_id": user_id,
@@ -26,44 +27,35 @@ class ChatRepository:
         }
 
         if supabase_session.is_configured and supabase_session.client:
-            try:
-                resp = supabase_session.client.table("chat_sessions").insert(session_data).execute()
-                if resp.data:
-                    return resp.data[0]
-            except Exception as e:
-                logger.warning(f"Supabase error in create_session: {e}. Falling back to memory store.")
+            resp = await supabase_session.execute(supabase_session.client.table("chat_sessions").insert(session_data))
+            if resp.data:
+                return resp.data[0]
+            raise RuntimeError("Chat session insert returned no record")
 
         self._sessions[session_id] = session_data
         self._messages[session_id] = []
         return session_data
 
-    async def list_sessions(self, user_id: str) -> List[Dict[str, Any]]:
+    async def list_sessions(self, user_id: str, limit: int = 100, offset: int = 0) -> list[dict[str, Any]]:
+        start, end = page_range(limit, offset)
         if supabase_session.is_configured and supabase_session.client:
-            try:
-                resp = supabase_session.client.table("chat_sessions") \
-                    .select("*") \
-                    .eq("user_id", user_id) \
-                    .order("updated_at", desc=True) \
-                    .execute()
-                return resp.data or []
-            except Exception as e:
-                logger.warning(f"Supabase error in list_sessions: {e}")
+            resp = await supabase_session.execute(supabase_session.client.table("chat_sessions") \
+                .select("*") \
+                .eq("user_id", user_id) \
+                .order("updated_at", desc=True).order("id").range(start, end))
+            return resp.data or []
 
         user_sessions = [s for s in self._sessions.values() if s.get("user_id") == user_id]
         user_sessions.sort(key=lambda s: s.get("updated_at", ""), reverse=True)
-        return user_sessions
+        return user_sessions[start:end + 1]
 
-    async def get_session(self, session_id: str, user_id: str) -> Optional[Dict[str, Any]]:
+    async def get_session(self, session_id: str, user_id: str) -> dict[str, Any] | None:
         if supabase_session.is_configured and supabase_session.client:
-            try:
-                resp = supabase_session.client.table("chat_sessions") \
-                    .select("*") \
-                    .eq("id", session_id) \
-                    .eq("user_id", user_id) \
-                    .execute()
-                return resp.data[0] if resp.data else None
-            except Exception as e:
-                logger.warning(f"Supabase error in get_session: {e}")
+            resp = await supabase_session.execute(supabase_session.client.table("chat_sessions") \
+                .select("*") \
+                .eq("id", session_id) \
+                .eq("user_id", user_id))
+            return resp.data[0] if resp.data else None
 
         s = self._sessions.get(session_id)
         if s and s.get("user_id") == user_id:
@@ -71,14 +63,11 @@ class ChatRepository:
         return None
 
     async def delete_session(self, session_id: str, user_id: str) -> bool:
+        if not await self.get_session(session_id, user_id):
+            return False
         if supabase_session.is_configured and supabase_session.client:
-            try:
-                # Delete messages first
-                supabase_session.client.table("chat_messages").delete().eq("session_id", session_id).execute()
-                supabase_session.client.table("chat_sessions").delete().eq("id", session_id).eq("user_id", user_id).execute()
-                return True
-            except Exception as e:
-                logger.warning(f"Supabase error in delete_session: {e}")
+            await supabase_session.execute(supabase_session.client.table("chat_sessions").delete().eq("id", session_id).eq("user_id", user_id))
+            return True
 
         s = self._sessions.get(session_id)
         if s and s.get("user_id") == user_id:
@@ -87,7 +76,7 @@ class ChatRepository:
             return True
         return False
 
-    async def get_or_create_default_session(self, user_id: str) -> Dict[str, Any]:
+    async def get_or_create_default_session(self, user_id: str) -> dict[str, Any]:
         sessions = await self.list_sessions(user_id)
         if sessions:
             return sessions[0]
@@ -99,15 +88,17 @@ class ChatRepository:
         user_id: str,
         role: str,
         content: str,
-        citations: Optional[List[Dict[str, Any]]] = None,
-        created_deck: Optional[Dict[str, Any]] = None,
-        study_card: Optional[Dict[str, Any]] = None,
-        image_base64: Optional[str] = None,
-        quick_replies: Optional[List[str]] = None,
-        tool_calls: Optional[List[Dict[str, Any]]] = None
-    ) -> Dict[str, Any]:
+        citations: list[dict[str, Any]] | None = None,
+        created_deck: dict[str, Any] | None = None,
+        study_card: dict[str, Any] | None = None,
+        image_base64: str | None = None,
+        quick_replies: list[str] | None = None,
+        tool_calls: list[dict[str, Any]] | None = None
+    ) -> dict[str, Any]:
+        if not await self.get_session(session_id, user_id):
+            raise ValueError("Chat session unavailable")
         msg_id = str(uuid.uuid4())
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(UTC).isoformat()
         msg_data = {
             "id": msg_id,
             "session_id": session_id,
@@ -124,16 +115,13 @@ class ChatRepository:
         }
 
         if supabase_session.is_configured and supabase_session.client:
-            try:
-                resp = supabase_session.client.table("chat_messages").insert(msg_data).execute()
-                # Touch session updated_at
-                supabase_session.client.table("chat_sessions").update({
-                    "updated_at": now
-                }).eq("id", session_id).execute()
-                if resp.data:
-                    return resp.data[0]
-            except Exception as e:
-                logger.warning(f"Supabase error in add_message: {e}")
+            resp = await supabase_session.execute(supabase_session.client.table("chat_messages").insert(msg_data))
+            # Touch session updated_at
+            await supabase_session.execute(supabase_session.client.table("chat_sessions").update({
+                "updated_at": now
+            }).eq("id", session_id).eq("user_id", user_id))
+            if resp.data:
+                return resp.data[0]
 
         if session_id not in self._messages:
             self._messages[session_id] = []
@@ -156,23 +144,21 @@ class ChatRepository:
         session_id: str,
         user_id: str,
         limit: int = 50
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
+        page_range(limit, 0)
         # Verify ownership of session
         session = await self.get_session(session_id, user_id)
         if not session:
             return []
 
         if supabase_session.is_configured and supabase_session.client:
-            try:
-                resp = supabase_session.client.table("chat_messages") \
-                    .select("*") \
-                    .eq("session_id", session_id) \
-                    .order("created_at", desc=False) \
-                    .limit(limit) \
-                    .execute()
-                return resp.data or []
-            except Exception as e:
-                logger.warning(f"Supabase error in get_messages: {e}")
+            resp = await supabase_session.execute(supabase_session.client.table("chat_messages") \
+                .select("*") \
+                .eq("session_id", session_id) \
+                .eq("user_id", user_id) \
+                .order("created_at", desc=True).order("id", desc=True) \
+                .limit(limit))
+            return list(reversed(resp.data or []))
 
         msgs = self._messages.get(session_id, [])
         return msgs[-limit:]

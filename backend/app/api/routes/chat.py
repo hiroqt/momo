@@ -1,18 +1,17 @@
-from fastapi import APIRouter, Depends, HTTPException, status
-from typing import List, Optional
 
-from app.dependencies import get_current_user, AuthenticatedUser
-from app.schemas.chat import (
-    ChatSessionCreate,
-    ChatSessionResponse,
-    ChatSessionDetailResponse,
-    ChatMessageCreate,
-    ChatMessageResponse,
-    StudyCardMetadata,
-    ImportCardRequest
-)
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+
 from app.db.repositories.chat_repo import chat_repo
 from app.db.repositories.study_repo import study_repo
+from app.dependencies import AuthenticatedUser, get_current_user
+from app.schemas.chat import (
+    ChatMessageCreate,
+    ChatMessageResponse,
+    ChatSessionCreate,
+    ChatSessionDetailResponse,
+    ChatSessionResponse,
+    ImportCardRequest,
+)
 from app.services.chat.chat_service import chat_service
 from app.services.security.rate_limiter import require_rate_limit
 
@@ -24,8 +23,7 @@ async def import_card_to_library(
     user: AuthenticatedUser = Depends(get_current_user)
 ):
     set_title = f"{req.topic} (Momo Study Set)" if req.topic and req.topic != "Momo Study Cards" else "Momo Study Cards"
-    existing_sets = await study_repo.list_study_sets(user.id)
-    target_set = next((s for s in existing_sets if s.get("title") == set_title), None)
+    target_set = await study_repo.get_by_title(set_title, user.id)
 
     if not target_set:
         target_set = await study_repo.create_study_set({
@@ -72,11 +70,13 @@ async def create_session(
     session = await chat_repo.create_session(user_id=user.id, title=req.title)
     return session
 
-@router.get("/sessions", response_model=List[ChatSessionResponse])
+@router.get("/sessions", response_model=list[ChatSessionResponse])
 async def list_sessions(
-    user: AuthenticatedUser = Depends(get_current_user)
+    user: AuthenticatedUser = Depends(get_current_user),
+    limit: int = Query(100, ge=1, le=100),
+    offset: int = Query(0, ge=0, le=100000),
 ):
-    return await chat_repo.list_sessions(user_id=user.id)
+    return await chat_repo.list_sessions(user_id=user.id, limit=limit, offset=offset)
 
 @router.get("/sessions/{session_id}", response_model=ChatSessionDetailResponse)
 async def get_session(

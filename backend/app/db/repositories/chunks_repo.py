@@ -1,17 +1,19 @@
-from typing import List, Dict, Any, Optional
+import logging
+from typing import Any
+
 import numpy as np
+
 from app.db.session import supabase_session
 from app.domain.documents.models import DocumentChunk
-import logging
 
 logger = logging.getLogger(__name__)
 
 class ChunksRepository:
-    def __init__(self):
+    def __init__(self) -> None:
         # In-memory storage: doc_id -> list of chunk dicts
-        self._store: Dict[str, List[Dict[str, Any]]] = {}
+        self._store: dict[str, list[dict[str, Any]]] = {}
 
-    async def save_chunks(self, document_id: str, user_id: str, chunks: List[DocumentChunk]):
+    async def save_chunks(self, document_id: str, user_id: str, chunks: list[DocumentChunk]):
         chunk_dicts = []
         for c in chunks:
             cd = {
@@ -30,28 +32,33 @@ class ChunksRepository:
             chunk_dicts.append(cd)
 
         if supabase_session.is_configured and supabase_session.client:
-            try:
-                supabase_session.client.table("document_chunks").insert(chunk_dicts).execute()
-                return
-            except Exception as e:
-                logger.error(f"Error saving chunks to Supabase: {e}")
+            await supabase_session.execute(supabase_session.client.table("document_chunks").insert(chunk_dicts))
+            return
 
         self._store[document_id] = chunk_dicts
 
-    async def get_by_document_id(self, document_id: str) -> List[Dict[str, Any]]:
+    async def get_by_document_id(self, document_id: str, user_id: str) -> list[dict[str, Any]]:
         if supabase_session.is_configured and supabase_session.client:
-            resp = supabase_session.client.table("document_chunks").select("*").eq("document_id", document_id).execute()
+            resp = await supabase_session.execute(supabase_session.client.table("document_chunks").select("*").eq("document_id", document_id).eq("user_id", user_id))
             return resp.data or []
-        return self._store.get(document_id, [])
+        return [c for c in self._store.get(document_id, []) if c.get("user_id") == user_id]
 
     async def search_similar(
         self,
         document_id: str,
-        query_embedding: List[float],
+        query_embedding: list[float],
+        user_id: str,
         top_k: int = 10,
-        section_filter: Optional[List[str]] = None
-    ) -> List[Dict[str, Any]]:
-        chunks = await self.get_by_document_id(document_id)
+        section_filter: list[str] | None = None
+    ) -> list[dict[str, Any]]:
+        if supabase_session.is_configured and supabase_session.client:
+            resp = await supabase_session.execute(supabase_session.client.rpc("match_document_chunks", {
+                "p_user_id": user_id, "p_query_embedding": query_embedding,
+                "p_document_id": document_id, "p_match_count": min(max(top_k, 1), 50),
+                "p_sections": section_filter,
+            }))
+            return resp.data or []
+        chunks = await self.get_by_document_id(document_id, user_id)
         if not chunks:
             return []
 
@@ -85,24 +92,25 @@ class ChunksRepository:
     async def search_similar_for_user(
         self,
         user_id: str,
-        query_embedding: List[float],
+        query_embedding: list[float],
         top_k: int = 10,
-        document_id: Optional[str] = None
-    ) -> List[Dict[str, Any]]:
+        document_id: str | None = None
+    ) -> list[dict[str, Any]]:
         if document_id:
             return await self.search_similar(
                 document_id=document_id,
+                user_id=user_id,
                 query_embedding=query_embedding,
                 top_k=top_k
             )
 
-        all_chunks: List[Dict[str, Any]] = []
+        all_chunks: list[dict[str, Any]] = []
         if supabase_session.is_configured and supabase_session.client:
-            try:
-                resp = supabase_session.client.table("document_chunks").select("*").eq("user_id", user_id).execute()
-                all_chunks = resp.data or []
-            except Exception as e:
-                logger.warning(f"Supabase error searching chunks for user: {e}")
+            resp = await supabase_session.execute(supabase_session.client.rpc("match_document_chunks", {
+                "p_user_id": user_id, "p_query_embedding": query_embedding,
+                "p_document_id": None, "p_match_count": min(max(top_k, 1), 50), "p_sections": None,
+            }))
+            return resp.data or []
 
         if not all_chunks:
             for doc_chunks in self._store.values():
@@ -132,17 +140,13 @@ class ChunksRepository:
         scored.sort(key=lambda x: x[0], reverse=True)
         return [c for _, c in scored[:top_k]]
 
-    async def delete_by_document_id(self, document_id: str, user_id: Optional[str] = None):
+    async def delete_by_document_id(self, document_id: str, user_id: str | None = None):
         if supabase_session.is_configured and supabase_session.client:
-            try:
-                query = supabase_session.client.table("document_chunks").delete().eq("document_id", document_id)
-                if user_id:
-                    query = query.eq("user_id", user_id)
-                query.execute()
-            except Exception as e:
-                logger.warning(f"Supabase error deleting chunks: {e}")
+            query = supabase_session.client.table("document_chunks").delete().eq("document_id", document_id)
+            if user_id:
+                query = query.eq("user_id", user_id)
+            await supabase_session.execute(query)
 
         self._store.pop(document_id, None)
 
 chunks_repo = ChunksRepository()
-

@@ -1,17 +1,25 @@
-from pydantic import BaseModel
-from typing import List, Optional
 from datetime import datetime
+from typing import Literal
+from uuid import UUID
+
+from pydantic import AwareDatetime, BaseModel, Field, field_validator
+
 
 class SyncEventItem(BaseModel):
-    event_id: str
-    study_item_id: Optional[str] = None
-    study_session_id: Optional[str] = None
-    result: str # 'correct', 'incorrect', 'review_again', 'skipped'
-    user_answer: Optional[str] = None
-    occurred_at: datetime
+    event_id: str = Field(min_length=1, max_length=128)
+    study_item_id: str | None = None
+    study_session_id: str | None = None
+    result: Literal["correct", "incorrect", "review_again", "skipped", "mastered", "review_later"]
+    user_answer: str | None = Field(default=None, max_length=10000)
+    occurred_at: AwareDatetime
+
+    @field_validator("study_item_id", "study_session_id")
+    @classmethod
+    def validate_reference_id(cls, value: str | None) -> str | None:
+        return str(UUID(value)) if value is not None else None
 
 class SyncBatchRequest(BaseModel):
-    events: List[SyncEventItem]
+    events: list[SyncEventItem] = Field(max_length=100)
 
 class SyncBatchResponse(BaseModel):
     accepted_count: int

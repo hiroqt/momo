@@ -1,22 +1,32 @@
+import asyncio
+import logging
 import uuid
-from datetime import datetime, timezone
-from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks, Request
-from typing import List
-from app.dependencies import get_current_user, AuthenticatedUser
+from datetime import UTC, datetime
+
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    Depends,
+    HTTPException,
+    Query,
+    Request,
+    status,
+)
+
 from app.config import settings
+from app.db.repositories.chunks_repo import chunks_repo
+from app.db.repositories.documents_repo import documents_repo
+from app.db.repositories.usage_repo import usage_repo
+from app.dependencies import AuthenticatedUser, get_current_user
 from app.schemas.documents import (
-    UploadUrlRequest,
-    UploadUrlResponse,
     DocumentCreate,
     DocumentResponse,
-    DocumentStatusResponse
+    DocumentStatusResponse,
+    UploadUrlRequest,
+    UploadUrlResponse,
 )
 from app.services.storage import storage_service
-from app.db.repositories.documents_repo import documents_repo
-from app.db.repositories.chunks_repo import chunks_repo
-from app.db.repositories.usage_repo import usage_repo
 from app.workers.document_worker import document_worker
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -25,8 +35,17 @@ router = APIRouter(prefix="/api/documents", tags=["Documents"])
 SUPPORTED_TYPES = {"pdf", "docx", "txt", "pptx"}
 
 @router.put("/mock-upload/{object_key:path}")
-async def mock_s3_upload(object_key: str, request: Request):
+async def mock_s3_upload(object_key: str, request: Request, user: AuthenticatedUser = Depends(get_current_user)):
+    from app.db.session import supabase_session
+    if not supabase_session.use_memory:
+        raise HTTPException(404, detail="Not found")
+    if not object_key.startswith(f"documents/{user.id}/") or ".." in object_key:
+        raise HTTPException(400, detail={"code": "INVALID_OBJECT_KEY", "message": "Invalid upload destination."})
+    if int(request.headers.get("content-length", "0")) > settings.MAX_FILE_SIZE_MB * 1024 * 1024:
+        raise HTTPException(413, detail="Document too large")
     body = await request.body()
+    if len(body) > settings.MAX_FILE_SIZE_MB * 1024 * 1024:
+        raise HTTPException(413, detail="Document too large")
     storage_service.save_mock_object(object_key, body)
     return {"status": "success", "object_key": object_key, "size": len(body)}
 
@@ -76,7 +95,7 @@ async def get_upload_url(
         extension=clean_type
     )
 
-    presigned_url = storage_service.generate_presigned_upload_url(
+    presigned_url = await asyncio.to_thread(storage_service.generate_presigned_upload_url,
         object_key=object_key,
         mime_type=req.mime_type,
         expires_in=settings.S3_PRESIGNED_URL_EXPIRE_SECONDS
@@ -86,7 +105,7 @@ async def get_upload_url(
         upload_url=presigned_url,
         s3_object_key=object_key,
         document_id=doc_id,
-        expires_in_seconds=settings.S3_PRESIGNED_URL_EXPIRE_SECONDS
+        expires_in_seconds=7200 if settings.STORAGE_PROVIDER == "supabase" else settings.S3_PRESIGNED_URL_EXPIRE_SECONDS
     )
 
 @router.post("", response_model=DocumentResponse)
@@ -95,19 +114,28 @@ async def register_document(
     background_tasks: BackgroundTasks,
     user: AuthenticatedUser = Depends(get_current_user)
 ):
-    # Check quota again before recording
-    can_upload = await usage_repo.can_upload_document(user.id)
-    if not can_upload:
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail={"code": "QUOTA_EXCEEDED", "message": "Monthly document limit reached."}
-        )
+    try:
+        document_id = str(uuid.UUID(doc_in.document_id))
+    except ValueError:
+        raise HTTPException(422, detail={"code": "INVALID_DOCUMENT_ID", "message": "Invalid document identifier."}) from None
+    file_type = doc_in.file_type.lower().lstrip(".")
+    if file_type not in SUPPORTED_TYPES:
+        raise HTTPException(400, detail={"code": "UNSUPPORTED_FILE_TYPE", "message": "Unsupported document format."})
+    expected_key = storage_service.build_object_key(user.id, document_id, file_type)
+    if doc_in.s3_object_key != expected_key:
+        raise HTTPException(400, detail={"code": "INVALID_OBJECT_KEY", "message": "Invalid upload destination."})
+    existing = await documents_repo.get_by_id(document_id, user.id)
+    if existing:
+        return existing
+    actual_size = await asyncio.to_thread(storage_service.get_object_size, expected_key)
+    if actual_size != doc_in.file_size or actual_size <= 0 or actual_size > settings.MAX_FILE_SIZE_MB * 1024 * 1024:
+        raise HTTPException(400, detail={"code": "INVALID_DOCUMENT_SIZE", "message": "Uploaded document size is invalid."})
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     expires_at = storage_service.calculate_expiration(now)
 
     doc_data = {
-        "id": doc_in.document_id,
+        "id": document_id,
         "user_id": user.id,
         "original_filename": doc_in.original_filename,
         "file_type": doc_in.file_type.lower().lstrip("."),
@@ -121,13 +149,12 @@ async def register_document(
         "processing_error": None
     }
 
-    created = await documents_repo.create(doc_data)
-    await usage_repo.increment_usage(user.id)
+    created = await documents_repo.register(doc_data)
 
     # Trigger async background worker pipeline
     background_tasks.add_task(
         document_worker.process_document,
-        document_id=doc_in.document_id,
+        document_id=document_id,
         user_id=user.id,
         s3_object_key=doc_in.s3_object_key,
         filename=doc_in.original_filename,
@@ -136,9 +163,9 @@ async def register_document(
 
     return created
 
-@router.get("", response_model=List[DocumentResponse])
-async def list_documents(user: AuthenticatedUser = Depends(get_current_user)):
-    return await documents_repo.list_by_user(user.id)
+@router.get("", response_model=list[DocumentResponse])
+async def list_documents(user: AuthenticatedUser = Depends(get_current_user), limit: int = Query(100, ge=1, le=100), offset: int = Query(0, ge=0, le=100000)):
+    return await documents_repo.list_by_user(user.id, limit, offset)
 
 @router.get("/{document_id}", response_model=DocumentResponse)
 async def get_document(
@@ -205,7 +232,7 @@ async def delete_document(
     if not doc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail={"code": "DOCUMENT_NOT_FOUND", "message": "Not found"})
 
-    storage_service.delete_object(doc.get("s3_object_key", ""))
+    await asyncio.to_thread(storage_service.delete_object, doc.get("s3_object_key", ""))
     await chunks_repo.delete_by_document_id(document_id, user.id)
     await documents_repo.delete(document_id, user.id)
     return {"deleted": True, "document_id": document_id}

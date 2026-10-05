@@ -1,18 +1,15 @@
-from fastapi import APIRouter, Depends, HTTPException, status
-from typing import List
-from app.dependencies import get_current_user, AuthenticatedUser
-from app.schemas.folder import (
-    FolderCreateRequest,
-    FolderUpdateRequest,
-    FolderResponse
-)
-from app.db.repositories.folder_repo import folder_repo, calculate_folder_credit_cost
+
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+
+from app.db.repositories.folder_repo import folder_repo
+from app.dependencies import AuthenticatedUser, get_current_user
+from app.schemas.folder import FolderCreateRequest, FolderResponse, FolderUpdateRequest
 
 router = APIRouter(prefix="/api/folders", tags=["Folders"])
 
-@router.get("", response_model=List[FolderResponse])
-async def list_folders(user: AuthenticatedUser = Depends(get_current_user)):
-    return await folder_repo.list_folders(user.id)
+@router.get("", response_model=list[FolderResponse])
+async def list_folders(user: AuthenticatedUser = Depends(get_current_user), limit: int = Query(100, ge=1, le=100), offset: int = Query(0, ge=0, le=100000)):
+    return await folder_repo.list_folders(user.id, limit, offset)
 
 @router.post("", response_model=FolderResponse, status_code=status.HTTP_201_CREATED)
 async def create_folder(

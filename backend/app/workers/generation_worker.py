@@ -1,13 +1,12 @@
-import asyncio
-from typing import Dict, Any
-from app.db.repositories.generation_repo import generation_repo
-from app.db.repositories.study_repo import study_repo
+import logging
+from typing import Any
+
 from app.db.repositories.documents_repo import documents_repo
+from app.db.repositories.generation_repo import generation_repo
+from app.services.ai.ai_provider import ai_provider
 from app.services.retrieval.retrieval_service import retrieval_service
 from app.services.synthesis.synthesis_service import synthesis_service
-from app.services.ai.ai_provider import ai_provider
 from app.services.validation.grounding_validator import grounding_validator
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -17,8 +16,11 @@ class GenerationWorker:
         job_id: str,
         user_id: str,
         document_id: str,
-        generation_spec: Dict[str, Any]
+        generation_spec: dict[str, Any]
     ):
+        job = await generation_repo.get_job(job_id, user_id)
+        if not job or job.get("status") == "COMPLETED" or job.get("study_set_id"):
+            return
         try:
             logger.info(f"Starting generation job: {job_id}")
 
@@ -61,6 +63,7 @@ class GenerationWorker:
 
             # Rich signal density window (up to 40 diverse non-redundant chunks to maximize coverage)
             evidence_chunks = await retrieval_service.retrieve_evidence(
+                user_id=user_id,
                 document_id=document_id,
                 query=search_query,
                 top_k=min(max(10, target_count), 40),
@@ -85,12 +88,12 @@ class GenerationWorker:
                 doc_name = doc.get("original_filename") if doc else "Source Material"
                 for s in synthesized.sources:
                     s["document_name"] = doc_name
-            except Exception as e:
-                logger.debug(f"Could not resolve document filename: {e}")
+            except Exception as e:  # noqa: BLE001 - source names are optional metadata.
+                logger.debug("Could not resolve document filename (%s)", type(e).__name__)
 
             # Check source sufficiency (Strict grounding rule!)
             if not synthesized.is_sufficient:
-                logger.warning(f"Insufficient source evidence for topic '{topic}' in doc {document_id}")
+                logger.warning("Insufficient source evidence")
                 await generation_repo.update_job(
                     job_id=job_id,
                     status="FAILED",
@@ -168,7 +171,7 @@ class GenerationWorker:
                 )
                 return
 
-            # 5. Persistence: Create Study Set & Study Items
+            # Save the reviewer, its items, and the completed job in one transaction.
             await generation_repo.update_job(
                 job_id=job_id,
                 status="VALIDATING",
@@ -180,7 +183,7 @@ class GenerationWorker:
             custom_title = generation_spec.get("title")
             set_title = custom_title.strip() if custom_title and custom_title.strip() else f"{topic} Reviewer"
 
-            study_set = await study_repo.create_study_set({
+            study_set = await generation_repo.complete_with_study_set(job_id, user_id, {
                 "user_id": user_id,
                 "document_id": document_id,
                 "title": set_title,
@@ -188,33 +191,18 @@ class GenerationWorker:
                 "generation_config": generation_spec,
                 "generation_status": "COMPLETED",
                 "item_count": len(valid_items)
-            })
-
-            await study_repo.save_study_items(
-                set_id=study_set["id"],
-                items=valid_items
-            )
-
-            # 6. Completed
-            await generation_repo.update_job(
-                job_id=job_id,
-                status="COMPLETED",
-                stage="Completed",
-                progress=100,
-                message="Your reviewer is cooked to perfection! Ready to lock in!",
-                study_set_id=study_set["id"]
-            )
+            }, valid_items)
             logger.info(f"Generation job {job_id} successfully created study set {study_set['id']}")
 
-        except Exception as e:
-            logger.error(f"Error in generation worker for job {job_id}: {e}", exc_info=True)
+        except Exception as e:  # noqa: BLE001 - worker boundary records a controlled failure.
+            logger.error("Generation worker failed (%s)", type(e).__name__)
             await generation_repo.update_job(
                 job_id=job_id,
                 status="FAILED",
                 stage="Failed",
                 progress=100,
                 message="An unexpected error occurred during reviewer generation.",
-                error=str(e)
+                error="Reviewer generation failed. Please retry."
             )
 
 generation_worker = GenerationWorker()

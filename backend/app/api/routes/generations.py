@@ -1,13 +1,15 @@
+import logging
 import uuid
-from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
-from app.dependencies import get_current_user, AuthenticatedUser
-from app.schemas.generation import GenerationCreateRequest, GenerationJobResponse
+
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
+
 from app.db.repositories.documents_repo import documents_repo
 from app.db.repositories.generation_repo import generation_repo
-from app.workers.generation_worker import generation_worker
-from app.services.security.rate_limiter import require_rate_limit
+from app.dependencies import AuthenticatedUser, get_current_user
+from app.schemas.generation import GenerationCreateRequest, GenerationJobResponse
 from app.services.security.guardrails_service import guardrails_service
-import logging
+from app.services.security.rate_limiter import require_rate_limit
+from app.workers.generation_worker import generation_worker
 
 logger = logging.getLogger(__name__)
 
@@ -152,14 +154,9 @@ async def retry_generation(
         )
 
     # Clean retry: reset status and progress
-    updated = await generation_repo.update_job(
-        job_id=generation_id,
-        status="PENDING",
-        stage="Restarting reviewer generation",
-        progress=5,
-        message="Retrying generation...",
-        error=None
-    )
+    updated = await generation_repo.retry_failed(generation_id, user.id)
+    if not updated:
+        raise HTTPException(409, detail={"code": "GENERATION_NOT_RETRYABLE", "message": "Only failed generations can be retried."})
 
     background_tasks.add_task(
         generation_worker.process_generation,

@@ -1,21 +1,22 @@
-from fastapi import APIRouter, Depends, HTTPException, status
-from typing import List
-from app.dependencies import get_current_user, AuthenticatedUser
+
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+
+from app.db.repositories.folder_repo import folder_repo
+from app.db.repositories.study_repo import study_repo
+from app.dependencies import AuthenticatedUser, get_current_user
 from app.schemas.study import (
-    StudySetResponse,
-    StudySetUpdateRequest,
     StudyItemResponse,
     StudySessionCreate,
-    StudySessionResponse
+    StudySessionResponse,
+    StudySetResponse,
+    StudySetUpdateRequest,
 )
-from app.db.repositories.study_repo import study_repo
-from app.db.repositories.folder_repo import folder_repo
 
 router = APIRouter(prefix="/api/study-sets", tags=["Study Sets"])
 
-@router.get("", response_model=List[StudySetResponse])
-async def list_study_sets(user: AuthenticatedUser = Depends(get_current_user)):
-    return await study_repo.list_study_sets(user.id)
+@router.get("", response_model=list[StudySetResponse])
+async def list_study_sets(user: AuthenticatedUser = Depends(get_current_user), limit: int = Query(100, ge=1, le=100), offset: int = Query(0, ge=0, le=100000)):
+    return await study_repo.list_study_sets(user.id, limit, offset)
 
 @router.get("/{study_set_id}", response_model=StudySetResponse)
 async def get_study_set(
@@ -78,7 +79,7 @@ async def update_study_set(
         )
     return updated
 
-@router.get("/{study_set_id}/items", response_model=List[StudyItemResponse])
+@router.get("/{study_set_id}/items", response_model=list[StudyItemResponse])
 async def get_study_set_items(
     study_set_id: str,
     user: AuthenticatedUser = Depends(get_current_user)
@@ -90,7 +91,7 @@ async def get_study_set_items(
             status_code=status.HTTP_404_NOT_FOUND,
             detail={"code": "STUDY_SET_NOT_FOUND", "message": "Study set not found"}
         )
-    return await study_repo.get_study_items(study_set_id)
+    return await study_repo.get_study_items(study_set_id, user.id)
 
 @router.delete("/{study_set_id}")
 async def delete_study_set(
@@ -117,7 +118,7 @@ async def start_study_session(
             detail={"code": "STUDY_SET_NOT_FOUND", "message": "Study set not found"}
         )
 
-    items = await study_repo.get_study_items(req.study_set_id)
+    items = await study_repo.get_study_items(req.study_set_id, user.id)
     session_data = {
         "user_id": user.id,
         "study_set_id": req.study_set_id,

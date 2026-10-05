@@ -1,3 +1,4 @@
+import { MomoAnimation } from '@/components/mascot/MomoAnimation';
 import React, { useState } from 'react';
 import {
   View,
@@ -349,15 +350,7 @@ export default function MathSolveScreen() {
         {/* Loading Spinner / Animation State */}
         {isSolving && (
           <View style={styles.loadingContainer}>
-            <Image
-              source={require('@/assets/animations/math_momo.png')}
-              style={{
-                width: isPadDevice ? 180 : 140,
-                height: isPadDevice ? 180 : 140,
-                marginBottom: 16,
-              }}
-              resizeMode="contain"
-            />
+            <MomoAnimation name="momo-thinking" size={isPadDevice ? 180 : 140} />
             <ActivityIndicator size="large" color={colors.primary} />
             <Text style={styles.loadingTitle}>Analyzing Equation...</Text>
             <Text style={styles.loadingDesc}>

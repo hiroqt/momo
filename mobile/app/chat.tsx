@@ -1,3 +1,4 @@
+import { MomoAnimation } from '@/components/mascot/MomoAnimation';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
@@ -41,8 +42,6 @@ import { ChatHistoryDrawer } from '@/components/chat/ChatHistoryDrawer';
 import { GlassButton } from '@/components/glass';
 
 // Hoisted static assets to prevent re-instantiation and avatar flickering
-const MOMO_THINKING_IMG = require('@/assets/animations/thinking_momo.png');
-const MOMO_CHEER_IMG = require('@/assets/animations/cheer_momo.png');
 const MOMO_HAPPY_IMG = require('@/assets/animations/happy_momo.png');
 
 const PROMPT_SUGGESTIONS = [
@@ -518,11 +517,7 @@ export default function ChatScreen() {
 
   const renderEmptyState = () => (
     <View style={styles.emptyContainer}>
-      <Image
-        source={MOMO_CHEER_IMG}
-        style={styles.emptyMascot}
-        resizeMode="contain"
-      />
+      <MomoAnimation name="momo-hero" style={styles.emptyMascot} />
       <Text style={styles.emptyTitle}>Hey there, scholar!</Text>
       <Text style={styles.emptySubtitle}>
         I'm Momo, your personal AI tutor. Ask me anything from your study materials or tell me to build a practice deck!
@@ -549,12 +544,7 @@ export default function ChatScreen() {
       <View style={styles.thinkingAssistantRow}>
         <View style={styles.thinkingAvatarColumn}>
           <View style={styles.thinkingAvatarRing}>
-            <Image
-              source={MOMO_THINKING_IMG}
-              style={styles.thinkingAvatar}
-              resizeMode="contain"
-              fadeDuration={0}
-            />
+            <MomoAnimation name="momo-thinking" style={styles.thinkingAvatar} active={sending} />
           </View>
         </View>
 

@@ -1,12 +1,15 @@
+import { MomoAnimation } from '@/components/mascot/MomoAnimation';
 import React, { useEffect, useState, useRef } from 'react';
 import { View, StyleSheet, Animated } from 'react-native';
 import { AppText as Text } from './app-text';
 import { mutationQueue, MutationQueueState } from '../../lib/sync/mutationQueue';
-import { colors, spacing, typography } from '@/constants/theme';
+import { colors, typography } from '@/constants/theme';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { HugeiconsIcon } from '@hugeicons/react-native';
-import { CheckmarkCircle02Icon, CloudSyncIcon } from '@hugeicons/core-free-icons';
+import { CheckmarkCircle02Icon } from '@hugeicons/core-free-icons';
 
 export const SyncStatusPill: React.FC = () => {
+  const insets = useSafeAreaInsets();
   const [queueState, setQueueState] = useState<MutationQueueState>(() => mutationQueue.getState());
   const [visible, setVisible] = useState(false);
   const opacityAnim = useRef(new Animated.Value(0)).current;
@@ -59,6 +62,7 @@ export const SyncStatusPill: React.FC = () => {
       pointerEvents="none"
       style={[
         styles.pillContainer,
+        { top: insets.top + 8 },
         {
           opacity: opacityAnim,
           transform: [
@@ -75,11 +79,11 @@ export const SyncStatusPill: React.FC = () => {
       <View style={[styles.pillCard, isSyncing ? styles.pillSyncing : styles.pillSuccess]}>
         {isSyncing ? (
           <>
-            <View style={styles.pulseDot} />
+            <MomoAnimation name="sync-working" size={24} screenAware={false} active={queueState.isSyncing} />
             <Text style={styles.pillText}>
               {queueState.pendingCount > 1
-                ? `Syncing ${queueState.pendingCount} changes...`
-                : 'Syncing in background...'}
+                ? `${queueState.isSyncing ? 'Syncing' : 'Waiting to sync'} ${queueState.pendingCount} changes...`
+                : queueState.isSyncing ? 'Syncing in background...' : 'Waiting to sync...'}
             </Text>
           </>
         ) : (
@@ -96,7 +100,7 @@ export const SyncStatusPill: React.FC = () => {
 const styles = StyleSheet.create({
   pillContainer: {
     position: 'absolute',
-    top: 50,
+    maxWidth: '90%',
     alignSelf: 'center',
     zIndex: 9999,
   },
@@ -130,6 +134,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
   },
   pillText: {
+    flexShrink: 1,
     fontSize: 11.5,
     fontWeight: typography.fontWeight.bold,
     color: colors.primary,

@@ -1,3 +1,4 @@
+import { MomoAnimation } from '@/components/mascot/MomoAnimation';
 import React, { useState, useRef, useEffect } from 'react';
 import { colors, spacing, typography } from '@/constants/theme';
 import {
@@ -116,30 +117,6 @@ export default function UploadScreen() {
   // Animations
   const progressAnim = useRef(new Animated.Value(0)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
-  const mascotFloatAnim = useRef(new Animated.Value(0)).current;
-
-  // Float animation for mascot
-  useEffect(() => {
-    const floatLoop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(mascotFloatAnim, {
-          toValue: -8,
-          duration: 1800,
-          easing: Easing.inOut(Easing.sin),
-          useNativeDriver: true,
-        }),
-        Animated.timing(mascotFloatAnim, {
-          toValue: 0,
-          duration: 1800,
-          easing: Easing.inOut(Easing.sin),
-          useNativeDriver: true,
-        }),
-      ])
-    );
-    floatLoop.start();
-    return () => floatLoop.stop();
-  }, [mascotFloatAnim]);
-
   // Pulse animation when idle/ready
   useEffect(() => {
     const pulseLoop = Animated.loop(
@@ -411,18 +388,9 @@ export default function UploadScreen() {
              ========================================================================= */
           <View style={styles.processingCard}>
             {/* Animated Momo Illustration */}
-            <Animated.View
-              style={[
-                styles.processingMascotContainer,
-                { transform: [{ translateY: mascotFloatAnim }] },
-              ]}
-            >
-              <Image
-                source={require('@/assets/animations/creating_momo.png')}
-                style={styles.processingMascotImage}
-                resizeMode="contain"
-              />
-            </Animated.View>
+            <View style={styles.processingMascotContainer}>
+              <MomoAnimation name="momo-reading" style={styles.processingMascotImage} />
+            </View>
 
             <Text style={styles.processingTitle}>Preparing Your Material</Text>
             <Text style={styles.processingSubtitle}>
@@ -435,7 +403,7 @@ export default function UploadScreen() {
             </View>
 
             <View style={styles.currentStatusBadge}>
-              <ActivityIndicator size="small" color={colors.primary} />
+              <MomoAnimation name={currentStageIdx === 0 ? 'document-upload' : currentStageIdx === 1 ? 'document-scan' : 'book-loading'} size={40} replayKey={currentStageIdx} />
               <Text style={styles.currentStatusText}>{statusMessage || 'Preparing your study set...'}</Text>
             </View>
 

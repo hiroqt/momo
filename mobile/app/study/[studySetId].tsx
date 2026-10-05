@@ -1,3 +1,4 @@
+import { MomoAnimation } from '@/components/mascot/MomoAnimation';
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { colors, spacing, typography } from '@/constants/theme';
 import {
@@ -134,8 +135,11 @@ export default function StudySessionScreen() {
     }
   };
 
+  const [offlineSaved, setOfflineSaved] = useState(false);
+
   useEffect(() => {
     const load = async () => {
+      setOfflineSaved(false);
       setIsLoading(true);
       try {
         const { set: setData, items: itemData } = await loadStudyContent(studySetId, {
@@ -172,11 +176,13 @@ export default function StudySessionScreen() {
 
         // Cache to local database for offline use
         await localDb.saveStudySet(setData, itemData);
+        setOfflineSaved(true);
       } catch {
         // Fallback to local offline cache
         const localSet = await localDb.getStudySet(studySetId);
         const localItems = await localDb.getStudyItems(studySetId);
         if (localSet) {
+          setOfflineSaved(true);
           const randomized = randomizeStudyItems(localItems);
           setStudySet(localSet);
           setItems(randomized);
@@ -273,6 +279,8 @@ export default function StudySessionScreen() {
           ]}
         >
           <View style={styles.finishCard}>
+            <MomoAnimation name="momo-bow" size={150} />
+            {finishedScore.correct > 0 && <MomoAnimation name="xp-reward" size={56} replayKey={studySetId} />}
             <View
               style={[
                 styles.finishBadgeCircle,
@@ -413,6 +421,11 @@ export default function StudySessionScreen() {
         onBack={() => router.replace('/(tabs)/library')}
         rightAction={isQuizCompleted ? undefined : threeDotsButton}
       />
+
+      {offlineSaved && !isQuizCompleted && <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: spacing[20], gap: 6 }}>
+        <MomoAnimation name="offline-saved" size={32} replayKey={studySetId} />
+        <Text style={{ color: colors.textMuted, fontSize: 12 }}>Available offline</Text>
+      </View>}
 
       {/* Mode Switcher - Only shown if multiple modes exist and quiz is not completed */}
       {availableModes.length > 1 && !isQuizCompleted && (

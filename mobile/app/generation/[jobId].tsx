@@ -1,3 +1,4 @@
+import { MomoAnimation } from '@/components/mascot/MomoAnimation';
 import React, { useEffect, useState, useRef } from 'react';
 import { colors, spacing, typography } from '@/constants/theme';
 import {
@@ -69,31 +70,6 @@ export default function GenerationProgressScreen() {
   const [subIndex, setSubIndex] = useState(0);
   const textFadeAnim = useRef(new Animated.Value(1)).current;
 
-  // Gentle bouncing mascot float
-  const mascotBounceAnim = useRef(new Animated.Value(0)).current;
-
-  // 1. Mascot breathing bounce loop
-  useEffect(() => {
-    const bounceLoop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(mascotBounceAnim, {
-          toValue: -8,
-          duration: 1200,
-          easing: Easing.inOut(Easing.sin),
-          useNativeDriver: true,
-        }),
-        Animated.timing(mascotBounceAnim, {
-          toValue: 0,
-          duration: 1200,
-          easing: Easing.inOut(Easing.sin),
-          useNativeDriver: true,
-        }),
-      ])
-    );
-    bounceLoop.start();
-    return () => bounceLoop.stop();
-  }, []);
-
   // 2. Rotating crafting messages with smooth crossfade
   useEffect(() => {
     const textInterval = setInterval(() => {
@@ -153,6 +129,7 @@ export default function GenerationProgressScreen() {
   useEffect(() => {
     let interval: any = null;
     let isFinished = false;
+    let navigationTimer: ReturnType<typeof setTimeout> | undefined;
 
     const poll = async () => {
       if (isFinished) return;
@@ -186,9 +163,9 @@ export default function GenerationProgressScreen() {
             useNativeDriver: true,
           }).start();
 
-          setTimeout(() => {
+          navigationTimer = setTimeout(() => {
             router.replace(`/study/${data.study_set_id}`);
-          }, 550);
+          }, 1550);
         } else if (data.status === 'FAILED') {
           isFinished = true;
           clearInterval(interval);
@@ -205,6 +182,7 @@ export default function GenerationProgressScreen() {
     return () => {
       isFinished = true;
       clearInterval(interval);
+      if (navigationTimer) clearTimeout(navigationTimer);
     };
   }, [jobId]);
 
@@ -265,19 +243,11 @@ export default function GenerationProgressScreen() {
         ]}
       >
         <View style={styles.card}>
-          {/* Animated Momo Crafting Mascot with float */}
-          <Animated.View
-            style={[
-              styles.mascotBox,
-              { transform: [{ translateY: mascotBounceAnim }] },
-            ]}
-          >
-            <Image 
-              source={require('@/assets/animations/creating_momo.png')} 
-              style={styles.logoImage}
-              resizeMode="contain"
-            />
-          </Animated.View>
+          {/* Source-quality Momo and current generation state */}
+          <View style={styles.mascotBox}>
+              <MomoAnimation name={job?.status === 'COMPLETED' ? 'momo-present' : 'momo-thinking'} style={styles.logoImage} active={!errorMsg} />
+              {!errorMsg && <MomoAnimation name={job?.status === 'COMPLETED' ? 'reviewer-ready' : 'book-loading'} size={64} replayKey={jobId} />}
+            </View>
 
           <Text style={styles.title}>Creating your reviewer</Text>
           

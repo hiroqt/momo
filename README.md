@@ -144,7 +144,7 @@ Governing specifications: [`ARD_PRD.md`](./ARD_PRD.md), [`ARCHITECTURE.md`](./AR
 | :--- | :--- | :--- |
 | Mobile Application | React Native 0.76, Expo SDK 52 | File-based Expo Router, TypeScript, React 19 |
 | Local Mobile Storage | Expo SQLite | Client-side study sets, questions, and mutation ledger |
-| Mobile Animations | Lottie React Native | Vector animations (`.lottie.json`) and 3D Reanimated transforms |
+| Mobile Animations | Lottie React Native | Source-quality Momo Lotties (`momo-motion/`) and vector effects |
 | Web Showcase | Next.js 15 App Router | Server Components, React 19, Tailwind CSS, Motion |
 | Backend Services | Python 3.11+, FastAPI, Uvicorn | Asynchronous REST API, Pydantic v2 schemas |
 | Primary Database | Supabase PostgreSQL 15+ | Relational tables, Row-Level Security, parameterized queries |

@@ -1,3 +1,4 @@
+import { useOnboardingReducedMotion } from '@/components/onboarding/useOnboardingReducedMotion';
 import React, { useState, useMemo, useEffect } from 'react';
 import {
   View,
@@ -15,7 +16,7 @@ import {
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
-import Animated, { FadeIn, cubicBezier, useReducedMotion } from 'react-native-reanimated';
+import Animated, { FadeIn, cubicBezier } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { AppText as Text } from '@/components/common/app-text';
@@ -132,7 +133,7 @@ function PressScale({
   accessibilityState?: { selected?: boolean; checked?: boolean; expanded?: boolean; disabled?: boolean };
   children: React.ReactNode;
 }) {
-  const reduceMotion = useReducedMotion();
+  const reduceMotion = useOnboardingReducedMotion();
   const [pressed, setPressed] = useState(false);
   return (
     <Pressable
@@ -215,7 +216,7 @@ export default function WelcomeScreen() {
   const { completeWelcome } = useOnboarding();
   const { height: viewportHeight } = useWindowDimensions();
   const compactLayout = viewportHeight < 760;
-  const reduceMotion = useReducedMotion();
+  const reduceMotion = useOnboardingReducedMotion();
 
   // Each page asks for one understandable decision and keeps the next action visible.
   const [stage, setStage] = useState<OnboardingStage>(1);
@@ -430,7 +431,7 @@ export default function WelcomeScreen() {
           >
             {stage === 1 && <Text style={styles.brandName}>Momo</Text>}
 
-            {/* One rigged Momo act per step; acts never repeat (see momoSteps.ts). */}
+            {/* One intact source-quality Momo pose per step; poses never repeat (see momoSteps.ts). */}
             <View style={[styles.momoSlot, compactLayout && styles.momoSlotCompact]}>
               <MomoLottie
                 key={stage}

@@ -1,3 +1,4 @@
+import { MomoAnimation } from '@/components/mascot/MomoAnimation';
 import React, { useState, useCallback, useMemo, useDeferredValue } from 'react';
 import { colors, spacing, typography } from '@/constants/theme';
 import {
@@ -782,11 +783,7 @@ export default function LibraryScreen() {
                 ) : (
                   // Completely Empty Study Library
                   <View style={styles.emptyBox}>
-                    <Image
-                      source={require('@/assets/animations/folder_momo.png')}
-                      style={styles.emptyMomoImage}
-                      resizeMode="contain"
-                    />
+                    <MomoAnimation name="momo-rest" style={styles.emptyMomoImage} />
                     <Text style={styles.emptyHeroTitle}>Your Study Library is Empty</Text>
                     <Text style={styles.emptyHeroText}>
                       Upload your lecture notes, slides, or study documents. Momo will turn them into flashcards, quizzes, and practice exams!

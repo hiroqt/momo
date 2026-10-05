@@ -1,3 +1,11 @@
+> Current implementation — October 5, 2026: all nine onboarding steps use
+> `mobile/assets/animations/momo-motion/` through the shared MomoAnimation
+> player. Original artwork remains intact; isolated feature gestures on all 13 poses replace the old
+> segmented rig and sprites. Confetti uses the new one-shot vector effect.
+> Earlier video, sprite atlas, vector-rig assets and their builders were removed.
+> The sections below are historical design iterations. Rebuild the current pack
+> with `tools/momo-motion/build.py` and `tools/momo-motion/build-handoff.mjs`.
+
 # Momo onboarding refresh
 
 ## Direction

@@ -1,55 +1,31 @@
-import React, { useState, useRef, useEffect } from "react";
-import { colors, mascotColors, spacing, typography } from "@/constants/theme";
+import React, { useState, useRef } from "react";
+import { colors, spacing, typography } from "@/constants/theme";
 import {
   View,
   StyleSheet,
   TouchableOpacity,
   Animated,
   Platform,
-  Easing,
 } from "react-native";
 import { AppText as Text } from "@/components/common/app-text";
 import { HugeiconsIcon } from "@hugeicons/react-native";
 import { SparklesIcon } from "@hugeicons/core-free-icons";
-import Svg, { Circle, Path, Rect, G, Ellipse } from "react-native-svg";
 import {
   getDailyStudyQuote,
   getRandomStudyQuote,
   StudyQuote,
 } from "../../lib/data/studyQuotes";
 
-// Import the Lottie JSON mascot animation
+import { MomoAnimation } from './MomoAnimation';
+import type { MomoMotionName } from '@/lib/animations/momoMotion';
 
-/**
- * High-fidelity Vector SVG Chibi Monkey component with dynamic animations that
- * change based on the active study quote (Focus bounce for Lock In, Sassy wobble for Real Talk,
- * Ethereal float for Manifesting, Studious nod for Scholar Era, Neural pulse for Brain Gains, etc.).
- *
- * Momo's eyes are modeled directly after the delete & end confirmation modal:
- * large obsidian pupils with pure-white upper catchlight reflections, secondary sparkles,
- * bottom iris highlights, and zero eyebrows for a pure cute chibi look.
- */
-
-import { Image } from 'react-native';
-
-export interface DynamicChibiMomoProps {
-  quote: StudyQuote;
-  isBouncing?: boolean;
-}
-
-export function DynamicChibiMomo({ quote, isBouncing = false }: DynamicChibiMomoProps) {
-  let source;
-  switch (quote.category) {
-    case 'lock_in': source = require('../../assets/animations/thinking_momo.png'); break;
-    case 'real_talk': source = quote.vibe === 'funny' ? require('../../assets/animations/cool_momo.png') : require('../../assets/animations/thinking_momo.png'); break;
-    case 'manifesting': source = require('../../assets/animations/happy_momo.png'); break;
-    case 'scholar_era': source = require('../../assets/animations/thinking_momo.png'); break;
-    case 'brain_gains': source = require('../../assets/animations/thumbs_up.png'); break;
-    case 'boss_energy': source = require('../../assets/animations/cool_momo.png'); break;
-    case 'dopamine_check': source = require('../../assets/animations/happy_momo.png'); break;
-    default: source = require('../../assets/animations/thinking_momo.png'); break;
-  }
-  return <Image source={source} style={{ width: 94, height: 94 }} resizeMode="contain" />;
+export function DynamicChibiMomo({ quote }: { quote: StudyQuote }) {
+  const names: Record<string, MomoMotionName> = {
+    lock_in: 'momo-thinking', real_talk: 'momo-listen', manifesting: 'momo-welcome',
+    scholar_era: 'momo-reading', brain_gains: 'momo-ready', boss_energy: 'momo-proud',
+    dopamine_check: 'momo-cheer',
+  };
+  return <MomoAnimation name={names[quote.category] ?? 'momo-thinking'} size={94} />;
 }
 
 export interface StudyMascotCardProps {
@@ -60,65 +36,12 @@ export function StudyMascotCard({ onPressAction }: StudyMascotCardProps) {
   const [currentQuote, setCurrentQuote] = useState<StudyQuote>(() =>
     getDailyStudyQuote(),
   );
-  const [isBouncing, setIsBouncing] = useState(false);
 
   // Animation values for interactive tap feedback & quote transition
-  const mascotScale = useRef(new Animated.Value(1)).current;
-  const mascotRotate = useRef(new Animated.Value(0)).current;
   const bubbleOpacity = useRef(new Animated.Value(1)).current;
   const bubbleTranslateY = useRef(new Animated.Value(0)).current;
 
   const handleNextQuote = () => {
-    // Spring bounce and playful wiggle on mascot
-    setIsBouncing(true);
-    Animated.parallel([
-      Animated.sequence([
-        Animated.timing(mascotScale, {
-          toValue: 0.88,
-          duration: 80,
-          easing: Easing.out(Easing.quad),
-          useNativeDriver: true,
-        }),
-        Animated.spring(mascotScale, {
-          toValue: 1.12,
-          friction: 4,
-          tension: 180,
-          useNativeDriver: true,
-        }),
-        Animated.spring(mascotScale, {
-          toValue: 1,
-          friction: 6,
-          tension: 120,
-          useNativeDriver: true,
-        }),
-      ]),
-      Animated.sequence([
-        Animated.timing(mascotRotate, {
-          toValue: 1,
-          duration: 80,
-          useNativeDriver: true,
-        }),
-        Animated.timing(mascotRotate, {
-          toValue: -1,
-          duration: 100,
-          useNativeDriver: true,
-        }),
-        Animated.timing(mascotRotate, {
-          toValue: 0.5,
-          duration: 80,
-          useNativeDriver: true,
-        }),
-        Animated.spring(mascotRotate, {
-          toValue: 0,
-          friction: 6,
-          tension: 120,
-          useNativeDriver: true,
-        }),
-      ]),
-    ]).start(() => {
-      setIsBouncing(false);
-    });
-
     // Smooth transition of the quote text
     Animated.sequence([
       Animated.parallel([
@@ -154,11 +77,6 @@ export function StudyMascotCard({ onPressAction }: StudyMascotCardProps) {
 
   const isFunny = currentQuote.vibe === "funny";
 
-  const rotateDeg = mascotRotate.interpolate({
-    inputRange: [-1, 0, 1],
-    outputRange: ["-5deg", "0deg", "5deg"],
-  });
-
   return (
     <TouchableOpacity
       style={styles.card}
@@ -170,17 +88,9 @@ export function StudyMascotCard({ onPressAction }: StudyMascotCardProps) {
       <View style={styles.topRow}>
         <View style={styles.mascotInfo}>
           {/* Enhanced Mascot Avatar Box */}
-          <Animated.View
-            style={[
-              styles.mascotBox,
-              {
-                transform: [{ scale: mascotScale }, { rotate: rotateDeg }],
-              },
-            ]}
-          >
-            <View style={styles.mascotAura} />
-            <DynamicChibiMomo quote={currentQuote} isBouncing={isBouncing} />
-          </Animated.View>
+          <View style={styles.mascotBox}>
+            <DynamicChibiMomo quote={currentQuote} />
+          </View>
 
           {/* Title and Category Tag Column */}
           <View style={styles.headerTextCol}>

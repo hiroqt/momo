@@ -1,3 +1,4 @@
+import { MomoAnimation } from '@/components/mascot/MomoAnimation';
 import React, { useState, useRef, useMemo, forwardRef, useImperativeHandle } from 'react';
 import {
   View,
@@ -1210,6 +1211,8 @@ export const QuizRunner = forwardRef<QuizRunnerRef, Props>(({
       >
         {/* Score & XP Hero Summary Card */}
         <View style={styles.reviewHeroCard}>
+          {isMastered && <MomoAnimation name="confetti-gentle" size={180} />}
+          <MomoAnimation name={isMastered ? 'momo-proud' : 'momo-ready'} size={140} />
           <View style={[styles.heroBadgeCircle, isMastered ? styles.trophyBg : styles.bookBg]}>
             <HugeiconsIcon
               icon={isMastered ? TrophyIcon : BookOpen01Icon}
@@ -1225,7 +1228,7 @@ export const QuizRunner = forwardRef<QuizRunnerRef, Props>(({
           {/* Prominent XP Earned Banner */}
           <View style={styles.xpEarnedCard}>
             <View style={styles.xpEarnedIconBox}>
-              <HugeiconsIcon icon={SparklesIcon} size={20} color="#D97706" strokeWidth={2.4} />
+              {currentXP > 0 ? <MomoAnimation name="xp-reward" size={40} /> : <HugeiconsIcon icon={SparklesIcon} size={20} color="#D97706" strokeWidth={2.4} />}
             </View>
             <View style={styles.xpEarnedTextBox}>
               <Text style={styles.xpEarnedValue}>+{currentXP} XP Earned</Text>
@@ -2077,12 +2080,7 @@ export const QuizRunner = forwardRef<QuizRunnerRef, Props>(({
                             : styles.floatingXPPillWrong,
                         ]}
                       >
-                        <HugeiconsIcon
-                          icon={lastAnswerResult?.isCorrect ? SparklesIcon : Cancel01Icon}
-                          size={14}
-                          color={lastAnswerResult?.isCorrect ? '#D97706' : '#DC2626'}
-                          strokeWidth={2.4}
-                        />
+                        {lastAnswerResult && <MomoAnimation name={lastAnswerResult.isCorrect ? 'answer-correct' : 'answer-retry'} size={28} speed={1.25} replayKey={currentItem.id} />}
                         <Text
                           style={[
                             styles.floatingXPText,
@@ -2153,12 +2151,7 @@ export const QuizRunner = forwardRef<QuizRunnerRef, Props>(({
                         : styles.floatingXPPillWrong,
                     ]}
                   >
-                    <HugeiconsIcon
-                      icon={lastAnswerResult?.isCorrect ? SparklesIcon : Cancel01Icon}
-                      size={14}
-                      color={lastAnswerResult?.isCorrect ? '#D97706' : '#DC2626'}
-                      strokeWidth={2.4}
-                    />
+                    {lastAnswerResult && <MomoAnimation name={lastAnswerResult.isCorrect ? 'answer-correct' : 'answer-retry'} size={28} speed={1.25} replayKey={currentItem.id} />}
                     <Text
                       style={[
                         styles.floatingXPText,

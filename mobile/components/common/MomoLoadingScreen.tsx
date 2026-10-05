@@ -11,10 +11,7 @@ import { AppText as Text } from '@/components/common/app-text';
 import { MomoBackdrop } from '@/components/onboarding/MomoBackdrop';
 import { onboardingColors, spacing, typography } from '@/constants/theme';
 
-const MASCOT_SOURCES = {
-  loading: require('@/assets/animations/momo_loading.png'),
-  icon: require('@/assets/momo_logo.png'),
-};
+import { MomoAnimation } from '@/components/mascot/MomoAnimation';
 
 interface MomoLoadingScreenProps {
   title?: string;
@@ -41,14 +38,13 @@ export function MomoLoadingScreen({
 }: MomoLoadingScreenProps) {
   const content = (
     <View style={[styles.container, fullScreen && styles.fullScreen, style]}>
-      {showMascot && (
-        <Image
-          source={MASCOT_SOURCES[mascotType]}
-          style={{ width: mascotSize, height: mascotSize }}
-          resizeMode="contain"
-          accessibilityLabel="Momo preparing your study space"
-        />
-      )}
+      {showMascot && (mascotType === 'icon' ? (
+        <Image source={require('@/assets/momo_logo.png')}
+          style={{ width: mascotSize, height: mascotSize }} resizeMode="contain" />
+      ) : (
+        <MomoAnimation name="momo-reading" size={mascotSize}
+          accessibilityLabel="Momo preparing your study space" />
+      ))}
       <Text style={[styles.title, variant === 'splash' && styles.splashTitle]}>{title}</Text>
       {!!subtitle && <Text style={styles.subtitle}>{subtitle}</Text>}
       {showSpinner && (

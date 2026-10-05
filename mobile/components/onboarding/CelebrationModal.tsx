@@ -1,9 +1,11 @@
+import { MomoAnimation } from '@/components/mascot/MomoAnimation';
 import React from 'react';
 import { Platform, 
   View,
+  ScrollView,
+  useWindowDimensions,
   Modal,
   StyleSheet,
-  Image,
   TouchableOpacity,
  } from 'react-native';
 import { AppText as Text } from '@/components/common/app-text';
@@ -36,6 +38,8 @@ export const CelebrationModal: React.FC<CelebrationModalProps> = ({
   xpEarned = 50,
   itemsCount = 6,
 }) => {
+  const { height } = useWindowDimensions();
+  if (!visible) return null;
   return (
     <Modal
       visible={visible}
@@ -44,14 +48,13 @@ export const CelebrationModal: React.FC<CelebrationModalProps> = ({
       onRequestClose={onDismiss}
     >
       <View style={styles.overlay}>
-        <View style={styles.container}>
+        <ScrollView style={{ maxHeight: height * 0.86, width: '100%', maxWidth: 380 }} contentContainerStyle={styles.container} bounces={false}>
           {/* Momo Mascot Header */}
           <View style={styles.mascotWrapper}>
-            <Image
-              source={require('@/assets/animations/cheer_momo.png')}
-              style={styles.mascotImage}
-              resizeMode="contain"
-            />
+            <View pointerEvents="none" style={[StyleSheet.absoluteFill, { alignItems: 'center', justifyContent: 'center' }]}>
+              <MomoAnimation name="confetti-burst" size={240} />
+            </View>
+            <MomoAnimation name="momo-cheer" size={140} active={visible} />
             <View style={styles.badgePill}>
               <HugeiconsIcon icon={TrophyIcon} size={14} color="#B45309" strokeWidth={2.5} />
               <Text style={styles.badgePillText}>First Milestone Unlocked</Text>
@@ -115,7 +118,7 @@ export const CelebrationModal: React.FC<CelebrationModalProps> = ({
               <Text style={styles.shareStoryBtnText}>Share to Instagram Story</Text>
             </TouchableOpacity>
           )}
-        </View>
+        </ScrollView>
       </View>
     </Modal>
   );

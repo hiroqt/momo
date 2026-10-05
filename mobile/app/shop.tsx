@@ -1,3 +1,4 @@
+import { MomoAnimation } from '@/components/mascot/MomoAnimation';
 import React, { useState } from 'react';
 import {
   View,
@@ -194,7 +195,7 @@ export default function ShopScreen({ isTab = false }: { isTab?: boolean } = {}) 
             <Text style={styles.featuredTitle}>Make every study session count</Text>
             <Text style={styles.featuredDesc}>Get help with a tough question, add quiz lives, or use the XP you earned.</Text>
           </View>
-          <Image source={require('../assets/animations/wealth_momo.png')} style={styles.featuredImage} resizeMode="contain" />
+          <MomoAnimation name="momo-proud" style={styles.featuredImage} />
         </View>
 
         <Text style={styles.catalogTitle}>What do you need?</Text>
@@ -279,11 +280,7 @@ export default function ShopScreen({ isTab = false }: { isTab?: boolean } = {}) 
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Image 
-              source={require('../assets/animations/wealth_momo.png')} 
-              style={styles.modalImage} 
-              resizeMode="contain" 
-            />
+            {showPurchaseModal && <MomoAnimation name="momo-proud" active={showPurchaseModal} style={styles.modalImage} />}
             <Text style={styles.modalTitle}>Preview this pack</Text>
             <Text style={styles.modalDesc}>
               Add a demo pack of{' '}
@@ -414,11 +411,8 @@ export default function ShopScreen({ isTab = false }: { isTab?: boolean } = {}) 
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Image 
-              source={require('../assets/animations/cheer_momo.png')} 
-              style={styles.modalImage} 
-              resizeMode="contain" 
-            />
+            {showSuccessModal && <MomoAnimation name="momo-cheer" active={showSuccessModal} style={styles.modalImage} />}
+            {showSuccessModal && <MomoAnimation name={successType === 'credit' ? 'coin-reward' : 'heart-refill'} size={72} />}
             <View style={styles.successHalo}>
               <HugeiconsIcon icon={CheckmarkCircle01Icon} size={24} color="#059669" />
               <Text style={styles.successBadgeText}>Balance updated</Text>

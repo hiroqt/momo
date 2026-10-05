@@ -1,4 +1,5 @@
-import React, { useCallback, useState } from 'react';
+import { MomoAnimation } from '@/components/mascot/MomoAnimation';
+import React, { useCallback, useState, useRef } from 'react';
 import { Platform, RefreshControl, StatusBar as RNStatusBar, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -62,6 +63,8 @@ export default function HomeScreen() {
     active_dates: string[];
     current_streak: number;
   }>({ active_dates: [], current_streak: 0 });
+  const previousStreak = useRef<number | null>(null);
+  const [ignitingStreak, setIgnitingStreak] = useState(false);
   const [momoVisible, setMomoVisible] = useState(true);
   const [momoQuote, setMomoQuote] = useState<StudyQuote>(() => getRandomStudyQuote());
 
@@ -81,6 +84,10 @@ export default function HomeScreen() {
         ...remoteSets,
         ...previews.filter((preview) => !remoteSets.some((remote) => remote.id === preview.id)),
       ]);
+      if (previousStreak.current !== null && streakResponse.current_streak > previousStreak.current) {
+        setIgnitingStreak(true);
+      }
+      previousStreak.current = streakResponse.current_streak;
       setStreakData(streakResponse);
     } catch (error) {
       console.warn('Error loading home data:', error);
@@ -187,6 +194,7 @@ export default function HomeScreen() {
           <View style={styles.streakCard}>
             <Text style={styles.streakEyebrow}>CURRENT STREAK</Text>
             <View style={styles.streakHeading}>
+              {streakData.current_streak > 0 && <MomoAnimation name={ignitingStreak ? 'streak-ignite' : 'streak-fire'} size={44} replayKey={streakData.current_streak} onFinish={() => setIgnitingStreak(false)} />}
               <Text style={styles.streakCount}>{streakData.current_streak}</Text>
               <Text style={styles.streakUnit}>
                 {streakData.current_streak === 1 ? 'day' : 'days'}

@@ -1,10 +1,11 @@
-import React, { useEffect, useRef, useState } from 'react';
+import { useOnboardingReducedMotion } from '@/components/onboarding/useOnboardingReducedMotion';
+import React, { useEffect, useRef } from 'react';
 import { StyleSheet, View } from 'react-native';
 import Animated, {
-  Easing, useAnimatedStyle, useReducedMotion, useSharedValue,
+  cancelAnimation, Easing, useAnimatedStyle, useSharedValue,
   withDelay, withSequence, withSpring, withTiming,
 } from 'react-native-reanimated';
-import LottieView from 'lottie-react-native';
+import { MomoAnimation } from '@/components/mascot/MomoAnimation';
 import { HugeiconsIcon, type IconSvgElement } from '@hugeicons/react-native';
 import { AppText as Text } from '@/components/common/app-text';
 import { onboardingColors, spacing, typography } from '@/constants/theme';
@@ -25,13 +26,17 @@ export function PopIcon({
   size?: number;
   color?: string;
 }) {
-  const reduceMotion = useReducedMotion();
+  const reduceMotion = useOnboardingReducedMotion();
   const scale = useSharedValue(reduceMotion ? 1 : 0.4);
   const rotate = useSharedValue(reduceMotion ? 0 : -25);
   const wasSelected = useRef(selected);
 
   useEffect(() => {
-    if (reduceMotion) return;
+    if (reduceMotion) {
+      cancelAnimation(scale); cancelAnimation(rotate);
+      scale.set(1); rotate.set(0);
+      return;
+    }
     const delay = 80 + index * 55;
     scale.set(withDelay(delay, withSpring(1, { damping: 10, stiffness: 200 })));
     rotate.set(withDelay(delay, withSpring(0, { damping: 12, stiffness: 180 })));
@@ -73,7 +78,7 @@ export function PopIcon({
 
 /** Segmented progress with a smoothly filling active segment and a short step label. */
 export function OnboardingProgress({ step, total, label }: { step: number; total: number; label: string }) {
-  const reduceMotion = useReducedMotion();
+  const reduceMotion = useOnboardingReducedMotion();
   const progress = useSharedValue(step / total);
 
   useEffect(() => {
@@ -103,19 +108,9 @@ export function OnboardingProgress({ step, total, label }: { step: number; total
 
 /** A single confetti burst for the final celebration. Hidden under Reduce Motion. */
 export function ConfettiBurst({ size = 360 }: { size?: number }) {
-  const reduceMotion = useReducedMotion();
-  const [done, setDone] = useState(false);
-  if (reduceMotion || done) return null;
   return (
     <View pointerEvents="none" style={[StyleSheet.absoluteFill, styles.confetti]} accessible={false} importantForAccessibility="no-hide-descendants">
-      <LottieView
-        source={require('@/assets/animations/momo_confetti.json')}
-        autoPlay
-        loop={false}
-        speed={0.9}
-        onAnimationFinish={() => setDone(true)}
-        style={{ width: size, height: size }}
-      />
+      <MomoAnimation name="confetti-burst" size={size} />
     </View>
   );
 }

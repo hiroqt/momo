@@ -1,6 +1,7 @@
+import { useOnboardingReducedMotion } from '@/components/onboarding/useOnboardingReducedMotion';
 import React, { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
-import Animated, { FadeIn, cubicBezier, useReducedMotion } from 'react-native-reanimated';
+import Animated, { FadeIn, cubicBezier } from 'react-native-reanimated';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppText as Text } from '@/components/common/app-text';
@@ -19,7 +20,7 @@ export default function MomoIntroScreen() {
   const { firstName, studyTrack, highSchoolGrade, collegeYear, collegeCourse, finishMomoIntro } = useOnboarding();
   const { height: viewportHeight } = useWindowDimensions();
   const compactLayout = viewportHeight < 760;
-  const reduceMotion = useReducedMotion();
+  const reduceMotion = useOnboardingReducedMotion();
   const [busy, setBusy] = useState(false);
   const [pressed, setPressed] = useState(false);
   const [completionError, setCompletionError] = useState<string | null>(null);

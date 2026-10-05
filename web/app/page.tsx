@@ -2,7 +2,7 @@
 
 import Image from 'next/image';
 import Icon from './components/Icon';
-import dynamic from 'next/dynamic';
+import MomoMotion from './components/MomoMotion';
 import { AnimatePresence, motion, useReducedMotion, useScroll, useSpring } from 'motion/react';
 import { useEffect, useRef, useState } from 'react';
 import PhoneMockup from './components/PhoneMockup';
@@ -11,11 +11,6 @@ import StudyAnywhere from './components/StudyAnywhere';
 import StoreButtons from './components/StoreButtons';
 import { MomoSounds } from '../lib/momo-sounds';
 import { createMessagePicker } from '../lib/momo-click-messages';
-
-const DotLottieReact = dynamic(
-  () => import('@lottiefiles/dotlottie-react').then((mod) => mod.DotLottieReact),
-  { ssr: false }
-);
 
 const asset = '/assets/';
 const screens = '/screens/';
@@ -75,54 +70,10 @@ const faqs = [
 ];
 
 function StepArt({ kind }: { kind: (typeof steps)[number]['art'] }) {
-  const lottieLayout = { fit: 'contain' as const, align: [0.5, 0.5] as [number, number] };
-
-  if (kind === 'upload') {
-    return (
-      <div className="step-art step-art-upload" aria-hidden="true">
-        <span className="step-art-glow" />
-        <DotLottieReact
-          src="/lottie/Scanner Animation.lottie"
-          loop
-          autoplay
-          speed={0.82}
-          layout={lottieLayout}
-          renderConfig={{ autoResize: true }}
-          className="step-lottie step-lottie-upload"
-        />
-      </div>
-    );
-  }
-  if (kind === 'momo') {
-    return (
-      <div className="step-art step-art-momo" aria-hidden="true">
-        <span className="step-art-glow" />
-        <DotLottieReact
-          src="/lottie/Searching.lottie"
-          loop
-          autoplay
-          speed={0.88}
-          layout={lottieLayout}
-          renderConfig={{ autoResize: true }}
-          className="step-lottie step-lottie-momo"
-        />
-      </div>
-    );
-  }
-  return (
-    <div className="step-art step-art-study" aria-hidden="true">
-      <span className="step-art-glow" />
-      <DotLottieReact
-        src="/lottie/Book.lottie"
-        loop
-        autoplay
-        speed={0.9}
-        layout={lottieLayout}
-        renderConfig={{ autoResize: true }}
-        className="step-lottie step-lottie-study"
-      />
-    </div>
-  );
+  const names = { upload: 'document-scan', momo: 'momo-thinking', study: 'book-loading' } as const;
+  return <div className={`step-art step-art-${kind}`} aria-hidden="true">
+    <MomoMotion name={names[kind]} className={`step-lottie step-lottie-${kind}`} />
+  </div>;
 }
 
 export default function Home() {
@@ -558,7 +509,7 @@ export default function Home() {
                   }
                 }}
               >
-                <Image src={`${asset}momo-full-body-cutout.png`} alt="Momo holding a yellow study notebook" width={1024} height={1536} priority sizes="(max-width: 760px) 220px, 340px" />
+                <MomoMotion name="momo-hero" className="hero-momo-animation" />
               </button>
               {!chatOpen && <button type="button" className="mascot-chat-hint" onClick={() => setChatOpen(true)}>
                 <Icon name="arrowTurnUp" size={26} />

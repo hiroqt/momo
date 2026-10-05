@@ -18,13 +18,15 @@ import {
   AiImage01Icon,
   ArrowLeft02Icon,
   BookOpen01Icon,
-  Camera01Icon,
   SentIcon,
   SparklesIcon,
 } from '@hugeicons/core-free-icons';
 
 import { AppText as Text, AppTextInput as TextInput } from '@/components/common/app-text';
 import { ImageZoomModal } from '@/components/common/ImageZoomModal';
+import { StudyIcon } from '@/components/common/StudyIcon';
+import { MomoAnimation } from '@/components/mascot/MomoAnimation';
+import { canSubmitAiPrompt, buildChatPrompt, getImageErrorMessage, type AssistantMode } from '@/lib/screens/aiWorkspace';
 import { GlassButton } from '@/components/glass';
 import { colors, spacing, typography } from '@/constants/theme';
 import {
@@ -36,8 +38,6 @@ import {
 
 const MOMO_AVATAR = require('@/assets/animations/happy_momo.png');
 
-type AssistantMode = 'ask' | 'study' | 'image';
-
 const MODES: Array<{
   id: AssistantMode;
   label: string;
@@ -46,19 +46,19 @@ const MODES: Array<{
 }> = [
   {
     id: 'ask',
-    label: 'Ask',
+    label: 'Ask Momo',
     icon: AiChat02Icon,
     placeholder: 'Ask anything about your studies...',
   },
   {
     id: 'study',
-    label: 'Create',
+    label: 'Review',
     icon: BookOpen01Icon,
     placeholder: 'Describe the study material you want...',
   },
   {
     id: 'image',
-    label: 'Images',
+    label: 'Visuals',
     icon: AiImage01Icon,
     placeholder: 'Describe the image you want to create...',
   },
@@ -77,15 +77,17 @@ export default function AiScreen() {
   const [prompt, setPrompt] = useState('');
   const [imageMode, setImageMode] = useState<ImageGenerationMode>('image');
   const [aspectRatio, setAspectRatio] = useState<ImageAspectRatio>('1:1');
+  const [resultRatio, setResultRatio] = useState(1);
   const [generatedImage, setGeneratedImage] = useState<GenerateImageResponse | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [showImagePreview, setShowImagePreview] = useState(false);
 
   const selectedMode = useMemo(() => MODES.find((item) => item.id === mode) ?? MODES[0], [mode]);
-  const canSubmit = prompt.trim().length > 1 && !isGenerating;
+  const canSubmit = canSubmitAiPrompt(prompt, isGenerating);
 
   const chooseMode = (nextMode: AssistantMode) => {
+    if (isGenerating) return;
     setMode(nextMode);
     setErrorMessage(null);
     if (nextMode !== 'image') setGeneratedImage(null);
@@ -93,17 +95,17 @@ export default function AiScreen() {
 
   const handleSubmit = async () => {
     const cleanPrompt = prompt.trim();
-    if (!cleanPrompt || isGenerating) return;
+    if (!canSubmitAiPrompt(cleanPrompt, isGenerating)) return;
 
     if (mode === 'ask') {
-      router.push({ pathname: '/chat', params: { initialPrompt: cleanPrompt } });
+      router.push({ pathname: '/chat', params: { initialPrompt: buildChatPrompt('ask', cleanPrompt) } });
       return;
     }
 
     if (mode === 'study') {
       router.push({
         pathname: '/chat',
-        params: { initialPrompt: `Create grounded study material from my notes: ${cleanPrompt}` },
+        params: { initialPrompt: buildChatPrompt('study', cleanPrompt) },
       });
       return;
     }
@@ -116,10 +118,11 @@ export default function AiScreen() {
         mode: imageMode,
         aspect_ratio: aspectRatio,
       });
+      const [width, height] = aspectRatio.split(':').map(Number);
+      setResultRatio(width / height);
       setGeneratedImage(result);
     } catch (error) {
-      const message = error instanceof Error ? error.message.replace(/^\[[^\]]+\]\s*/, '') : '';
-      setErrorMessage(message || 'Momo could not create that image right now. Please try again.');
+      setErrorMessage(getImageErrorMessage(error));
     } finally {
       setIsGenerating(false);
     }
@@ -137,6 +140,7 @@ export default function AiScreen() {
   return (
     <KeyboardAvoidingView
       style={styles.screen}
+      testID="ai-screen"
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <View style={[styles.header, { paddingTop: insets.top + spacing[8] }]}>
@@ -155,11 +159,10 @@ export default function AiScreen() {
         <View style={styles.headerIdentity}>
           <View style={styles.avatarWrap}>
             <Image source={MOMO_AVATAR} style={styles.avatar} resizeMode="contain" />
-            <View style={styles.onlineDot} />
           </View>
           <View>
             <Text style={styles.headerTitle}>Momo AI</Text>
-            <Text style={styles.headerSubtitle}>Ask, create, and learn</Text>
+            <Text style={styles.headerSubtitle}>Your study companion</Text>
           </View>
         </View>
 
@@ -179,11 +182,17 @@ export default function AiScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.intro}>
-          <Text style={styles.eyebrow}>YOUR AI WORKSPACE</Text>
-          <Text style={styles.heroTitle}>What can I help you with?</Text>
+          <View style={styles.heroTop}>
+            <View style={styles.heroCopy}>
+          <Text style={styles.eyebrow}>STUDY WITH MOMO</Text>
+          <Text style={styles.heroTitle}>{'A little help.\nA lot more clarity.'}</Text>
           <Text style={styles.heroSubtitle}>
-            Chat with your notes, create study materials, solve problems, or generate an original image.
+            Understand your notes, practice recall, and work through tricky problems.
           </Text>
+            </View>
+            <MomoAnimation name={isGenerating ? 'momo-thinking' : mode === 'study' ? 'momo-reading' : 'momo-listen'} size={112} />
+          </View>
+          <View style={styles.sourcePill}><HugeiconsIcon icon={BookOpen01Icon} size={14} color={colors.primary} /><Text style={styles.sourcePillText}>Your notes lead the way</Text></View>
         </View>
 
         <View style={styles.modeTabs}>
@@ -192,14 +201,16 @@ export default function AiScreen() {
             return (
               <Pressable
                 key={item.id}
+                testID={`ai-mode-${item.id}`}
                 style={({ pressed }) => [
                   styles.modeTab,
                   selected && styles.modeTabSelected,
                   pressed && styles.pressed,
                 ]}
                 onPress={() => chooseMode(item.id)}
+                disabled={isGenerating}
                 accessibilityRole="button"
-                accessibilityState={{ selected }}
+                accessibilityState={{ selected, disabled: isGenerating }}
               >
                 <HugeiconsIcon
                   icon={item.icon}
@@ -224,6 +235,7 @@ export default function AiScreen() {
                     key={item}
                     style={[styles.segment, selected && styles.segmentSelected]}
                     onPress={() => setImageMode(item)}
+                    disabled={isGenerating}
                     accessibilityRole="button"
                     accessibilityState={{ selected }}
                   >
@@ -242,6 +254,8 @@ export default function AiScreen() {
                     key={ratio.value}
                     style={[styles.ratioChip, selected && styles.ratioChipSelected]}
                     onPress={() => setAspectRatio(ratio.value)}
+                    disabled={isGenerating}
+                    accessibilityRole="button" accessibilityState={{ selected }} accessibilityLabel={`${ratio.label} ${ratio.value}`}
                   >
                     <Text style={[styles.ratioText, selected && styles.ratioTextSelected]}>
                       {ratio.label} · {ratio.value}
@@ -262,47 +276,51 @@ export default function AiScreen() {
                   {generatedImage.mode === 'image' ? 'Your image' : 'Your study diagram'}
                 </Text>
               </View>
-              <TouchableOpacity onPress={() => setGeneratedImage(null)}>
+              <TouchableOpacity style={styles.clearResultButton} accessibilityRole="button" accessibilityLabel="Clear generated image" onPress={() => setGeneratedImage(null)}>
                 <Text style={styles.clearResultText}>Clear</Text>
               </TouchableOpacity>
             </View>
             <TouchableOpacity
-              style={styles.imageCard}
+              style={[styles.imageCard, { aspectRatio: resultRatio }]}
               onPress={() => setShowImagePreview(true)}
               activeOpacity={0.9}
               accessibilityRole="imagebutton"
               accessibilityLabel="Open generated image preview"
             >
-              <Image source={{ uri: imageUri }} style={styles.generatedImage} resizeMode="cover" />
+              <Image source={{ uri: imageUri }} style={styles.generatedImage} resizeMode="contain" />
             </TouchableOpacity>
             <Text style={styles.resultHint}>Tap the image to view it full screen.</Text>
           </View>
         ) : (
           <View style={styles.suggestionSection}>
-            <Text style={styles.suggestionHeading}>Try asking Momo</Text>
+            <Text style={styles.suggestionHeading}>Choose a starting point</Text>
             <View style={styles.suggestionList}>
               <SuggestionRow
-                icon={AiChat02Icon}
+                icon="brain"
+                testID="ai-suggestion-explain"
                 title="Explain a difficult concept"
                 detail="Get a clear answer grounded in your notes"
                 onPress={() => useSuggestion('ask', 'Explain the hardest concept in my uploaded notes in simple terms.')}
               />
               <SuggestionRow
-                icon={BookOpen01Icon}
+                icon="cards"
+                testID="ai-suggestion-review"
                 title="Build a focused reviewer"
                 detail="Turn source material into active recall"
                 onPress={() => useSuggestion('study', 'Make a concise reviewer for my next exam.')}
               />
               <SuggestionRow
-                icon={Camera01Icon}
+                icon="camera"
+                testID="ai-suggestion-solve"
                 title="Solve a problem"
                 detail="Scan or type a problem for step-by-step help"
                 onPress={() => router.push('/math/solve')}
               />
               <SuggestionRow
-                icon={AiImage01Icon}
+                icon="book"
+                testID="ai-suggestion-image"
                 title="Generate an original image"
-                detail="Create artwork, scenes, or a structured diagram"
+                detail="Make a visual for your study space"
                 onPress={() => useSuggestion('image', 'A calm futuristic library designed for focused studying')}
               />
             </View>
@@ -310,7 +328,7 @@ export default function AiScreen() {
         )}
 
         {errorMessage ? (
-          <View style={styles.errorBanner}>
+          <View style={styles.errorBanner} accessibilityLiveRegion="polite">
             <Text style={styles.errorTitle}>Image generation unavailable</Text>
             <Text style={styles.errorText}>{errorMessage}</Text>
           </View>
@@ -326,6 +344,7 @@ export default function AiScreen() {
         <View style={styles.composer}>
           <TextInput
             style={styles.input}
+            testID="ai-prompt"
             value={prompt}
             onChangeText={setPrompt}
             placeholder={selectedMode.placeholder}
@@ -337,6 +356,7 @@ export default function AiScreen() {
             accessibilityLabel={selectedMode.placeholder}
           />
           <GlassButton
+            testID="ai-submit"
             variant={canSubmit ? 'primary' : 'subtle'}
             size="icon"
             radius={20}
@@ -381,21 +401,25 @@ function SuggestionRow({
   icon,
   title,
   detail,
+  testID,
   onPress,
 }: {
-  icon: typeof AiChat02Icon;
+  icon: 'brain' | 'cards' | 'camera' | 'book';
   title: string;
   detail: string;
+  testID: string;
   onPress: () => void;
 }) {
   return (
     <Pressable
       style={({ pressed }) => [styles.suggestionRow, pressed && styles.pressed]}
       onPress={onPress}
+      testID={testID}
+      accessibilityLabel={`${title}. ${detail}`}
       accessibilityRole="button"
     >
       <View style={styles.suggestionIcon}>
-        <HugeiconsIcon icon={icon} size={20} color={colors.primary} />
+        <StudyIcon name={icon} size={48} />
       </View>
       <View style={styles.suggestionTextColumn}>
         <Text style={styles.suggestionTitle}>{title}</Text>
@@ -417,21 +441,10 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.border,
   },
-  headerButtonContent: { width: 38, height: 38 },
+  headerButtonContent: { width: 44, height: 44 },
   headerIdentity: { flex: 1, flexDirection: 'row', alignItems: 'center', marginLeft: spacing[10] },
   avatarWrap: { width: 42, height: 42, marginRight: spacing[10], position: 'relative' },
   avatar: { width: 42, height: 42 },
-  onlineDot: {
-    position: 'absolute',
-    right: 0,
-    bottom: 0,
-    width: 11,
-    height: 11,
-    borderRadius: 6,
-    backgroundColor: colors.successAccent,
-    borderWidth: 2,
-    borderColor: colors.surface,
-  },
   headerTitle: { fontSize: typography.fontSize[17], fontWeight: typography.fontWeight.bold, color: colors.text },
   headerSubtitle: { fontSize: typography.fontSize[11], color: colors.textSecondary, marginTop: spacing[1] },
   aiBadge: {
@@ -446,7 +459,11 @@ const styles = StyleSheet.create({
   aiBadgeText: { fontSize: typography.fontSize[11], fontWeight: typography.fontWeight.bold, color: colors.primary },
   scroll: { flex: 1 },
   scrollContent: { width: '100%', maxWidth: 760, alignSelf: 'center', paddingHorizontal: spacing[18] },
-  intro: { paddingTop: spacing[32], paddingBottom: spacing[24] },
+  intro: { padding: spacing[20], marginTop: spacing[24], marginBottom: spacing[20], backgroundColor: colors.primarySoft, borderRadius: 24, borderCurve: 'continuous', borderWidth: 1, borderColor: colors.primaryBorder },
+  heroTop: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  heroCopy: { flex: 1 },
+  sourcePill: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 16 },
+  sourcePillText: { fontSize: 11, fontWeight: '600', color: colors.primary },
   eyebrow: {
     fontSize: typography.fontSize[11],
     fontWeight: typography.fontWeight.bold,
@@ -454,7 +471,7 @@ const styles = StyleSheet.create({
     color: colors.primary,
     marginBottom: spacing[6],
   },
-  heroTitle: { fontSize: typography.fontSize[28], fontWeight: typography.fontWeight.extraBold, color: colors.text, letterSpacing: -0.5 },
+  heroTitle: { fontSize: typography.fontSize[24], fontWeight: typography.fontWeight.extraBold, color: colors.text, letterSpacing: -0.5 },
   heroSubtitle: { fontSize: typography.fontSize[14], lineHeight: 21, color: colors.textSecondary, marginTop: spacing[8] },
   modeTabs: { flexDirection: 'row', gap: spacing[8], marginBottom: spacing[16] },
   modeTab: {
@@ -475,20 +492,20 @@ const styles = StyleSheet.create({
   pressed: { opacity: 0.7 },
   imageControls: { gap: spacing[12], marginBottom: spacing[20] },
   segmentedControl: { flexDirection: 'row', backgroundColor: colors.surfaceMuted, borderRadius: 12, padding: spacing[4] },
-  segment: { flex: 1, alignItems: 'center', paddingVertical: spacing[8], borderRadius: 9 },
+  segment: { minHeight: 44, justifyContent: 'center', flex: 1, alignItems: 'center', paddingVertical: spacing[8], borderRadius: 9 },
   segmentSelected: { backgroundColor: colors.surface },
   segmentText: { fontSize: typography.fontSize[12], fontWeight: typography.fontWeight.semiBold, color: colors.textMuted },
   segmentTextSelected: { color: colors.text },
   ratioRow: { gap: spacing[8] },
-  ratioChip: { paddingHorizontal: spacing[12], paddingVertical: spacing[7], borderRadius: 999, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface },
+  ratioChip: { minHeight: 44, justifyContent: 'center', paddingHorizontal: spacing[12], paddingVertical: spacing[7], borderRadius: 999, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface },
   ratioChipSelected: { borderColor: colors.primary, backgroundColor: colors.primarySoft },
   ratioText: { fontSize: typography.fontSize[11], color: colors.textSecondary },
   ratioTextSelected: { color: colors.primary, fontWeight: typography.fontWeight.semiBold },
   suggestionSection: { marginTop: spacing[8] },
   suggestionHeading: { fontSize: typography.fontSize[14], fontWeight: typography.fontWeight.bold, color: colors.text, marginBottom: spacing[10] },
-  suggestionList: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 18, overflow: 'hidden' },
-  suggestionRow: { minHeight: 76, flexDirection: 'row', alignItems: 'center', paddingHorizontal: spacing[16], paddingVertical: spacing[12], borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
-  suggestionIcon: { width: 40, height: 40, borderRadius: 12, backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center', marginRight: spacing[12] },
+  suggestionList: { gap: spacing[10] },
+  suggestionRow: { backgroundColor: colors.surface, borderRadius: 20, borderCurve: 'continuous', borderWidth: 1, borderColor: colors.border, minHeight: 92, flexDirection: 'row', alignItems: 'center', paddingHorizontal: spacing[16], paddingVertical: spacing[12], },
+  suggestionIcon: { width: 52, height: 52, borderRadius: 16, backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center', marginRight: spacing[12] },
   suggestionTextColumn: { flex: 1 },
   suggestionTitle: { fontSize: typography.fontSize[14], fontWeight: typography.fontWeight.semiBold, color: colors.text },
   suggestionDetail: { fontSize: typography.fontSize[12], lineHeight: 17, color: colors.textSecondary, marginTop: spacing[2] },
@@ -496,6 +513,7 @@ const styles = StyleSheet.create({
   resultHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing[12] },
   resultEyebrow: { fontSize: typography.fontSize[10], fontWeight: typography.fontWeight.bold, color: colors.primary, letterSpacing: typography.letterSpacing[0.6] },
   resultTitle: { fontSize: typography.fontSize[20], fontWeight: typography.fontWeight.bold, color: colors.text, marginTop: spacing[2] },
+  clearResultButton: { minHeight: 44, minWidth: 44, justifyContent: 'center' },
   clearResultText: { fontSize: typography.fontSize[13], fontWeight: typography.fontWeight.semiBold, color: colors.primary },
   imageCard: { width: '100%', aspectRatio: 1, borderRadius: 18, overflow: 'hidden', backgroundColor: colors.surfaceMuted, borderWidth: 1, borderColor: colors.border },
   generatedImage: { width: '100%', height: '100%' },

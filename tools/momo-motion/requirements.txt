@@ -1,0 +1,2 @@
+Pillow==11.3.0
+svgpathtools==1.7.2

@@ -1,9 +1,13 @@
+import type { ShopMotionName } from '@/lib/animations/shopMotion';
 import { MomoAnimation } from '@/components/mascot/MomoAnimation';
-import React, { useState } from 'react';
+import { StudyIcon } from '@/components/common/StudyIcon';
+import { formatBalance, tradeEligibility } from '@/utils/shopRules';
+import React, { useState, useRef } from 'react';
 import {
   View,
+  ScrollView,
+  useWindowDimensions,
   Modal,
-  Image,
   StyleSheet,
   TouchableOpacity,
   Platform,
@@ -35,33 +39,29 @@ import {
   AlertCircleIcon,
 } from '@hugeicons/core-free-icons';
 
-function formatBalance(value: number): string {
-  if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}m`;
-  if (value >= 10_000) return `${(value / 1_000).toFixed(1)}k`;
-  return value.toLocaleString();
-}
-
 const CREDIT_PACKS = [
-  { title: 'Little Pouch', reward: '100 credits', subtext: 'For a few hints or explanations', price: '$0.99', amount: 100, icon: Coins01Icon, iconColor: '#B45309', iconBgColor: '#FEF3C7', accentColor: '#92400E' },
-  { title: "Momo's Backpack", reward: '500 credits', subtext: 'For regular study sessions', price: '$3.99', amount: 500, icon: Coins02Icon, iconColor: colors.primary, iconBgColor: colors.primarySoft, accentColor: colors.primary },
-  { title: 'Treasure Vault', reward: '1,500 credits', subtext: 'The lowest price per credit', price: '$9.99', amount: 1500, badgeText: 'BEST VALUE', icon: Diamond01Icon, iconColor: '#0284C7', iconBgColor: '#E0F2FE', accentColor: '#0369A1' },
+  { art: 'shop-credit-pouch' as const, title: 'Little Pouch', reward: '100 credits', subtext: 'For a few hints or explanations', price: '$0.99', amount: 100, icon: Coins01Icon, iconColor: '#B45309', iconBgColor: '#FEF3C7', accentColor: '#92400E' },
+  { art: 'shop-credit-backpack' as const, title: "Momo's Backpack", reward: '500 credits', subtext: 'For regular study sessions', price: '$3.99', amount: 500, icon: Coins02Icon, iconColor: colors.primary, iconBgColor: colors.primarySoft, accentColor: colors.primary },
+  { art: 'shop-credit-vault' as const, title: 'Treasure Vault', reward: '1,500 credits', subtext: 'The lowest price per credit', price: '$9.99', amount: 1500, badgeText: 'BEST VALUE', icon: Diamond01Icon, iconColor: '#0284C7', iconBgColor: '#E0F2FE', accentColor: '#0369A1' },
 ];
 
 const LIFE_PACKS = [
-  { title: 'Single Heart', reward: '1 extra life', subtext: 'One more try in a quiz', price: '$0.99', amount: 1, icon: HeartIcon, iconColor: '#DC2626', iconBgColor: '#FEE2E2', accentColor: '#B91C1C' },
-  { title: 'High Five', reward: '5 extra lives', subtext: 'A few more chances to practice', price: '$2.99', amount: 5, icon: HeartPulseIcon, iconColor: '#DC2626', iconBgColor: '#FEE2E2', accentColor: '#B91C1C' },
-  { title: 'Full Bowl', reward: '15 extra lives', subtext: 'The lowest price per life', price: '$4.99', amount: 15, badgeText: 'BEST VALUE', icon: HeartPlusIcon, iconColor: '#991B1B', iconBgColor: '#FEE2E2', accentColor: '#991B1B' },
+  { art: 'shop-heart-single' as const, title: 'Single Heart', reward: '1 extra life', subtext: 'One more try in a quiz', price: '$0.99', amount: 1, icon: HeartIcon, iconColor: '#DC2626', iconBgColor: '#FEE2E2', accentColor: '#B91C1C' },
+  { art: 'shop-heart-five' as const, title: 'High Five', reward: '5 extra lives', subtext: 'A few more chances to practice', price: '$2.99', amount: 5, icon: HeartPulseIcon, iconColor: '#DC2626', iconBgColor: '#FEE2E2', accentColor: '#B91C1C' },
+  { art: 'shop-heart-bowl' as const, title: 'Full Bowl', reward: '15 extra lives', subtext: 'The lowest price per life', price: '$4.99', amount: 15, badgeText: 'BEST VALUE', icon: HeartPlusIcon, iconColor: '#991B1B', iconBgColor: '#FEE2E2', accentColor: '#991B1B' },
 ];
 
 const XP_TRADES = [
-  { title: 'Quick Hint', reward: '50 credits', subtext: 'Spend XP on a little help', xpCost: 500, amount: 50, type: 'credit' as const, icon: BulbIcon, iconColor: '#B45309', iconBgColor: '#FEF3C7' },
-  { title: "Momo's Special", reward: '150 credits', subtext: 'More credits per XP', xpCost: 1200, amount: 150, type: 'credit' as const, icon: SparklesIcon, iconColor: colors.primary, iconBgColor: colors.primarySoft },
-  { title: 'Single Life', reward: '1 extra life', subtext: 'Restore one quiz life', xpCost: 800, amount: 1, type: 'heart' as const, icon: HeartIcon, iconColor: '#DC2626', iconBgColor: '#FEE2E2' },
-  { title: 'Five Lives', reward: '5 extra lives', subtext: 'More lives per XP', xpCost: 3500, amount: 5, type: 'heart' as const, icon: HeartPulseIcon, iconColor: '#DC2626', iconBgColor: '#FEE2E2' },
+  { art: 'shop-hint-credits' as const, title: 'Quick Hint', reward: '50 credits', subtext: 'Spend XP on a little help', xpCost: 500, amount: 50, type: 'credit' as const, icon: BulbIcon, iconColor: '#B45309', iconBgColor: '#FEF3C7' },
+  { art: 'shop-special-credits' as const, title: "Momo's Special", reward: '150 credits', subtext: 'More credits per XP', xpCost: 1200, amount: 150, type: 'credit' as const, icon: SparklesIcon, iconColor: colors.primary, iconBgColor: colors.primarySoft },
+  { art: 'shop-heart-single' as const, title: 'Single Life', reward: '1 extra life', subtext: 'Restore one quiz life', xpCost: 800, amount: 1, type: 'heart' as const, icon: HeartIcon, iconColor: '#DC2626', iconBgColor: '#FEE2E2' },
+  { art: 'shop-heart-five' as const, title: 'Five Lives', reward: '5 extra lives', subtext: 'More lives per XP', xpCost: 3500, amount: 5, type: 'heart' as const, icon: HeartPulseIcon, iconColor: '#DC2626', iconBgColor: '#FEE2E2' },
 ];
 
 export default function ShopScreen({ isTab = false }: { isTab?: boolean } = {}) {
   const router = useRouter();
+  const actionPending = useRef(false);
+  const pendingSuccess = useRef(false);
   const insets = useSafeAreaInsets();
 
   const [selectedCategory, setSelectedCategory] = useState<'credits' | 'lives' | 'xp'>('credits');
@@ -89,14 +89,33 @@ export default function ShopScreen({ isTab = false }: { isTab?: boolean } = {}) 
 
   const { credits, xp, hearts, addCredits, addHeart, convertXPToCredits, convertXPToHearts } = useCredits();
 
+  const selectedPurchaseArt: ShopMotionName = purchaseType === 'credit'
+    ? purchaseAmount === 100 ? 'shop-credit-pouch' : purchaseAmount === 500 ? 'shop-credit-backpack' : 'shop-credit-vault'
+    : purchaseAmount === 1 ? 'shop-heart-single' : purchaseAmount === 5 ? 'shop-heart-five' : 'shop-heart-bowl';
+
   const handlePurchase = (amount: number, price: string, type: 'credit' | 'heart') => {
+    actionPending.current = false;
     setPurchaseAmount(amount);
     setPurchasePrice(price);
     setPurchaseType(type);
     setShowPurchaseModal(true);
   };
 
+  const openSuccess = () => {
+    // iOS waits for native dismissal before presenting the next modal.
+    if (Platform.OS === 'ios') pendingSuccess.current = true;
+    else setShowSuccessModal(true);
+  };
+  const finishConfirmationDismissal = () => {
+    if (pendingSuccess.current) {
+      pendingSuccess.current = false;
+      setShowSuccessModal(true);
+    }
+  };
+
   const confirmPurchase = () => {
+    if (actionPending.current) return;
+    actionPending.current = true;
     setShowPurchaseModal(false);
     if (purchaseType === 'credit') {
       addCredits(purchaseAmount);
@@ -105,13 +124,12 @@ export default function ShopScreen({ isTab = false }: { isTab?: boolean } = {}) 
     }
     setSuccessAmount(purchaseAmount);
     setSuccessType(purchaseType);
-    setTimeout(() => {
-      setShowSuccessModal(true);
-    }, 350);
+    openSuccess();
   };
 
   const handleExchange = (xpCost: number, rewardAmount: number, type: 'credit' | 'heart') => {
-    if (xp < xpCost) {
+    actionPending.current = false;
+    if (!tradeEligibility(xp, xpCost).eligible) {
       setRequiredXp(xpCost);
       setShowNotEnoughXpModal(true);
       return;
@@ -123,6 +141,8 @@ export default function ShopScreen({ isTab = false }: { isTab?: boolean } = {}) 
   };
 
   const confirmTrade = () => {
+    if (actionPending.current) return;
+    actionPending.current = true;
     setShowTradeModal(false);
     let success = false;
     if (tradeType === 'credit') {
@@ -134,9 +154,7 @@ export default function ShopScreen({ isTab = false }: { isTab?: boolean } = {}) 
     if (success) {
       setSuccessAmount(tradeRewardAmount);
       setSuccessType(tradeType);
-      setTimeout(() => {
-        setShowSuccessModal(true);
-      }, 350);
+      openSuccess();
     } else {
       setRequiredXp(tradeXpCost);
       setShowNotEnoughXpModal(true);
@@ -150,7 +168,7 @@ export default function ShopScreen({ isTab = false }: { isTab?: boolean } = {}) 
     : Math.max(insets.top, spacing[16]);
 
   return (
-    <View style={styles.screen}>
+    <View testID="shop-screen" style={styles.screen}>
       <View style={[styles.headerBar, { paddingTop: headerTopPadding }]}>
         <View style={styles.headerLeftCol}>
           {!isTab && (
@@ -185,17 +203,17 @@ export default function ShopScreen({ isTab = false }: { isTab?: boolean } = {}) 
           <View style={styles.walletGrid}>
             <BalanceTile icon={Coins01Icon} label="Credits" value={formatBalance(credits)} color="#B45309" background="#FFFBEB" />
             <BalanceTile icon={HeartIcon} label="Lives" value={formatBalance(hearts)} color="#DC2626" background="#FEF2F2" />
-            <BalanceTile icon={StarIcon} label="Study XP" value={formatBalance(xp)} color="#7C3AED" background="#F5F3FF" />
+            <BalanceTile art="shop-xp-badge" icon={StarIcon} label="Study XP" value={formatBalance(xp)} color="#7C3AED" background="#F5F3FF" />
           </View>
         </View>
 
         <View style={styles.featuredCard}>
           <View style={styles.featuredTextGroup}>
-            <Text style={styles.featuredEyebrow}>SHOP PREVIEW</Text>
-            <Text style={styles.featuredTitle}>Make every study session count</Text>
+            <Text style={styles.featuredEyebrow}>STUDY SUPPORT</Text>
+            <Text style={styles.featuredTitle}>A little help, more progress</Text>
             <Text style={styles.featuredDesc}>Get help with a tough question, add quiz lives, or use the XP you earned.</Text>
           </View>
-          <MomoAnimation name="momo-proud" style={styles.featuredImage} />
+          <MomoAnimation name="momo-proud" active={false} style={styles.featuredImage} />
         </View>
 
         <Text style={styles.catalogTitle}>What do you need?</Text>
@@ -211,6 +229,7 @@ export default function ShopScreen({ isTab = false }: { isTab?: boolean } = {}) 
             return (
               <TouchableOpacity
                 key={category.id}
+                testID={`shop-category-${category.id}`}
                 style={[styles.categoryTab, isSelected && styles.categoryTabSelected]}
                 onPress={() => setSelectedCategory(category.id)}
                 accessibilityRole="tab"
@@ -276,11 +295,12 @@ export default function ShopScreen({ isTab = false }: { isTab?: boolean } = {}) 
         visible={showPurchaseModal}
         transparent={true}
         animationType="fade"
+        onDismiss={finishConfirmationDismissal}
         onRequestClose={() => setShowPurchaseModal(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            {showPurchaseModal && <MomoAnimation name="momo-proud" active={showPurchaseModal} style={styles.modalImage} />}
+          <ScrollView style={styles.modalScroll} contentContainerStyle={styles.modalContent} accessibilityViewIsModal bounces={false}>
+            {showPurchaseModal && <MomoAnimation name={selectedPurchaseArt} active={showPurchaseModal} style={styles.modalImage} replayKey={`${purchaseType}:${purchaseAmount}`} />}
             <Text style={styles.modalTitle}>Preview this pack</Text>
             <Text style={styles.modalDesc}>
               Add a demo pack of{' '}
@@ -309,6 +329,8 @@ export default function ShopScreen({ isTab = false }: { isTab?: boolean } = {}) 
             <View style={styles.modalActionsRow}>
               <TouchableOpacity 
                 style={styles.modalCancelBtn}
+                testID="shop-cancel-purchase"
+                accessibilityRole="button" accessibilityLabel="Cancel demo pack"
                 onPress={() => setShowPurchaseModal(false)}
                 activeOpacity={0.8}
               >
@@ -316,6 +338,8 @@ export default function ShopScreen({ isTab = false }: { isTab?: boolean } = {}) 
               </TouchableOpacity>
               <TouchableOpacity 
                 style={styles.modalPurchaseBtnSecondary}
+                testID="shop-confirm-purchase"
+                accessibilityRole="button" accessibilityLabel="Add demo pack, no payment"
                 onPress={confirmPurchase}
                 activeOpacity={0.8}
               >
@@ -323,7 +347,7 @@ export default function ShopScreen({ isTab = false }: { isTab?: boolean } = {}) 
                 <Text style={styles.modalPurchaseText}>Add demo pack</Text>
               </TouchableOpacity>
             </View>
-          </View>
+          </ScrollView>
         </View>
       </Modal>
 
@@ -332,15 +356,12 @@ export default function ShopScreen({ isTab = false }: { isTab?: boolean } = {}) 
         visible={showTradeModal}
         transparent={true}
         animationType="fade"
+        onDismiss={finishConfirmationDismissal}
         onRequestClose={() => setShowTradeModal(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Image 
-              source={require('../assets/animations/xp_momo.png')} 
-              style={styles.modalImage} 
-              resizeMode="contain" 
-            />
+          <ScrollView style={styles.modalScroll} contentContainerStyle={styles.modalContent} accessibilityViewIsModal bounces={false}>
+            {showTradeModal && <MomoAnimation name={tradeType === 'credit' ? 'shop-exchange-credits' : 'shop-exchange-hearts'} style={styles.modalImage} replayKey={`${tradeType}:${tradeRewardAmount}`} />}
             <Text style={styles.modalTitle}>Confirm XP Exchange</Text>
             <Text style={styles.modalDesc}>
               Exchange your earned study XP for valuable in-app study boosters.
@@ -384,6 +405,8 @@ export default function ShopScreen({ isTab = false }: { isTab?: boolean } = {}) 
             <View style={styles.modalActionsRow}>
               <TouchableOpacity 
                 style={styles.modalCancelBtn}
+                testID="shop-cancel-trade"
+                accessibilityRole="button" accessibilityLabel="Keep my XP"
                 onPress={() => setShowTradeModal(false)}
                 activeOpacity={0.8}
               >
@@ -391,6 +414,8 @@ export default function ShopScreen({ isTab = false }: { isTab?: boolean } = {}) 
               </TouchableOpacity>
               <TouchableOpacity 
                 style={[styles.modalPurchaseBtnSecondary, { backgroundColor: '#D97706' }]}
+                testID="shop-confirm-trade"
+                accessibilityRole="button" accessibilityLabel={`Exchange ${tradeXpCost} XP for ${tradeRewardAmount} ${tradeType === "credit" ? "credits" : "lives"}`}
                 onPress={confirmTrade}
                 activeOpacity={0.8}
               >
@@ -398,7 +423,7 @@ export default function ShopScreen({ isTab = false }: { isTab?: boolean } = {}) 
                 <Text style={styles.modalPurchaseText}>Trade Now</Text>
               </TouchableOpacity>
             </View>
-          </View>
+          </ScrollView>
         </View>
       </Modal>
 
@@ -410,7 +435,7 @@ export default function ShopScreen({ isTab = false }: { isTab?: boolean } = {}) 
         onRequestClose={() => setShowSuccessModal(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
+          <ScrollView style={styles.modalScroll} contentContainerStyle={styles.modalContent} accessibilityViewIsModal bounces={false}>
             {showSuccessModal && <MomoAnimation name="momo-cheer" active={showSuccessModal} style={styles.modalImage} />}
             {showSuccessModal && <MomoAnimation name={successType === 'credit' ? 'coin-reward' : 'heart-refill'} size={72} />}
             <View style={styles.successHalo}>
@@ -427,12 +452,14 @@ export default function ShopScreen({ isTab = false }: { isTab?: boolean } = {}) 
             </Text>
             <TouchableOpacity 
               style={styles.modalPurchaseBtn}
+              testID="shop-success-done"
+              accessibilityRole="button" accessibilityLabel="Done, return to shop"
               onPress={() => setShowSuccessModal(false)}
               activeOpacity={0.8}
             >
               <Text style={styles.modalPurchaseText}>Awesome</Text>
             </TouchableOpacity>
-          </View>
+          </ScrollView>
         </View>
       </Modal>
 
@@ -444,12 +471,8 @@ export default function ShopScreen({ isTab = false }: { isTab?: boolean } = {}) 
         onRequestClose={() => setShowNotEnoughXpModal(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Image 
-              source={require('../assets/animations/no_credits_momo.png')} 
-              style={styles.modalImage} 
-              resizeMode="contain" 
-            />
+          <ScrollView style={styles.modalScroll} contentContainerStyle={styles.modalContent} accessibilityViewIsModal bounces={false}>
+            {showNotEnoughXpModal && <MomoAnimation name="shop-xp-needed" style={styles.modalImage} replayKey={requiredXp} />}
             <View style={[styles.successHalo, { backgroundColor: '#FEF3C7' }]}>
               <HugeiconsIcon icon={AlertCircleIcon} size={20} color="#D97706" />
               <Text style={[styles.successBadgeText, { color: '#B45309' }]}>More XP Needed</Text>
@@ -480,28 +503,31 @@ export default function ShopScreen({ isTab = false }: { isTab?: boolean } = {}) 
 
             <TouchableOpacity 
               style={[styles.modalPurchaseBtn, { backgroundColor: colors.primary }]}
-              onPress={() => setShowNotEnoughXpModal(false)}
+              testID="shop-continue-studying"
+              accessibilityRole="button" accessibilityLabel="Continue studying"
+              onPress={() => { setShowNotEnoughXpModal(false); router.push("/(tabs)"); }}
               activeOpacity={0.8}
             >
               <Text style={styles.modalPurchaseText}>Continue Studying</Text>
             </TouchableOpacity>
-          </View>
+          </ScrollView>
         </View>
       </Modal>
     </View>
   );
 }
 
-function BalanceTile({ icon, label, value, color, background }: {
+function BalanceTile({ art, icon, label, value, color, background }: {
   icon: any;
+  art?: ShopMotionName;
   label: string;
   value: string;
   color: string;
   background: string;
 }) {
   return (
-    <View style={[styles.balanceTile, { backgroundColor: background }]}>
-      <HugeiconsIcon icon={icon} size={18} color={color} />
+    <View accessible accessibilityLabel={`${label}, ${value}`} style={[styles.balanceTile, { backgroundColor: background }]}>
+      <StudyIcon name={label === "Credits" ? "coin" : label === "Lives" ? "heart" : "streak"} size={32} />
       <Text style={styles.balanceValue} numberOfLines={1}>{value}</Text>
       <Text style={styles.balanceLabel} numberOfLines={1}>{label}</Text>
     </View>
@@ -535,6 +561,7 @@ function SectionHeader({
 }
 
 interface PackageCardProps {
+  art: ShopMotionName;
   title: string;
   reward: string;
   subtext: string;
@@ -548,6 +575,7 @@ interface PackageCardProps {
 }
 
 function PackageCard({
+  art,
   title,
   reward,
   subtext,
@@ -560,9 +588,12 @@ function PackageCard({
   onPress,
 }: PackageCardProps) {
   const isPadDevice = isIpad();
+  const { width } = useWindowDimensions();
+  const artSize = isPadDevice ? 80 : width < 360 ? 52 : 64;
 
   return (
     <PlatformPressable
+      testID={`shop-pack-${art}`}
       style={[styles.card, badgeText ? styles.cardHighlight : null]}
       onPress={onPress}
       accessibilityRole="button"
@@ -575,8 +606,8 @@ function PackageCard({
         </View>
       )}
       <View style={styles.cardBody}>
-        <View style={[styles.iconSquircle, { backgroundColor: iconBgColor }]}>
-          <HugeiconsIcon icon={icon} size={isPadDevice ? 28 : 22} color={iconColor} />
+        <View style={[styles.productArt, { width: artSize }]}>
+          <MomoAnimation name={art} size={artSize} active={false} replayKey={art} />
         </View>
         <View style={styles.cardInfo}>
           <Text style={styles.cardTitle} numberOfLines={1}>{title}</Text>
@@ -592,6 +623,7 @@ function PackageCard({
 }
 
 interface ExchangeCardProps {
+  art: ShopMotionName;
   title: string;
   reward: string;
   subtext: string;
@@ -604,6 +636,7 @@ interface ExchangeCardProps {
 }
 
 function ExchangeCard({
+  art,
   title,
   reward,
   subtext,
@@ -615,12 +648,15 @@ function ExchangeCard({
   onPress,
 }: ExchangeCardProps) {
   const isPadDevice = isIpad();
+  const { width } = useWindowDimensions();
+  const artSize = isPadDevice ? 80 : width < 360 ? 52 : 64;
 
   return (
     <PlatformPressable
       style={[styles.card, badgeText ? styles.cardHighlightTrade : null]}
       onPress={onPress}
       accessibilityRole="button"
+      testID={`shop-trade-${art}`}
       accessibilityLabel={`${title}, ${reward}, costs ${xpCost.toLocaleString()} XP. ${subtext}`}
     >
       {badgeText && (
@@ -630,8 +666,8 @@ function ExchangeCard({
         </View>
       )}
       <View style={styles.cardBody}>
-        <View style={[styles.iconSquircle, { backgroundColor: iconBgColor }]}>
-          <HugeiconsIcon icon={icon} size={isPadDevice ? 28 : 22} color={iconColor} />
+        <View style={[styles.productArt, { width: artSize }]}>
+          <MomoAnimation name={art} size={artSize} active={false} replayKey={art} />
         </View>
         <View style={styles.cardInfo}>
           <Text style={styles.cardTitle} numberOfLines={1}>{title}</Text>
@@ -653,7 +689,7 @@ const isPadDevice = isIpad();
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: colors.background,
   },
 
   headerBar: {
@@ -699,7 +735,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderRadius: 22,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#E8DFF2',
     padding: isPadDevice ? 20 : 16,
     marginBottom: spacing[14],
   },
@@ -740,7 +776,7 @@ const styles = StyleSheet.create({
     fontWeight: typography.fontWeight.medium,
   },
   featuredCard: {
-    backgroundColor: '#272062',
+    backgroundColor: '#F1E8FF',
     borderRadius: 22,
     padding: isPadDevice ? 22 : 17,
     marginBottom: spacing[24],
@@ -754,21 +790,21 @@ const styles = StyleSheet.create({
     zIndex: 1,
   },
   featuredEyebrow: {
-    color: '#C7D2FE',
+    color: '#7C3AED',
     fontSize: 10,
     fontWeight: typography.fontWeight.bold,
     letterSpacing: 0.8,
     marginBottom: 4,
   },
   featuredTitle: {
-    color: '#FFFFFF',
+    color: '#352452',
     fontSize: isPadDevice ? 22 : 18,
     fontWeight: typography.fontWeight.bold,
     lineHeight: isPadDevice ? 28 : 23,
     marginBottom: 4,
   },
   featuredDesc: {
-    color: '#E0E7FF',
+    color: '#6D5C81',
     fontSize: isPadDevice ? 13 : 11.5,
     lineHeight: isPadDevice ? 19 : 17,
   },
@@ -796,7 +832,7 @@ const styles = StyleSheet.create({
   },
   categoryTabs: {
     flexDirection: 'row',
-    backgroundColor: '#E9EDF5',
+    backgroundColor: '#F0E8FA',
     padding: 4,
     borderRadius: 16,
     gap: 3,
@@ -859,7 +895,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderRadius: 18,
     borderWidth: 1.5,
-    borderColor: '#E2E8F0',
+    borderColor: '#E8DFF2',
     overflow: 'hidden',
   },
   cardHighlight: {
@@ -894,6 +930,13 @@ const styles = StyleSheet.create({
     padding: isPadDevice ? 18 : 14,
     gap: isPadDevice ? 14 : 10,
     minHeight: 90,
+  },
+  productArt: {
+    width: isPadDevice ? 80 : 64,
+    aspectRatio: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
   },
   iconSquircle: {
     width: isPadDevice ? 52 : 42,
@@ -1001,6 +1044,7 @@ const styles = StyleSheet.create({
     alignItems: 'center', 
     padding: 20,
   },
+  modalScroll: { width: "100%", maxWidth: isPadDevice ? 480 : 330, maxHeight: "90%", borderRadius: 22, flexGrow: 0 },
   modalContent: {
     backgroundColor: '#FFFFFF', 
     padding: isPadDevice ? 32 : 22, 
@@ -1041,11 +1085,11 @@ const styles = StyleSheet.create({
   },
   modalDetailBox: {
     width: '100%',
-    backgroundColor: '#F8FAFC',
+    backgroundColor: colors.background,
     borderRadius: 14,
     padding: 12,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#E8DFF2',
     marginBottom: 16,
     gap: 6,
   },
@@ -1113,11 +1157,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-around',
     width: '100%',
-    backgroundColor: '#F8FAFC',
+    backgroundColor: colors.background,
     borderRadius: 14,
     padding: 14,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#E8DFF2',
     marginBottom: 18,
   },
   tradeSide: {

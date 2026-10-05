@@ -1,14 +1,7 @@
-import React, { useRef } from 'react';
-import { colors } from '@/constants/theme';
-import {
-  Pressable,
-  PressableProps,
-  Animated,
-  Platform,
-  StyleProp,
-  ViewStyle,
-  StyleSheet,
-} from 'react-native';
+import { useOnboardingReducedMotion } from '@/components/onboarding/useOnboardingReducedMotion';
+import React, { useState } from 'react';
+import { Pressable, type PressableProps, type StyleProp, type ViewStyle } from 'react-native';
+import Animated, { cubicBezier } from 'react-native-reanimated';
 
 interface PlatformPressableProps extends PressableProps {
   style?: StyleProp<ViewStyle>;
@@ -17,73 +10,25 @@ interface PlatformPressableProps extends PressableProps {
   children: React.ReactNode;
 }
 
-export const PlatformPressable: React.FC<PlatformPressableProps> = ({
-  style,
-  activeScale = 0.97,
-  rippleColor = colors.primaryRipple,
-  disabled,
-  children,
-  onPressIn,
-  onPressOut,
-  ...rest
-}) => {
-  const scaleAnim = useRef(new Animated.Value(1)).current;
-
-  const handlePressIn = (e: any) => {
-    if (Platform.OS === 'ios') {
-      Animated.spring(scaleAnim, {
-        toValue: activeScale,
-        useNativeDriver: true,
-        speed: 40,
-        bounciness: 4,
-      }).start();
-    }
-    onPressIn?.(e);
-  };
-
-  const handlePressOut = (e: any) => {
-    if (Platform.OS === 'ios') {
-      Animated.spring(scaleAnim, {
-        toValue: 1,
-        useNativeDriver: true,
-        speed: 30,
-        bounciness: 6,
-      }).start();
-    }
-    onPressOut?.(e);
-  };
-
+/** Identical 120ms press feedback on both platforms; Reduce Motion keeps a highlight. */
+export function PlatformPressable({ style, activeScale = 0.97, rippleColor: _ripple,
+  disabled, children, onPressIn, onPressOut, ...rest }: PlatformPressableProps) {
+  const [pressed, setPressed] = useState(false);
+  const reduced = useOnboardingReducedMotion();
   return (
-    <Animated.View style={[{ transform: [{ scale: scaleAnim }] }, style]}>
-      <Pressable
-        disabled={disabled}
-        android_ripple={
-          Platform.OS === 'android' && !disabled
-            ? {
-                color: rippleColor,
-                borderless: false,
-              }
-            : undefined
-        }
-        onPressIn={handlePressIn}
-        onPressOut={handlePressOut}
-        style={({ pressed }) => [
-          styles.fill,
-          Platform.OS === 'ios' && pressed && !disabled && styles.iosPressed,
-        ]}
-        {...rest}
-      >
+    <Animated.View style={[style, {
+      transform: [{ scale: pressed && !disabled && !reduced ? activeScale : 1 }],
+      opacity: disabled ? 0.5 : pressed ? 0.88 : 1,
+      transitionProperty: ['transform', 'opacity'],
+      transitionDuration: '120ms',
+      transitionTimingFunction: cubicBezier(0.23, 1, 0.32, 1),
+    }]}>
+      <Pressable {...rest} disabled={disabled} style={{ width: '100%' }}
+        pressRetentionOffset={16}
+        onPressIn={event => { setPressed(true); onPressIn?.(event); }}
+        onPressOut={event => { setPressed(false); onPressOut?.(event); }}>
         {children}
       </Pressable>
     </Animated.View>
   );
-};
-
-const styles = StyleSheet.create({
-  fill: {
-    width: '100%',
-  },
-  iosPressed: {
-    opacity: 0.92,
-  },
-});
+}

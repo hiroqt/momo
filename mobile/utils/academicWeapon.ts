@@ -33,73 +33,88 @@ export function generateAcademicWeaponReport(input: AcademicWeaponInput): Academ
   const hour = input.studyHour ?? new Date().getHours();
   const isLateNight = hour >= 23 || hour <= 4;
   const subjectName = input.subject && input.subject.trim() ? input.subject.trim() : 'General Study';
-  const userName = input.userName;
+  const userName = input.userName?.trim() || undefined;
+  const count = (value: number | undefined) => Number.isFinite(value) ? Math.max(0, Math.floor(value!)) : 0;
+  const xpEarned = count(input.xpEarned);
 
   if (input.mode === 'streak') {
-    const streak = input.streak || 1;
+    const streak = count(input.streak);
     const dayLabel = streak === 1 ? 'Day' : 'Days';
     const dayLower = streak === 1 ? 'day' : 'days';
     return {
-      headline: 'DISCIPLINE ON LOCK',
-      subtitle: `${streak} ${dayLabel} & Still Undefeated`,
-      challengeText: `${streak === 1 ? 'Day 1' : `Day ${streak}`} study streak. Can you even compete?`,
+      headline: 'ONE DAY AT A TIME',
+      subtitle: `${streak} ${dayLabel} of showing up`,
+      challengeText: `${streak === 1 ? 'Day 1' : `Day ${streak}`} study streak. Join me for the next one?`,
       subject: 'Daily Consistency',
       streak,
       momoMood: 'cheer',
-      paletteAccent: '#EF4444', // Crimson Flame
+      paletteAccent: '#B91C1C', // Crimson Flame
       userName,
       alternativeChallenges: [
-        `${streak === 1 ? 'Day 1' : `Day ${streak}`} study streak. Can you even compete?`,
-        `${streak} ${dayLower} straight with Momo. Who's challenging this?`,
-        'Never breaking the chain. Academic weapon mindset.',
+        `${streak === 1 ? 'Day 1' : `Day ${streak}`} study streak. Join me for the next one?`,
+        `${streak} ${dayLower} straight with Momo. Want to join me?`,
+        'Small steps, steady progress. Let’s study together.',
       ],
     };
   }
 
   if (input.mode === 'flashcard') {
-    const cards = input.cardsCount || 10;
+    const cards = count(input.cardsCount);
     return {
-      headline: 'LECTURE DESTROYER',
-      subtitle: `${cards} Concepts Memorized`,
-      challengeText: `Already memorized the entire deck in ${subjectName}. Your move.`,
+      headline: 'TODAY’S STUDY WIN',
+      subtitle: `${cards} Cards Reviewed`,
+      challengeText: `Practicing ${subjectName}. Study with me?`,
       subject: subjectName,
       cardsCount: cards,
-      xpEarned: input.xpEarned,
+      accuracy: input.totalQuestions && input.totalQuestions > 0 && input.correctCount !== undefined
+        ? Math.round(Math.max(0, Math.min(input.totalQuestions, input.correctCount)) / input.totalQuestions * 100)
+        : input.accuracy !== undefined && Number.isFinite(input.accuracy) ? Math.max(0, Math.min(100, Math.round(input.accuracy))) : undefined,
+      xpEarned,
       momoMood: 'xp',
-      paletteAccent: '#10B981', // Cyber Emerald
+      paletteAccent: '#047857', // Cyber Emerald
       userName,
       alternativeChallenges: [
-        `Already memorized the entire deck in ${subjectName}. Your move.`,
-        `Crushed ${cards} flashcards with zero hesitation.`,
-        `Momo cooked the flashcards, I ate. Who's topping this in ${subjectName}?`,
+        `Practicing ${subjectName}. Study with me?`,
+        `Reviewed ${cards} flashcards. One session at a time.`,
+        `Learning ${subjectName} with Momo. Your turn?`,
       ],
     };
   }
 
   // Default: Quiz Mode
-  const accuracy = input.accuracy ?? (input.totalQuestions && input.totalQuestions > 0 && input.correctCount !== undefined
-    ? Math.round((input.correctCount / input.totalQuestions) * 100)
-    : 100);
+  const total = count(input.totalQuestions);
+  const correct = Math.min(total, count(input.correctCount));
+  const rawAccuracy = input.accuracy ?? (total > 0 && input.correctCount !== undefined
+    ? Math.round((correct / total) * 100) : undefined);
+  const accuracy = rawAccuracy !== undefined && Number.isFinite(rawAccuracy)
+    ? Math.max(0, Math.min(100, Math.round(rawAccuracy))) : undefined;
+  const scoreFraction = total > 0 && input.correctCount !== undefined
+    ? `${correct}/${total}` : undefined;
 
-  const scoreFraction = input.totalQuestions !== undefined && input.correctCount !== undefined
-    ? `${input.correctCount}/${input.totalQuestions}`
-    : undefined;
+  if (accuracy === undefined) {
+    return {
+      headline: 'MY STUDY SESSION', subtitle: `Making progress in ${subjectName}`,
+      challengeText: `Learning ${subjectName} with Momo. Study with me?`, subject: subjectName,
+      momoMood: 'focus', paletteAccent: '#7C3AED', userName, xpEarned,
+      alternativeChallenges: [`Learning ${subjectName} with Momo. Study with me?`, 'A little practice today goes a long way.'],
+    };
+  }
 
   if (isLateNight) {
     return {
       headline: 'MIDNIGHT SCHOLAR',
       subtitle: `Locked in late night on ${subjectName}`,
-      challengeText: `Who needs sleep when you're acing ${subjectName}?`,
+      challengeText: `Made time to practice ${subjectName}.`,
       subject: subjectName,
       accuracy,
       scoreFraction,
-      xpEarned: input.xpEarned,
+      xpEarned,
       momoMood: 'focus',
       paletteAccent: '#6366F1', // Deep Indigo
       userName,
       alternativeChallenges: [
-        `Who needs sleep when you're acing ${subjectName}?`,
-        `Late night grind hit different. Scored ${accuracy}% in ${subjectName}!`,
+        `Made time to practice ${subjectName}.`,
+        `A little evening practice. Scored ${accuracy}% in ${subjectName}!`,
         `Can you beat my ${accuracy}% in ${subjectName}?`,
       ],
     };
@@ -107,34 +122,34 @@ export function generateAcademicWeaponReport(input: AcademicWeaponInput): Academ
 
   if (accuracy >= 85) {
     return {
-      headline: 'CERTIFIED ACADEMIC WEAPON',
-      subtitle: `Unmatched recall in ${subjectName}`,
+      headline: 'PRACTICE IS PAYING OFF',
+      subtitle: `Quiz completed in ${subjectName}`,
       challengeText: `Can you beat my ${accuracy}% in ${subjectName}?`,
       subject: subjectName,
       accuracy,
       scoreFraction,
-      xpEarned: input.xpEarned,
+      xpEarned,
       momoMood: 'cool',
-      paletteAccent: '#8B5CF6', // Neon Violet
+      paletteAccent: '#6D28D9', // Neon Violet
       userName,
       alternativeChallenges: [
         `Can you beat my ${accuracy}% in ${subjectName}?`,
-        `Momo cooked, I ate. Top this score in ${subjectName}!`,
-        `Exam ready before the prof even finishes the slides.`,
+        `Practicing ${subjectName} with Momo. Join me!`,
+        `Every study session is a step forward.`,
       ],
     };
   }
 
   return {
-    headline: 'MIDTERM SURVIVOR',
-    subtitle: `Battled through ${subjectName}`,
+    headline: 'KEEP SHOWING UP',
+    subtitle: `Making progress in ${subjectName}`,
     challengeText: `Surviving ${subjectName} one quiz at a time. Beat my score?`,
     subject: subjectName,
     accuracy,
     scoreFraction,
-    xpEarned: input.xpEarned,
+    xpEarned,
     momoMood: 'cheer',
-    paletteAccent: '#F59E0B', // Electric Amber
+    paletteAccent: '#B45309', // Electric Amber
     userName,
     alternativeChallenges: [
       `Surviving ${subjectName} one quiz at a time. Beat my score?`,

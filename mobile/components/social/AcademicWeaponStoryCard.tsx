@@ -1,6 +1,7 @@
 import React, { forwardRef } from 'react';
 import { View, StyleSheet, Image, ImageSourcePropType } from 'react-native';
 import { AppText as Text } from '@/components/common/app-text';
+import { StudyIcon } from '@/components/common/StudyIcon';
 import { AcademicWeaponData, MomoMood } from '@/utils/academicWeapon';
 
 const MOMO_MOOD_MAP: Record<MomoMood, ImageSourcePropType> = {
@@ -20,23 +21,19 @@ export const AcademicWeaponStoryCard = forwardRef<View, AcademicWeaponStoryCardP
     const mascotSource = MOMO_MOOD_MAP[data.momoMood] || MOMO_MOOD_MAP.cool;
 
     return (
+      <View style={{ width: 360, height: 640, transform: scale !== 1 ? [{ scale }] : undefined }}>
       <View
         ref={ref}
+        testID="share-story-card"
         collapsable={false}
-        style={[
-          styles.cardContainer,
-          { transform: scale !== 1 ? [{ scale }] : undefined },
-        ]}
+        style={styles.cardContainer}
       >
-        {/* Ambient Glow Gradient Layers */}
-        <View style={[styles.ambientGlowTop, { backgroundColor: data.paletteAccent }]} />
-        <View style={[styles.ambientGlowBottom, { backgroundColor: data.paletteAccent }]} />
 
         {/* Top Header Editorial Bar */}
         <View style={styles.headerRow}>
           <View style={[styles.badgeTag, { borderColor: data.paletteAccent }]}>
             <Text style={[styles.badgeTagText, { color: data.paletteAccent }]}>
-              {data.userName ? `${data.userName.toUpperCase()} STREAK` : 'STUDENT STREAK'}
+              {data.userName ? `${data.userName.toUpperCase()}’S STUDY WIN` : 'MY STUDY WIN'}
             </Text>
           </View>
           <Text style={styles.headerDate}>
@@ -58,7 +55,7 @@ export const AcademicWeaponStoryCard = forwardRef<View, AcademicWeaponStoryCardP
         <View style={styles.mascotAndStatsContainer}>
           {/* Mascot Center Stage Spotlight */}
           <View style={styles.mascotSpotlight}>
-            <View style={[styles.mascotBackdropCircle, { borderColor: data.paletteAccent }]} />
+
             <Image source={mascotSource} style={styles.mascotImage} resizeMode="contain" />
           </View>
 
@@ -69,7 +66,7 @@ export const AcademicWeaponStoryCard = forwardRef<View, AcademicWeaponStoryCardP
               <View style={[styles.statBox, { flex: 1 }]}>
                 <View style={styles.statValueContainer}>
                   <View style={styles.statRow}>
-                    <Text style={styles.fireEmoji}>🔥</Text>
+                    <StudyIcon name="streak" size={28} />
                     <Text style={[styles.statValue, { color: '#EF4444', fontSize: 26 }]}>{data.streak}</Text>
                   </View>
                 </View>
@@ -87,16 +84,16 @@ export const AcademicWeaponStoryCard = forwardRef<View, AcademicWeaponStoryCardP
                         {data.accuracy}%
                       </Text>
                     </View>
-                    <Text style={styles.statLabel}>ACCURACY</Text>
+                    <Text style={styles.statLabel}>{data.cardsCount !== undefined ? "SELF-CHECK" : "ACCURACY"}</Text>
                   </View>
                 ) : (
                   <View style={[styles.statBox, { flex: data.xpEarned ? 1 : 1 }]}>
                     <View style={styles.statValueContainer}>
                       <Text style={[styles.statValue, { color: data.paletteAccent }]}>
-                        {data.cardsCount || 0}
+                        {data.cardsCount ?? "—"}
                       </Text>
                     </View>
-                    <Text style={styles.statLabel}>CARDS</Text>
+                    <Text style={styles.statLabel}>{data.cardsCount !== undefined ? "CARDS REVIEWED" : "SESSION"}</Text>
                   </View>
                 )}
 
@@ -104,7 +101,7 @@ export const AcademicWeaponStoryCard = forwardRef<View, AcademicWeaponStoryCardP
 
                 <View style={[styles.statBox, { flex: data.xpEarned ? 1.25 : 1 }]}>
                   <View style={styles.statValueContainer}>
-                    <Text style={styles.statTopicValue} numberOfLines={1}>
+                    <Text style={styles.statTopicValue} numberOfLines={2}>
                       {data.subject}
                     </Text>
                   </View>
@@ -133,13 +130,13 @@ export const AcademicWeaponStoryCard = forwardRef<View, AcademicWeaponStoryCardP
         <View style={styles.stickerBox}>
           <View style={styles.stickerHeader}>
             <View style={styles.stickerDot} />
-            <Text style={styles.stickerHeaderLabel}>CHALLENGE PROMPT</Text>
+            <Text style={styles.stickerHeaderLabel}>STUDY TOGETHER</Text>
           </View>
           <Text style={styles.stickerChallengeText}>
             "{data.challengeText}"
           </Text>
           <View style={styles.stickerFooter}>
-            <Text style={styles.stickerFooterHint}>Reply on Story to compete 🔥</Text>
+            <Text style={styles.stickerFooterHint}>Reply to study together</Text>
           </View>
         </View>
 
@@ -156,6 +153,7 @@ export const AcademicWeaponStoryCard = forwardRef<View, AcademicWeaponStoryCardP
           </View>
         </View>
       </View>
+      </View>
     );
   }
 );
@@ -166,7 +164,7 @@ const styles = StyleSheet.create({
   cardContainer: {
     width: 360,
     height: 640,
-    backgroundColor: '#09071A',
+    backgroundColor: '#FFF8F0',
     borderRadius: 28,
     padding: 24,
     position: 'relative',
@@ -214,7 +212,7 @@ const styles = StyleSheet.create({
   },
   headerDate: {
     fontSize: 11,
-    color: '#94A3B8',
+    color: '#6D5C81',
     fontWeight: '600',
   },
   headlineWrapper: {
@@ -224,14 +222,14 @@ const styles = StyleSheet.create({
   headlineText: {
     fontSize: 26,
     fontWeight: '900',
-    color: '#FFFFFF',
+    color: '#352452',
     textTransform: 'uppercase',
     letterSpacing: -0.5,
     lineHeight: 30,
   },
   subtitleText: {
     fontSize: 13,
-    color: '#CBD5E1',
+    color: '#6D5C81',
     fontWeight: '600',
     marginTop: 4,
   },
@@ -268,12 +266,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    backgroundColor: '#F1E9FF',
     borderRadius: 20,
     paddingVertical: 12,
     paddingHorizontal: 12,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderColor: '#E2D6F2',
     marginTop: 0,
     zIndex: 2,
     elevation: 2,
@@ -308,7 +306,7 @@ const styles = StyleSheet.create({
   statTopicValue: {
     fontSize: 13,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: '#352452',
     textAlign: 'center',
     letterSpacing: -0.2,
     lineHeight: 17,
@@ -322,7 +320,7 @@ const styles = StyleSheet.create({
   statLabel: {
     fontSize: 9,
     fontWeight: '800',
-    color: '#94A3B8',
+    color: '#6D5C81',
     letterSpacing: 1.0,
     marginTop: 4,
     textAlign: 'center',
@@ -330,7 +328,7 @@ const styles = StyleSheet.create({
   statDivider: {
     width: 1,
     height: 28,
-    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+    backgroundColor: '#E2D6F2',
     alignSelf: 'center',
   },
   stickerBox: {
@@ -340,9 +338,9 @@ const styles = StyleSheet.create({
     marginVertical: 10,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.35,
+    shadowOpacity: 0.06,
     shadowRadius: 14,
-    elevation: 8,
+    elevation: 1,
     zIndex: 2,
   },
   stickerHeader: {
@@ -383,7 +381,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingTop: 8,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.08)',
+    borderTopColor: '#E2D6F2',
     zIndex: 2,
   },
   footerLogo: {
@@ -396,10 +394,10 @@ const styles = StyleSheet.create({
   footerBrand: {
     fontSize: 10,
     fontWeight: '700',
-    color: '#E2E8F0',
+    color: '#6D5C81',
   },
   footerUrl: {
     fontSize: 9,
-    color: '#94A3B8',
+    color: '#6D5C81',
   },
 });

@@ -12,6 +12,9 @@ import {
   useWindowDimensions,
   Platform,
 } from 'react-native';
+import { useReducedMotion } from 'react-native-reanimated';
+import { StudyIcon } from '@/components/common/StudyIcon';
+import { MomoAnimation } from '@/components/mascot/MomoAnimation';
 import { AppText as Text } from '@/components/common/app-text';
 import { HugeiconsIcon } from '@hugeicons/react-native';
 import { Cancel01Icon, SparklesIcon, Share01Icon, Download01Icon } from '@hugeicons/core-free-icons';
@@ -38,17 +41,18 @@ export const AcademicWeaponShareModal: React.FC<AcademicWeaponShareModalProps> =
   inputData,
 }) => {
   const insets = useSafeAreaInsets();
-  const { height: windowHeight } = useWindowDimensions();
+  const { height: windowHeight, width: windowWidth } = useWindowDimensions();
+  const reducedMotion = useReducedMotion();
+  const pending = useRef(false);
+  const [savedDirectly, setSavedDirectly] = useState(true);
   const { firstName } = useOnboarding();
   const cardRef = useRef<View>(null);
   const safeHeight = windowHeight && windowHeight > 0 ? windowHeight : 800;
 
   // Responsive scale ensuring the card & challenge section fit comfortably without collapsing
   const previewScale = useMemo(() => {
-    if (safeHeight < 750) return 0.66;
-    if (safeHeight < 850) return 0.70;
-    return 0.74;
-  }, [safeHeight]);
+    return Math.min(safeHeight < 750 ? 0.60 : 0.70, (windowWidth - 64) / 360);
+  }, [safeHeight, windowWidth]);
 
   const previewStageHeight = useMemo(() => {
     return Math.round(640 * previewScale) + 6;
@@ -83,35 +87,40 @@ export const AcademicWeaponShareModal: React.FC<AcademicWeaponShareModalProps> =
   );
 
   const handleShare = async () => {
-    if (isSharing || isSaving) return;
+    if (pending.current) return;
+    pending.current = true;
     setIsSharing(true);
     try {
       const res = await shareToInstagramStory(cardRef);
-      if (res.success) {
+      if (res.success && res.autoOpened) {
         onClose();
-      } else if (res.error && res.error !== 'Instagram not installed') {
+      } else if (res.error && !res.cancelled) {
         Alert.alert('Share Failed', res.error || 'Could not export story to Instagram.');
       }
     } catch (e: any) {
-      Alert.alert('Share Failed', e?.message || 'Could not export story.');
+      Alert.alert('Share Failed', 'Could not prepare your story image. Please try again.');
     } finally {
+      pending.current = false;
       setIsSharing(false);
     }
   };
 
   const handleSaveImage = async () => {
-    if (isSaving || isSharing) return;
+    if (pending.current) return;
+    pending.current = true;
     setIsSaving(true);
     try {
       const res = await saveCardToGallery(cardRef);
       if (res.success) {
+        setSavedDirectly(!!res.savedDirectly);
         setShowSaveSuccess(true);
       } else {
         Alert.alert('Save Failed', res.error || 'Could not save the image.');
       }
     } catch (e: any) {
-      Alert.alert('Save Failed', e?.message || 'Could not save the image.');
+      Alert.alert('Save Failed', 'Could not save your image. Please try again.');
     } finally {
+      pending.current = false;
       setIsSaving(false);
     }
   };
@@ -120,12 +129,14 @@ export const AcademicWeaponShareModal: React.FC<AcademicWeaponShareModalProps> =
     <Modal
       visible={visible}
       transparent
-      animationType="slide"
-      onRequestClose={onClose}
+      animationType={reducedMotion ? "none" : "fade"}
+      onRequestClose={() => { if (!pending.current) onClose(); }}
     >
       <View style={styles.modalOverlay}>
-        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
+        <Pressable style={StyleSheet.absoluteFill} onPress={() => { if (!pending.current) onClose(); }} />
         <View
+          testID="share-story-modal"
+          accessibilityViewIsModal
           style={[
             styles.modalContainer,
             {
@@ -139,13 +150,16 @@ export const AcademicWeaponShareModal: React.FC<AcademicWeaponShareModalProps> =
           <View style={styles.modalHeader}>
             <View style={styles.modalHeaderLeft}>
               <View style={styles.sparkleIconBox}>
-                <InstagramIcon size={18} color="#E1306C" strokeWidth={2.2} />
+                <StudyIcon name="camera" size={36} />
               </View>
-              <Text style={styles.modalTitle}>Share to Instagram Story</Text>
+              <Text style={styles.modalTitle}>Share your study win</Text>
             </View>
             <TouchableOpacity
+              testID="share-story-close"
+              accessibilityRole="button" accessibilityLabel="Close story preview"
+              disabled={isSharing || isSaving}
               style={styles.closeBtn}
-              onPress={onClose}
+              onPress={() => { if (!pending.current) onClose(); }}
               activeOpacity={0.7}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >
@@ -166,13 +180,17 @@ export const AcademicWeaponShareModal: React.FC<AcademicWeaponShareModalProps> =
 
             {/* Prompt Selector Pills */}
             <View style={styles.promptsSection}>
-              <Text style={styles.sectionLabel}>CHOOSE YOUR CHALLENGE LINE</Text>
+              <Text style={styles.sectionLabel}>CHOOSE A CAPTION</Text>
               <View style={styles.promptList}>
                 {reportData.alternativeChallenges.map((prompt, idx) => {
                   const isSelected = prompt === selectedChallenge;
                   return (
                     <TouchableOpacity
                       key={idx}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected: isSelected }}
+                      accessibilityLabel={prompt}
+                      disabled={isSharing || isSaving}
                       style={[
                         styles.promptPill,
                         isSelected && styles.promptPillSelected,
@@ -195,26 +213,33 @@ export const AcademicWeaponShareModal: React.FC<AcademicWeaponShareModalProps> =
             </View>
           </ScrollView>
 
+          <Text style={styles.handoffNote}>Choose Instagram from the share options. You review and post your story yourself.</Text>
           {/* Action Footer */}
           <View style={styles.footerBar}>
             <View style={styles.footerActionRow}>
               <TouchableOpacity
+                testID="share-story-save"
+                accessibilityRole="button" accessibilityLabel="Save study story image"
+                accessibilityState={{ disabled: isSaving || isSharing, busy: isSaving }}
                 style={styles.saveBtn}
                 onPress={handleSaveImage}
                 disabled={isSaving || isSharing}
                 activeOpacity={0.8}
               >
                 {isSaving ? (
-                  <ActivityIndicator color="#CBD5E1" size="small" />
+                  <ActivityIndicator color="#6D5C81" size="small" />
                 ) : (
                   <>
-                    <HugeiconsIcon icon={Download01Icon} size={18} color="#CBD5E1" strokeWidth={2.2} />
+                    <HugeiconsIcon icon={Download01Icon} size={18} color="#6D5C81" strokeWidth={2.2} />
                     <Text style={styles.saveBtnText}>Save Image</Text>
                   </>
                 )}
               </TouchableOpacity>
 
               <TouchableOpacity
+                testID="share-story-instagram"
+                accessibilityRole="button" accessibilityLabel="Open Instagram or share sheet with study story"
+                accessibilityState={{ disabled: isSaving || isSharing, busy: isSharing }}
                 style={styles.shareBtn}
                 onPress={handleShare}
                 disabled={isSharing || isSaving}
@@ -237,30 +262,26 @@ export const AcademicWeaponShareModal: React.FC<AcademicWeaponShareModalProps> =
         {showSaveSuccess && (
           <View style={styles.successOverlay}>
             <Pressable style={StyleSheet.absoluteFill} onPress={() => setShowSaveSuccess(false)} />
-            <View style={styles.successCard}>
+            <ScrollView style={styles.successScroll} contentContainerStyle={styles.successCard} bounces={false}>
               {/* Ambient Radial Glow */}
-              <View style={styles.successGlow} />
+
 
               {/* Mascot Image Spotlight */}
               <View style={styles.successMomoWrapper}>
-                <View style={styles.successMomoCircle} />
-                <Image
-                  source={require('@/assets/animations/momo_save.png')}
-                  style={styles.successMomoImage}
-                  resizeMode="contain"
-                />
+
+                <MomoAnimation name="momo-cheer" size={130} active={showSaveSuccess} />
               </View>
 
               {/* Success Badge */}
               <View style={styles.successBadge}>
                 <HugeiconsIcon icon={SparklesIcon} size={14} color="#10B981" strokeWidth={2.5} />
-                <Text style={styles.successBadgeText}>SAVED TO PHOTOS</Text>
+                <Text style={styles.successBadgeText}>{savedDirectly ? "SAVED TO PHOTOS" : "EXPORT OPTIONS OPENED"}</Text>
               </View>
 
               {/* Typography */}
-              <Text style={styles.successTitle}>Academic Weapon Saved!</Text>
+              <Text style={styles.successTitle}>{savedDirectly ? "Your study win is saved" : "Your story is ready"}</Text>
               <Text style={styles.successDescription}>
-                Your custom 9:16 story card is saved to your camera roll. Ready to flex on Instagram?
+                {savedDirectly ? "Your story image is in Photos, ready whenever you want to share." : "Use the export options to save or share your image. Saving depends on the option you choose."}
               </Text>
 
               {/* Action Buttons */}
@@ -285,7 +306,7 @@ export const AcademicWeaponShareModal: React.FC<AcademicWeaponShareModalProps> =
                   <Text style={styles.successDoneBtnText}>Done</Text>
                 </TouchableOpacity>
               </View>
-            </View>
+            </ScrollView>
           </View>
         )}
       </View>
@@ -300,7 +321,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   modalContainer: {
-    backgroundColor: '#0F172A',
+    backgroundColor: '#FFF8F0',
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     height: '92%',
@@ -319,22 +340,27 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
+    flex: 1,
   },
   sparkleIconBox: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: 'rgba(225, 48, 108, 0.15)',
+    backgroundColor: 'transparent',
     alignItems: 'center',
     justifyContent: 'center',
   },
   modalTitle: {
     fontSize: 17,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: '#352452',
+    flexShrink: 1,
   },
   closeBtn: {
-    padding: 6,
+    minWidth: 44,
+    minHeight: 44,
+    alignItems: "center",
+    justifyContent: "center",
     borderRadius: 16,
     backgroundColor: 'rgba(255, 255, 255, 0.06)',
   },
@@ -353,7 +379,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 8,
     width: '100%',
-    minHeight: 440,
+    minHeight: 0,
   },
   promptsSection: {
     width: '100%',
@@ -362,7 +388,7 @@ const styles = StyleSheet.create({
   sectionLabel: {
     fontSize: 10,
     fontWeight: '800',
-    color: '#94A3B8',
+    color: '#6D5C81',
     letterSpacing: 0.8,
     marginBottom: 6,
   },
@@ -370,34 +396,37 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   promptPill: {
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    backgroundColor: '#F5EEFF',
     borderRadius: 12,
-    paddingVertical: 8,
+    minHeight: 44,
+    justifyContent: "center",
+    paddingVertical: 10,
     paddingHorizontal: 12,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderColor: '#E4D8F3',
   },
   promptPillSelected: {
     backgroundColor: 'rgba(139, 92, 246, 0.2)',
-    borderColor: '#8B5CF6',
+    borderColor: '#8B79ED',
   },
   promptPillText: {
     fontSize: 12,
-    color: '#CBD5E1',
+    color: '#6D5C81',
     fontWeight: '600',
     lineHeight: 16,
   },
   promptPillTextSelected: {
-    color: '#FFFFFF',
+    color: '#6D28D9',
     fontWeight: '800',
   },
+  handoffNote: { color: "#6D5C81", fontSize: 12, lineHeight: 17, paddingHorizontal: 20, paddingVertical: 8 },
   footerBar: {
     paddingHorizontal: 20,
     paddingTop: 10,
     paddingBottom: 4,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.08)',
-    backgroundColor: '#0F172A',
+    borderTopColor: '#E4D8F3',
+    backgroundColor: '#FFF8F0',
   },
   footerActionRow: {
     flexDirection: 'row',
@@ -409,7 +438,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    backgroundColor: '#F1E9FF',
     borderRadius: 18,
     paddingVertical: 12,
     gap: 6,
@@ -419,18 +448,18 @@ const styles = StyleSheet.create({
   saveBtnText: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#E2E8F0',
+    color: '#6D5C81',
   },
   shareBtn: {
     flex: 1.35,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#E1306C',
+    backgroundColor: '#6D5CE7',
     borderRadius: 18,
     paddingVertical: 12,
     gap: 6,
-    shadowColor: '#E1306C',
+    shadowColor: '#6D5CE7',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.35,
     shadowRadius: 8,
@@ -449,10 +478,11 @@ const styles = StyleSheet.create({
     zIndex: 100,
     padding: 24,
   },
+  successScroll: { width: "100%", maxWidth: 340, maxHeight: "90%", flexGrow: 0, borderRadius: 26 },
   successCard: {
     width: '100%',
     maxWidth: 340,
-    backgroundColor: '#0F172A',
+    backgroundColor: '#FFF8F0',
     borderRadius: 26,
     padding: 24,
     alignItems: 'center',
@@ -516,14 +546,14 @@ const styles = StyleSheet.create({
   successTitle: {
     fontSize: 20,
     fontWeight: '900',
-    color: '#FFFFFF',
+    color: '#352452',
     textAlign: 'center',
     marginBottom: 6,
     letterSpacing: -0.3,
   },
   successDescription: {
     fontSize: 13,
-    color: '#94A3B8',
+    color: '#6D5C81',
     textAlign: 'center',
     lineHeight: 18,
     marginBottom: 20,
@@ -537,11 +567,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#E1306C',
+    backgroundColor: '#6D5CE7',
     borderRadius: 18,
     paddingVertical: 14,
     gap: 8,
-    shadowColor: '#E1306C',
+    shadowColor: '#6D5CE7',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.35,
     shadowRadius: 8,
@@ -559,11 +589,11 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     paddingVertical: 13,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderColor: '#E4D8F3',
   },
   successDoneBtnText: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#CBD5E1',
+    color: '#6D5C81',
   },
 });

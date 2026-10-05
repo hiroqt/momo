@@ -1,17 +1,8 @@
-import { Alert, Linking, Platform, Share as RNShare } from 'react-native';
-
-export interface ShareStoryResult {
-  success: boolean;
-  autoOpened: boolean;
-  fallbackUsed: boolean;
-  error?: string;
-}
-
-export interface SaveGalleryResult {
-  success: boolean;
-  savedDirectly?: boolean;
-  error?: string;
-}
+import { Platform, PixelRatio, Share as RNShare } from 'react-native';
+import { storyCaptureSize } from './storyCapture';
+import { handoffStory, exportStoryImage } from './shareStoryFlow';
+export type { ShareStoryResult, SaveGalleryResult } from './shareStoryFlow';
+import type { ShareStoryResult, SaveGalleryResult } from './shareStoryFlow';
 
 function getCaptureRef(): ((viewRef: any, options?: any) => Promise<string>) | null {
   try {
@@ -106,7 +97,8 @@ async function saveImageToMediaLibrary(uri: string): Promise<{ success: boolean;
     // Request permissions (write-only where supported)
     try {
       if (typeof MediaLibrary.requestPermissionsAsync === 'function') {
-        await MediaLibrary.requestPermissionsAsync(true);
+        const permission = await MediaLibrary.requestPermissionsAsync(true);
+        if (!permission.granted) return { success: false };
       }
     } catch (permErr) {
       console.warn('[shareStory] requestPermissionsAsync warning:', permErr);
@@ -167,170 +159,59 @@ async function saveImageToMediaLibrary(uri: string): Promise<{ success: boolean;
  * Uses MediaLibrary directly so it saves immediately without opening the share sheet.
  */
 export async function saveCardToGallery(cardRef: React.RefObject<any>): Promise<SaveGalleryResult> {
-  if (!cardRef || !cardRef.current) {
-    return { success: false, error: 'Card preview is not ready yet.' };
-  }
-
-  try {
-    const capture = getCaptureRef();
-    if (!capture) {
-      return { success: false, error: 'Image generation is not supported on this device.' };
-    }
-
-    // Capture card as PNG with 100% fidelity
-    const tmpUri = await capture(cardRef, {
-      format: 'png',
-      quality: 1.0,
-      result: 'tmpfile',
-    });
-
-    // 1. Save directly to photo library without opening system share sheet
-    const saveRes = await saveImageToMediaLibrary(tmpUri);
-    if (saveRes.success) {
-      return { success: true, savedDirectly: true };
-    }
-
-    // 2. Fallback only if MediaLibrary is completely unavailable
-    const Sharing = getExpoSharing();
-    if (Sharing && typeof Sharing.isAvailableAsync === 'function' && typeof Sharing.shareAsync === 'function') {
-      const isAvailable = await Sharing.isAvailableAsync();
-      if (isAvailable) {
-        await Sharing.shareAsync(tmpUri, {
-          mimeType: 'image/png',
-          dialogTitle: 'Save Academic Weapon Card',
-          UTI: 'public.png',
-        });
-        return { success: true, savedDirectly: false };
-      }
-    }
-
-    return { success: false, error: 'Could not access photo saving on this device.' };
-  } catch (err: any) {
-    console.error('[saveCardToGallery] Error saving card to gallery:', err);
-    return { success: false, error: err?.message || 'Failed to save image to photos.' };
-  }
+  if (!cardRef?.current) return { success: false, error: 'Card preview is not ready yet.' };
+  const capture = getCaptureRef();
+  if (!capture) return { success: false, error: 'Image generation is not supported on this device.' };
+  return exportStoryImage({
+    capture: () => capture(cardRef, { format: 'png', quality: 1, result: 'tmpfile', ...storyCaptureSize(Platform.OS, PixelRatio.get()) }),
+    saveToPhotos: async uri => (await saveImageToMediaLibrary(uri)).success,
+    exportImage: async uri => {
+      const sharing = getExpoSharing();
+      if (!sharing?.shareAsync || !await sharing.isAvailableAsync()) return false;
+      await sharing.shareAsync(uri, { mimeType: 'image/png', dialogTitle: 'Save your Momo study story', UTI: 'public.png' });
+      return true;
+    },
+  });
 }
 
-/**
- * Shares the 9:16 Academic Weapon Card directly to Instagram Stories on mobile.
- * 1. Captures view as a high-resolution PNG temporary file.
- * 2. Directly saves the image to device Photos so it is guaranteed in the user's gallery.
- * 3. On Android:
- *    - Tries Meta's official 'com.instagram.share.ADD_TO_STORY' intent with media content URI.
- *    - Falls back to opening Instagram Story Camera / Instagram app directly.
- *    - Avoids the generic system share sheet to prevent unwanted "Copy to clipboard" options.
- * 4. On iOS: Passes PNG file to native share sheet (UIActivityViewController) which directly
- *    loads the image into Instagram Stories with the preview visible.
+/** Opens an Instagram draft when supported, otherwise shares the actual PNG.
+ * Sharing never requests Photos access or claims the user published a story.
  */
 export async function shareToInstagramStory(cardRef: React.RefObject<any>): Promise<ShareStoryResult> {
-  if (!cardRef || !cardRef.current) {
-    return { success: false, autoOpened: false, fallbackUsed: false, error: 'Card reference is not ready.' };
+  if (!cardRef?.current) {
+    return { success: false, autoOpened: false, fallbackUsed: false, error: 'Your story preview is not ready yet.' };
   }
-
-  try {
-    const capture = getCaptureRef();
-    if (!capture) {
-      Alert.alert(
-        'Feature Unavailable',
-        'Story image generation is not supported on this build.'
-      );
-      return { success: false, autoOpened: false, fallbackUsed: false, error: 'View shot unavailable' };
-    }
-
-    // 1. Capture the story card as a temporary PNG file with 100% quality
-    const tmpUri = await capture(cardRef, {
-      format: 'png',
-      quality: 1.0,
-      result: 'tmpfile',
-    });
-
-    // 2. Directly save card to user's gallery so it's always ready in the device Photos
-    const saveRes = await saveImageToMediaLibrary(tmpUri);
-    const mediaUri = saveRes.uri || tmpUri;
-
-    // 3. Android: Direct Instagram Launch
-    if (Platform.OS === 'android') {
-      const IntentLauncher = getExpoIntentLauncher();
-
-      // 3a. Try Meta's official Instagram Story Intent
-      if (IntentLauncher && typeof IntentLauncher.startActivityAsync === 'function') {
-        const storyContentUri = mediaUri.startsWith('content://') ? mediaUri : await getContentUri(tmpUri);
-        try {
-          await IntentLauncher.startActivityAsync('com.instagram.share.ADD_TO_STORY', {
-            type: 'image/png',
-            data: storyContentUri,
-            flags: 1, // Intent.FLAG_GRANT_READ_URI_PERMISSION
-            extra: {
-              interactive_asset_uri: storyContentUri,
-              content_url: storyContentUri,
-              source_application: 'com.aistudy.platform',
-              top_background_color: '#09071A',
-              bottom_background_color: '#09071A',
-            },
-          });
-          return { success: true, autoOpened: true, fallbackUsed: false };
-        } catch (intentErr) {
-          console.warn('[shareStory] ADD_TO_STORY intent threw:', intentErr);
-        }
-      }
-
-      // 3b. Try Instagram Story Camera deep links directly
-      const storyCameraUrls = [
-        'intent://story-camera#Intent;package=com.instagram.android;scheme=https;end',
-        'instagram://story-camera',
-        'instagram://camera',
-      ];
-      for (const url of storyCameraUrls) {
-        try {
-          await Linking.openURL(url);
-          return { success: true, autoOpened: true, fallbackUsed: false };
-        } catch {}
-      }
-
-      // 3c. Try launching Instagram application directly
-      if (IntentLauncher && typeof IntentLauncher.openApplication === 'function') {
-        try {
-          IntentLauncher.openApplication('com.instagram.android');
-          return { success: true, autoOpened: true, fallbackUsed: false };
-        } catch {}
-      }
-
-      try {
-        await Linking.openURL('instagram://app');
-        return { success: true, autoOpened: true, fallbackUsed: false };
-      } catch {}
-    }
-
-    // 4. iOS: Native Share Sheet with Image File Attached (UIActivityViewController)
-    // On iOS, Sharing.shareAsync passes the PNG directly to Instagram Stories
-    // so Instagram loads the image with the preview visible.
-    const Sharing = getExpoSharing();
-    if (Sharing && typeof Sharing.isAvailableAsync === 'function' && typeof Sharing.shareAsync === 'function') {
-      try {
-        const isAvailable = await Sharing.isAvailableAsync();
-        if (isAvailable) {
-          await Sharing.shareAsync(tmpUri, {
-            mimeType: 'image/png',
-            dialogTitle: 'Share to Instagram Story',
-            UTI: 'public.png',
-          });
-          return { success: true, autoOpened: false, fallbackUsed: false };
-        }
-      } catch (expoErr) {
-        console.warn('[shareStory] ExpoSharing failed, falling back to RNShare:', expoErr);
-      }
-    }
-
-    // 5. Core React Native Share fallback
-    await RNShare.share(
-      Platform.OS === 'ios'
-        ? { url: tmpUri, title: 'Academic Weapon Card' }
-        : { message: 'Check out my study session on Momo!', url: tmpUri, title: 'Academic Weapon Card' }
-    );
-
-    return { success: true, autoOpened: false, fallbackUsed: true };
-  } catch (err: any) {
-    console.error('[shareStory] Error capturing or sharing story card:', err);
-    return { success: false, autoOpened: false, fallbackUsed: false, error: err?.message || 'Failed to share card' };
+  const capture = getCaptureRef();
+  if (!capture) {
+    return { success: false, autoOpened: false, fallbackUsed: false, error: 'Story images are unavailable in this build.' };
   }
+  return handoffStory({
+    capture: () => capture(cardRef, { format: 'png', quality: 1, result: 'tmpfile', ...storyCaptureSize(Platform.OS, PixelRatio.get()) }),
+    openInstagram: Platform.OS === 'android' ? async (uri) => {
+      const launcher = getExpoIntentLauncher();
+      if (!launcher?.startActivityAsync) return false;
+      const contentUri = await getContentUri(uri);
+      // Android receivers need a readable content URI; file URIs cannot safely attach.
+      if (!contentUri.startsWith('content://')) return false;
+      await launcher.startActivityAsync('com.instagram.share.ADD_TO_STORY', {
+        type: 'image/png', data: contentUri, flags: 1,
+        packageName: 'com.instagram.android',
+        extra: { top_background_color: '#F8F5FF', bottom_background_color: '#FFF8F0' },
+      });
+      return true;
+    } : undefined,
+    shareImage: async (uri) => {
+      if (Platform.OS === 'ios') {
+        const result = await RNShare.share({ url: uri, title: 'My Momo study progress' });
+        return result.action === RNShare.dismissedAction ? 'cancelled' : 'opened';
+      }
+      const sharing = getExpoSharing();
+      if (sharing?.shareAsync && await sharing.isAvailableAsync()) {
+        await sharing.shareAsync(uri, { mimeType: 'image/png', dialogTitle: 'Share your Momo study story', UTI: 'public.png' });
+        // Expo does not expose chooser cancellation. This means handoff only.
+        return 'opened';
+      }
+      return 'unavailable';
+    },
+  });
 }

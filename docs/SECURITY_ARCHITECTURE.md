@@ -2,6 +2,42 @@
 
 This document outlines the security architecture, client-server isolation boundary, AI safety guardrails, and rate limiting policies for the AI Study Platform.
 
+## Database And Authorization Boundary (October 6, 2026)
+
+`002_tenant_security.sql` enables and forces RLS for every application table,
+grants authenticated owner-only reads, and revokes anonymous access and direct
+client mutations. Ownership references Supabase Auth, and composite foreign keys
+prohibit cross-user links. Service-role repositories still validate ownership
+explicitly because elevated keys bypass RLS. Functions have fixed search paths
+and service-only execution grants. Historical integrity violations abort rollout.
+
+JWT authorization verifies signatures and required issuer, audience, expiry,
+role, and subject claims. Unsigned decoding is prohibited. Development identity
+and memory persistence require explicit local settings; production rejects both.
+Live storage/database errors never fall back to fabricated or memory data.
+
+Registration checks actual object size before acceptance. Workers validate file
+signatures, text encoding, Office archive structure/expansion, and page limits,
+then retain SHA-256 of actual bytes internally. Hashing does not conceal readable
+study content or replace encryption. Supabase Auth owns password handling; all
+provider secrets stay in server environment configuration. Validation errors
+exclude echoed input; client-visible failures use controlled messages.
+
+Original object access uses private buckets and UUID owner/document paths.
+Schedule `python -m app.workers.cleanup_worker` with monitoring to enforce
+physical deletion after expiry. RLS and expiry filtering alone cannot delete
+object bytes. Signed URLs are bearer capabilities and must not be logged.
+
+Local tests block outgoing provider sockets and reject non-loopback database
+targets. Supabase MCP was used for project discovery/documentation; the user
+selected preparation for a new Momo project, so no hosted schema or data changed.
+See [verification and rollout](BACKEND_DATABASE_SECURITY.md).
+
+The existing rate limiter and job execution are process-local. Deployments with
+multiple replicas require shared rate-limit state and durable workers before
+claiming distributed enforcement. Local smoke tests do not prove production
+capacity or guarantee absence of every possible information leak.
+
 ---
 
 ## 1. Zero-Exposure Frontend Policy

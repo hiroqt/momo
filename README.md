@@ -55,7 +55,7 @@ Governing specifications: [`ARD_PRD.md`](./ARD_PRD.md), [`ARCHITECTURE.md`](./AR
 - Learner focus alignment: Directs generation toward specialized outcomes, such as NCLEX board examination pharmacology, civil procedure case law, algorithm complexity proofs, or general definition drills.
 
 ### Ephemeral 3-Day Storage Decoupling
-- Strict 72-hour TTL: Original uploaded binary files in cloud storage (AWS S3 or Supabase Storage) are automatically purged after 3 days by lifecycle policies.
+- Original uploaded files expire after 72 hours. Configure the scheduled cleanup worker and the S3 lifecycle backstop; Supabase metadata expiry alone does not delete file bytes.
 - Permanent study artifacts: Vector chunks, generated study sets, individual questions, and user progress logs persist indefinitely in PostgreSQL.
 - Foreign key protection: Relationships between study sets and source documents use `ON DELETE SET NULL`, ensuring that document expiration never deletes user study sets.
 
@@ -296,10 +296,18 @@ The API will be accessible at `http://localhost:8000`. Interactive OpenAPI docum
 
 ### Database Migrations
 
-Apply the database schema to your Supabase PostgreSQL instance:
-1. Open the Supabase project dashboard and navigate to the **SQL Editor**.
-2. Paste the contents of `backend/migrations/001_initial_schema.sql`.
-3. Execute the SQL script to create tables, foreign keys, `pgvector` indexes, and Row-Level Security (RLS) policies.
+Use Supabase MCP to apply `backend/migrations/001_initial_schema.sql`, then
+`002_tenant_security.sql`, to the intended Momo project. The second migration
+adds ownership constraints, RLS policies, least-privilege grants, indexes, and
+transactional quota/sync functions. Existing integrity violations abort rollout
+and require an audited repair. This change was prepared locally for a new Momo
+project; no existing hosted project was modified.
+
+Backend defaults require configured Supabase and verified JWTs. Explicit
+`DATABASE_BACKEND=memory` enables local development storage;
+`ENABLE_DEV_AUTH=true` additionally enables local dummy identity. Both are
+prohibited in production. See [the backend setup](backend/README.md) and
+[security verification report](docs/BACKEND_DATABASE_SECURITY.md).
 
 ### Running Backend Tests
 
@@ -309,6 +317,10 @@ Run the full pytest suite:
 cd backend
 uv run pytest -v
 ```
+
+API/load/stress tests use local transports and block external provider traffic.
+Real PostgreSQL RLS/query tests require a dedicated loopback database; the backend
+README documents the local pgvector setup. Without it, database tests skip.
 
 The automated test suite verifies:
 - `test_extraction_and_chunking.py`: File parsing, sliding window chunking, and metadata provenance.

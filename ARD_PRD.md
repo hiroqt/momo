@@ -7,12 +7,12 @@
 | Primary Product | Momo AI Study Platform |
 | Governing Documents | `ARCHITECTURE.md`, `AGENTS.md`, `SKILL.md` |
 | Document Classification | Master Product and Architecture Specification |
-| Current System State | Production-Grade Monorepo (Mobile + Web + Backend) |
+| Current System State | Monorepo with local security validation; hosted deployment requires rollout verification |
 | Mobile Architecture | React Native 0.76+, Expo SDK 52+, TypeScript, Expo Router (file-based) |
 | Web Showcase | Next.js 15 App Router, React 19, TypeScript, Tailwind CSS |
 | Backend Services | Python 3.11+, FastAPI, Pydantic v2, Uvicorn |
 | Primary Database | Supabase PostgreSQL 15+ with `pgvector` extension |
-| Storage Architecture | Pluggable Object Storage (AWS S3 or Supabase Storage) with presigned PUT URLs |
+| Storage Architecture | Private AWS S3 or Supabase Storage with provider-specific signed direct uploads |
 | Primary AI Model | NVIDIA Nemotron Ultra (`nvidia/nemotron-4-340b-instruct`) via OpenRouter Gateway |
 | Embedding Engine | 1536-dimensional vector embeddings (`nvidia/embeddings-nv-embed-qa-4`) |
 | Semantic Validation | TypeSafe Jev for bounded semantic evaluation and grounding verification |
@@ -103,7 +103,7 @@ The platform uses a coordinated 4-tier monorepo architecture:
 |     Domain Services & Background Workers| |         Data & Storage Layer          |
 |  - DocumentWorker (Extract, Chunk, Embed| |  - Supabase PostgreSQL 15+            |
 |  - GenerationWorker (RAG, Nemotron, Val)| |    (Tables, RLS, Indexes)             |
-|  - StorageService (S3 / Supabase)       | |  - pgvector (1536-dim IVFFlat Index)  |
+|  - StorageService (S3 / Supabase)       | |  - pgvector (1536-dim scoped search) |
 |  - AIProvider (Nemotron Ultra, Tools)   | |  - Object Storage (AWS S3 / Supabase) |
 |  - MathEngine, DiagramSynthesizer       | |    (Private Bucket, 3-Day Retention)  |
 +--------------------+--------------------+ +---------------------------------------+
@@ -131,9 +131,9 @@ The platform uses a coordinated 4-tier monorepo architecture:
    - Provider selection is controlled via `STORAGE_PROVIDER` (`supabase` or `s3`).
 4. Ingestion sequence:
    - Step 1: Client calls `POST /api/documents/upload-url` providing filename, file size, and MIME type.
-   - Step 2: Backend verifies user quota (`usage_repo.can_upload_document`), validates size/type, constructs storage key (`documents/{user_id}/{document_id}/{filename}`), and returns presigned PUT URL.
+   - Step 2: Backend verifies user quota (`usage_repo.can_upload_document`), validates size/type, constructs storage key (`documents/{user_id}/{document_id}/original.{ext}`), and returns a provider-specific signed direct upload URL.
    - Step 3: Client uploads file binary directly to object storage via HTTP PUT.
-   - Step 4: Client registers metadata by calling `POST /api/documents`. Backend creates a database record with `processing_status = 'UPLOADED'` and enqueues `DocumentWorker.process_document`.
+   - Step 4: Client registers metadata by calling `POST /api/documents`. Backend checks object size metadata, atomically consumes quota and creates a record with `processing_status = 'UPLOADED'`, and enqueues `DocumentWorker.process_document`.
    - Step 5: `DocumentWorker` downloads bytes, executes structural extraction preserving page numbers and slide indexes, triggers OCR if extracted text is sparse, chunks text into semantic windows with overlap, generates 1536-dimensional embeddings, and inserts batch records into `document_chunks`.
    - Step 6: Backend updates document record with `processing_status = 'READY'`, detected `page_count`, and `suggested_topics`.
 
@@ -320,6 +320,7 @@ erDiagram
 
 #### `study_items`
 - `id` (UUID, Primary Key, Default: `gen_random_uuid()`)
+- `user_id` (UUID, Not Null, References `auth.users.id`; derived from the owning study set)
 - `study_set_id` (UUID, Not Null, References `study_sets.id` ON DELETE CASCADE)
 - `type` (TEXT, Not Null: `'flashcard'`, `'multiple_choice'`, `'true_false'`, `'identification'`, `'fill_in_the_blank'`, `'summary'`, `'qa'`, `'topic_explanation'`)
 - `question` (TEXT, Not Null)
@@ -361,7 +362,7 @@ erDiagram
 
 #### `sync_events`
 - `id` (UUID, Primary Key, Default: `gen_random_uuid()`)
-- `event_id` (TEXT, Unique, Not Null)
+- `event_id` (TEXT, Not Null; unique together with `user_id`)
 - `user_id` (UUID, Not Null, References `users.id`)
 - `study_session_id` (UUID)
 - `study_item_id` (UUID)
@@ -390,8 +391,9 @@ erDiagram
 #### `chat_messages`
 - `id` (UUID, Primary Key, Default: `gen_random_uuid()`)
 - `session_id` (UUID, Not Null, References `chat_sessions.id` ON DELETE CASCADE)
-- `sender` (TEXT, Not Null: `'user'`, `'momo'`)
-- `text` (TEXT, Not Null)
+- `user_id` (UUID, Not Null, References `auth.users.id`)
+- `role` (TEXT, Not Null: `'user'`, `'assistant'`, `'system'`)
+- `content` (TEXT, Not Null)
 - `citations` (JSONB, Default: `'[]'`)
 - `tool_calls` (JSONB, Default: `'[]'`)
 - `study_card` (JSONB)
@@ -400,6 +402,59 @@ erDiagram
 ---
 
 ## 8. Complete API Specifications
+
+### Database Security And Query Contract (October 6, 2026)
+
+The ordered SQL migrations are the executable schema: `001_initial_schema.sql`
+followed by `002_tenant_security.sql`. Ownership refers to verified Supabase
+`auth.users.id`, including child records. Composite foreign keys prohibit
+cross-user document, folder, study item, session, chat, and generation links.
+Invalid historical relationships abort migration; they require an audited repair.
+
+All application tables enable and force RLS. `authenticated` receives SELECT
+only through owner policies using `(SELECT auth.uid())`; `anon` has no table
+access. Clients mutate data through FastAPI so quotas, generation validation,
+and sync validation cannot be bypassed. Privileged backend access uses a
+server-only service-role client, which bypasses RLS. Repositories must therefore
+explicitly filter ownership and validate related records. RLS does not protect
+a compromised service credential.
+
+Supabase HTTPS clients reuse connections, have bounded query concurrency and
+timeouts, and offload synchronous SDK calls from the async event loop. Database
+failures propagate as controlled errors; live operations never fall back to
+memory. Local memory storage and development authentication require explicit
+development/test configuration and cannot run in production.
+
+`register_document` consumes monthly quota and creates metadata in one
+transaction, making retries of the same document idempotent. `process_sync_batch`
+validates references and inserts with conflict handling on `(user_id,event_id)`.
+RPC execution is granted only to `service_role`, with fixed function search paths.
+`persist_generated_study_set` saves validated items, their set and completed job
+atomically; repeating completion returns the existing set without duplicates.
+Document/study/folder/chat list endpoints use bounded `limit`/`offset` pagination;
+mobile API helpers fetch successive pages to preserve full-library access.
+Vector retrieval filters user/document/expiry in PostgreSQL, bounds results to 50,
+and excludes embedding arrays from the response. Exact scoped search is the
+baseline for 50-page inputs; add an approximate index only after benchmarking.
+
+Original uploads use opaque UUID paths and private buckets. Registration checks
+object size metadata; workers validate actual bytes, archive expansion, page
+count, and compute an internal `content_sha256` digest. A digest is an integrity
+fingerprint, not encryption, and must not be exposed as a cross-user lookup.
+Readable content is protected by access controls and encrypted transport;
+password handling remains Supabase Auth's responsibility. Secrets are environment
+values, never application records or log payloads.
+
+Supabase signed-upload validity is provider-defined (two hours); S3 validity is
+configurable. Originals expire after 72 hours regardless of signed URL validity.
+Supabase cleanup must run as a scheduled server task; S3 must have its lifecycle
+rule configured. Metadata expiration alone does not remove object bytes.
+
+Local API, real PostgreSQL query/RLS, bounded load, and stress tests must reject
+hosted targets and disable external provider traffic. Production capacity,
+managed Auth/Storage behavior, distributed rate limiting, and durable worker
+execution require separate deployment validation. The report and rollout
+instructions live in `docs/BACKEND_DATABASE_SECURITY.md`.
 
 All endpoints require standard authorization headers (`Authorization: Bearer <supabase_jwt>`) with user identity derived exclusively by server-side verification.
 

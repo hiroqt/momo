@@ -93,7 +93,7 @@ flowchart TD
 
 4. **Primary Database (Supabase PostgreSQL + `pgvector`)**
    - **Relational Tables:** `users`, `documents`, `generation_jobs`, `study_sets`, `study_items`, `folders`, `study_events`.
-   - **Vector Store:** `document_chunks` table indexing 1536-dimension embeddings with IVFFlat / HNSW indexes for cosine distance search.
+   - **Vector Store:** `document_chunks` holds 1536-dimension embeddings. Bounded PostgreSQL cosine search first filters by owner, document, and expiry. Benchmark an approximate index before introducing it.
 
 5. **Ephemeral Object Storage (AWS S3)**
    - **Bucket Policy:** Private bucket with strict AWS Lifecycle Rule deleting objects older than 3 days.
@@ -428,6 +428,32 @@ To prevent code sprawl and redundant patterns, use this exact matrix when introd
 ---
 
 ## 8. When Does the Agent Stop and Ask? (Circuit Breaker Protocol)
+
+### Backend And Database Security Contract
+
+Apply ordered migrations, including `002_tenant_security.sql`, before enabling
+application access. Every tenant table uses Supabase Auth ownership, forced RLS,
+owner-only authenticated reads, and no anonymous access. Client writes go through
+FastAPI; server-role repositories retain explicit ownership filters because that
+role bypasses RLS. Composite foreign keys enforce same-owner relationships even
+on privileged writes. Source and folder deletion nulls links without deleting
+generated study material.
+
+Database queries use a reused HTTPS client with bounded concurrent offloaded SDK
+calls and timeouts. Transactional RPCs implement quota registration and idempotent
+sync. Generation finalization also commits set, items and completed job in one
+idempotent transaction. Listings are paginated, and mobile API helpers read
+successive pages. Never switch live failures to an in-memory database. Enable local memory
+and development authentication explicitly only in development/test environments.
+
+Signed object access is private and scoped to a UUID owner/document path. Validate
+actual file bytes and persist SHA-256 as internal integrity metadata. Hashes do
+not replace encryption or ownership checks. Avoid returning raw database errors,
+validation inputs, secrets, signed URLs, or provider payloads in logs.
+
+See `docs/BACKEND_DATABASE_SECURITY.md` for local test commands, migration rollout,
+Supabase MCP scope, retention scheduling, and per-agent report cards. Hosted
+deployment remains unverified until a new Momo project is configured and checked.
 
 Autonomous agents must pause execution and request human authorization whenever a task threatens architectural integrity.
 

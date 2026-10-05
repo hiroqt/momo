@@ -557,6 +557,13 @@ Always check:
 
 # 24. Testing Skill
 
+Database security changes must test two independent users plus anonymous access
+against real local PostgreSQL with the ordered migrations. Test relationship
+ownership, direct-write denial, quota races, duplicate sync, rollback, source
+deletion persistence, and query plans. Use synthetic fixtures and local-only
+network guards. Load/stress workloads must never target hosted Supabase. Keep
+report cards and exact results in `docs/BACKEND_DATABASE_SECURITY.md`.
+
 When implementing a pipeline, test each boundary.
 
 Example:
@@ -588,6 +595,14 @@ Do not depend on a live LLM call for every test.
 ------------------------------------------------------------------------
 
 # 25. Performance Skill
+
+Reuse bounded Supabase client transport; offload synchronous SDK calls from
+async endpoints. Use indexed ownership filters, bounded result sets, atomic RPCs
+for transactional changes, and server-side retrieval without returning vectors.
+Live persistence errors must propagate; memory is an explicit test/development
+backend. RLS is mandatory, and privileged service-role queries still require
+repository ownership validation. Document integrity hashes are internal metadata,
+not encryption or proof of authorization.
 
 Prioritize latency where it matters to the user.
 

@@ -773,7 +773,39 @@ deletes the generated study set.
 
 ------------------------------------------------------------------------
 
-# 34. TypeSafe Skill and Jev
+# 34. Backend And Database Security Requirements (October 6, 2026)
+
+- Apply versioned migrations in order; validate existing records before changing
+  access. Do not silently delete or reassign inconsistent tenant data.
+- Reference verified `auth.users.id`; enforce same-owner relationships with
+  composite foreign keys and preserve study sets on source/folder deletion.
+- Enable and force RLS for every app table. Deny anonymous access and direct
+  client writes; authenticated reads require owner policies. Service-role
+  access bypasses RLS, so every user-facing repository operation must separately
+  validate ownership and related records.
+- Verify JWT signature, algorithm, issuer, audience, expiry, role, and UUID
+  subject. Never decode an unsigned token for authorization.
+- Reuse pooled SDK transport, bound query concurrency/timeouts, and offload
+  synchronous I/O. Database errors must fail closed without memory fallback.
+- Local memory and dummy authentication require explicit development/test flags.
+- Use transactional registration/quota and sync RPCs with service-only grants.
+  Scope event uniqueness to `(user_id,event_id)` and bound request batches.
+- Finalize generation sets, items and job completion atomically and idempotently;
+  late workers must not downgrade completed jobs. Paginate listings and update
+  client helpers so older records remain accessible.
+- Validate storage metadata and actual bytes, reject archive expansion abuse,
+  and retain a SHA-256 document integrity digest internally. Hashes are not
+  encryption. Keep passwords in Supabase Auth and secrets in server configuration.
+- Use opaque private object paths, schedule 72-hour cleanup, and never log raw
+  tokens, signed URLs, SQL/provider errors, or untrusted validation inputs.
+- Run API, query/RLS, load and stress tests locally. Reject external test targets
+  and disable hosted provider traffic to avoid Supabase egress from tests.
+- Use Supabase MCP for connected project inspection and migration workflows.
+  Identify the intended project first; never load-test or alter unrelated projects.
+- Update architecture and the security report with exact verification evidence
+  and limitations. Do not infer production capacity from local smoke workloads.
+
+# 35. TypeSafe Skill and Jev
 
 Read `.agents/skills/typesafe-ai/SKILL.md` when working on AI decisions in
 this project, and follow its links to current TypeSafe documentation.

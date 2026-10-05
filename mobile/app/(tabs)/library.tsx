@@ -46,7 +46,8 @@ import {
 import { localDb } from '../../lib/storage/localDb';
 import { ConfirmationModal } from '../../components/common/ConfirmationModal';
 import { RenameModal } from '../../components/common/RenameModal';
-import { TabTransitionView } from '../../components/common/TabTransitionView';
+import { StudyIcon } from '@/components/common/StudyIcon';
+import { isSetQuiz, matchesSetTypeFilter, filterLibrarySets, type SetFilterType } from '@/lib/screens/libraryModel';
 import { CreateFolderModal } from '../../components/library/CreateFolderModal';
 import { MoveToFolderModal } from '../../components/library/MoveToFolderModal';
 import { mutationQueue } from '../../lib/sync/mutationQueue';
@@ -65,56 +66,6 @@ function formatFileSize(bytes: number): string {
 type DeleteTarget =
   | { type: 'set'; set: StudySet }
   | { type: 'doc'; doc: DocumentItem };
-
-type SetFilterType = 'all' | 'reviewers' | 'quizzes';
-
-const isSetQuiz = (set: StudySet): boolean => {
-  const genMode = set.generation_config?.generation_mode;
-  if (genMode === 'quiz') return true;
-  if (genMode === 'reviewer') return false;
-
-  const qTypes = set.generation_config?.question_types;
-  if (Array.isArray(qTypes) && qTypes.some((t: string) => ['multiple_choice', 'true_false', 'identification', 'fill_in_the_blank'].includes(t))) {
-    return true;
-  }
-
-  const revTypes = set.generation_config?.reviewer_types;
-  if (Array.isArray(revTypes) && revTypes.length > 0) return false;
-
-  const lowerTitle = set.title.toLowerCase();
-  if (lowerTitle.includes('quiz')) return true;
-  return false;
-};
-
-const isSetReviewer = (set: StudySet): boolean => {
-  const genMode = set.generation_config?.generation_mode;
-  if (genMode === 'reviewer') return true;
-  if (genMode === 'quiz') return false;
-
-  const revTypes = set.generation_config?.reviewer_types;
-  if (Array.isArray(revTypes) && revTypes.length > 0) return true;
-
-  const qTypes = set.generation_config?.question_types;
-  if (Array.isArray(qTypes) && qTypes.some((t: string) => ['multiple_choice', 'true_false', 'identification', 'fill_in_the_blank'].includes(t))) {
-    return false;
-  }
-
-  const lowerTitle = set.title.toLowerCase();
-  if (lowerTitle.includes('reviewer')) return true;
-  if (lowerTitle.includes('quiz')) return false;
-
-  return true; // Default
-};
-
-const matchesSetTypeFilter = (set: StudySet, filter: SetFilterType): boolean => {
-  if (filter === 'all') return true;
-  const genMode = set.generation_config?.generation_mode;
-  if (genMode === 'both') return true;
-
-  if (filter === 'reviewers') return isSetReviewer(set);
-  if (filter === 'quizzes') return isSetQuiz(set);
-  return true;
-};
 
 export default function LibraryScreen() {
   const router = useRouter();
@@ -313,13 +264,8 @@ export default function LibraryScreen() {
     return folderFilteredSets.filter((s) => matchesSetTypeFilter(s, 'quizzes')).length;
   }, [folderFilteredSets]);
 
-  const filteredSets = useMemo(() => {
-    return folderFilteredSets.filter((set) => {
-      const matchesSearch = deferredSearch ? set.title.toLocaleLowerCase().includes(deferredSearch) : true;
-      const matchesType = matchesSetTypeFilter(set, setTypeFilter);
-      return matchesSearch && matchesType;
-    });
-  }, [folderFilteredSets, deferredSearch, setTypeFilter]);
+  const filteredSets = useMemo(() => filterLibrarySets(sets, deferredSearch, setTypeFilter, selectedFolderId),
+    [sets, deferredSearch, setTypeFilter, selectedFolderId]);
 
   const filteredDocs = useMemo(() => docs.filter((doc) =>
     doc.original_filename.toLocaleLowerCase().includes(deferredSearch)
@@ -328,8 +274,8 @@ export default function LibraryScreen() {
   const bottomListPadding = Math.max(insets.bottom, spacing[24]) + spacing[88]; // Floating nav clearance
 
   return (
-    <TabTransitionView
-      tabName="library"
+    <View
+      testID="library-screen"
       style={[
         styles.container,
         {
@@ -341,14 +287,22 @@ export default function LibraryScreen() {
     >
       {/* Screen Title Bar */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Study Library</Text>
-        <Text style={styles.headerSub}>Your study sets, organized for the next study session</Text>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.headerEyebrow}>YOUR STUDY SPACE</Text>
+          <Text style={styles.headerTitle}>Library</Text>
+          <Text style={styles.headerSub}>Keep your next breakthrough close.</Text>
+        </View>
+        <TouchableOpacity style={styles.headerAdd} testID="library-upload" accessibilityRole="button" accessibilityLabel="Upload study notes"
+          onPress={() => router.push('/documents/upload')} activeOpacity={0.75}>
+          <StudyIcon name="book" size={38} /><Text style={styles.headerAddText}>Add notes</Text>
+        </TouchableOpacity>
       </View>
 
       {/* Segmented Switcher */}
       <View style={styles.segmentContainer}>
         <TouchableOpacity
           style={[styles.segmentBtn, activeTab === 'study_sets' && styles.activeSegmentBtn]}
+          testID="library-tab-study_sets" accessibilityRole="tab" accessibilityState={{ selected: activeTab === 'study_sets' }} accessibilityLabel="Study sets"
           onPress={() => setActiveTab('study_sets')}
           activeOpacity={0.7}
         >
@@ -358,6 +312,7 @@ export default function LibraryScreen() {
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.segmentBtn, activeTab === 'documents' && styles.activeSegmentBtn]}
+          testID="library-tab-documents" accessibilityRole="tab" accessibilityState={{ selected: activeTab === 'documents' }} accessibilityLabel="Source documents"
           onPress={() => setActiveTab('documents')}
           activeOpacity={0.7}
         >
@@ -378,7 +333,7 @@ export default function LibraryScreen() {
           placeholderTextColor={colors.textDisabled}
           value={search}
           onChangeText={setSearch}
-          accessibilityLabel="Search your library"
+          testID="library-search" accessibilityLabel="Search your library"
           returnKeyType="search"
         />
         {search.length > 0 && (
@@ -393,6 +348,7 @@ export default function LibraryScreen() {
         <View style={styles.filterPillsRow}>
           <TouchableOpacity
             style={[styles.filterPill, setTypeFilter === 'all' && styles.activeFilterPill]}
+            testID="library-filter-all" accessibilityRole="button" accessibilityLabel="Show all" accessibilityState={{ selected: setTypeFilter === 'all' }}
             onPress={() => setSetTypeFilter('all')}
             activeOpacity={0.7}
           >
@@ -414,6 +370,7 @@ export default function LibraryScreen() {
 
           <TouchableOpacity
             style={[styles.filterPill, setTypeFilter === 'reviewers' && styles.activeFilterPill]}
+            testID="library-filter-reviewers" accessibilityRole="button" accessibilityLabel="Show reviewers" accessibilityState={{ selected: setTypeFilter === 'reviewers' }}
             onPress={() => setSetTypeFilter('reviewers')}
             activeOpacity={0.7}
           >
@@ -435,6 +392,7 @@ export default function LibraryScreen() {
 
           <TouchableOpacity
             style={[styles.filterPill, setTypeFilter === 'quizzes' && styles.activeFilterPill]}
+            testID="library-filter-quizzes" accessibilityRole="button" accessibilityLabel="Show quizzes" accessibilityState={{ selected: setTypeFilter === 'quizzes' }}
             onPress={() => setSetTypeFilter('quizzes')}
             activeOpacity={0.7}
           >
@@ -480,6 +438,7 @@ export default function LibraryScreen() {
                 </View>
                 <TouchableOpacity
                   style={styles.addFolderHeaderBtn}
+                  testID="library-create-folder" accessibilityRole="button" accessibilityLabel="Create a study folder"
                   onPress={() => setShowCreateFolder(true)}
                   activeOpacity={0.7}
                 >
@@ -503,6 +462,7 @@ export default function LibraryScreen() {
                     styles.folderCard,
                     selectedFolderId === null && styles.folderCardActive,
                   ]}
+                  accessibilityRole="button" accessibilityLabel="All study folders" accessibilityState={{ selected: selectedFolderId === null }}
                   onPress={() => setSelectedFolderId(null)}
                   activeOpacity={0.7}
                 >
@@ -547,6 +507,7 @@ export default function LibraryScreen() {
                     <TouchableOpacity
                       key={folder.id}
                       style={[styles.folderCard, isSelected && styles.folderCardActive]}
+                      accessibilityRole="button" accessibilityState={{ selected: isSelected }} accessibilityLabel={`${folder.name}, ${folder.reviewer_count} study sets`}
                       onPress={() => setSelectedFolderId(isSelected ? null : folder.id)}
                       onLongPress={() => setFolderActionTarget(folder)}
                       activeOpacity={0.7}
@@ -638,10 +599,12 @@ export default function LibraryScreen() {
                   <View style={styles.cardHeader}>
                     <TouchableOpacity
                       style={styles.cardHeaderLeft}
+                      accessibilityRole="button" accessibilityLabel={`Open ${item.title}`}
                       onPress={() => router.push(`/study/${item.id}`)}
                       activeOpacity={0.7}
                     >
-                      <Text style={styles.cardTitle} numberOfLines={1}>
+                      <StudyIcon name={isSetQuiz(item) ? 'brain' : 'cards'} size={46} />
+                      <Text style={styles.cardTitle} numberOfLines={2}>
                         {item.title}
                       </Text>
                       {assignedFolder ? (
@@ -674,7 +637,7 @@ export default function LibraryScreen() {
                         onPress={() => setStudySetActionTarget(item)}
                         hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                         accessibilityRole="button"
-                        accessibilityLabel="Study set options"
+                        accessibilityLabel={`Options for ${item.title}`}
                       >
                         <HugeiconsIcon icon={MoreVerticalIcon} size={isIpad() ? 22 : 18} color={colors.textSecondary} strokeWidth={2} />
                       </TouchableOpacity>
@@ -708,6 +671,7 @@ export default function LibraryScreen() {
 
                     <TouchableOpacity
                       style={styles.studyNowBtn}
+                      testID={`library-study-${item.id}`}
                       onPress={() => router.push(`/study/${item.id}`)}
                       activeOpacity={0.85}
                       accessibilityRole="button"
@@ -771,6 +735,7 @@ export default function LibraryScreen() {
                     </Text>
                     <TouchableOpacity
                       style={styles.emptySecondaryBtn}
+                      accessibilityRole="button" accessibilityLabel="Reset library filters" testID="library-reset-filters"
                       onPress={() => {
                         setSearch('');
                         setSetTypeFilter('all');
@@ -783,8 +748,8 @@ export default function LibraryScreen() {
                 ) : (
                   // Completely Empty Study Library
                   <View style={styles.emptyBox}>
-                    <MomoAnimation name="momo-rest" style={styles.emptyMomoImage} />
-                    <Text style={styles.emptyHeroTitle}>Your Study Library is Empty</Text>
+                    <MomoAnimation name="momo-reading" active={false} style={styles.emptyMomoImage} />
+                    <Text style={styles.emptyHeroTitle}>A fresh page, just for you</Text>
                     <Text style={styles.emptyHeroText}>
                       Upload your lecture notes, slides, or study documents. Momo will turn them into flashcards, quizzes, and practice exams!
                     </Text>
@@ -805,7 +770,7 @@ export default function LibraryScreen() {
                       </View>
                       <View style={styles.emptyFeatureItem}>
                         <View style={styles.emptyFeatureIconDot} />
-                        <Text style={styles.emptyFeatureText}>100% grounded in your uploaded documents</Text>
+                        <Text style={styles.emptyFeatureText}>Made from your own study material</Text>
                       </View>
                       <View style={styles.emptyFeatureItem}>
                         <View style={styles.emptyFeatureIconDot} />
@@ -1223,7 +1188,7 @@ export default function LibraryScreen() {
         onSave={handleConfirmRename}
         onCancel={() => setRenameTarget(null)}
       />
-    </TabTransitionView>
+    </View>
   );
 }
 
@@ -1238,7 +1203,11 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     width: '100%',
   },
+  headerEyebrow: { color: colors.primary, fontSize: 10, fontWeight: '800', letterSpacing: 1, marginBottom: 4 },
+  headerAdd: { alignItems: 'center', backgroundColor: colors.primarySoft, padding: 8, borderRadius: 18, borderCurve: 'continuous', minWidth: 78, minHeight: 64 },
+  headerAddText: { color: colors.primary, fontWeight: '700', fontSize: 11 },
   header: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
     marginBottom: isPadDevice ? spacing[22] : spacing[16],
   },
   headerTitle: {
@@ -1256,6 +1225,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     backgroundColor: colors.surfaceMuted,
     borderRadius: isPadDevice ? 16 : 12,
+    borderCurve: 'continuous',
     padding: isPadDevice ? spacing[4] : spacing[3],
     marginBottom: isPadDevice ? spacing[16] : spacing[12],
     height: isPadDevice ? 52 : 44,
@@ -1266,6 +1236,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: isPadDevice ? 12 : 9,
+    borderCurve: 'continuous',
   },
   activeSegmentBtn: {
     backgroundColor: colors.surface,
@@ -1297,6 +1268,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: isPadDevice ? 16 : 12,
+    borderCurve: 'continuous',
     paddingHorizontal: isPadDevice ? spacing[16] : spacing[12],
     marginBottom: isPadDevice ? spacing[16] : spacing[12],
     height: isPadDevice ? 54 : 44,
@@ -1345,8 +1317,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: spacing[11],
     paddingVertical: spacing[6],
-    minHeight: 32,
+    minHeight: 44,
     borderRadius: 16,
+    borderCurve: 'continuous',
     backgroundColor: colors.surface,
     borderWidth: 1.5,
     borderColor: colors.border,
@@ -1371,6 +1344,7 @@ const styles = StyleSheet.create({
     height: 19,
     paddingHorizontal: 4,
     borderRadius: 10,
+    borderCurve: 'continuous',
     backgroundColor: colors.surfaceMuted,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1422,6 +1396,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing[6],
     paddingVertical: spacing[2],
     borderRadius: 6,
+    borderCurve: 'continuous',
   },
   folderCountBadgeText: {
     fontSize: typography.fontSize[11],
@@ -1429,12 +1404,14 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
   addFolderHeaderBtn: {
+    minHeight: 44,
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing[4],
     paddingVertical: isPadDevice ? spacing[6] : spacing[4],
     paddingHorizontal: isPadDevice ? spacing[12] : spacing[8],
     borderRadius: 8,
+    borderCurve: 'continuous',
     backgroundColor: colors.primarySoft,
   },
   addFolderHeaderText: {
@@ -1449,12 +1426,14 @@ const styles = StyleSheet.create({
     paddingVertical: spacing[2],
   },
   folderCard: {
+    minHeight: 48,
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.surface,
     paddingVertical: isPadDevice ? spacing[11] : spacing[8],
     paddingHorizontal: isPadDevice ? spacing[16] : spacing[12],
     borderRadius: isPadDevice ? 14 : 12,
+    borderCurve: 'continuous',
     borderWidth: 1,
     borderColor: colors.border,
     gap: spacing[6],
@@ -1478,6 +1457,7 @@ const styles = StyleSheet.create({
     width: isPadDevice ? 28 : 24,
     height: isPadDevice ? 28 : 24,
     borderRadius: isPadDevice ? 8 : 6,
+    borderCurve: 'continuous',
     backgroundColor: colors.surfaceMuted,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1500,6 +1480,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing[6],
     paddingVertical: spacing[1],
     borderRadius: 10,
+    borderCurve: 'continuous',
   },
   folderCardBadgeActive: {
     backgroundColor: colors.surface,
@@ -1523,6 +1504,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     padding: isPadDevice ? spacing[22] : spacing[16],
     borderRadius: isPadDevice ? 22 : 18,
+    borderCurve: 'continuous',
     marginBottom: isPadDevice ? spacing[16] : spacing[12],
     borderWidth: 1,
     borderColor: colors.border,
@@ -1542,24 +1524,28 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   cardHeader: {
-    flexDirection: 'row',
+    flexDirection: 'column',
+    gap: 12,
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    alignItems: 'stretch',
     marginBottom: spacing[8],
   },
   cardHeaderLeft: {
-    flex: 1,
+    gap: 6,
     marginRight: spacing[10],
   },
   cardHeaderRight: {
+    minHeight: 40,
+    flexWrap: 'wrap',
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing[8],
   },
   moreOptionsBtn: {
-    width: isPadDevice ? 38 : 32,
-    height: isPadDevice ? 38 : 32,
+    width: 44,
+    height: 44,
     borderRadius: isPadDevice ? 19 : 16,
+    borderCurve: 'continuous',
     backgroundColor: colors.surfaceMuted,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1572,6 +1558,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing[6],
     paddingVertical: spacing[2],
     borderRadius: 6,
+    borderCurve: 'continuous',
     alignSelf: 'flex-start',
     marginTop: spacing[4],
   },
@@ -1592,6 +1579,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: isPadDevice ? spacing[10] : spacing[8],
     paddingVertical: isPadDevice ? spacing[4] : spacing[3],
     borderRadius: 6,
+    borderCurve: 'continuous',
   },
   badgeText: {
     fontSize: isPadDevice ? typography.fontSize[13] : typography.fontSize[11],
@@ -1605,6 +1593,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: isPadDevice ? spacing[8] : spacing[6],
     paddingVertical: isPadDevice ? spacing[3] : spacing[2],
     borderRadius: 6,
+    borderCurve: 'continuous',
     marginRight: 6,
   },
   reviewerTypeBadge: {
@@ -1636,7 +1625,7 @@ const styles = StyleSheet.create({
     marginTop: isPadDevice ? spacing[14] : spacing[10],
     paddingTop: isPadDevice ? spacing[14] : spacing[10],
     borderTopWidth: 1,
-    borderTopColor: '#F8FAFC',
+    borderTopColor: colors.border,
   },
   cardDateBox: {
     flexDirection: 'column',
@@ -1663,7 +1652,8 @@ const styles = StyleSheet.create({
     paddingVertical: isPadDevice ? 12 : 9,
     paddingHorizontal: isPadDevice ? 20 : 16,
     borderRadius: 12,
-    minHeight: isPadDevice ? 46 : 40,
+    borderCurve: 'continuous',
+    minHeight: 48,
     ...Platform.select({
       ios: {
         shadowColor: colors.primary,
@@ -1686,6 +1676,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     padding: isPadDevice ? spacing[20] : spacing[14],
     borderRadius: isPadDevice ? 18 : 14,
+    borderCurve: 'continuous',
     marginBottom: isPadDevice ? spacing[14] : spacing[10],
     borderWidth: 1,
     borderColor: colors.border,
@@ -1707,6 +1698,7 @@ const styles = StyleSheet.create({
     width: isPadDevice ? 52 : 42,
     height: isPadDevice ? 52 : 42,
     borderRadius: isPadDevice ? 14 : 10,
+    borderCurve: 'continuous',
     backgroundColor: colors.primarySoft,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1739,6 +1731,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing[6],
     paddingVertical: spacing[1],
     borderRadius: 4,
+    borderCurve: 'continuous',
   },
   readyBadge: {
     backgroundColor: colors.successSoft,
@@ -1780,6 +1773,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing[10],
     paddingVertical: spacing[6],
     borderRadius: 8,
+    borderCurve: 'continuous',
   },
   studyActionBadgeText: {
     fontSize: typography.fontSize[12],
@@ -1803,6 +1797,7 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
     minWidth: 78,
     borderRadius: 7,
+    borderCurve: 'continuous',
     ...Platform.select({
       ios: {
         shadowColor: colors.primary,
@@ -1832,6 +1827,7 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     minWidth: 78,
     borderRadius: 7,
+    borderCurve: 'continuous',
     ...Platform.select({
       ios: {
         shadowColor: '#000',
@@ -1853,6 +1849,7 @@ const styles = StyleSheet.create({
     width: 34,
     height: 34,
     borderRadius: 17,
+    borderCurve: 'continuous',
     backgroundColor: colors.dangerSoft,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1866,6 +1863,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: colors.surface,
     borderRadius: 18,
+    borderCurve: 'continuous',
     borderWidth: 1,
     borderColor: colors.border,
     marginTop: spacing[8],
@@ -1890,6 +1888,7 @@ const styles = StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: 32,
+    borderCurve: 'continuous',
     backgroundColor: colors.primarySoft,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1899,6 +1898,7 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
+    borderCurve: 'continuous',
     backgroundColor: colors.surfaceMuted,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1945,6 +1945,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing[6],
     paddingVertical: spacing[2],
     borderRadius: 6,
+    borderCurve: 'continuous',
   },
   docCountBadgeText: {
     fontSize: typography.fontSize[11],
@@ -1958,6 +1959,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing[5],
     paddingHorizontal: spacing[10],
     borderRadius: 8,
+    borderCurve: 'continuous',
     backgroundColor: colors.primarySoft,
     flexShrink: 0,
   },
@@ -1975,6 +1977,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing[22],
     paddingVertical: spacing[13],
     borderRadius: 12,
+    borderCurve: 'continuous',
     ...Platform.select({
       ios: {
         shadowColor: colors.primary,
@@ -2009,6 +2012,7 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
+    borderCurve: 'continuous',
     backgroundColor: colors.primary,
   },
   emptyFeatureText: {
@@ -2031,6 +2035,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing[16],
     paddingVertical: spacing[12],
     borderRadius: 12,
+    borderCurve: 'continuous',
     backgroundColor: colors.surfaceMuted,
     borderWidth: 1,
     borderColor: colors.border,
@@ -2076,6 +2081,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 4,
     borderRadius: 2,
+    borderCurve: 'continuous',
     backgroundColor: '#CBD5E1',
     alignSelf: 'center',
     marginBottom: spacing[10],
@@ -2104,6 +2110,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing[14],
     paddingHorizontal: spacing[16],
     borderRadius: 12,
+    borderCurve: 'continuous',
   },
   actionSheetItemDestructive: {
     backgroundColor: colors.dangerSoft,
@@ -2119,6 +2126,7 @@ const styles = StyleSheet.create({
   actionSheetCancelBtn: {
     paddingVertical: spacing[14],
     borderRadius: 12,
+    borderCurve: 'continuous',
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: colors.surfaceMuted,

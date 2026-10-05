@@ -1,0 +1,102 @@
+{
+  "staticAssetReferencesChecked": 72,
+  "missing": [],
+  "mobileScreens": [
+    "onboarding",
+    "home/streak",
+    "study companion",
+    "upload",
+    "generation",
+    "math",
+    "shop/rewards",
+    "completion",
+    "tutor greeting/thinking",
+    "library empty state",
+    "quiz answer feedback/results",
+    "study offline availability",
+    "global sync"
+  ],
+  "webIllustrations": [
+    "hero",
+    "document scan",
+    "thinking",
+    "book loading"
+  ],
+  "validation": {
+    "mobileTypecheck": true,
+    "mobileTestsPassed": 15,
+    "webTypecheck": true,
+    "webTestsPassed": 25,
+    "iOSBundleExport": true,
+    "webProductionBuild": true,
+    "webRuntimeErrors": 0,
+    "webHeroVisuallyVerified": true,
+    "nativeDevicePlayback": "Not verified on a device",
+    "featurePixelChecks": true,
+    "assetContractTestsPassed": 6,
+    "responsiveSizingCases": 28
+  },
+  "motionVersion": 5,
+  "localGestures": [
+    "momo-wave",
+    "momo-welcome",
+    "momo-ready",
+    "momo-reading",
+    "momo-bow",
+    "momo-cheer",
+    "momo-listen",
+    "momo-point",
+    "momo-present",
+    "momo-proud",
+    "momo-rest",
+    "momo-thinking",
+    "momo-hero"
+  ],
+  "heartRefill": "Bottom-to-top solid color reveal",
+  "featureMotion": {
+    "momo-wave": [
+      "Waving hand"
+    ],
+    "momo-welcome": [
+      "Welcome hand"
+    ],
+    "momo-ready": [
+      "Thumbs-up hand"
+    ],
+    "momo-reading": [
+      "Reading hand"
+    ],
+    "momo-bow": [
+      "Bowing head"
+    ],
+    "momo-cheer": [
+      "Left cheering fist",
+      "Right cheering fist"
+    ],
+    "momo-listen": [
+      "Listening hand"
+    ],
+    "momo-point": [
+      "Pointing hand and cuff"
+    ],
+    "momo-present": [
+      "Left book grip",
+      "Right book grip"
+    ],
+    "momo-proud": [
+      "Left proud grip",
+      "Right proud grip"
+    ],
+    "momo-rest": [
+      "Resting tail tip"
+    ],
+    "momo-thinking": [
+      "Thinking hand"
+    ],
+    "momo-hero": [
+      "Hero waving hand"
+    ]
+  },
+  "all28MobilePlacements": true,
+  "responsiveSizing": true
+}

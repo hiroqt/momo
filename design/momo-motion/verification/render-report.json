@@ -1,0 +1,176 @@
+{
+  "renderer": "lottie-web 5.13.0 / Chromium",
+  "animations": [
+    {
+      "id": "momo-wave",
+      "rendered": true,
+      "moves": true,
+      "loadAndCaptureMs": 593
+    },
+    {
+      "id": "momo-welcome",
+      "rendered": true,
+      "moves": true,
+      "loadAndCaptureMs": 633
+    },
+    {
+      "id": "momo-ready",
+      "rendered": true,
+      "moves": true,
+      "loadAndCaptureMs": 616
+    },
+    {
+      "id": "momo-reading",
+      "rendered": true,
+      "moves": true,
+      "loadAndCaptureMs": 618
+    },
+    {
+      "id": "momo-bow",
+      "rendered": true,
+      "moves": true,
+      "loadAndCaptureMs": 600
+    },
+    {
+      "id": "momo-cheer",
+      "rendered": true,
+      "moves": true,
+      "loadAndCaptureMs": 636
+    },
+    {
+      "id": "momo-listen",
+      "rendered": true,
+      "moves": true,
+      "loadAndCaptureMs": 598
+    },
+    {
+      "id": "momo-point",
+      "rendered": true,
+      "moves": true,
+      "loadAndCaptureMs": 619
+    },
+    {
+      "id": "momo-present",
+      "rendered": true,
+      "moves": true,
+      "loadAndCaptureMs": 599
+    },
+    {
+      "id": "momo-proud",
+      "rendered": true,
+      "moves": true,
+      "loadAndCaptureMs": 598
+    },
+    {
+      "id": "momo-rest",
+      "rendered": true,
+      "moves": true,
+      "loadAndCaptureMs": 601
+    },
+    {
+      "id": "momo-thinking",
+      "rendered": true,
+      "moves": true,
+      "loadAndCaptureMs": 600
+    },
+    {
+      "id": "momo-hero",
+      "rendered": true,
+      "moves": true,
+      "loadAndCaptureMs": 742
+    },
+    {
+      "id": "streak-fire",
+      "rendered": true,
+      "moves": true,
+      "loadAndCaptureMs": 140
+    },
+    {
+      "id": "streak-ignite",
+      "rendered": true,
+      "moves": true,
+      "loadAndCaptureMs": 134
+    },
+    {
+      "id": "confetti-burst",
+      "rendered": true,
+      "moves": true,
+      "loadAndCaptureMs": 150
+    },
+    {
+      "id": "confetti-gentle",
+      "rendered": true,
+      "moves": true,
+      "loadAndCaptureMs": 134
+    },
+    {
+      "id": "book-loading",
+      "rendered": true,
+      "moves": true,
+      "loadAndCaptureMs": 133
+    },
+    {
+      "id": "document-upload",
+      "rendered": true,
+      "moves": true,
+      "loadAndCaptureMs": 133
+    },
+    {
+      "id": "document-scan",
+      "rendered": true,
+      "moves": true,
+      "loadAndCaptureMs": 133
+    },
+    {
+      "id": "reviewer-ready",
+      "rendered": true,
+      "moves": true,
+      "loadAndCaptureMs": 134
+    },
+    {
+      "id": "answer-correct",
+      "rendered": true,
+      "moves": true,
+      "loadAndCaptureMs": 132
+    },
+    {
+      "id": "answer-retry",
+      "rendered": true,
+      "moves": true,
+      "loadAndCaptureMs": 135
+    },
+    {
+      "id": "xp-reward",
+      "rendered": true,
+      "moves": true,
+      "loadAndCaptureMs": 133
+    },
+    {
+      "id": "coin-reward",
+      "rendered": true,
+      "moves": true,
+      "loadAndCaptureMs": 133
+    },
+    {
+      "id": "heart-refill",
+      "rendered": true,
+      "moves": true,
+      "loadAndCaptureMs": 401
+    },
+    {
+      "id": "offline-saved",
+      "rendered": true,
+      "moves": true,
+      "loadAndCaptureMs": 132
+    },
+    {
+      "id": "sync-working",
+      "rendered": true,
+      "moves": true,
+      "loadAndCaptureMs": 132
+    }
+  ],
+  "reducedMotion": true,
+  "confettiSingleShot": true,
+  "errors": []
+}

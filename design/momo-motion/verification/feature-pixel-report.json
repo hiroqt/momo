@@ -1,0 +1,438 @@
+{
+  "momo-wave": {
+    "stationaryOutsideGesture": true,
+    "gestureFrames": [
+      {
+        "frame": 12,
+        "changedPixelsBounds": [
+          326,
+          178,
+          401,
+          266
+        ]
+      },
+      {
+        "frame": 24,
+        "changedPixelsBounds": [
+          327,
+          178,
+          404,
+          266
+        ]
+      },
+      {
+        "frame": 72,
+        "changedPixelsBounds": null
+      }
+    ],
+    "sourceMaskEdgePixelsOver15": 34,
+    "sourceMaskEdgeToleranceFraction": 0.001
+  },
+  "momo-welcome": {
+    "stationaryOutsideGesture": true,
+    "gestureFrames": [
+      {
+        "frame": 12,
+        "changedPixelsBounds": [
+          337,
+          221,
+          404,
+          307
+        ]
+      },
+      {
+        "frame": 24,
+        "changedPixelsBounds": [
+          338,
+          222,
+          406,
+          307
+        ]
+      },
+      {
+        "frame": 72,
+        "changedPixelsBounds": null
+      }
+    ],
+    "sourceMaskEdgePixelsOver15": 31,
+    "sourceMaskEdgeToleranceFraction": 0.001
+  },
+  "momo-ready": {
+    "stationaryOutsideGesture": true,
+    "gestureFrames": [
+      {
+        "frame": 12,
+        "changedPixelsBounds": [
+          310,
+          202,
+          374,
+          291
+        ]
+      },
+      {
+        "frame": 24,
+        "changedPixelsBounds": [
+          310,
+          202,
+          375,
+          291
+        ]
+      },
+      {
+        "frame": 72,
+        "changedPixelsBounds": [
+          310,
+          202,
+          374,
+          292
+        ]
+      }
+    ],
+    "sourceMaskEdgePixelsOver15": 88,
+    "sourceMaskEdgeToleranceFraction": 0.001
+  },
+  "momo-reading": {
+    "stationaryOutsideGesture": true,
+    "gestureFrames": [
+      {
+        "frame": 12,
+        "changedPixelsBounds": [
+          328,
+          270,
+          382,
+          327
+        ]
+      },
+      {
+        "frame": 24,
+        "changedPixelsBounds": [
+          328,
+          270,
+          382,
+          328
+        ]
+      },
+      {
+        "frame": 72,
+        "changedPixelsBounds": [
+          327,
+          270,
+          382,
+          328
+        ]
+      }
+    ],
+    "sourceMaskEdgePixelsOver15": 32,
+    "sourceMaskEdgeToleranceFraction": 0.001
+  },
+  "momo-bow": {
+    "stationaryOutsideGesture": true,
+    "gestureFrames": [
+      {
+        "frame": 12,
+        "changedPixelsBounds": [
+          140,
+          67,
+          400,
+          277
+        ]
+      },
+      {
+        "frame": 24,
+        "changedPixelsBounds": [
+          140,
+          67,
+          400,
+          277
+        ]
+      },
+      {
+        "frame": 72,
+        "changedPixelsBounds": [
+          140,
+          67,
+          399,
+          276
+        ]
+      }
+    ],
+    "sourceMaskEdgePixelsOver15": 170,
+    "sourceMaskEdgeToleranceFraction": 0.001
+  },
+  "momo-cheer": {
+    "stationaryOutsideGesture": true,
+    "gestureFrames": [
+      {
+        "frame": 12,
+        "changedPixelsBounds": [
+          73,
+          137,
+          397,
+          241
+        ]
+      },
+      {
+        "frame": 24,
+        "changedPixelsBounds": [
+          73,
+          137,
+          397,
+          241
+        ]
+      },
+      {
+        "frame": 72,
+        "changedPixelsBounds": [
+          72,
+          137,
+          398,
+          242
+        ]
+      }
+    ],
+    "sourceMaskEdgePixelsOver15": 74,
+    "sourceMaskEdgeToleranceFraction": 0.001
+  },
+  "momo-listen": {
+    "stationaryOutsideGesture": true,
+    "gestureFrames": [
+      {
+        "frame": 12,
+        "changedPixelsBounds": [
+          151,
+          205,
+          213,
+          296
+        ]
+      },
+      {
+        "frame": 24,
+        "changedPixelsBounds": [
+          151,
+          204,
+          213,
+          295
+        ]
+      },
+      {
+        "frame": 72,
+        "changedPixelsBounds": [
+          149,
+          205,
+          213,
+          296
+        ]
+      }
+    ],
+    "sourceMaskEdgePixelsOver15": 31,
+    "sourceMaskEdgeToleranceFraction": 0.001
+  },
+  "momo-point": {
+    "stationaryOutsideGesture": true,
+    "gestureFrames": [
+      {
+        "frame": 12,
+        "changedPixelsBounds": [
+          338,
+          191,
+          423,
+          270
+        ]
+      },
+      {
+        "frame": 24,
+        "changedPixelsBounds": [
+          338,
+          191,
+          424,
+          270
+        ]
+      },
+      {
+        "frame": 72,
+        "changedPixelsBounds": [
+          339,
+          190,
+          421,
+          270
+        ]
+      }
+    ],
+    "sourceMaskEdgePixelsOver15": 27,
+    "sourceMaskEdgeToleranceFraction": 0.001
+  },
+  "momo-present": {
+    "stationaryOutsideGesture": true,
+    "gestureFrames": [
+      {
+        "frame": 12,
+        "changedPixelsBounds": [
+          142,
+          253,
+          347,
+          320
+        ]
+      },
+      {
+        "frame": 24,
+        "changedPixelsBounds": [
+          142,
+          253,
+          347,
+          320
+        ]
+      },
+      {
+        "frame": 72,
+        "changedPixelsBounds": [
+          142,
+          253,
+          347,
+          320
+        ]
+      }
+    ],
+    "sourceMaskEdgePixelsOver15": 164,
+    "sourceMaskEdgeToleranceFraction": 0.001
+  },
+  "momo-proud": {
+    "stationaryOutsideGesture": true,
+    "gestureFrames": [
+      {
+        "frame": 12,
+        "changedPixelsBounds": [
+          165,
+          267,
+          305,
+          325
+        ]
+      },
+      {
+        "frame": 24,
+        "changedPixelsBounds": [
+          164,
+          267,
+          305,
+          325
+        ]
+      },
+      {
+        "frame": 72,
+        "changedPixelsBounds": [
+          165,
+          266,
+          305,
+          325
+        ]
+      }
+    ],
+    "sourceMaskEdgePixelsOver15": 5,
+    "sourceMaskEdgeToleranceFraction": 0.001
+  },
+  "momo-rest": {
+    "stationaryOutsideGesture": true,
+    "gestureFrames": [
+      {
+        "frame": 12,
+        "changedPixelsBounds": [
+          83,
+          278,
+          174,
+          353
+        ]
+      },
+      {
+        "frame": 24,
+        "changedPixelsBounds": [
+          84,
+          278,
+          174,
+          354
+        ]
+      },
+      {
+        "frame": 72,
+        "changedPixelsBounds": [
+          82,
+          277,
+          174,
+          352
+        ]
+      }
+    ],
+    "sourceMaskEdgePixelsOver15": 112,
+    "sourceMaskEdgeToleranceFraction": 0.001
+  },
+  "momo-thinking": {
+    "stationaryOutsideGesture": true,
+    "gestureFrames": [
+      {
+        "frame": 12,
+        "changedPixelsBounds": [
+          252,
+          230,
+          308,
+          301
+        ]
+      },
+      {
+        "frame": 24,
+        "changedPixelsBounds": [
+          252,
+          230,
+          308,
+          301
+        ]
+      },
+      {
+        "frame": 72,
+        "changedPixelsBounds": [
+          251,
+          231,
+          308,
+          300
+        ]
+      }
+    ],
+    "sourceMaskEdgePixelsOver15": 12,
+    "sourceMaskEdgeToleranceFraction": 0.001
+  },
+  "momo-hero": {
+    "stationaryOutsideGesture": true,
+    "gestureFrames": [
+      {
+        "frame": 12,
+        "changedPixelsBounds": [
+          287,
+          189,
+          337,
+          254
+        ]
+      },
+      {
+        "frame": 24,
+        "changedPixelsBounds": [
+          287,
+          189,
+          338,
+          253
+        ]
+      },
+      {
+        "frame": 72,
+        "changedPixelsBounds": null
+      }
+    ],
+    "sourceMaskEdgePixelsOver15": 36,
+    "sourceMaskEdgeToleranceFraction": 0.001
+  },
+  "heart-refill": {
+    "solidColorPixelsByFrame": {
+      "0": 0,
+      "12": 186,
+      "24": 7610,
+      "40": 19547
+    },
+    "risingFill": true
+  }
+}

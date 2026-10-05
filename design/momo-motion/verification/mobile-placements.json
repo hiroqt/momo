@@ -1,0 +1,111 @@
+{
+  "all28Referenced": true,
+  "placements": {
+    "momo-wave": [
+      "mobile/components/onboarding/momoSteps.ts"
+    ],
+    "momo-welcome": [
+      "mobile/components/mascot/StudyMascotCard.tsx",
+      "mobile/components/onboarding/momoSteps.ts"
+    ],
+    "momo-ready": [
+      "mobile/components/study/QuizRunner.tsx",
+      "mobile/components/mascot/StudyMascotCard.tsx",
+      "mobile/components/onboarding/momoSteps.ts"
+    ],
+    "momo-reading": [
+      "mobile/app/documents/upload.tsx",
+      "mobile/components/mascot/StudyMascotCard.tsx",
+      "mobile/components/common/MomoLoadingScreen.tsx"
+    ],
+    "momo-bow": [
+      "mobile/app/study/[studySetId].tsx"
+    ],
+    "momo-cheer": [
+      "mobile/app/shop.tsx",
+      "mobile/components/mascot/StudyMascotCard.tsx",
+      "mobile/components/onboarding/CelebrationModal.tsx",
+      "mobile/components/onboarding/momoSteps.ts"
+    ],
+    "momo-listen": [
+      "mobile/components/mascot/StudyMascotCard.tsx",
+      "mobile/components/onboarding/momoSteps.ts"
+    ],
+    "momo-point": [
+      "mobile/components/onboarding/momoSteps.ts"
+    ],
+    "momo-present": [
+      "mobile/app/generation/[jobId].tsx",
+      "mobile/components/onboarding/momoSteps.ts"
+    ],
+    "momo-proud": [
+      "mobile/app/shop.tsx",
+      "mobile/components/study/QuizRunner.tsx",
+      "mobile/components/mascot/StudyMascotCard.tsx",
+      "mobile/components/onboarding/momoSteps.ts"
+    ],
+    "momo-rest": [
+      "mobile/app/(tabs)/library.tsx"
+    ],
+    "momo-thinking": [
+      "mobile/app/chat.tsx",
+      "mobile/app/math/solve.tsx",
+      "mobile/app/generation/[jobId].tsx",
+      "mobile/components/mascot/StudyMascotCard.tsx",
+      "mobile/components/onboarding/momoSteps.ts"
+    ],
+    "momo-hero": [
+      "mobile/app/chat.tsx"
+    ],
+    "streak-fire": [
+      "mobile/app/(tabs)/index.tsx"
+    ],
+    "streak-ignite": [
+      "mobile/app/(tabs)/index.tsx"
+    ],
+    "confetti-burst": [
+      "mobile/components/onboarding/CelebrationModal.tsx",
+      "mobile/components/onboarding/OnboardingMotion.tsx"
+    ],
+    "confetti-gentle": [
+      "mobile/components/study/QuizRunner.tsx"
+    ],
+    "book-loading": [
+      "mobile/app/documents/upload.tsx",
+      "mobile/app/generation/[jobId].tsx"
+    ],
+    "document-upload": [
+      "mobile/app/documents/upload.tsx"
+    ],
+    "document-scan": [
+      "mobile/app/documents/upload.tsx"
+    ],
+    "reviewer-ready": [
+      "mobile/app/generation/[jobId].tsx"
+    ],
+    "answer-correct": [
+      "mobile/components/study/QuizRunner.tsx"
+    ],
+    "answer-retry": [
+      "mobile/components/study/QuizRunner.tsx"
+    ],
+    "xp-reward": [
+      "mobile/app/study/[studySetId].tsx",
+      "mobile/components/study/QuizRunner.tsx"
+    ],
+    "coin-reward": [
+      "mobile/app/shop.tsx"
+    ],
+    "heart-refill": [
+      "mobile/app/shop.tsx"
+    ],
+    "offline-saved": [
+      "mobile/app/study/[studySetId].tsx"
+    ],
+    "sync-working": [
+      "mobile/components/common/SyncStatusPill.tsx"
+    ]
+  },
+  "responsiveSizing": "Window bounds plus parent maxWidth; original aspect ratio and contain",
+  "nativeDevicePlayback": "Not verified on a physical device"
+}

@@ -1,0 +1,42 @@
+{
+  "removed": [
+    "mobile/assets/animations/momo-rig",
+    "mobile/assets/onboarding/frames",
+    "mobile/components/onboarding/WelcomeMomo.tsx",
+    "tools/build-momo-lottie.mjs",
+    "tools/build-momo-welcome.mjs",
+    "tools/build-momo-steps.mjs",
+    "mobile/assets/onboarding/momo-poses-atlas.png",
+    "mobile/assets/onboarding/momo-wave-atlas.png",
+    "mobile/assets/onboarding/momo-step-atlas.png",
+    "mobile/assets/onboarding/momo-welcome.mp4",
+    "mobile/assets/animations/welcome_momo.lottie.json",
+    "mobile/assets/animations/happy_momo.lottie.json",
+    "mobile/assets/animations/document_momo.lottie.json",
+    "mobile/assets/animations/cheer_momo.lottie.json",
+    "mobile/assets/animations/cool_momo.lottie.json",
+    "mobile/assets/animations/creating_momo.lottie.json",
+    "mobile/components/mascot/MomoThinkingFace.tsx",
+    "mobile/components/mascot/MomoSadFace.tsx",
+    "mobile/components/mascot/MomoMaker.tsx",
+    "mobile/assets/animations/creating_momo.png",
+    "mobile/assets/animations/.DS_Store",
+    "mobile/assets/animations/hearts_momo.png",
+    "mobile/assets/animations/momo_confetti.json",
+    "mobile/assets/animations/coins_momo.png",
+    "mobile/assets/animations/magic_sparkles.json",
+    "mobile/assets/animations/documet_momo.png",
+    "mobile/assets/animations/welcome_momo.png",
+    "mobile/assets/animations/math_momo.png",
+    "mobile/assets/animations/momo_loading.png"
+  ],
+  "backup": "/tmp/nvidia-momo-unused-20261005.tar.gz",
+  "sourceArtworkRetained": true,
+  "webActiveAnimations": [
+    "document-scan",
+    "momo-thinking",
+    "book-loading",
+    "momo-hero"
+  ],
+  "removedWebLegacyExports": 17
+}

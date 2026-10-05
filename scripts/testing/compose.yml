@@ -1,0 +1,16 @@
+services:
+  database:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: local-test-only
+      POSTGRES_DB: momo_security_test
+    ports:
+      - "127.0.0.1:55432:5432"
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d momo_security_test"]
+      interval: 2s
+      timeout: 2s
+      retries: 20

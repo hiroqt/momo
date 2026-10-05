@@ -1,6 +1,8 @@
 import pytest
 from httpx import AsyncClient, ASGITransport
 from app.main import app
+from uuid import uuid4
+from app.services.storage import storage_service
 
 @pytest.mark.asyncio
 async def test_api_me():
@@ -13,14 +15,16 @@ async def test_api_me():
 
 @pytest.mark.asyncio
 async def test_upload_url_and_document_registration():
-    headers = {"Authorization": "Bearer test-token-user-upload"}
+    user_id = str(uuid4())
+    headers = {"Authorization": f"Bearer test-token-{user_id}"}
+    content = b"The left ventricle pumps oxygenated blood to the aorta."
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         # Request upload URL
         req = {
-            "filename": "cell_biology.pdf",
-            "file_type": "pdf",
-            "file_size": 1048576,
-            "mime_type": "application/pdf"
+            "filename": "cell_biology.txt",
+            "file_type": "txt",
+            "file_size": len(content),
+            "mime_type": "text/plain"
         }
         res = await ac.post("/api/documents/upload-url", json=req, headers=headers)
         assert res.status_code == 200
@@ -30,14 +34,15 @@ async def test_upload_url_and_document_registration():
 
         doc_id = upload_data["document_id"]
         s3_key = upload_data["s3_object_key"]
+        storage_service.save_mock_object(s3_key, content)
 
         # Register document
         create_req = {
             "document_id": doc_id,
-            "original_filename": "cell_biology.pdf",
-            "file_type": "pdf",
-            "mime_type": "application/pdf",
-            "file_size": 1048576,
+            "original_filename": "cell_biology.txt",
+            "file_type": "txt",
+            "mime_type": "text/plain",
+            "file_size": len(content),
             "s3_object_key": s3_key
         }
         create_res = await ac.post("/api/documents", json=create_req, headers=headers)
@@ -53,18 +58,24 @@ async def test_upload_url_and_document_registration():
 @pytest.mark.asyncio
 async def test_offline_sync_idempotency():
     headers = {"Authorization": "Bearer test-token-user-sync"}
+    from app.db.repositories.study_repo import study_repo
+    study_set = await study_repo.create_study_set({"user_id": "user-sync", "title": "Sync test"})
+    await study_repo.save_study_items(study_set["id"], [
+        {"id": "00000000-0000-4000-8000-000000000001", "type": "flashcard", "question": "Q1", "answer": "A1", "source_metadata": {}},
+        {"id": "00000000-0000-4000-8000-000000000002", "type": "flashcard", "question": "Q2", "answer": "A2", "source_metadata": {}},
+    ])
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         batch = {
             "events": [
                 {
                     "event_id": "evt-uuid-1",
-                    "study_item_id": "item-001",
+                    "study_item_id": "00000000-0000-4000-8000-000000000001",
                     "result": "correct",
                     "occurred_at": "2026-09-18T08:00:00Z"
                 },
                 {
                     "event_id": "evt-uuid-2",
-                    "study_item_id": "item-002",
+                    "study_item_id": "00000000-0000-4000-8000-000000000002",
                     "result": "incorrect",
                     "occurred_at": "2026-09-18T08:01:00Z"
                 }
@@ -96,17 +107,21 @@ async def test_error_response_structure():
 
 @pytest.mark.asyncio
 async def test_delete_document_and_study_set():
-    headers = {"Authorization": "Bearer test-token-user-delete"}
+    user_id = str(uuid4())
+    headers = {"Authorization": f"Bearer test-token-{user_id}"}
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         # 1. Register a document
-        doc_id = "doc-del-test-123"
+        doc_id = str(uuid4())
+        key = storage_service.build_object_key(user_id, doc_id, "txt")
+        content = b"The heart pumps blood through the circulatory system."
+        storage_service.save_mock_object(key, content)
         create_req = {
             "document_id": doc_id,
-            "original_filename": "to_delete.pdf",
-            "file_type": "pdf",
-            "mime_type": "application/pdf",
-            "file_size": 2048,
-            "s3_object_key": "documents/user-delete/doc-del-test-123/original.pdf"
+            "original_filename": "to_delete.txt",
+            "file_type": "txt",
+            "mime_type": "text/plain",
+            "file_size": len(content),
+            "s3_object_key": key
         }
         res = await ac.post("/api/documents", json=create_req, headers=headers)
         assert res.status_code == 200
@@ -129,7 +144,7 @@ async def test_delete_document_and_study_set():
         from app.db.repositories.study_repo import study_repo
         study_set = await study_repo.create_study_set({
             "id": "set-del-test-456",
-            "user_id": "user-delete",
+            "user_id": user_id,
             "title": "Bio Flashcards",
             "description": "Test set",
             "item_count": 2
@@ -206,5 +221,3 @@ async def test_rename_study_set_title():
             headers=other_headers
         )
         assert unauth_res.status_code == 404
-
-

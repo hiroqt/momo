@@ -1,3 +1,4 @@
+import { useOnboardingReducedMotion } from '@/components/onboarding/useOnboardingReducedMotion';
 import React, { useEffect, useState, useRef, useCallback } from "react";
 import { colors, spacing, typography } from '@/constants/theme';
 import {
@@ -55,7 +56,7 @@ export const TABS: TabConfig[] = [
   { name: "index", label: "Home", icon: Home01Icon },
   { name: "library", label: "Library", icon: BookOpen01Icon },
   { name: "shop", label: "Shop", icon: Store01Icon },
-  { name: "profile", label: "Profile", icon: UserCircleIcon },
+  { name: "profile", label: "Settings", icon: UserCircleIcon },
 ];
 
 const TAB_NAME_TO_PAGE_INDEX: Record<string, number> = {
@@ -84,6 +85,7 @@ export const FloatingNavBar: React.FC<FloatingNavBarProps> = ({
   onFabAction,
 }) => {
   const router = useRouter();
+  const reducedMotion = useOnboardingReducedMotion();
   const insets = useSafeAreaInsets();
   const { width: windowWidth } = useWindowDimensions();
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
@@ -131,16 +133,18 @@ export const FloatingNavBar: React.FC<FloatingNavBarProps> = ({
   const openFabMenu = useCallback(() => {
     fabAnim.stopAnimation();
     setIsFabOpen(true);
+    if (reducedMotion) { fabAnim.setValue(1); return; }
     RNAnimated.spring(fabAnim, {
       toValue: 1,
       friction: 8,
       tension: 50,
       useNativeDriver: true,
     }).start();
-  }, [fabAnim]);
+  }, [fabAnim, reducedMotion]);
 
   const closeFabMenu = useCallback(() => {
     fabAnim.stopAnimation();
+    if (reducedMotion) { fabAnim.setValue(0); setIsFabOpen(false); return; }
     RNAnimated.timing(fabAnim, {
       toValue: 0,
       duration: 220,
@@ -149,7 +153,7 @@ export const FloatingNavBar: React.FC<FloatingNavBarProps> = ({
     }).start(({ finished }) => {
       if (finished) setIsFabOpen(false);
     });
-  }, [fabAnim]);
+  }, [fabAnim, reducedMotion]);
 
   const toggleFabMenu = useCallback(() => {
     if (isFabOpen) {
@@ -162,6 +166,7 @@ export const FloatingNavBar: React.FC<FloatingNavBarProps> = ({
   // Animate fallback indicator smoothly on native driver when active tab changes
   useEffect(() => {
     if (!progressAnim) {
+      if (reducedMotion) { indicatorAnim.setValue(effectiveActiveIndex); return; }
       RNAnimated.spring(indicatorAnim, {
         toValue: effectiveActiveIndex,
         useNativeDriver: true,
@@ -169,7 +174,7 @@ export const FloatingNavBar: React.FC<FloatingNavBarProps> = ({
         bounciness: 2,
       }).start();
     }
-  }, [effectiveActiveIndex, progressAnim, indicatorAnim]);
+  }, [effectiveActiveIndex, progressAnim, indicatorAnim, reducedMotion]);
 
   if (isKeyboardVisible) {
     return null;
@@ -639,6 +644,7 @@ const CenterFabButton: React.FC<CenterFabButtonProps> = ({
             isOpen && styles.centerFabBtnOpen,
           ]}
           contentStyle={{ width: btnDimension, height: btnDimension }}
+          testID="open-create-menu"
           accessibilityLabel="Open creation drawer"
         >
           <HugeiconsIcon
@@ -672,133 +678,18 @@ const TabItem: React.FC<TabItemProps> = ({
   isCompact = false,
   onPress,
 }) => {
-  const scaleAnim = useRef(new RNAnimated.Value(1)).current;
-  const iconSize = isTablet ? 26 : isCompact ? 17.5 : 19.5;
-
-  const handlePressIn = () => {
-    RNAnimated.spring(scaleAnim, {
-      toValue: 0.94,
-      useNativeDriver: true,
-      speed: 40,
-      bounciness: 4,
-    }).start();
-  };
-
-  const handlePressOut = () => {
-    RNAnimated.spring(scaleAnim, {
-      toValue: 1,
-      useNativeDriver: true,
-      speed: 30,
-      bounciness: 6,
-    }).start();
-  };
-
-  // UI-thread animated crossfade driven 1:1 by swipe progress
-  const activeAnimatedStyle = useAnimatedStyle(() => {
-    'worklet';
-    if (!progressAnim) {
-      return {
-        opacity: isFocused ? 1 : 0,
-        transform: [{ scale: isFocused ? 1 : 0.88 }],
-      };
-    }
-    const dist = Math.abs(progressAnim.value - pageIndex);
-    const active = interpolate(
-      dist,
-      [0, 0.65],
-      [1, 0],
-      Extrapolation.CLAMP
-    );
-    const scale = interpolate(
-      dist,
-      [0, 0.65],
-      [1, 0.88],
-      Extrapolation.CLAMP
-    );
-    return {
-      opacity: active,
-      transform: [{ scale }],
-    };
-  });
-
-  const inactiveAnimatedStyle = useAnimatedStyle(() => {
-    'worklet';
-    if (!progressAnim) {
-      return {
-        opacity: isFocused ? 0 : 1,
-        transform: [{ scale: isFocused ? 0.88 : 1 }],
-      };
-    }
-    const dist = Math.abs(progressAnim.value - pageIndex);
-    const active = interpolate(
-      dist,
-      [0, 0.65],
-      [1, 0],
-      Extrapolation.CLAMP
-    );
-    const scale = interpolate(
-      dist,
-      [0, 0.65],
-      [0.88, 1],
-      Extrapolation.CLAMP
-    );
-    return {
-      opacity: 1 - active,
-      transform: [{ scale }],
-    };
-  });
-
   return (
-    <RNAnimated.View
-      style={[styles.tabButtonWrapper, { transform: [{ scale: scaleAnim }] }]}
-    >
-      <Pressable
-        onPress={onPress}
-        onPressIn={handlePressIn}
-        onPressOut={handlePressOut}
-        android_ripple={null}
-        style={styles.tabButton}
-        accessibilityRole="button"
-        accessibilityState={{ selected: isFocused }}
-        accessibilityLabel={tab.label}
-      >
-        {/* Inactive state (grey icon only, centered) */}
-        <Reanimated.View
-          pointerEvents="none"
-          style={[styles.tabItemInactive, inactiveAnimatedStyle]}
-        >
-          <HugeiconsIcon
-            icon={tab.icon}
-            size={iconSize}
-            color={colors.textMuted}
-            strokeWidth={1.8}
-          />
-        </Reanimated.View>
-
-        {/* Active state (primary icon + full name label) */}
-        <Reanimated.View
-          pointerEvents="none"
-          style={[styles.tabItemInner, styles.tabItemActiveOverlay, activeAnimatedStyle]}
-        >
-          <HugeiconsIcon
-            icon={tab.icon}
-            size={iconSize}
-            color={colors.primary}
-            strokeWidth={2.4}
-          />
-          <Text
-            style={[
-              styles.tabLabel,
-              styles.activeTabLabel,
-              isCompact && styles.tabLabelCompact,
-            ]}
-            numberOfLines={1}
-          >
-            {tab.label}
-          </Text>
-        </Reanimated.View>
+    <View style={styles.tabButtonWrapper}>
+      <Pressable onPress={onPress} style={({ pressed }) => [styles.tabButton, { opacity: pressed ? 0.65 : 1 }]}
+        accessibilityRole="button" accessibilityState={{ selected: isFocused }}
+        testID={`tab-${tab.name}`} accessibilityLabel={tab.label}>
+        <HugeiconsIcon icon={tab.icon} size={isTablet ? 24 : 20}
+          color={isFocused ? colors.primary : colors.textMuted} strokeWidth={isFocused ? 2.4 : 1.8} />
+        <Text style={{ fontSize: isCompact ? 9 : 10, lineHeight: 15, marginTop: 2,
+          color: isFocused ? colors.primary : colors.textSecondary, fontWeight: isFocused ? '700' : '500' }}
+          numberOfLines={1}>{tab.label}</Text>
       </Pressable>
-    </RNAnimated.View>
+    </View>
   );
 };
 

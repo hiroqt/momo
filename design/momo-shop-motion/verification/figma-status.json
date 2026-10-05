@@ -1,0 +1,16 @@
+{
+  "document": "https://www.figma.com/design/hFFDpvBESGefE1PCutXqZN/Untitled",
+  "board": "Momo shop / 12 animated asset masters",
+  "observedLayers": [
+    "shop-credit-pouch / SVG master",
+    "shop-xp-needed / SVG master",
+    "shop-exchange-hearts / SVG master",
+    "shop-exchange-credits / SVG master",
+    "Editable paths and gradients",
+    "Fixed silhouettes. Local motion. Hearts fill upward. Prices and quantities come from app data."
+  ],
+  "cloudSaveConfirmed": false,
+  "visibleCanvasConfirmed": false,
+  "limitation": "Desktop accessibility tree updated, but screenshot remained on the prior mascot board. Figma reports a connection issue affecting saving.",
+  "localPackComplete": true
+}

@@ -1,0 +1,67 @@
+{
+  "renderer": "lottie-web / Chromium",
+  "animations": [
+    {
+      "id": "shop-credit-pouch",
+      "rendered": true,
+      "animated": true
+    },
+    {
+      "id": "shop-credit-backpack",
+      "rendered": true,
+      "animated": true
+    },
+    {
+      "id": "shop-credit-vault",
+      "rendered": true,
+      "animated": true
+    },
+    {
+      "id": "shop-heart-single",
+      "rendered": true,
+      "animated": true
+    },
+    {
+      "id": "shop-heart-five",
+      "rendered": true,
+      "animated": true
+    },
+    {
+      "id": "shop-heart-bowl",
+      "rendered": true,
+      "animated": true
+    },
+    {
+      "id": "shop-hint-credits",
+      "rendered": true,
+      "animated": true
+    },
+    {
+      "id": "shop-special-credits",
+      "rendered": true,
+      "animated": true
+    },
+    {
+      "id": "shop-xp-badge",
+      "rendered": true,
+      "animated": true
+    },
+    {
+      "id": "shop-exchange-credits",
+      "rendered": true,
+      "animated": true
+    },
+    {
+      "id": "shop-exchange-hearts",
+      "rendered": true,
+      "animated": true
+    },
+    {
+      "id": "shop-xp-needed",
+      "rendered": true,
+      "animated": true
+    }
+  ],
+  "reducedMotion": true,
+  "errors": []
+}

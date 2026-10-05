@@ -4,10 +4,11 @@ import { useIsFocused } from 'expo-router';
 import { fitMotionSize } from '@/lib/animations/motionLayout';
 import LottieView from 'lottie-react-native';
 import { useOnboardingReducedMotion } from '@/components/onboarding/useOnboardingReducedMotion';
+import { SHOP_MOTION, type ShopMotionName } from '@/lib/animations/shopMotion';
 import { MOMO_MOTION, motionPlayback, type MomoMotionName } from '@/lib/animations/momoMotion';
 
 interface MomoAnimationProps {
-  name: MomoMotionName;
+  name: MomoMotionName | ShopMotionName;
   size?: number;
   /** Global status overlays have no screen navigation context. */
   screenAware?: boolean;
@@ -35,7 +36,7 @@ function ScreenAnimation(props: MomoAnimationProps) {
 function AnimationPlayer({
   name, size = 180, active = true, replayKey = 0, accessibilityLabel, style, onFinish, focused, speed = 1,
 }: MomoAnimationProps & { focused: boolean }) {
-  const metadata = MOMO_MOTION[name];
+  const metadata = name in SHOP_MOTION ? SHOP_MOTION[name as ShopMotionName] : MOMO_MOTION[name as MomoMotionName];
   const source = useMemo(() => metadata.source(), [metadata]);
   const reducedMotion = useOnboardingReducedMotion();
   const viewport = useWindowDimensions();

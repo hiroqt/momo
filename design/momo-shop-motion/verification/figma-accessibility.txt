@@ -1,0 +1,10 @@
+								55 pop up button Connection issue affecting saving. Click for details.
+											85 text Fixed silhouettes. Local motion. Hearts fill upward. Prices and quantities come from app data.
+											87 text Momo shop / 12 animated asset masters
+											95 text shop-xp-needed / SVG master
+											97 text Editable paths and gradients
+											129 text shop-exchange-hearts / SVG master
+											131 text Editable paths and gradients
+											161 text shop-exchange-credits / SVG master
+											163 text Editable paths and gradients
+				335 text Some changes won't be synced until Figma is able to reconnect.

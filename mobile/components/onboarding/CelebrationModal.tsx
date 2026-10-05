@@ -1,5 +1,8 @@
 import { MomoAnimation } from '@/components/mascot/MomoAnimation';
 import React from 'react';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useOnboardingReducedMotion } from '@/components/onboarding/useOnboardingReducedMotion';
+import { StudyIcon } from '@/components/common/StudyIcon';
 import { Platform, 
   View,
   ScrollView,
@@ -12,9 +15,6 @@ import { AppText as Text } from '@/components/common/app-text';
 import { HugeiconsIcon } from '@hugeicons/react-native';
 import {
   TrophyIcon,
-  SparklesIcon,
-  CheckmarkCircle02Icon,
-  FlashIcon,
 } from '@hugeicons/core-free-icons';
 import { colors, spacing, typography } from '@/constants/theme';
 import { InstagramIcon } from '../social/InstagramIcon';
@@ -33,22 +33,25 @@ export const CelebrationModal: React.FC<CelebrationModalProps> = ({
   visible,
   onDismiss,
   onShareStory,
-  title = "Boom! You're Locked In!",
-  subtitle = "Momo is super proud! You just crushed your study session with flying colors.",
-  xpEarned = 50,
-  itemsCount = 6,
+  title = "One session, one step forward",
+  subtitle = "You made time to study. Review what you recalled and what needs another pass.",
+  xpEarned = 0,
+  itemsCount = 0,
 }) => {
   const { height } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+  const reducedMotion = useOnboardingReducedMotion();
+  const availableHeight = Math.max(1, height - insets.top - insets.bottom - spacing[32]);
   if (!visible) return null;
   return (
     <Modal
       visible={visible}
       transparent
-      animationType="fade"
+      animationType={reducedMotion ? 'none' : 'fade'}
       onRequestClose={onDismiss}
     >
-      <View style={styles.overlay}>
-        <ScrollView style={{ maxHeight: height * 0.86, width: '100%', maxWidth: 380 }} contentContainerStyle={styles.container} bounces={false}>
+      <View testID="celebration-modal" style={[styles.overlay, { paddingTop: insets.top + spacing[16], paddingBottom: insets.bottom + spacing[16] }]}>
+        <ScrollView style={{ maxHeight: availableHeight, width: '100%', maxWidth: 380 }} contentContainerStyle={styles.container} bounces={false}>
           {/* Momo Mascot Header */}
           <View style={styles.mascotWrapper}>
             <View pointerEvents="none" style={[StyleSheet.absoluteFill, { alignItems: 'center', justifyContent: 'center' }]}>
@@ -57,7 +60,7 @@ export const CelebrationModal: React.FC<CelebrationModalProps> = ({
             <MomoAnimation name="momo-cheer" size={140} active={visible} />
             <View style={styles.badgePill}>
               <HugeiconsIcon icon={TrophyIcon} size={14} color="#B45309" strokeWidth={2.5} />
-              <Text style={styles.badgePillText}>First Milestone Unlocked</Text>
+              <Text style={styles.badgePillText}>Session complete</Text>
             </View>
           </View>
 
@@ -67,9 +70,7 @@ export const CelebrationModal: React.FC<CelebrationModalProps> = ({
           {/* Stats Highlight Card */}
           <View style={styles.statsCard}>
             <View style={styles.statCol}>
-              <View style={styles.statIconBadge}>
-                <HugeiconsIcon icon={SparklesIcon} size={16} color={colors.warningAccent} strokeWidth={2.5} />
-              </View>
+              <StudyIcon name="coin" size={40} />
               <Text style={styles.statValue}>+{xpEarned}</Text>
               <Text style={styles.statLabel}>XP Earned</Text>
             </View>
@@ -77,33 +78,23 @@ export const CelebrationModal: React.FC<CelebrationModalProps> = ({
             <View style={styles.statDivider} />
 
             <View style={styles.statCol}>
-              <View style={[styles.statIconBadge, { backgroundColor: colors.successSoft }]}>
-                <HugeiconsIcon icon={CheckmarkCircle02Icon} size={16} color={colors.success} strokeWidth={2.5} />
-              </View>
+              <StudyIcon name="cards" size={40} />
               <Text style={styles.statValue}>{itemsCount}</Text>
-              <Text style={styles.statLabel}>Cards Studied</Text>
+              <Text style={styles.statLabel}>Study items</Text>
             </View>
 
-            <View style={styles.statDivider} />
-
-            <View style={styles.statCol}>
-              <View style={[styles.statIconBadge, { backgroundColor: colors.primarySoft }]}>
-                <HugeiconsIcon icon={FlashIcon} size={16} color={colors.primary} strokeWidth={2.5} />
-              </View>
-              <Text style={styles.statValue}>1 Day</Text>
-              <Text style={styles.statLabel}>Streak Started</Text>
-            </View>
           </View>
 
-          {/* Offline Sync Reminder */}
+          {/* Completion guidance without assuming persistence or server sync */}
           <View style={styles.offlineNotice}>
             <Text style={styles.offlineNoticeText}>
-              💡 Your progress is saved right on your phone and will sync whenever you're back online!
+              Review your results below, or share your study story.
             </Text>
           </View>
 
           {/* Continue Button */}
           <TouchableOpacity
+            testID="celebration-continue"
             style={styles.continueBtn}
             onPress={onDismiss}
             accessibilityRole="button"
@@ -141,7 +132,7 @@ const styles = StyleSheet.create({
     maxWidth: 380,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: colors.border,
     ...Platform.select({
       ios: {
         shadowColor: colors.shadow || '#000',
@@ -206,29 +197,26 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: spacing[14],
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: colors.border,
   },
   statCol: {
+    minWidth: 0,
+    gap: spacing[4],
     alignItems: 'center',
     flex: 1,
   },
-  statIconBadge: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    borderCurve: 'continuous',
-    backgroundColor: '#FFFBEB',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 4,
-  },
   statValue: {
+    textAlign: 'center',
+    maxWidth: '100%',
     fontSize: typography.fontSize[16],
     fontWeight: typography.fontWeight.bold,
     fontVariant: ['tabular-nums'],
     color: colors.text,
   },
   statLabel: {
+    textAlign: 'center',
+    width: '100%',
+    flexShrink: 1,
     fontSize: typography.fontSize[11],
     color: colors.textMuted,
     marginTop: 2,
@@ -263,9 +251,11 @@ const styles = StyleSheet.create({
     width: '100%',
     gap: 8,
     borderWidth: 1,
-    borderColor: '#4338CA',
+    borderColor: colors.primaryBorder,
   },
   continueBtnText: {
+    flex: 1,
+    textAlign: 'center',
     fontSize: typography.fontSize[14],
     fontWeight: typography.fontWeight.bold,
     color: colors.onPrimary,
@@ -286,6 +276,8 @@ const styles = StyleSheet.create({
     borderColor: '#FCE7F3',
   },
   shareStoryBtnText: {
+    flex: 1,
+    textAlign: 'center',
     fontSize: typography.fontSize[14],
     fontWeight: typography.fontWeight.bold,
     color: '#E1306C',

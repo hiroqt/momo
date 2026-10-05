@@ -1,1023 +1,254 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { colors, spacing, typography } from '@/constants/theme';
-import {
-  View,
-  TouchableOpacity,
-  StyleSheet,
-  ScrollView,
-  Animated,
-  Platform,
-  Image,
-  ActivityIndicator,
-} from 'react-native';
-import { AppText as Text } from '@/components/common/app-text';
+import React, { useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, Image, Platform, ScrollView, StyleSheet, TouchableOpacity, useWindowDimensions, View } from 'react-native';
+import Animated, { Easing, FadeIn, ReduceMotion } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { HugeiconsIcon } from '@hugeicons/react-native';
-import {
-  RefreshIcon,
-  CheckmarkCircle02Icon,
-  Cancel01Icon,
-  EyeIcon,
-  BookOpen01Icon,
-  SparklesIcon,
-} from '@hugeicons/core-free-icons';
-import { StudyItem } from '../../types';
+import { AppText as Text } from '@/components/common/app-text';
+import { StudyIcon } from '@/components/common/StudyIcon';
+import { PlatformPressable } from '@/components/common/PlatformPressable';
+import { ImageZoomModal } from '@/components/common/ImageZoomModal';
+import { CoachmarkTooltip } from '@/components/onboarding/CoachmarkTooltip';
+import { useOnboardingReducedMotion } from '@/components/onboarding/useOnboardingReducedMotion';
+import { useCredits } from '@/context/CreditsContext';
+import { useOnboarding } from '@/context/OnboardingContext';
+import { colors } from '@/constants/theme';
+import { generateStudyImage } from '@/lib/api/images';
+import { syncEngine } from '@/lib/sync/syncEngine';
+import { canRecordFlashcardResult, flashcardProgress, recordFlashcardResult, type FlashcardScore } from '@/utils/flashcardScore';
+import { isMeaningfulSection, sanitizeQuestionText } from '@/utils/formatters';
+import type { StudyItem } from '@/types';
 import { SourceAttribution } from './SourceAttribution';
-import { PlatformPressable } from '../common/PlatformPressable';
-import { syncEngine } from '../../lib/sync/syncEngine';
-import { isMeaningfulSection, sanitizeQuestionText } from '../../utils/formatters';
-import { useOnboarding } from '../../context/OnboardingContext';
-import { CoachmarkTooltip } from '../onboarding/CoachmarkTooltip';
-import { isIpad } from '../../utils/device';
-import { generateStudyImage } from '../../lib/api/images';
-import { ImageZoomModal } from '../common/ImageZoomModal';
 
-interface Props {
-  items: StudyItem[];
-  onFinish?: () => void;
-}
+interface Props { items: StudyItem[]; onFinish?: (score: FlashcardScore) => void }
 
+/** Recall first, reveal second, then commit one self-assessment per card. */
 export const FlashcardDeck: React.FC<Props> = ({ items, onFinish }) => {
-  const isPadDevice = isIpad();
   const insets = useSafeAreaInsets();
-  const isAndroid = Platform.OS === 'android';
-  const bottomPadding = Math.max(insets.bottom, isAndroid ? spacing[28] : spacing[16]) + spacing[16];
-
+  const { width, fontScale } = useWindowDimensions();
+  const reducedMotion = useOnboardingReducedMotion();
+  const { addXP } = useCredits();
   const { hasSeenFlashcardGestureTip, hasSeenSourceProvenanceTip, markTipSeen } = useOnboarding();
-
+  const [deckItems, setDeckItems] = useState(items);
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [isFlipped, setIsFlipped] = useState(false);
+  const [isRevealed, setIsRevealed] = useState(false);
+  const [showHint, setShowHint] = useState(false);
   const [masteredCount, setMasteredCount] = useState(0);
-
-  // Deck items with visual diagram support
-  const [deckItems, setDeckItems] = useState<StudyItem[]>(items);
   const [generatingImageId, setGeneratingImageId] = useState<string | null>(null);
-  const [zoomDiagram, setZoomDiagram] = useState<{ visible: boolean; uri: string; caption?: string } | null>(null);
+  const [diagramError, setDiagramError] = useState<string | null>(null);
+  const [zoomDiagram, setZoomDiagram] = useState<{ uri: string; caption: string } | null>(null);
+  const scoreRef = useRef<FlashcardScore>({ correct: 0, total: 0, xp: 0 });
+  const answeredIndexRef = useRef(-1);
+  const revealedRef = useRef(false);
+  const mountedRef = useRef(true);
+  const scrollRef = useRef<ScrollView>(null);
+  const stackActions = width < 350 || fontScale > 1.3;
 
+  useEffect(() => { setDeckItems(items); }, [items]);
   useEffect(() => {
-    setDeckItems(items);
-  }, [items]);
-
-  // 3D Flip animation
-  const animatedValue = useRef(new Animated.Value(0)).current;
-  const isFlippedRef = useRef(false);
-  const isAnimating = useRef(false);
-  const flipTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => {
-    return () => {
-      if (flipTimeoutRef.current) {
-        clearTimeout(flipTimeoutRef.current);
-      }
-    };
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; };
   }, []);
 
-  const flipCard = () => {
-    if (isAnimating.current) return;
-    if (flipTimeoutRef.current) {
-      clearTimeout(flipTimeoutRef.current);
-      flipTimeoutRef.current = null;
-    }
-    const nextFlipped = !isFlippedRef.current;
-    isFlippedRef.current = nextFlipped;
-    isAnimating.current = true;
-
-    Animated.spring(animatedValue, {
-      toValue: nextFlipped ? 180 : 0,
-      friction: 8,
-      tension: 10,
-      useNativeDriver: true,
-    }).start(({ finished }) => {
-      isAnimating.current = false;
-      if (finished) {
-        setIsFlipped(nextFlipped);
-      }
-    });
-  };
-
-  const resetFlip = () => {
-    if (flipTimeoutRef.current) {
-      clearTimeout(flipTimeoutRef.current);
-      flipTimeoutRef.current = null;
-    }
-    isAnimating.current = false;
-    animatedValue.setValue(0);
-    isFlippedRef.current = false;
-    setIsFlipped(false);
-  };
-
-  if (!deckItems || deckItems.length === 0) {
-    return (
-      <View style={styles.emptyContainer}>
-        <Text style={styles.emptyText}>No flashcards in this set.</Text>
-      </View>
-    );
-  }
-
   const currentItem = deckItems[currentIndex];
-  const isLast = currentIndex === deckItems.length - 1;
+  if (!currentItem) return (
+    <View style={styles.empty} testID="flashcard-empty">
+      <StudyIcon name="cards" size={72} />
+      <Text style={styles.emptyTitle}>No flashcards here yet</Text>
+      <Text style={styles.helper}>Choose another study format or create a flashcard set from your notes.</Text>
+    </View>
+  );
 
-  const handleGenerateDiagram = async () => {
-    if (!currentItem || generatingImageId || currentItem.image_base64) return;
-    setGeneratingImageId(currentItem.id);
-    try {
-      const prompt =
-        currentItem.diagram_prompt ||
-        (currentItem.source_metadata?.section
-          ? `${currentItem.source_metadata.section}: ${currentItem.question}`
-          : currentItem.question);
-      const res = await generateStudyImage(prompt);
-      if (res && res.image_base64) {
-        setDeckItems((prev) =>
-          prev.map((it) => (it.id === currentItem.id ? { ...it, image_base64: res.image_base64 } : it))
-        );
-      }
-    } catch (err) {
-      console.warn('Failed to generate diagram for flashcard:', err);
-    } finally {
-      setGeneratingImageId(null);
-    }
+  const progress = flashcardProgress(currentIndex, deckItems.length);
+  const revealAnswer = () => {
+    revealedRef.current = true;
+    setIsRevealed(true);
+  };
+  const hideAnswer = () => {
+    revealedRef.current = false;
+    setIsRevealed(false);
+    scrollRef.current?.scrollTo({ y: 0, animated: false });
   };
 
   const handleNext = (mastered: boolean) => {
-    const result = mastered ? 'correct' : 'review_again';
-    syncEngine.recordStudyAnswer(currentItem.id, result);
-
-    if (mastered) {
-      setMasteredCount((prev) => prev + 1);
+    if (!canRecordFlashcardResult(currentIndex, answeredIndexRef.current, revealedRef.current)) return;
+    answeredIndexRef.current = currentIndex;
+    syncEngine.recordStudyAnswer(currentItem.id, mastered ? 'correct' : 'review_again').catch(() => {
+      // Offline progress remains in the existing synchronization queue.
+    });
+    // Commit before requesting React updates so the last card is included exactly once.
+    const score = recordFlashcardResult(scoreRef.current, mastered);
+    scoreRef.current = score;
+    setMasteredCount(score.correct);
+    if (mastered) addXP(15);
+    if (currentIndex === deckItems.length - 1) {
+      onFinish?.(score);
+      return;
     }
+    revealedRef.current = false;
+    setIsRevealed(false);
+    setShowHint(false);
+    setDiagramError(null);
+    setCurrentIndex(index => index + 1);
+    scrollRef.current?.scrollTo({ y: 0, animated: false });
+  };
 
-    if (isLast) {
-      if (onFinish) onFinish();
-    } else {
-      resetFlip();
-      setCurrentIndex((prev) => prev + 1);
+  const handleGenerateDiagram = async () => {
+    if (generatingImageId || currentItem.image_base64) return;
+    const itemId = currentItem.id;
+    setGeneratingImageId(itemId);
+    setDiagramError(null);
+    try {
+      const prompt = currentItem.diagram_prompt || `${currentItem.source_metadata?.section || ''}: ${currentItem.question}`;
+      const result = await generateStudyImage(prompt);
+      if (!result?.image_base64) throw new Error('No diagram returned');
+      if (mountedRef.current) setDeckItems(previous => previous.map(item => item.id === itemId ? { ...item, image_base64: result.image_base64 } : item));
+    } catch {
+      if (mountedRef.current) setDiagramError('We could not create this visual. Check your connection and try again.');
+    } finally {
+      if (mountedRef.current) setGeneratingImageId(null);
     }
   };
 
-  // Android: Standard 3D Y-axis rotation with perspective
-  const frontInterpolate = animatedValue.interpolate({
-    inputRange: [0, 180],
-    outputRange: ['0deg', '180deg'],
-    extrapolate: 'clamp',
-  });
-
-  const backInterpolate = animatedValue.interpolate({
-    inputRange: [0, 180],
-    outputRange: ['180deg', '360deg'],
-    extrapolate: 'clamp',
-  });
-
-  // iOS: Symmetric horizontal flip scaling so Core Animation never bisects/clips the card at Z=0
-  const frontScaleX = animatedValue.interpolate({
-    inputRange: [0, 90, 180],
-    outputRange: [1, 0, 0],
-    extrapolate: 'clamp',
-  });
-
-  const backScaleX = animatedValue.interpolate({
-    inputRange: [0, 90, 180],
-    outputRange: [0, 0, 1],
-    extrapolate: 'clamp',
-  });
-
-  // Subtle 3D perspective lift during flip
-  const cardScale = animatedValue.interpolate({
-    inputRange: [0, 90, 180],
-    outputRange: [1, 0.95, 1],
-    extrapolate: 'clamp',
-  });
-
-  const frontOpacity = animatedValue.interpolate({
-    inputRange: [0, 89.9, 90, 180],
-    outputRange: [1, 1, 0, 0],
-    extrapolate: 'clamp',
-  });
-
-  const backOpacity = animatedValue.interpolate({
-    inputRange: [0, 90, 90.1, 180],
-    outputRange: [0, 0, 1, 1],
-    extrapolate: 'clamp',
-  });
-
-  // Fluid 3D perspective flip with subtle lift
-  const frontTransform = [
-    { perspective: 1200 },
-    { rotateY: frontInterpolate },
-    { scale: cardScale },
-  ];
-
-  const backTransform = [
-    { perspective: 1200 },
-    { rotateY: backInterpolate },
-    { scale: cardScale },
-  ];
-
-  // Buttons transition synchronously in lockstep with the card flip
-  const frontBtnOpacity = animatedValue.interpolate({
-    inputRange: [0, 75, 90],
-    outputRange: [1, 0, 0],
-    extrapolate: 'clamp',
-  });
-
-  const frontBtnTranslateY = animatedValue.interpolate({
-    inputRange: [0, 90],
-    outputRange: [0, 8],
-    extrapolate: 'clamp',
-  });
-
-  const backBtnOpacity = animatedValue.interpolate({
-    inputRange: [90, 105, 180],
-    outputRange: [0, 1, 1],
-    extrapolate: 'clamp',
-  });
-
-  const backBtnTranslateY = animatedValue.interpolate({
-    inputRange: [90, 180],
-    outputRange: [8, 0],
-    extrapolate: 'clamp',
-  });
-
-  const progressPercent = Math.round(((currentIndex + 1) / items.length) * 100);
+  const imageUri = currentItem.image_base64
+    ? /^(data:|https?:)/.test(currentItem.image_base64) ? currentItem.image_base64 : `data:image/png;base64,${currentItem.image_base64}`
+    : null;
 
   return (
-    <View style={[styles.container, { paddingBottom: bottomPadding }]}>
-      {/* Progress & Header */}
+    <ScrollView ref={scrollRef} style={styles.screen} testID="flashcard-deck" keyboardShouldPersistTaps="handled"
+      contentContainerStyle={[styles.content, { paddingBottom: Math.max(insets.bottom, Platform.OS === 'android' ? 28 : 16) + 16 }]}
+      showsVerticalScrollIndicator>
       <View style={styles.header}>
-        <View style={styles.progressCol}>
-          <Text style={styles.progressText}>
-            Card {currentIndex + 1} of {items.length}
-          </Text>
-          <View style={styles.miniProgressBar}>
-            <View style={[styles.miniProgressFill, { width: `${progressPercent}%` }]} />
-          </View>
+        <View style={styles.progressCopy}>
+          <Text style={styles.eyebrow}>RECALL PRACTICE</Text>
+          <Text style={styles.progressText}>Card {progress.position} of {deckItems.length}</Text>
         </View>
-        <View style={styles.badgeRow}>
-          <View style={styles.masteredBadge}>
-            <Text style={styles.masteredText}>{masteredCount} Mastered</Text>
-          </View>
-          <View style={styles.difficultyBadge}>
-            <Text style={styles.difficultyText}>{currentItem.difficulty.toUpperCase()}</Text>
-          </View>
-        </View>
+        <View style={styles.masteryPill}><Text style={styles.masteryText}>{masteredCount} recalled</Text></View>
       </View>
+      <View style={styles.progressTrack} accessibilityRole="progressbar" accessibilityLabel="Cards reviewed"
+        accessibilityValue={{ min: 0, max: deckItems.length, now: currentIndex }}>
+        <View style={[styles.progressFill, { width: `${progress.completedPercent}%` }]} />
+      </View>
+      {!isRevealed && !hasSeenFlashcardGestureTip && <CoachmarkTooltip title="Give your memory a moment"
+        description="Try answering first. Reveal the answer, then choose how well you remembered it."
+        onDismiss={() => markTipSeen('flashcardGesture')} arrowPosition="none" />}
 
-      {/* Progressive Contextual Coachmarks */}
-      {!isFlipped && !hasSeenFlashcardGestureTip && (
-        <CoachmarkTooltip
-          title="Tap to Flip & Check Yourself"
-          description="Give it your best guess first, then tap anywhere on the card to see the answer and explanation."
-          onDismiss={() => markTipSeen('flashcardGesture')}
-          arrowPosition="bottom"
-        />
-      )}
-
-      {isFlipped && !hasSeenSourceProvenanceTip && (
-        <CoachmarkTooltip
-          title="100% Backed by Your Notes"
-          description="Notice that little citation tag? Momo links every single card back to the exact page and section from your document!"
-          onDismiss={() => markTipSeen('sourceProvenance')}
-          arrowPosition="top"
-        />
-      )}
-
-      {/* 3D Flip Card Container */}
-      <View style={styles.cardWrapper} collapsable={false}>
-        {/* Front Face */}
-        <Animated.View
-          collapsable={false}
-          pointerEvents={isFlipped ? 'none' : 'auto'}
-          style={[
-            styles.cardFace,
-            styles.cardFront,
-            {
-              transform: frontTransform,
-              opacity: frontOpacity,
-            },
-          ]}
-        >
-          <View style={styles.cardHeaderRow}>
-            <View style={styles.frontTag}>
-              <Text style={styles.frontTagText}>FLASHCARD</Text>
-            </View>
-            <TouchableOpacity
-              style={styles.flipHintRow}
-              onPress={flipCard}
-              activeOpacity={0.7}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            >
-              <HugeiconsIcon icon={EyeIcon} size={isPadDevice ? 18 : 13} color={colors.primary} strokeWidth={2.2} />
-              <Text style={styles.flipHint}>Tap to reveal</Text>
-            </TouchableOpacity>
-          </View>
-
-          <ScrollView
-            style={styles.cardScroll}
-            contentContainerStyle={styles.frontScrollContent}
-            showsVerticalScrollIndicator={true}
-            nestedScrollEnabled={true}
-            bounces={true}
-          >
-            <TouchableOpacity
-              activeOpacity={0.9}
-              onPress={flipCard}
-              style={styles.frontQuestionTouch}
-            >
-              {isMeaningfulSection(currentItem.source_metadata?.section) ? (
-                <View style={styles.topicBadge}>
-                  <HugeiconsIcon icon={BookOpen01Icon} size={isPadDevice ? 16 : 12} color={colors.primary} strokeWidth={2.2} />
-                  <Text style={styles.topicBadgeText} numberOfLines={1}>
-                    {currentItem.source_metadata?.section?.toUpperCase()}
-                  </Text>
-                </View>
-              ) : null}
-              <Text style={styles.questionText}>{sanitizeQuestionText(currentItem.question)}</Text>
-            </TouchableOpacity>
-
-            {/* Front Diagram or Generate Button */}
-            {currentItem.image_base64 ? (
-              <TouchableOpacity
-                style={styles.fcDiagramContainer}
-                onPress={() =>
-                  setZoomDiagram({
-                    visible: true,
-                    uri: currentItem.image_base64!,
-                    caption: sanitizeQuestionText(currentItem.question),
-                  })
-                }
-                activeOpacity={0.88}
-              >
-                <View style={styles.fcDiagramHeader}>
-                  <View style={styles.fcDiagramBadge}>
-                    <HugeiconsIcon icon={SparklesIcon} size={11} color={colors.primary} />
-                    <Text style={styles.fcDiagramBadgeText}>EDUCATIONAL DIAGRAM</Text>
-                  </View>
-                  <View style={styles.fcExpandTag}>
-                    <HugeiconsIcon icon={EyeIcon} size={11} color={colors.primary} />
-                    <Text style={styles.fcExpandTagText}>Tap to zoom</Text>
-                  </View>
-                </View>
-                <View style={styles.fcDiagramImageCard}>
-                  <Image
-                    source={{
-                      uri:
-                        currentItem.image_base64.startsWith('data:') ||
-                        currentItem.image_base64.startsWith('http')
-                          ? currentItem.image_base64
-                          : `data:image/png;base64,${currentItem.image_base64}`,
-                    }}
-                    style={styles.fcDiagramImage}
-                    resizeMode="contain"
-                  />
-                </View>
-              </TouchableOpacity>
-            ) : (
-              <TouchableOpacity
-                style={[
-                  styles.fcGenerateButton,
-                  generatingImageId === currentItem.id && styles.fcGenerateButtonLoading,
-                ]}
-                onPress={handleGenerateDiagram}
-                disabled={generatingImageId === currentItem.id}
-                activeOpacity={0.8}
-              >
-                {generatingImageId === currentItem.id ? (
-                  <>
-                    <ActivityIndicator size="small" color={colors.primary} />
-                    <Text style={styles.fcGenerateText}>Creating 2D diagram...</Text>
-                  </>
-                ) : (
-                  <>
-                    <HugeiconsIcon icon={SparklesIcon} size={13} color={colors.primary} />
-                    <Text style={styles.fcGenerateText}>Generate Visual Diagram</Text>
-                  </>
-                )}
-              </TouchableOpacity>
-            )}
-          </ScrollView>
-
-          <TouchableOpacity
-            style={styles.cardBottomBar}
-            onPress={flipCard}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.cardBottomHint}>Check your recall, then tap to reveal answer</Text>
+      <View style={styles.questionCard}>
+        <View style={styles.cardHeading}>
+          <StudyIcon name="cards" size={44} />
+          <View style={styles.headingCopy}><Text style={styles.cardLabel}>YOUR QUESTION</Text><Text style={styles.difficulty}>{currentItem.difficulty} difficulty</Text></View>
+        </View>
+        {isMeaningfulSection(currentItem.source_metadata?.section) && <Text style={styles.topic}>{currentItem.source_metadata.section}</Text>}
+        <Text style={styles.question} selectable testID="flashcard-question">{sanitizeQuestionText(currentItem.question)}</Text>
+        {!isRevealed && <Text style={styles.recallPrompt}>Think of the answer before you look.</Text>}
+        {!isRevealed && currentItem.hint && <>
+          <TouchableOpacity accessibilityRole="button" accessibilityLabel={showHint ? 'Hide hint' : 'Show a hint'}
+            onPress={() => setShowHint(value => !value)} style={styles.textAction}>
+            <Text style={styles.textActionLabel}>{showHint ? 'Hide hint' : 'Need a little hint?'}</Text>
           </TouchableOpacity>
-        </Animated.View>
-
-        {/* Back Face */}
-        <Animated.View
-          collapsable={false}
-          pointerEvents={isFlipped ? 'auto' : 'none'}
-          style={[
-            styles.cardFace,
-            styles.cardBack,
-            {
-              transform: backTransform,
-              opacity: backOpacity,
-            },
-          ]}
-        >
-          <View style={styles.cardHeaderRow}>
-            <View style={styles.backTag}>
-              <HugeiconsIcon icon={CheckmarkCircle02Icon} size={isPadDevice ? 18 : 13} color={colors.success} strokeWidth={2.4} />
-              <Text style={styles.backTagText}>ANSWER REVEALED</Text>
-            </View>
-            <TouchableOpacity
-              style={styles.backFlipHintRow}
-              onPress={flipCard}
-              activeOpacity={0.7}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            >
-              <HugeiconsIcon icon={RefreshIcon} size={isPadDevice ? 18 : 13} color={colors.textMuted} strokeWidth={2} />
-              <Text style={styles.backFlipHint}>Flip back</Text>
-            </TouchableOpacity>
-          </View>
-
-          <ScrollView
-            style={styles.cardScroll}
-            contentContainerStyle={styles.backScrollContent}
-            showsVerticalScrollIndicator={true}
-            nestedScrollEnabled={true}
-            bounces={true}
-          >
-            {/* Prominent Answer Hero Box */}
-            <View style={styles.prominentAnswerCard}>
-              <View style={styles.prominentAnswerHeader}>
-                <HugeiconsIcon icon={CheckmarkCircle02Icon} size={isPadDevice ? 20 : 14} color={colors.success} strokeWidth={2.4} />
-                <Text style={styles.prominentAnswerBadgeLabel}>CORRECT ANSWER</Text>
-              </View>
-              <Text style={styles.answerText}>{currentItem.answer}</Text>
-            </View>
-
-            {/* Relevant Explanation & Context Box */}
-            {currentItem.explanation ? (
-              <View style={styles.explanationBox}>
-                <View style={styles.explanationHeaderRow}>
-                  <HugeiconsIcon icon={BookOpen01Icon} size={isPadDevice ? 20 : 14} color={colors.primary} strokeWidth={2.2} />
-                  <Text style={styles.explanationLabel}>EXPLANATION & CONTEXT</Text>
-                </View>
-                <Text style={styles.explanationText}>{currentItem.explanation}</Text>
-              </View>
-            ) : null}
-
-            {/* Back Face Diagram */}
-            {currentItem.image_base64 ? (
-              <TouchableOpacity
-                style={styles.fcDiagramContainer}
-                onPress={() =>
-                  setZoomDiagram({
-                    visible: true,
-                    uri: currentItem.image_base64!,
-                    caption: currentItem.answer,
-                  })
-                }
-                activeOpacity={0.88}
-              >
-                <View style={styles.fcDiagramHeader}>
-                  <View style={styles.fcDiagramBadge}>
-                    <HugeiconsIcon icon={SparklesIcon} size={11} color={colors.primary} />
-                    <Text style={styles.fcDiagramBadgeText}>VISUAL CONCEPT AID</Text>
-                  </View>
-                  <View style={styles.fcExpandTag}>
-                    <HugeiconsIcon icon={EyeIcon} size={11} color={colors.primary} />
-                    <Text style={styles.fcExpandTagText}>Tap to zoom</Text>
-                  </View>
-                </View>
-                <View style={styles.fcDiagramImageCard}>
-                  <Image
-                    source={{
-                      uri:
-                        currentItem.image_base64.startsWith('data:') ||
-                        currentItem.image_base64.startsWith('http')
-                          ? currentItem.image_base64
-                          : `data:image/png;base64,${currentItem.image_base64}`,
-                    }}
-                    style={styles.fcDiagramImage}
-                    resizeMode="contain"
-                  />
-                </View>
-              </TouchableOpacity>
-            ) : null}
-
-            {/* Source Reference Bar */}
-            <SourceAttribution source={currentItem.source_metadata} />
-          </ScrollView>
-        </Animated.View>
+          {showHint && <Text style={styles.hint}>{currentItem.hint}</Text>}
+        </>}
       </View>
 
-      {/* Bottom Controls - Synchronized with card flip */}
-      <View style={styles.controls}>
-        {/* Front Layer: Show Answer */}
-        <Animated.View
-          pointerEvents={isFlipped ? 'none' : 'auto'}
-          style={[
-            styles.buttonLayer,
-            {
-              opacity: frontBtnOpacity,
-              transform: [{ translateY: frontBtnTranslateY }],
-            },
-          ]}
-        >
-          <PlatformPressable style={styles.revealButton} onPress={flipCard}>
-            <View style={styles.revealContent}>
-              <HugeiconsIcon icon={EyeIcon} size={isPadDevice ? 24 : 18} color={colors.onPrimary} strokeWidth={2.2} />
-              <Text style={styles.revealButtonText}>Show Answer</Text>
-            </View>
-          </PlatformPressable>
-        </Animated.View>
-
-        {/* Back Layer: Review Again & Got It */}
-        <Animated.View
-          pointerEvents={isFlipped ? 'auto' : 'none'}
-          style={[
-            styles.buttonLayer,
-            styles.backButtonLayer,
-            {
-              opacity: backBtnOpacity,
-              transform: [{ translateY: backBtnTranslateY }],
-            },
-          ]}
-        >
-          <View style={styles.actionRow}>
-            <PlatformPressable
-              style={styles.reviewAgainBtn}
-              onPress={() => handleNext(false)}
-            >
-              <View style={styles.actionBtnContent}>
-                <HugeiconsIcon icon={Cancel01Icon} size={isPadDevice ? 24 : 18} color={colors.danger} strokeWidth={2.4} />
-                <Text style={styles.reviewAgainText}>Review Again</Text>
-              </View>
+      {isRevealed ? <Animated.View key={`answer-${currentItem.id}`} testID="flashcard-answer"
+        entering={reducedMotion ? undefined : FadeIn.duration(180).easing(Easing.bezier(0.23, 1, 0.32, 1)).reduceMotion(ReduceMotion.System)}>
+        <View style={styles.answerCard} accessibilityLiveRegion="polite">
+          <View style={styles.cardHeading}><StudyIcon name="book" size={40} /><Text style={styles.cardLabel}>THE ANSWER</Text></View>
+          <Text style={styles.answer} selectable>{currentItem.answer}</Text>
+          {currentItem.explanation && <View style={styles.explanation}>
+            <Text style={styles.explanationTitle}>Why it makes sense</Text>
+            <Text style={styles.body} selectable>{currentItem.explanation}</Text>
+          </View>}
+          <TouchableOpacity onPress={hideAnswer} style={styles.textAction} accessibilityRole="button" accessibilityLabel="Hide the answer and recall again">
+            <Text style={styles.textActionLabel}>Try recalling it again</Text>
+          </TouchableOpacity>
+        </View>
+        <View style={styles.selfCheck}>
+          <Text style={styles.selfCheckTitle}>How did you remember it?</Text>
+          <Text style={styles.helper}>A self-check, not a test. Be honest with yourself.</Text>
+          <View style={[styles.actions, stackActions && styles.stackedActions]}>
+            <PlatformPressable testID="flashcard-review-again" accessibilityRole="button" accessibilityLabel="Review again"
+              style={styles.reviewButton} onPress={() => handleNext(false)}>
+              <View style={styles.actionContent}><Text style={styles.reviewText}>Review again</Text><Text style={styles.reviewHelper}>I need more practice</Text></View>
             </PlatformPressable>
-
-            <PlatformPressable
-              style={styles.gotItBtn}
-              onPress={() => handleNext(true)}
-            >
-              <View style={styles.actionBtnContent}>
-                <HugeiconsIcon icon={CheckmarkCircle02Icon} size={isPadDevice ? 24 : 18} color={colors.onPrimary} strokeWidth={2.4} />
-                <Text style={styles.gotItText}>Got It</Text>
-              </View>
+            <PlatformPressable testID="flashcard-correct" accessibilityRole="button" accessibilityLabel="Got it"
+              style={styles.correctButton} onPress={() => handleNext(true)}>
+              <View style={styles.actionContent}><Text style={styles.correctText}>Got it</Text><Text style={styles.correctHelper}>I recalled this</Text></View>
             </PlatformPressable>
           </View>
-        </Animated.View>
-      </View>
+        </View>
+        {!hasSeenSourceProvenanceTip && <CoachmarkTooltip title="Keep your source close"
+          description="Use the reference below to revisit the page, section, or excerpt saved with this card."
+          onDismiss={() => markTipSeen('sourceProvenance')} arrowPosition="none" />}
+        <SourceAttribution key={currentItem.id} source={currentItem.source_metadata} defaultExpanded />
+      </Animated.View> : <PlatformPressable testID="flashcard-reveal" accessibilityRole="button" accessibilityLabel="Reveal answer"
+        style={styles.revealButton} onPress={revealAnswer}>
+        <View style={styles.revealContent}><StudyIcon name="book" size={32} /><Text style={styles.correctText}>Reveal answer</Text></View>
+      </PlatformPressable>}
 
-      <ImageZoomModal
-        visible={Boolean(zoomDiagram?.visible)}
-        onClose={() => setZoomDiagram(null)}
-        imageBase64={zoomDiagram?.uri}
-        title={currentItem.source_metadata?.section || 'Visual Study Diagram'}
-        caption={zoomDiagram?.caption}
-      />
-    </View>
+      <View style={styles.visualSection}>
+        {imageUri ? <TouchableOpacity style={styles.diagramCard} accessibilityRole="button" accessibilityLabel="Enlarge study visual"
+          onPress={() => setZoomDiagram({ uri: imageUri, caption: sanitizeQuestionText(currentItem.question) })}>
+          <Text style={styles.explanationTitle}>Study visual · tap to enlarge</Text>
+          <Image source={{ uri: imageUri }} style={styles.diagram} resizeMode="contain" />
+        </TouchableOpacity> : <TouchableOpacity style={styles.visualButton} accessibilityRole="button" accessibilityLabel="Create a study visual, requires internet"
+          accessibilityState={{ disabled: !!generatingImageId, busy: generatingImageId === currentItem.id }} disabled={!!generatingImageId} onPress={handleGenerateDiagram}>
+          {generatingImageId === currentItem.id ? <ActivityIndicator color={colors.primary} /> : <StudyIcon name="brain" size={30} />}
+          <View style={styles.headingCopy}><Text style={styles.textActionLabel}>{generatingImageId === currentItem.id ? 'Creating your study visual…' : 'Create a study visual'}</Text><Text style={styles.visualHelper}>Optional · needs internet</Text></View>
+        </TouchableOpacity>}
+        {diagramError && <Text style={styles.error} accessibilityLiveRegion="polite">{diagramError}</Text>}
+      </View>
+      <ImageZoomModal visible={!!zoomDiagram} onClose={() => setZoomDiagram(null)} imageBase64={zoomDiagram?.uri}
+        title={currentItem.source_metadata?.section || 'Study visual'} caption={zoomDiagram?.caption} />
+    </ScrollView>
   );
 };
 
-const isPadDevice = isIpad();
-
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    padding: isPadDevice ? spacing[28] : spacing[16],
-    justifyContent: 'space-between',
-    width: '100%',
-    maxWidth: isPadDevice ? 860 : undefined,
-    alignSelf: 'center',
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: isPadDevice ? spacing[18] : spacing[12],
-  },
-  progressCol: {
-    flex: 1,
-    marginRight: spacing[12],
-  },
-  progressText: {
-    fontSize: isPadDevice ? typography.fontSize[16] : typography.fontSize[13],
-    fontWeight: typography.fontWeight.bold,
-    color: colors.textMuted,
-    marginBottom: isPadDevice ? spacing[6] : spacing[4],
-  },
-  miniProgressBar: {
-    height: isPadDevice ? 10 : 6,
-    backgroundColor: colors.surfaceMuted,
-    borderRadius: isPadDevice ? 5 : 3,
-    overflow: 'hidden',
-  },
-  miniProgressFill: {
-    height: '100%',
-    backgroundColor: colors.primary,
-    borderRadius: isPadDevice ? 5 : 3,
-  },
-  badgeRow: {
-    flexDirection: 'row',
-    gap: isPadDevice ? spacing[10] : spacing[6],
-  },
-  masteredBadge: {
-    backgroundColor: colors.successSoft,
-    paddingHorizontal: isPadDevice ? spacing[12] : spacing[8],
-    paddingVertical: isPadDevice ? spacing[6] : spacing[3],
-    borderRadius: isPadDevice ? 8 : 6,
-  },
-  masteredText: {
-    fontSize: isPadDevice ? typography.fontSize[14] : typography.fontSize[11],
-    fontWeight: typography.fontWeight.bold,
-    color: colors.success,
-  },
-  difficultyBadge: {
-    backgroundColor: colors.primarySoft,
-    paddingHorizontal: isPadDevice ? spacing[12] : spacing[8],
-    paddingVertical: isPadDevice ? spacing[6] : spacing[3],
-    borderRadius: isPadDevice ? 8 : 6,
-  },
-  difficultyText: {
-    fontSize: isPadDevice ? typography.fontSize[14] : typography.fontSize[11],
-    fontWeight: typography.fontWeight.bold,
-    color: colors.primary,
-  },
-  cardWrapper: {
-    flex: 1,
-    minHeight: isPadDevice ? 540 : 360,
-    maxHeight: isPadDevice ? 740 : 540,
-    marginBottom: isPadDevice ? spacing[24] : spacing[16],
-    position: 'relative',
-    overflow: 'visible',
-  },
-  cardFace: {
-    backgroundColor: colors.surface,
-    borderRadius: isPadDevice ? 28 : 20,
-    padding: isPadDevice ? spacing[28] : spacing[20],
-    borderWidth: 1,
-    borderColor: colors.border,
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backfaceVisibility: 'hidden',
-    ...Platform.select({
-      ios: {
-        shadowColor: colors.shadow,
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.08,
-        shadowRadius: 14,
-      },
-      android: {
-        elevation: 3,
-      },
-    }),
-  },
-  cardFront: {
-    borderColor: colors.border,
-    justifyContent: 'space-between',
-  },
-  cardBack: {
-    borderColor: colors.primaryBorder,
-  },
-  cardHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: isPadDevice ? spacing[16] : spacing[12],
-  },
-  frontTag: {
-    backgroundColor: colors.primarySoft,
-    paddingHorizontal: isPadDevice ? spacing[12] : spacing[8],
-    paddingVertical: isPadDevice ? 6 : 3.5,
-    borderRadius: isPadDevice ? 8 : 6,
-  },
-  frontTagText: {
-    fontSize: isPadDevice ? typography.fontSize[12] : typography.fontSize[10],
-    fontWeight: typography.fontWeight.extraBold,
-    color: colors.primary,
-    letterSpacing: typography.letterSpacing[0.6],
-  },
-  backTag: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing[4],
-    backgroundColor: colors.successSoft,
-    paddingHorizontal: isPadDevice ? spacing[12] : spacing[8],
-    paddingVertical: isPadDevice ? 6 : 3.5,
-    borderRadius: isPadDevice ? 8 : 6,
-  },
-  backTagText: {
-    fontSize: isPadDevice ? typography.fontSize[12] : typography.fontSize[10],
-    fontWeight: typography.fontWeight.extraBold,
-    color: colors.success,
-    letterSpacing: typography.letterSpacing[0.6],
-  },
-  flipHintRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing[4],
-    flexShrink: 0,
-    backgroundColor: colors.primarySoft,
-    paddingHorizontal: isPadDevice ? spacing[12] : spacing[8],
-    paddingVertical: isPadDevice ? 6 : 3.5,
-    borderRadius: isPadDevice ? 8 : 6,
-  },
-  flipHint: {
-    fontSize: isPadDevice ? typography.fontSize[13] : typography.fontSize[11],
-    color: colors.primary,
-    fontWeight: typography.fontWeight.semiBold,
-  },
-  backFlipHintRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing[4],
-    flexShrink: 0,
-    backgroundColor: colors.surfaceMuted,
-    paddingHorizontal: isPadDevice ? spacing[12] : spacing[8],
-    paddingVertical: isPadDevice ? 6 : 3.5,
-    borderRadius: isPadDevice ? 8 : 6,
-  },
-  backFlipHint: {
-    fontSize: isPadDevice ? typography.fontSize[13] : typography.fontSize[11],
-    color: colors.textMuted,
-    fontWeight: typography.fontWeight.semiBold,
-  },
-  topicBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: isPadDevice ? spacing[8] : spacing[5],
-    backgroundColor: colors.background,
-    borderWidth: 1,
-    borderColor: colors.border,
-    paddingHorizontal: isPadDevice ? spacing[14] : spacing[10],
-    paddingVertical: isPadDevice ? spacing[6] : spacing[4],
-    borderRadius: isPadDevice ? 10 : 8,
-    marginBottom: isPadDevice ? spacing[18] : spacing[14],
-    maxWidth: '90%',
-  },
-  topicBadgeText: {
-    fontSize: isPadDevice ? typography.fontSize[12] : typography.fontSize[10],
-    fontWeight: typography.fontWeight.bold,
-    color: colors.textSecondary,
-    letterSpacing: typography.letterSpacing[0.5],
-  },
-  cardScroll: {
-    flex: 1,
-  },
-  frontScrollContent: {
-    flexGrow: 1,
-    justifyContent: 'center',
-    paddingVertical: isPadDevice ? spacing[18] : spacing[12],
-  },
-  frontQuestionTouch: {
-    width: '100%',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  questionText: {
-    fontSize: isPadDevice ? typography.fontSize[28] : typography.fontSize[19],
-    fontWeight: typography.fontWeight.bold,
-    color: colors.text,
-    lineHeight: isPadDevice ? typography.lineHeight[40] : typography.lineHeight[28],
-    textAlign: 'center',
-  },
-  cardBottomBar: {
-    alignItems: 'center',
-    paddingTop: isPadDevice ? spacing[16] : spacing[12],
-    borderTopWidth: 1,
-    borderTopColor: colors.surfaceMuted,
-  },
-  cardBottomHint: {
-    fontSize: isPadDevice ? typography.fontSize[15] : typography.fontSize[12],
-    color: colors.textDisabled,
-    fontWeight: typography.fontWeight.medium,
-  },
-  backScrollContent: {
-    paddingBottom: spacing[16],
-  },
-  prominentAnswerCard: {
-    backgroundColor: colors.successSoft,
-    borderRadius: isPadDevice ? 18 : 14,
-    padding: isPadDevice ? spacing[22] : spacing[16],
-    borderWidth: 1.5,
-    borderColor: colors.successBorder,
-    marginBottom: isPadDevice ? spacing[16] : spacing[12],
-  },
-  prominentAnswerHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing[5],
-    marginBottom: spacing[6],
-  },
-  prominentAnswerBadgeLabel: {
-    fontSize: isPadDevice ? typography.fontSize[13] : typography.fontSize[10.5],
-    fontWeight: typography.fontWeight.extraBold,
-    color: colors.success,
-    letterSpacing: typography.letterSpacing[0.5],
-  },
-  answerText: {
-    fontSize: isPadDevice ? typography.fontSize[26] : typography.fontSize[18],
-    fontWeight: typography.fontWeight.extraBold,
-    color: colors.success,
-    lineHeight: isPadDevice ? typography.lineHeight[36] : typography.lineHeight[25],
-  },
-  explanationBox: {
-    backgroundColor: colors.background,
-    padding: isPadDevice ? spacing[20] : spacing[14],
-    borderRadius: isPadDevice ? 16 : 12,
-    borderLeftWidth: isPadDevice ? 4.5 : 3.5,
-    borderLeftColor: colors.primary,
-    borderWidth: 1,
-    borderColor: colors.border,
-    marginBottom: isPadDevice ? spacing[14] : spacing[8],
-  },
-  explanationHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing[6],
-    marginBottom: spacing[6],
-  },
-  explanationLabel: {
-    fontSize: isPadDevice ? typography.fontSize[13] : typography.fontSize[10.5],
-    fontWeight: typography.fontWeight.extraBold,
-    color: colors.primary,
-    letterSpacing: typography.letterSpacing[0.5],
-  },
-  explanationText: {
-    fontSize: isPadDevice ? typography.fontSize[16] : typography.fontSize[13.5],
-    color: colors.textSecondary,
-    lineHeight: isPadDevice ? typography.lineHeight[24] : typography.lineHeight[20],
-  },
-  controls: {
-    position: 'relative',
-    minHeight: isPadDevice ? 66 : 56,
-    justifyContent: 'center',
-    marginBottom: spacing[8],
-  },
-  buttonLayer: {
-    width: '100%',
-  },
-  backButtonLayer: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    top: 0,
-    bottom: 0,
-  },
-  revealButton: {
-    backgroundColor: colors.primary,
-    borderRadius: isPadDevice ? 18 : 14,
-    ...Platform.select({
-      ios: {
-        shadowColor: colors.shadow,
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.25,
-        shadowRadius: 8,
-      },
-      android: {
-        elevation: 3,
-      },
-    }),
-  },
-  revealContent: {
-    paddingVertical: isPadDevice ? spacing[20] : spacing[16],
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: spacing[8],
-  },
-  revealButtonText: {
-    color: colors.onPrimary,
-    fontSize: isPadDevice ? typography.fontSize[19] : typography.fontSize[16],
-    fontWeight: typography.fontWeight.bold,
-  },
-  actionRow: {
-    flexDirection: 'row',
-    gap: isPadDevice ? spacing[16] : spacing[12],
-  },
-  actionBtnContent: {
-    paddingVertical: isPadDevice ? spacing[18] : spacing[15],
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: spacing[8],
-  },
-  reviewAgainBtn: {
-    flex: 1,
-    backgroundColor: colors.dangerSoft,
-    borderRadius: isPadDevice ? 18 : 14,
-    borderWidth: 1,
-    borderColor: colors.dangerBorder,
-  },
-  reviewAgainText: {
-    color: colors.danger,
-    fontWeight: typography.fontWeight.bold,
-    fontSize: isPadDevice ? typography.fontSize[17] : typography.fontSize[15],
-  },
-  gotItBtn: {
-    flex: 1,
-    backgroundColor: colors.success,
-    borderRadius: isPadDevice ? 18 : 14,
-    ...Platform.select({
-      ios: {
-        shadowColor: colors.shadow,
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.25,
-        shadowRadius: 8,
-      },
-      android: {
-        elevation: 3,
-      },
-    }),
-  },
-  gotItText: {
-    color: colors.onPrimary,
-    fontWeight: typography.fontWeight.bold,
-    fontSize: isPadDevice ? typography.fontSize[17] : typography.fontSize[15],
-  },
-  emptyContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: spacing[32],
-  },
-  emptyText: {
-    fontSize: isPadDevice ? typography.fontSize[18] : typography.fontSize[15],
-    color: colors.textMuted,
-  },
-  fcDiagramContainer: {
-    backgroundColor: '#FAFAFD',
-    borderRadius: 12,
-    padding: 10,
-    borderWidth: 1,
-    borderColor: '#E9D7FE',
-    marginTop: spacing[12],
-    marginBottom: spacing[10],
-    width: '100%',
-  },
-  fcDiagramHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 8,
-  },
-  fcDiagramBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: '#F4EBFF',
-    paddingHorizontal: 7,
-    paddingVertical: 3,
-    borderRadius: 6,
-  },
-  fcDiagramBadgeText: {
-    fontSize: 9,
-    fontWeight: typography.fontWeight.bold,
-    color: colors.primary,
-    letterSpacing: 0.5,
-  },
-  fcExpandTag: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-  },
-  fcExpandTagText: {
-    fontSize: 10,
-    fontWeight: typography.fontWeight.medium,
-    color: colors.primary,
-  },
-  fcDiagramImageCard: {
-    width: '100%',
-    height: isPadDevice ? 240 : 160,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 8,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: '#EAECF0',
-  },
-  fcDiagramImage: {
-    width: '100%',
-    height: '100%',
-  },
-  fcGenerateButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#F4EBFF',
-    borderWidth: 1,
-    borderColor: '#D6BBFB',
-    borderStyle: 'dashed',
-    borderRadius: 10,
-    paddingVertical: 8,
-    gap: 6,
-    marginTop: spacing[12],
-    marginBottom: spacing[6],
-    width: '100%',
-  },
-  fcGenerateButtonLoading: {
-    opacity: 0.8,
-  },
-  fcGenerateText: {
-    fontSize: 11,
-    fontWeight: typography.fontWeight.semiBold,
-    color: colors.primary,
-  },
+  screen: { flex: 1, backgroundColor: colors.background },
+  content: { flexGrow: 1, width: '100%', maxWidth: 820, alignSelf: 'center', padding: 20, gap: 16 },
+  header: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 12 },
+  progressCopy: { flex: 1, minWidth: 130 },
+  eyebrow: { color: colors.primary, fontSize: 10, fontWeight: '700', letterSpacing: 1, marginBottom: 4 },
+  progressText: { color: colors.text, fontSize: 17, lineHeight: 24, fontWeight: '700', fontVariant: ['tabular-nums'] },
+  masteryPill: { backgroundColor: colors.primarySoft, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 14, borderCurve: 'continuous' },
+  masteryText: { color: colors.primary, fontSize: 12, fontWeight: '600', fontVariant: ['tabular-nums'] },
+  progressTrack: { height: 6, borderRadius: 3, backgroundColor: colors.surfaceMuted, overflow: 'hidden' },
+  progressFill: { height: '100%', borderRadius: 3, backgroundColor: colors.primary },
+  questionCard: { backgroundColor: colors.surface, borderRadius: 26, borderCurve: 'continuous', padding: 24, borderWidth: 1, borderColor: colors.border, gap: 16 },
+  cardHeading: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  headingCopy: { flex: 1 },
+  cardLabel: { color: colors.primary, fontSize: 10, lineHeight: 16, letterSpacing: 1, fontWeight: '700', flexShrink: 1 },
+  difficulty: { color: colors.textSecondary, fontSize: 12, lineHeight: 18, textTransform: 'capitalize' },
+  topic: { color: colors.primary, fontSize: 12, lineHeight: 18, fontWeight: '600' },
+  question: { color: colors.text, fontSize: 23, lineHeight: 34, fontWeight: '700', letterSpacing: -0.3 },
+  recallPrompt: { color: colors.textSecondary, fontSize: 12, lineHeight: 19 },
+  hint: { color: colors.textSecondary, fontSize: 14, lineHeight: 22 },
+  textAction: { minHeight: 44, justifyContent: 'center', alignSelf: 'flex-start' },
+  textActionLabel: { color: colors.primary, fontSize: 13, lineHeight: 20, fontWeight: '600' },
+  answerCard: { padding: 24, backgroundColor: colors.primarySoft, borderRadius: 26, borderCurve: 'continuous', borderColor: colors.primaryBorder, borderWidth: 1, gap: 16 },
+  answer: { color: colors.text, fontSize: 22, lineHeight: 32, fontWeight: '700' },
+  explanation: { borderTopWidth: 1, borderColor: colors.primaryBorder, paddingTop: 16, gap: 8 },
+  explanationTitle: { color: colors.text, fontSize: 14, lineHeight: 22, fontWeight: '600' },
+  body: { color: colors.textSecondary, fontSize: 15, lineHeight: 24 },
+  helper: { color: colors.textSecondary, fontSize: 12, lineHeight: 20 },
+  selfCheck: { gap: 8, marginTop: 20 },
+  selfCheckTitle: { color: colors.text, fontSize: 16, lineHeight: 24, fontWeight: '700' },
+  actions: { flexDirection: 'row', gap: 12, marginTop: 8 },
+  stackedActions: { flexDirection: 'column' },
+  reviewButton: { flex: 1, backgroundColor: colors.surface, borderColor: colors.primaryBorder, borderWidth: 1, borderRadius: 18, borderCurve: 'continuous' },
+  correctButton: { flex: 1, backgroundColor: colors.primary, borderRadius: 18, borderCurve: 'continuous' },
+  actionContent: { minHeight: 72, padding: 14, alignItems: 'center', justifyContent: 'center', gap: 4 },
+  reviewText: { color: colors.primary, fontSize: 15, lineHeight: 23, fontWeight: '700', textAlign: 'center' },
+  reviewHelper: { color: colors.textSecondary, fontSize: 11, lineHeight: 17, textAlign: 'center' },
+  correctText: { color: colors.onPrimary, fontSize: 15, lineHeight: 23, fontWeight: '700', textAlign: 'center' },
+  correctHelper: { color: colors.onPrimary, fontSize: 11, lineHeight: 17, textAlign: 'center' },
+  revealButton: { backgroundColor: colors.primary, borderRadius: 18, borderCurve: 'continuous' },
+  revealContent: { minHeight: 56, padding: 12, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 10 },
+  visualSection: { marginTop: 8, gap: 8 },
+  visualButton: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 14, minHeight: 56, borderRadius: 18, borderCurve: 'continuous', borderColor: colors.border, borderWidth: 1, backgroundColor: colors.surface },
+  visualHelper: { color: colors.textSecondary, fontSize: 11, lineHeight: 17 },
+  diagramCard: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, padding: 16, borderRadius: 20, borderCurve: 'continuous', gap: 12 },
+  diagram: { width: '100%', height: 200 },
+  error: { color: colors.danger, fontSize: 12, lineHeight: 20 },
+  empty: { flex: 1, padding: 32, alignItems: 'center', justifyContent: 'center', gap: 16 },
+  emptyTitle: { color: colors.text, fontSize: 18, lineHeight: 26, fontWeight: '700' },
 });

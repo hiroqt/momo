@@ -30,6 +30,10 @@ export const SourceAttribution: React.FC<Props> = ({ source, defaultExpanded = f
     <View style={styles.container}>
       <TouchableOpacity
         style={styles.headerRow}
+        testID="study-source-toggle"
+        accessibilityRole="button"
+        accessibilityLabel="Source reference"
+        accessibilityState={{ expanded }}
         onPress={() => setExpanded((prev) => !prev)}
         activeOpacity={0.7}
       >
@@ -38,8 +42,8 @@ export const SourceAttribution: React.FC<Props> = ({ source, defaultExpanded = f
             <HugeiconsIcon icon={Shield01Icon} size={14} color={colors.primary} strokeWidth={2.4} />
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={styles.label}>DOCUMENT REFERENCE</Text>
-            <Text style={styles.sublabel}>Verified directly against your material</Text>
+            <Text style={styles.label}>SOURCE REFERENCE</Text>
+            <Text style={styles.sublabel}>Read the supporting source details</Text>
           </View>
         </View>
         <View style={styles.expandToggleRow}>

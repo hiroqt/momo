@@ -1,6 +1,7 @@
 import { Platform } from 'react-native';
 import * as FileSystem from 'expo-file-system/legacy';
 import { apiFetch, getBaseUrl, BASE_URL } from './client';
+import { collectPages } from './pagination';
 import { DocumentItem } from '../../types';
 
 export interface UploadUrlResponse {
@@ -87,7 +88,9 @@ export async function registerDocument(params: {
 }
 
 export async function listDocuments(): Promise<DocumentItem[]> {
-  return apiFetch<DocumentItem[]>('/api/documents');
+  return collectPages<DocumentItem>((limit, offset) =>
+    apiFetch<DocumentItem[]>(`/api/documents?limit=${limit}&offset=${offset}`)
+  );
 }
 
 export async function getDocumentStatus(documentId: string): Promise<{

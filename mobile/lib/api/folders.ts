@@ -1,8 +1,11 @@
 import { apiFetch } from './client';
+import { collectPages } from './pagination';
 import { Folder, StudySet } from '../../types';
 
 export async function listFolders(): Promise<Folder[]> {
-  return apiFetch<Folder[]>('/api/folders');
+  return collectPages<Folder>((limit, offset) =>
+    apiFetch<Folder[]>(`/api/folders?limit=${limit}&offset=${offset}`)
+  );
 }
 
 export async function createFolder(name: string, color?: string | null): Promise<Folder> {

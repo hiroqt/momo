@@ -1,4 +1,5 @@
 import { apiFetch } from './client';
+import { collectPages } from './pagination';
 import { ChatSession, ChatSessionDetail, ChatMessage } from '../../types';
 
 export async function createChatSession(title?: string): Promise<ChatSession> {
@@ -9,7 +10,9 @@ export async function createChatSession(title?: string): Promise<ChatSession> {
 }
 
 export async function listChatSessions(): Promise<ChatSession[]> {
-  return apiFetch<ChatSession[]>('/api/chat/sessions');
+  return collectPages<ChatSession>((limit, offset) =>
+    apiFetch<ChatSession[]>(`/api/chat/sessions?limit=${limit}&offset=${offset}`)
+  );
 }
 
 export async function getChatSession(sessionId: string): Promise<ChatSessionDetail> {

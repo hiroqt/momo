@@ -1,8 +1,11 @@
 import { apiFetch } from './client';
+import { collectPages } from './pagination';
 import { StudySet, StudyItem } from '../../types';
 
 export async function listStudySets(): Promise<StudySet[]> {
-  return apiFetch<StudySet[]>('/api/study-sets');
+  return collectPages<StudySet>((limit, offset) =>
+    apiFetch<StudySet[]>(`/api/study-sets?limit=${limit}&offset=${offset}`)
+  );
 }
 
 export async function getStudySet(id: string): Promise<StudySet> {
@@ -26,4 +29,3 @@ export async function updateStudySet(
     body: JSON.stringify(updates),
   });
 }
-

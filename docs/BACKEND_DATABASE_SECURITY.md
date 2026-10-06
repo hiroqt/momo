@@ -122,3 +122,16 @@ are impossible.
 
 References: [Supabase RLS](https://supabase.com/docs/guides/database/postgres/row-level-security),
 [RLS performance](https://supabase.com/docs/guides/troubleshooting/rls-performance-and-best-practices-Z5Jjwv).
+
+## Subsequent Delivery Update
+
+The five implementation commits were subsequently pushed to GitHub `main`, with
+documentation head `896d534`. The push-protection finding in a guardrail fixture
+was resolved using generated synthetic test data; its seven tests passed.
+This did not deploy a Supabase project or rerun the entire test suite.
+
+The later source audit and canonical remaining work are recorded in
+[Production Readiness Checklist](PRODUCTION_READINESS_CHECKLIST.md), dated
+October 6, 2026. It distinguishes the verified generation-job/security boundaries
+above from unresolved chat/grounding, client identity, offline persistence and
+release requirements. The original validation counts remain historical evidence.

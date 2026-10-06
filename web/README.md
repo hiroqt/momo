@@ -1,5 +1,10 @@
 # Momo landing page
 
+Delivery and release work is tracked in the
+[Production Readiness Checklist](../docs/PRODUCTION_READINESS_CHECKLIST.md).
+Use WEB-01 and the security/release gates for current validation; backend/mobile
+test results do not establish web deployment readiness.
+
 Momo's standalone landing page uses Next.js, React, TypeScript, Tailwind CSS, and Motion. Brand illustrations and fonts are copied from `mobile/assets`.
 
 ```bash

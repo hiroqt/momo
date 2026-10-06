@@ -697,6 +697,12 @@ Do not make study sets dependent on S3 availability.
 
 # 28. Feature Implementation Workflow
 
+Start with [the production-readiness tracker](docs/PRODUCTION_READINESS_CHECKLIST.md).
+Claim an eligible task ID, inspect its evidence and dependencies, and retain its
+acceptance criteria in the implementation plan. At completion, update the tracker
+with the exact validation environment/results and remaining blockers. Do not mark
+a preview/mock workflow production-ready or invent a next task outside the PRD.
+
 For every new feature:
 
 ### Step 1 --- Understand

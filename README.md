@@ -2,6 +2,11 @@
 
 # Momo AI Study Platform
 
+**Current status: not production ready.** Read the
+[Production Readiness Checklist](docs/PRODUCTION_READINESS_CHECKLIST.md) for
+verified work, partial modules, confirmed gaps, and the ordered next tasks.
+Agents must consult and update it when implementing features.
+
 A production-oriented educational platform that converts uploaded academic documents (PDF, DOCX, TXT, PPTX) into grounded, interactive study materials using NVIDIA Nemotron Ultra, Retrieval-Augmented Generation (RAG), FastAPI, and React Native (Expo).
 
 The platform enforces a strict evidence-first model: educational content is derived exclusively from user-supplied source materials (`source_only = True`), never hallucinating facts or substituting missing concepts with ungrounded general model knowledge.
@@ -84,7 +89,7 @@ Governing specifications: [`ARD_PRD.md`](./ARD_PRD.md), [`ARCHITECTURE.md`](./AR
   - First 3 folders: Free (0 credits).
   - 4th folder: 50 credits.
   - 5th folder: 75 credits.
-  - Nth folder ($N \ge 3$): $50 + (N - 3) \times 25$ credits.
+  - Nth folder ($N \ge 4$): $50 + (N - 4) \times 25$ credits.
 - Non-destructive unlinking: Deleting a folder unsets `folder_id` on contained study sets, preserving user study materials.
 
 ### Gamified Learning Economy and Customization

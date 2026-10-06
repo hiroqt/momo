@@ -43,6 +43,15 @@ the conflict before proceeding.
 
 Do not silently change product requirements.
 
+The canonical delivery tracker is
+[`docs/PRODUCTION_READINESS_CHECKLIST.md`](docs/PRODUCTION_READINESS_CHECKLIST.md).
+Before choosing work, read it and the relevant PRD/source, select a stable task ID
+with satisfied dependencies, and record ownership in its active-work table.
+Update task status and dated evidence in the same change as implementation.
+Never infer completion from file existence, mock tests, or another agent's claim.
+Local verification does not close staging/production gates. Record conflicts and
+missing inputs explicitly; do not invent a next feature or change PRD scope.
+
 ------------------------------------------------------------------------
 
 # 3. Engineering Principles
@@ -732,6 +741,10 @@ A feature is complete when:
 # 31. Agent Workflow
 
 Before implementing a feature:
+
+Read the production-readiness tracker, claim an eligible task, and use its
+acceptance criteria in addition to the steps below. At handoff, record commands,
+results, environment, remaining blockers, and the next eligible task ID.
 
 1.  Read `ARD_PRD.md`.
 2.  Read relevant sections of `SKILL.md`.

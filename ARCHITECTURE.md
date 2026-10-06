@@ -11,6 +11,11 @@
 
 This architecture document codifies the design, boundaries, data flows, and non-negotiables of the **Momo AI Study Platform**.
 
+Delivery status and the ordered remaining work are tracked in
+[Production Readiness Checklist](docs/PRODUCTION_READINESS_CHECKLIST.md).
+Read it before selecting a task. This document describes the required architecture;
+its diagrams and component inventory are not evidence of deployed functionality.
+
 The platform enables students and exam candidates to transform uploaded educational documents (PDF, DOCX, TXT, PPTX) into grounded, interactive study materials (Flashcards, Quizzes, Identification, Math solutions, and Summaries). 
 
 ### The Core Architectural Tenet

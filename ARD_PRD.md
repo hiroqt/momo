@@ -6,6 +6,7 @@
 | :--- | :--- |
 | Primary Product | Momo AI Study Platform |
 | Governing Documents | `ARCHITECTURE.md`, `AGENTS.md`, `SKILL.md` |
+| Delivery Status And Task Tracker | `docs/PRODUCTION_READINESS_CHECKLIST.md` (does not override requirements) |
 | Document Classification | Master Product and Architecture Specification |
 | Current System State | Monorepo with local security validation; hosted deployment requires rollout verification |
 | Mobile Architecture | React Native 0.76+, Expo SDK 52+, TypeScript, Expo Router (file-based) |
@@ -205,7 +206,7 @@ The platform uses a coordinated 4-tier monorepo architecture:
    - First 3 folders (counts 0, 1, 2): 0 credits (Free).
    - 4th folder (count 3): 50 credits.
    - 5th folder (count 4): 75 credits.
-   - Nth folder ($N \ge 3$): $50 + (N - 3) \times 25$ credits.
+   - Nth folder ($N \ge 4$): $50 + (N - 4) \times 25$ credits.
 4. Deletion safety: Deleting a folder unsets `folder_id` on member study sets (`ON DELETE SET NULL`), preserving the study sets.
 
 ### 6.7 Gamification, Economy, and Mascot Customization
@@ -599,10 +600,13 @@ Uniform Error Response Structure:
 ## 10. Verification and Quality Engineering
 
 ### 10.1 Automated Test Suite
-The backend maintains comprehensive pytest coverage across critical modules:
+The backend includes pytest checks across critical modules. Their presence does
+not establish production readiness. See the
+[delivery tracker](docs/PRODUCTION_READINESS_CHECKLIST.md) for verified scope,
+known implementation conflicts, acceptance criteria and remaining release gates:
 - `test_extraction_and_chunking.py`: Validates PDF, DOCX, TXT, PPTX parsers, sliding window chunkers, and page provenance retention.
 - `test_embeddings_and_rag.py`: Tests vector generation, pgvector cosine search, and evidence synthesis.
-- `test_grounding_validation.py`: Verifies `source_only = True` compliance and detection of ungrounded or hallucinated answers.
+- `test_grounding_validation.py`: Tests attribution requirements and duplicate filtering. Claim-to-evidence support verification and all-path source-only enforcement remain open in tracker tasks AI-01/AI-02.
 - `test_quota_and_lifecycle.py`: Asserts server-side monthly quota enforcement, 3-day expiration calculation, and independent study set persistence.
 - `test_api_endpoints.py`: Verifies HTTP status codes, Pydantic validation failures, and RFC error response structures.
 - `test_generation_profile.py`: Tests `academic_level` and `learner_focus` prompt adaptations.

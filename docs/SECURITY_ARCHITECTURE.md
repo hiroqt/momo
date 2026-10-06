@@ -1,5 +1,11 @@
 # Security Architecture & Secret Isolation
 
+Current implementation gaps and release gates are tracked in the
+[Production Readiness Checklist](PRODUCTION_READINESS_CHECKLIST.md).
+This document defines the intended security boundaries; it does not certify all
+provider, client or deployed paths as verified. Read AI-01/AI-02, AUTH-01/AUTH-02,
+SEC-01/SEC-02 and the environment gates before choosing security work.
+
 This document outlines the security architecture, client-server isolation boundary, AI safety guardrails, and rate limiting policies for the AI Study Platform.
 
 ## Database And Authorization Boundary (October 6, 2026)
@@ -33,10 +39,14 @@ targets. Supabase MCP was used for project discovery/documentation; the user
 selected preparation for a new Momo project, so no hosted schema or data changed.
 See [verification and rollout](BACKEND_DATABASE_SECURITY.md).
 
-The existing rate limiter and job execution are process-local. Deployments with
-multiple replicas require shared rate-limit state and durable workers before
-claiming distributed enforcement. Local smoke tests do not prove production
-capacity or guarantee absence of every possible information leak.
+Updated October 6, 2026: outside development/test memory mode, rate limits use
+the shared PostgreSQL sliding window (`consume_rate_limit`, migration 006) and
+fail closed with 503 when that state is unavailable. Document ingestion and
+generation run as durable leased jobs (`internal.background_jobs`) claimed by a
+separate `python -m app.workers.runner` process. Both are verified only against
+local PostgreSQL 16 with concurrent connections; managed multi-replica behavior
+is unverified until staging rollout. Local smoke and stress tests do not prove
+production capacity or guarantee absence of every possible information leak.
 
 ---
 

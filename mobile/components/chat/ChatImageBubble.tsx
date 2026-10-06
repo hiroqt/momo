@@ -5,6 +5,7 @@ import {
   TouchableOpacity,
   Image,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { AppText as Text } from '@/components/common/app-text';
 import { colors, typography } from '@/constants/theme';
@@ -81,12 +82,11 @@ export const ChatImageBubble: React.FC<ChatImageBubbleProps> = ({
         question_type: 'flashcard',
         difficulty: studyCard?.difficulty || 'medium',
         image_base64: imageBase64,
+        source_metadata: studyCard?.source_metadata,
       });
       setIsSaved(true);
     } catch (err) {
-      console.warn('Failed to import diagram to library:', err);
-      // Optimistic fallback
-      setIsSaved(true);
+      Alert.alert('Could not save study material', 'This visual needs verified source material before it can be saved as a study card.');
     } finally {
       setIsSaving(false);
     }

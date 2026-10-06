@@ -1,6 +1,6 @@
 import { apiFetch } from './client';
 import { collectPages } from './pagination';
-import { ChatSession, ChatSessionDetail, ChatMessage } from '../../types';
+import { ChatSession, ChatSessionDetail, ChatMessage, SourceMetadata } from '../../types';
 
 export async function createChatSession(title?: string): Promise<ChatSession> {
   return apiFetch<ChatSession>('/api/chat/sessions', {
@@ -55,6 +55,7 @@ export async function importCardToLibrary(card: {
   options?: string[];
   difficulty?: string;
   image_base64?: string;
+  source_metadata?: SourceMetadata;
 }): Promise<{ status: string; study_set_id: string; title: string; item_count: number }> {
   return apiFetch<{ status: string; study_set_id: string; title: string; item_count: number }>(
     '/api/chat/import-card',

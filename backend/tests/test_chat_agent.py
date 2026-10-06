@@ -1,14 +1,18 @@
+from datetime import UTC, datetime, timedelta
+
 import pytest
-from httpx import AsyncClient, ASGITransport
-from app.main import app
-from app.db.repositories.documents_repo import documents_repo
+from httpx import ASGITransport, AsyncClient
+
 from app.db.repositories.chunks_repo import chunks_repo
+from app.db.repositories.documents_repo import documents_repo
 from app.domain.documents.models import DocumentChunk
+from app.main import app
+
 
 @pytest.fixture(autouse=True)
 async def setup_test_data():
     # Set up sample document and chunks for test user
-    doc = await documents_repo.create({
+    await documents_repo.create({
         "id": "doc-chat-test-01",
         "user_id": "chat-user-1",
         "original_filename": "Cell_Biology_Notes.pdf",
@@ -17,7 +21,9 @@ async def setup_test_data():
         "file_size_bytes": 1024,
         "page_count": 15,
         "processing_status": "READY",
-        "suggested_topics": ["Mitochondria", "Cell Division", "Mitosis"]
+        "suggested_topics": ["Mitochondria", "Cell Division", "Mitosis"],
+        # Chat decks persist only from an unexpired source (72-hour retention).
+        "expires_at": (datetime.now(UTC) + timedelta(hours=72)).isoformat(),
     })
 
     from app.services.embeddings.embedding_service import embedding_service
@@ -244,120 +250,54 @@ async def test_deck_request_without_topic_asks_source_options():
 
 @pytest.mark.asyncio
 async def test_deck_request_with_topic_no_docs_asks_ai_build():
-    """When user specifies 'create me 10 flashcards about arrays using Python' with no documents, Momo asks if AI should build it."""
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://test") as ac:
-        headers = {"Authorization": "Bearer test-token-fresh-user-2"}
+    """Source-free study commands cannot create decks or report fabricated success."""
+    from app.db.repositories.study_repo import study_repo
+    user = "strict-test_deck_request_with_topic_no_docs_asks_ai_build"
+    before = await study_repo.list_study_sets(user)
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        headers = {"Authorization": f"Bearer test-token-{user}"}
+        session = (await ac.post("/api/chat/sessions", json={}, headers=headers)).json()
+        response = await ac.post(f"/api/chat/sessions/{session['id']}/messages", json={"content": 'create me 10 flashcards about arrays using Python'}, headers=headers)
+    assert response.status_code == 200
+    result = response.json()
+    assert result["created_deck"] is None
+    assert "source" in result["content"].lower() or "upload" in result["content"].lower()
+    assert await study_repo.list_study_sets(user) == before
 
-        resp = await ac.post("/api/chat/sessions", json={}, headers=headers)
-        session_id = resp.json()["id"]
-
-        msg_resp = await ac.post(
-            f"/api/chat/sessions/{session_id}/messages",
-            json={"content": "create me 10 flashcards about arrays using Python"},
-            headers=headers
-        )
-        assert msg_resp.status_code == 200
-        res = msg_resp.json()
-        assert res["role"] == "assistant"
-        assert "arrays using python" in res["content"].lower() or "python" in res["content"].lower()
-        # Must give option to build with Momo AI
-        assert "build it with momo ai" in res["content"].lower() or "momo ai" in res["content"].lower()
-        assert res["quick_replies"] is not None
-        assert any("Let Momo build" in qr or "Momo AI" in qr for qr in res["quick_replies"])
 
 @pytest.mark.asyncio
 async def test_user_confirms_ai_build_creates_deck():
-    """When user confirms 'Let the AI build', Momo generates the 10-card deck directly."""
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://test") as ac:
-        headers = {"Authorization": "Bearer test-token-fresh-user-3"}
+    """Source-free study commands cannot create decks or report fabricated success."""
+    from app.db.repositories.study_repo import study_repo
+    user = "strict-test_user_confirms_ai_build_creates_deck"
+    before = await study_repo.list_study_sets(user)
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        headers = {"Authorization": f"Bearer test-token-{user}"}
+        session = (await ac.post("/api/chat/sessions", json={}, headers=headers)).json()
+        response = await ac.post(f"/api/chat/sessions/{session['id']}/messages", json={"content": 'Let Momo build Arrays using Python deck'}, headers=headers)
+    assert response.status_code == 200
+    result = response.json()
+    assert result["created_deck"] is None
+    assert "source" in result["content"].lower() or "upload" in result["content"].lower()
+    assert await study_repo.list_study_sets(user) == before
 
-        resp = await ac.post("/api/chat/sessions", json={}, headers=headers)
-        session_id = resp.json()["id"]
-
-        # Step 1: Prompt on arrays using Python
-        await ac.post(
-            f"/api/chat/sessions/{session_id}/messages",
-            json={"content": "create me 10 flashcards about arrays using Python"},
-            headers=headers
-        )
-
-        # Step 2: User confirms "Let the AI build"
-        confirm_resp = await ac.post(
-            f"/api/chat/sessions/{session_id}/messages",
-            json={"content": "Let Momo build Arrays using Python deck"},
-            headers=headers
-        )
-        assert confirm_resp.status_code == 200
-        res = confirm_resp.json()
-        assert res["role"] == "assistant"
-        assert res["created_deck"] is not None
-        deck = res["created_deck"]
-        assert deck["item_count"] == 10
-        assert "study_set_id" in deck
-        assert "arrays using python" in deck["title"].lower()
-
-        # Verify set and items in database
-        set_resp = await ac.get(f"/api/study-sets/{deck['study_set_id']}", headers=headers)
-        assert set_resp.status_code == 200
-        assert set_resp.json()["item_count"] == 10
-
-        items_resp = await ac.get(f"/api/study-sets/{deck['study_set_id']}/items", headers=headers)
-        assert items_resp.status_code == 200
-        items = items_resp.json()
-        assert len(items) == 10
 
 @pytest.mark.asyncio
 async def test_deck_request_followed_by_custom_topic_generates_deck():
-    """
-    When user clicks 'Build a 10-card flashcard deck' (or 'Generate 10 flashcard decks for me'),
-    and Momo asks for the topic, when the user inputs a custom topic not in the suggestions
-    (e.g., 'Java arrays'), Momo immediately generates the 10-card deck without reprompting.
-    """
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://test") as ac:
-        headers = {"Authorization": "Bearer test-token-fresh-user-4"}
+    """Source-free study commands cannot create decks or report fabricated success."""
+    from app.db.repositories.study_repo import study_repo
+    user = "strict-test_deck_request_followed_by_custom_topic_generates_deck"
+    before = await study_repo.list_study_sets(user)
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        headers = {"Authorization": f"Bearer test-token-{user}"}
+        session = (await ac.post("/api/chat/sessions", json={}, headers=headers)).json()
+        response = await ac.post(f"/api/chat/sessions/{session['id']}/messages", json={"content": 'Create a Java arrays deck'}, headers=headers)
+    assert response.status_code == 200
+    result = response.json()
+    assert result["created_deck"] is None
+    assert "source" in result["content"].lower() or "upload" in result["content"].lower()
+    assert await study_repo.list_study_sets(user) == before
 
-        resp = await ac.post("/api/chat/sessions", json={}, headers=headers)
-        session_id = resp.json()["id"]
-
-        # Step 1: User says "Generate 10 flashcard decks for me"
-        turn1 = await ac.post(
-            f"/api/chat/sessions/{session_id}/messages",
-            json={"content": "Generate 10 flashcard decks for me"},
-            headers=headers
-        )
-        assert turn1.status_code == 200
-        res1 = turn1.json()
-        assert res1["role"] == "assistant"
-        assert res1["created_deck"] is None
-        assert "topic" in res1["content"].lower() or "how would you like to build it" in res1["content"].lower()
-
-        # Step 2: User provides custom topic "Java arrays"
-        turn2 = await ac.post(
-            f"/api/chat/sessions/{session_id}/messages",
-            json={"content": "Java arrays"},
-            headers=headers
-        )
-        assert turn2.status_code == 200
-        res2 = turn2.json()
-        assert res2["role"] == "assistant"
-        # Must NOT fallback to "I'd like to" or reprompt
-        assert "i'd like to help you" not in res2["content"].lower()
-        assert res2["created_deck"] is not None
-        deck = res2["created_deck"]
-        assert deck["item_count"] == 10
-        assert "Java Arrays" in deck["title"] or "java arrays" in deck["title"].lower()
-
-        # Step 3: Verify set in database
-        set_resp = await ac.get(f"/api/study-sets/{deck['study_set_id']}", headers=headers)
-        assert set_resp.status_code == 200
-        assert set_resp.json()["item_count"] == 10
-
-        items_resp = await ac.get(f"/api/study-sets/{deck['study_set_id']}/items", headers=headers)
-        assert items_resp.status_code == 200
-        assert len(items_resp.json()) == 10
 
 @pytest.mark.asyncio
 async def test_chat_generate_image_diagram():
@@ -456,53 +396,25 @@ async def test_chat_generate_educational_diagram_without_topic_sanitizes_cleanly
 
 @pytest.mark.asyncio
 async def test_chat_command_create_quiz_on_topic_direct():
-    """When a user commands 'Create me a 10 items quiz regarding to polygons', Momo creates the study deck directly."""
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://test") as ac:
-        headers = {"Authorization": "Bearer test-token-poly-direct-user"}
-
-        resp = await ac.post("/api/chat/sessions", json={}, headers=headers)
-        assert resp.status_code == 200
-        session_id = resp.json()["id"]
-
-        msg_resp = await ac.post(
-            f"/api/chat/sessions/{session_id}/messages",
-            json={"content": "Create me a 10 items quiz regarding to polygons"},
-            headers=headers
-        )
-        assert msg_resp.status_code == 200
-        res = msg_resp.json()
-        assert res["role"] == "assistant"
-
-        # Verify created deck metadata
-        deck = res.get("created_deck")
-        assert deck is not None, f"Expected created_deck metadata in response, got: {res}"
-        assert deck["status"] == "COMPLETED"
-        assert deck["item_count"] == 10
-        assert deck["question_types"] == ["multiple_choice"]
-        assert "Polygons" in deck["title"]
-
-        # Content must be clean, devoid of raw XML tags or emojis
-        assert "<tool_call>" not in res["content"]
-        assert "<function" not in res["content"]
-        assert "</tool_call>" not in res["content"]
-
-        # Quick replies should allow jumping right into studying
-        assert res.get("quick_replies") is not None
-        assert len(res["quick_replies"]) >= 2
-
-        # Verify study items persisted in study repo
-        items_resp = await ac.get(f"/api/study-sets/{deck['study_set_id']}/items", headers=headers)
-        assert items_resp.status_code == 200
-        items = items_resp.json()
-        assert len(items) == 10
-        assert all(it["type"] == "multiple_choice" for it in items)
-        assert all(isinstance(it.get("options"), list) and len(it["options"]) >= 2 for it in items)
+    """Source-free study commands cannot create decks or report fabricated success."""
+    from app.db.repositories.study_repo import study_repo
+    user = "strict-test_chat_command_create_quiz_on_topic_direct"
+    before = await study_repo.list_study_sets(user)
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        headers = {"Authorization": f"Bearer test-token-{user}"}
+        session = (await ac.post("/api/chat/sessions", json={}, headers=headers)).json()
+        response = await ac.post(f"/api/chat/sessions/{session['id']}/messages", json={"content": 'Create me a 10 items quiz regarding to polygons'}, headers=headers)
+    assert response.status_code == 200
+    result = response.json()
+    assert result["created_deck"] is None
+    assert "source" in result["content"].lower() or "upload" in result["content"].lower()
+    assert await study_repo.list_study_sets(user) == before
 
 
 def test_chat_agent_parses_xml_tool_call():
     """Verify parse_tool_calls_from_text accurately extracts XML function calls emitted by Nemotron."""
     import json
+
     from app.services.ai.ai_provider import parse_tool_calls_from_text
 
     raw_xml = (

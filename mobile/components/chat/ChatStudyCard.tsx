@@ -5,6 +5,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Image,
+  Alert,
 } from 'react-native';
 import { AppText as Text } from '@/components/common/app-text';
 import { colors, spacing, typography } from '@/constants/theme';
@@ -68,6 +69,7 @@ export const ChatStudyCard: React.FC<ChatStudyCardProps> = ({ card }) => {
         options: card.options,
         difficulty: card.difficulty,
         image_base64: imageBase64 || undefined,
+        source_metadata: card.source_metadata,
       });
 
       setIsImported(true);
@@ -75,9 +77,7 @@ export const ChatStudyCard: React.FC<ChatStudyCardProps> = ({ card }) => {
         setImportedSetId(res.study_set_id);
       }
     } catch (e) {
-      console.warn('Failed to import card to library:', e);
-      // Optimistic fallback: mark as imported locally
-      setIsImported(true);
+      Alert.alert('Could not save card', 'The card could not be verified or saved. Please try again with your uploaded study material.');
     } finally {
       setLoading(false);
     }

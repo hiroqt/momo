@@ -1,53 +1,59 @@
 from __future__ import annotations
-from pydantic import BaseModel, Field
-from typing import Optional, List, Dict, Any
+
+from typing import Any, Literal
+
+from pydantic import BaseModel, ConfigDict, Field
+
 
 class CitationItem(BaseModel):
     document_id: str
     document_name: str
-    page_start: Optional[int] = None
-    page_end: Optional[int] = None
-    section: Optional[str] = None
+    page_start: int | None = None
+    page_end: int | None = None
+    section: str | None = None
     snippet: str
 
 class CreatedDeckMetadata(BaseModel):
     study_set_id: str
     title: str
     item_count: int
-    question_types: List[str] = Field(default_factory=list)
+    question_types: list[str] = Field(default_factory=list)
     status: str = "COMPLETED"
 
 class StudyCardMetadata(BaseModel):
-    id: Optional[str] = None
+    id: str | None = None
     question: str
     answer: str
-    explanation: Optional[str] = None
+    explanation: str | None = None
     question_type: str = "flashcard"
-    options: Optional[List[str]] = None
-    topic: Optional[str] = None
+    options: list[str] | None = None
+    topic: str | None = None
     difficulty: str = "medium"
-    image_base64: Optional[str] = None
-    diagram_prompt: Optional[str] = None
+    source_metadata: dict[str, Any] | None = None
+    image_base64: str | None = None
+    diagram_prompt: str | None = None
     imported: bool = False
-    study_set_id: Optional[str] = None
+    study_set_id: str | None = None
 
 class ImportCardRequest(BaseModel):
-    question: str
-    answer: str
-    explanation: Optional[str] = None
-    question_type: str = "flashcard"
-    options: Optional[List[str]] = None
-    topic: Optional[str] = "Momo Study Cards"
-    difficulty: str = "medium"
-    image_base64: Optional[str] = None
+    # Untrusted client card; the server re-verifies provenance and support before saving.
+    question: str = Field(min_length=1, max_length=2000)
+    answer: str = Field(min_length=1, max_length=4000)
+    explanation: str | None = Field(default=None, max_length=4000)
+    question_type: str = Field(default="flashcard", max_length=40)
+    options: list[str] | None = Field(default=None, max_length=10)
+    topic: str | None = Field(default="Momo Study Cards", max_length=238)
+    difficulty: Literal["easy", "medium", "hard"] = "medium"
+    source_metadata: dict[str, Any] | None = None
+    image_base64: str | None = None
 
 class ToolCallRecord(BaseModel):
     tool_name: str
-    arguments: Dict[str, Any] = Field(default_factory=dict)
-    result: Optional[Any] = None
+    arguments: dict[str, Any] = Field(default_factory=dict)
+    result: Any | None = None
 
 class ChatSessionCreate(BaseModel):
-    title: Optional[str] = None
+    title: str | None = None
 
 class ChatSessionResponse(BaseModel):
     id: str
@@ -59,7 +65,7 @@ class ChatSessionResponse(BaseModel):
 
 class ChatMessageCreate(BaseModel):
     content: str = Field(..., min_length=1, max_length=4000)
-    document_id: Optional[str] = None
+    document_id: str | None = None
 
 class ChatMessageResponse(BaseModel):
     id: str
@@ -67,15 +73,28 @@ class ChatMessageResponse(BaseModel):
     user_id: str
     role: str
     content: str
-    citations: Optional[List[CitationItem]] = None
-    created_deck: Optional[CreatedDeckMetadata] = None
-    study_card: Optional[StudyCardMetadata] = None
-    image_base64: Optional[str] = None
-    quick_replies: Optional[List[str]] = None
-    tool_calls: Optional[List[ToolCallRecord]] = None
-    follow_up_message: Optional[ChatMessageResponse] = None
+    citations: list[CitationItem] | None = None
+    created_deck: CreatedDeckMetadata | None = None
+    study_card: StudyCardMetadata | None = None
+    image_base64: str | None = None
+    quick_replies: list[str] | None = None
+    tool_calls: list[ToolCallRecord] | None = None
+    follow_up_message: ChatMessageResponse | None = None
     created_at: str
 
 class ChatSessionDetailResponse(BaseModel):
     session: ChatSessionResponse
-    messages: List[ChatMessageResponse]
+    messages: list[ChatMessageResponse]
+
+
+class StudyToolArguments(BaseModel):
+    """Model-provided tool arguments are a trust boundary, just like API requests."""
+    model_config = ConfigDict(strict=True, extra="ignore")
+    topic: str | None = Field(default=None, max_length=300)
+    count: int = Field(default=10, ge=1, le=50)
+    difficulty: Literal["easy", "medium", "hard"] = "medium"
+    question_types: list[Literal["flashcard", "multiple_choice", "true_false", "identification", "fill_in_the_blank"]] | None = Field(default=None, min_length=1, max_length=5)
+    document_id: str | None = Field(default=None, min_length=1, max_length=128)
+    custom_instruction: str | None = Field(default=None, max_length=4000)
+    allow_ai_generation: bool = False
+    source_only: bool = True

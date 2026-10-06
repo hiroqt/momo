@@ -1,6 +1,8 @@
-from datetime import datetime, timezone
-from app.schemas.folder import FolderCreateRequest, FolderResponse, FolderUpdateRequest
-from app.schemas.study import StudySetUpdateRequest, StudySetResponse
+from datetime import UTC, datetime
+
+from app.schemas.folder import FolderCreateRequest, FolderResponse
+from app.schemas.study import StudySetUpdateRequest
+
 
 def test_folder_create_schema_valid():
     req = FolderCreateRequest(name="Biology 101", color="#4F46E5")
@@ -8,7 +10,7 @@ def test_folder_create_schema_valid():
     assert req.color == "#4F46E5"
 
 def test_folder_response_schema():
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     res = FolderResponse(
         id="folder-1",
         user_id="user-1",

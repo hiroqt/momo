@@ -10,7 +10,8 @@ from app.schemas.sync import SyncBatchRequest, SyncBatchResponse
 
 router = APIRouter(prefix="/api/sync", tags=["Sync"])
 
-@router.post("", response_model=SyncBatchResponse)
+@router.post("/events", response_model=SyncBatchResponse)
+@router.post("", response_model=SyncBatchResponse, deprecated=True)
 async def sync_offline_events(
     batch: SyncBatchRequest,
     user: AuthenticatedUser = Depends(get_current_user)
@@ -33,5 +34,7 @@ async def sync_offline_events(
     return SyncBatchResponse(
         accepted_count=accepted,
         ignored_duplicates_count=ignored,
-        processed_at=datetime.now(UTC)
+        processed_at=datetime.now(UTC),
+        synced_ids=list(dict.fromkeys(event["event_id"] for event in events_data)),
+        ignored_duplicates=ignored
     )

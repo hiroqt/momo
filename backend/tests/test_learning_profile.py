@@ -1,11 +1,9 @@
 import pytest
-from httpx import AsyncClient, ASGITransport
-from app.main import app
+from httpx import ASGITransport, AsyncClient
+
 from app.db.repositories.learning_repo import learning_repo
-from app.db.repositories.documents_repo import documents_repo
-from app.db.repositories.chunks_repo import chunks_repo
-from app.domain.documents.models import DocumentChunk
-from app.services.embeddings.embedding_service import embedding_service
+from app.main import app
+
 
 @pytest.mark.asyncio
 async def test_learning_repo_analytics():
@@ -92,7 +90,7 @@ async def test_chat_weakness_review_generation():
         assert rev_resp.status_code == 200
         res = rev_resp.json()
         assert res["role"] == "assistant"
-        assert res["created_deck"] is not None
-        deck = res["created_deck"]
-        assert deck["item_count"] >= 3
-        assert "study_set_id" in deck
+        assert res["created_deck"] is None
+        assert "source" in res["content"].lower() or "upload" in res["content"].lower()
+        from app.db.repositories.study_repo import study_repo
+        assert await study_repo.list_study_sets("learner-chat-2") == []

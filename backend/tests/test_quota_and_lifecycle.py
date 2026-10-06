@@ -1,10 +1,13 @@
+from datetime import UTC, datetime, timedelta
+
 import pytest
-from datetime import datetime, timezone, timedelta
-from app.db.repositories.usage_repo import usage_repo
-from app.db.repositories.study_repo import study_repo
-from app.db.repositories.documents_repo import documents_repo
-from app.services.storage.s3_service import s3_service
+
 from app.config import settings
+from app.db.repositories.documents_repo import documents_repo
+from app.db.repositories.study_repo import study_repo
+from app.db.repositories.usage_repo import usage_repo
+from app.services.storage.s3_service import s3_service
+
 
 @pytest.mark.asyncio
 async def test_monthly_quota_enforcement():
@@ -23,7 +26,7 @@ async def test_monthly_quota_enforcement():
     assert not await usage_repo.can_upload_document(test_user)
 
 def test_s3_retention_days():
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     expires = s3_service.calculate_expiration(now)
     diff = expires - now
     assert diff.days == 3
@@ -39,7 +42,7 @@ async def test_study_set_persists_after_document_delete():
         "mime_type": "application/pdf",
         "file_size": 1024,
         "s3_object_key": "documents/test/key.pdf",
-        "expires_at": (datetime.now(timezone.utc) + timedelta(days=3)).isoformat(),
+        "expires_at": (datetime.now(UTC) + timedelta(days=3)).isoformat(),
         "processing_status": "READY"
     })
 

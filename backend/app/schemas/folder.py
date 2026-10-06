@@ -1,17 +1,18 @@
-from pydantic import BaseModel, Field
-from typing import Optional
 from datetime import datetime
+
+from pydantic import BaseModel, Field
+
 
 class FolderBase(BaseModel):
     name: str = Field(..., min_length=1, max_length=50, description="Folder name")
-    color: Optional[str] = Field(None, description="Hex color or theme tag for folder")
+    color: str | None = Field(None, description="Hex color or theme tag for folder")
 
 class FolderCreateRequest(FolderBase):
     pass
 
 class FolderUpdateRequest(BaseModel):
-    name: Optional[str] = Field(None, min_length=1, max_length=50)
-    color: Optional[str] = None
+    name: str | None = Field(None, min_length=1, max_length=50)
+    color: str | None = None
 
 class FolderResponse(FolderBase):
     id: str

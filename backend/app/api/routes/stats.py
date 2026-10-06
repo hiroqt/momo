@@ -1,14 +1,15 @@
+from datetime import UTC, datetime, timedelta
+
 from fastapi import APIRouter, Depends
-from datetime import datetime, date, timedelta, timezone
-from app.dependencies import get_current_user, AuthenticatedUser
-from app.db.repositories.stats_repo import stats_repo
 from pydantic import BaseModel
-from typing import List
+
+from app.db.repositories.stats_repo import stats_repo
+from app.dependencies import AuthenticatedUser, get_current_user
 
 router = APIRouter(prefix="/api/stats", tags=["Stats"])
 
 class StreakResponse(BaseModel):
-    active_dates: List[str]
+    active_dates: list[str]
     current_streak: int
 
 @router.get("/streak", response_model=StreakResponse)
@@ -20,7 +21,7 @@ async def get_streak(user: AuthenticatedUser = Depends(get_current_user)):
         return StreakResponse(active_dates=[], current_streak=0)
         
     dates = sorted([datetime.strptime(d, "%Y-%m-%d").date() for d in dates_str], reverse=True)
-    today = datetime.now(timezone.utc).date()
+    today = datetime.now(UTC).date()
     yesterday = today - timedelta(days=1)
     
     current_streak = 0

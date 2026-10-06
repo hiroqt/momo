@@ -1,6 +1,8 @@
 import pytest
-from app.db.repositories.folder_repo import folder_repo, calculate_folder_credit_cost
+
+from app.db.repositories.folder_repo import calculate_folder_credit_cost, folder_repo
 from app.db.repositories.study_repo import study_repo
+
 
 @pytest.mark.asyncio
 async def test_calculate_folder_credit_cost():
@@ -51,7 +53,8 @@ async def test_folder_crud_and_study_set_detach():
 
 @pytest.mark.asyncio
 async def test_folders_api_endpoints():
-    from httpx import AsyncClient, ASGITransport
+    from httpx import ASGITransport, AsyncClient
+
     from app.main import app
 
     headers = {"Authorization": "Bearer test-token-folder-api-user"}
@@ -66,7 +69,7 @@ async def test_folders_api_endpoints():
         # 2. List folders initially
         res = await ac.get("/api/folders", headers=headers)
         assert res.status_code == 200
-        initial_folders = res.json()
+        res.json()
 
         # 3. Create folder
         create_res = await ac.post("/api/folders", json={"name": "Medical School", "color": "#10B981"}, headers=headers)

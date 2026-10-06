@@ -1,15 +1,18 @@
+from datetime import UTC, datetime
+from uuid import uuid4
+
 import pytest
-from datetime import datetime, timezone
+
+from app.config import settings
 from app.services.storage import (
     BaseStorageService,
-    SupabaseStorageService,
     S3Service,
-    storage_service,
+    SupabaseStorageService,
     get_storage_service,
+    storage_service,
 )
-from app.config import settings
 from app.services.storage.base import StorageUnavailableError
-from uuid import uuid4
+
 
 def test_storage_service_implements_base():
     assert isinstance(storage_service, BaseStorageService)
@@ -26,7 +29,7 @@ def test_supabase_storage_key_building():
 
 def test_storage_expiration_calculation():
     service = SupabaseStorageService()
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     expires = service.calculate_expiration(now)
     assert (expires - now).days == settings.DOCUMENT_RETENTION_DAYS
 

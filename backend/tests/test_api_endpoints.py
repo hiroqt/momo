@@ -1,8 +1,11 @@
-import pytest
-from httpx import AsyncClient, ASGITransport
-from app.main import app
 from uuid import uuid4
+
+import pytest
+from httpx import ASGITransport, AsyncClient
+
+from app.main import app
 from app.services.storage import storage_service
+
 
 @pytest.mark.asyncio
 async def test_api_me():
@@ -142,7 +145,7 @@ async def test_delete_document_and_study_set():
 
         # 2. Test Study Set Deletion
         from app.db.repositories.study_repo import study_repo
-        study_set = await study_repo.create_study_set({
+        await study_repo.create_study_set({
             "id": "set-del-test-456",
             "user_id": user_id,
             "title": "Bio Flashcards",

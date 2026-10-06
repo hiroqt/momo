@@ -25,3 +25,5 @@ class SyncBatchResponse(BaseModel):
     accepted_count: int
     ignored_duplicates_count: int
     processed_at: datetime
+    synced_ids: list[str] = Field(default_factory=list)
+    ignored_duplicates: int = 0

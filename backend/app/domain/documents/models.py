@@ -1,5 +1,7 @@
+from typing import Any
+
 from pydantic import BaseModel, Field
-from typing import List, Optional, Dict, Any
+
 
 class ExtractedSection(BaseModel):
     title: str
@@ -7,8 +9,8 @@ class ExtractedSection(BaseModel):
     level: int = 1
 
 class ExtractedTable(BaseModel):
-    headers: List[str] = Field(default_factory=list)
-    rows: List[List[str]] = Field(default_factory=list)
+    headers: list[str] = Field(default_factory=list)
+    rows: list[list[str]] = Field(default_factory=list)
 
     def to_markdown(self) -> str:
         if not self.headers and not self.rows:
@@ -24,17 +26,17 @@ class ExtractedTable(BaseModel):
 class DocumentPage(BaseModel):
     page_number: int
     text: str
-    sections: List[ExtractedSection] = Field(default_factory=list)
-    tables: List[ExtractedTable] = Field(default_factory=list)
+    sections: list[ExtractedSection] = Field(default_factory=list)
+    tables: list[ExtractedTable] = Field(default_factory=list)
     is_ocr: bool = False
 
 class DocumentContent(BaseModel):
     document_id: str
     title: str
     source_type: str
-    pages: List[DocumentPage] = Field(default_factory=list)
+    pages: list[DocumentPage] = Field(default_factory=list)
     total_pages: int = 0
-    metadata: Dict[str, Any] = Field(default_factory=dict)
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
 class DocumentChunk(BaseModel):
     chunk_id: str
@@ -45,5 +47,5 @@ class DocumentChunk(BaseModel):
     page_end: int
     section: str = "General"
     source_type: str
-    embedding: Optional[List[float]] = None
-    metadata: Dict[str, Any] = Field(default_factory=dict)
+    embedding: list[float] | None = None
+    metadata: dict[str, Any] = Field(default_factory=dict)

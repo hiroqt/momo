@@ -98,7 +98,7 @@ class GenerationRepository:
         if not 1 <= len(items) <= 100 or set_payload.get("user_id", user_id) != user_id:
             raise ValueError("Invalid generated reviewer")
         document_id = set_payload.get("document_id")
-        if document_id != job.get("document_id") or documents_repo._store.get(document_id, {}).get("user_id") != user_id:
+        if document_id != job.get("document_id") or documents_repo._store.get(str(document_id), {}).get("user_id") != user_id:
             raise ValueError("Source document unavailable")
         config = set_payload.get("generation_config", {})
         if not isinstance(config, dict) or config.get("source_only", True) is not True:

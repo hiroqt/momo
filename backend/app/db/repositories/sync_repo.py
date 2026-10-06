@@ -3,6 +3,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from fastapi import HTTPException
+from postgrest.exceptions import APIError
 
 from app.db.session import supabase_session
 
@@ -14,7 +15,15 @@ class SyncRepository:
 
     async def process_batch(self, user_id: str, events: list[dict[str, Any]]) -> tuple[int, int, list[dict[str, Any]]]:
         if supabase_session.is_configured and supabase_session.client:
-            resp = await supabase_session.execute(supabase_session.client.rpc("process_sync_batch", {"p_user_id": user_id, "p_events": events}))
+            try:
+                resp = await supabase_session.execute(supabase_session.client.rpc("process_sync_batch", {"p_user_id": user_id, "p_events": events}))
+            except APIError as exc:
+                # Same per-event codes as the memory path so clients can isolate bad events.
+                if exc.code == "42501":
+                    raise HTTPException(404, detail={"code": "STUDY_ITEM_NOT_FOUND", "message": "Study item not found."}) from None
+                if exc.code == "22023":
+                    raise HTTPException(422, detail={"code": "VALIDATION_ERROR", "message": "Invalid request parameters."}) from None
+                raise
             result = resp.data
             accepted_ids = set(result["accepted_event_ids"])
             accepted_events = []

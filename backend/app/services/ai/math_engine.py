@@ -1,14 +1,15 @@
-from typing import Dict, Any, List, Optional
-import re
+import logging
 import math
+import re
+from typing import Any
+
 import sympy as sp
 from sympy.parsing.sympy_parser import (
+    convert_xor,
+    implicit_multiplication_application,
     parse_expr,
     standard_transformations,
-    implicit_multiplication_application,
-    convert_xor
 )
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -63,9 +64,9 @@ def normalize_math_text(text: str) -> str:
         s = re.sub(rf'([a-zA-Z])\s*(?:[tyoO]*\s+)?(?:the\s+)?power\s+of\s+{w}', rf'^{n}', s, flags=re.IGNORECASE)
         s = re.sub(rf'(?:[tyoO]*\s+)?(?:the\s+)?power\s+of\s+{w}', rf'^{n}', s, flags=re.IGNORECASE)
 
-    for n in range(1, 10):
-        s = re.sub(rf'([a-zA-Z])\s*(?:[tyoO]*\s+)?(?:the\s+)?power\s+of\s+{n}', rf'^{n}', s, flags=re.IGNORECASE)
-        s = re.sub(rf'(?:[tyoO]*\s+)?(?:the\s+)?power\s+of\s+{n}', rf'^{n}', s, flags=re.IGNORECASE)
+    for exponent in range(1, 10):
+        s = re.sub(rf'([a-zA-Z])\s*(?:[tyoO]*\s+)?(?:the\s+)?power\s+of\s+{exponent}', rf'^{exponent}', s, flags=re.IGNORECASE)
+        s = re.sub(rf'(?:[tyoO]*\s+)?(?:the\s+)?power\s+of\s+{exponent}', rf'^{exponent}', s, flags=re.IGNORECASE)
 
     s = re.sub(r'squared', '^2', s, flags=re.IGNORECASE)
     s = re.sub(r'cubed', '^3', s, flags=re.IGNORECASE)
@@ -80,7 +81,7 @@ def _safe_parse(expr_str: str) -> sp.Expr:
     return parse_expr(cleaned, transformations=TRANSFORMATIONS)
 
 class UniversalMathEngine:
-    def solve(self, raw_text: str) -> Dict[str, Any]:
+    def solve(self, raw_text: str) -> dict[str, Any]:
         norm_text = normalize_math_text(raw_text)
 
         solvers = [
@@ -106,7 +107,7 @@ class UniversalMathEngine:
                 res = solver(norm_text)
                 if res and res.get('final_answer'):
                     return res
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - Solver boundary: sympy may raise arbitrary errors.
                 logger.debug(f'Solver {solver.__name__} passed with error: {e}')
 
         first_line = norm_text.splitlines()[0] if norm_text.splitlines() else norm_text
@@ -124,7 +125,7 @@ class UniversalMathEngine:
             'explanation': 'Processed mathematical input.'
         }
 
-    def _try_percentage(self, text: str) -> Optional[Dict[str, Any]]:
+    def _try_percentage(self, text: str) -> dict[str, Any] | None:
         m = re.search(r'(\d+(?:\.\d+)?)\s*%\s*(?:of)?\s*(\d+(?:\.\d+)?)', text, re.IGNORECASE)
         if m:
             pct_val = float(m.group(1))
@@ -146,7 +147,7 @@ class UniversalMathEngine:
             }
         return None
 
-    def _try_differential_equation(self, text: str) -> Optional[Dict[str, Any]]:
+    def _try_differential_equation(self, text: str) -> dict[str, Any] | None:
         # Second-order constant coefficient: y'' + a*y' + b*y = 0
         for line in text.splitlines():
             line_str = line.strip()
@@ -206,11 +207,11 @@ class UniversalMathEngine:
                         'final_answer': f'y(x) = {antideriv} + C',
                         'explanation': 'Separated variables dy and dx, then integrated both sides directly.'
                     }
-                except Exception:
+                except Exception:  # noqa: BLE001 - Solver boundary: sympy may raise arbitrary errors.
                     pass
         return None
 
-    def _try_calculus_derivative(self, text: str) -> Optional[Dict[str, Any]]:
+    def _try_calculus_derivative(self, text: str) -> dict[str, Any] | None:
         for line in text.splitlines():
             line_str = line.strip()
             m = re.search(r"(?:d/d([a-zA-Z])|derivative\s+of|diff)\s*[:(]?\s*([^)=]+)(?:\)|$)", line_str, re.IGNORECASE)
@@ -237,7 +238,7 @@ class UniversalMathEngine:
                 }
         return None
 
-    def _try_calculus_integral(self, text: str) -> Optional[Dict[str, Any]]:
+    def _try_calculus_integral(self, text: str) -> dict[str, Any] | None:
         for line in text.splitlines():
             line_str = line.strip()
             m = re.search(r"(?:integral\s+of|\int|integrate)\s*[:(]?\s*([^=]+?)(?:\s*d([a-zA-Z])|\)|$)", line_str, re.IGNORECASE)
@@ -263,7 +264,7 @@ class UniversalMathEngine:
                 }
         return None
 
-    def _try_calculus_limit(self, text: str) -> Optional[Dict[str, Any]]:
+    def _try_calculus_limit(self, text: str) -> dict[str, Any] | None:
         for line in text.splitlines():
             line_str = line.strip()
             m = re.search(r"(?:lim(?:it)?)\s*(?:as\s+)?([a-zA-Z])\s*(?:->|to)\s*([^\s]+)\s+(.+)", line_str, re.IGNORECASE)
@@ -288,7 +289,7 @@ class UniversalMathEngine:
                 }
         return None
 
-    def _try_calculus_series(self, text: str) -> Optional[Dict[str, Any]]:
+    def _try_calculus_series(self, text: str) -> dict[str, Any] | None:
         for line in text.splitlines():
             line_str = line.strip()
             m = re.search(r"(?:taylor\s+series|maclaurin\s+series|series\s+of)\s*[:(]?\s*(.+)", line_str, re.IGNORECASE)
@@ -312,7 +313,7 @@ class UniversalMathEngine:
                 }
         return None
 
-    def _try_linear_algebra_vector(self, text: str) -> Optional[Dict[str, Any]]:
+    def _try_linear_algebra_vector(self, text: str) -> dict[str, Any] | None:
         m_dot = re.search(r'\[\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)(?:\s*,\s*(-?\d+(?:\.\d+)?))?\s*\]\s*(?:dot|\*)\s*\[\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)(?:\s*,\s*(-?\d+(?:\.\d+)?))?\s*\]', text, re.IGNORECASE)
         if m_dot:
             u1, u2 = float(m_dot.group(1)), float(m_dot.group(2))
@@ -337,7 +338,7 @@ class UniversalMathEngine:
             }
         return None
 
-    def _try_linear_algebra_matrix(self, text: str) -> Optional[Dict[str, Any]]:
+    def _try_linear_algebra_matrix(self, text: str) -> dict[str, Any] | None:
         m = re.search(r'(?:det(?:erminant)?\s*[:(]?\s*)?(\[\[.+?\]\])', text, re.IGNORECASE)
         if m:
             mat_str = m.group(1)
@@ -362,7 +363,7 @@ class UniversalMathEngine:
             }
         return None
 
-    def _try_statistics(self, text: str) -> Optional[Dict[str, Any]]:
+    def _try_statistics(self, text: str) -> dict[str, Any] | None:
         m = re.search(r'(?:mean|average|median|variance|standard deviation|std)\s*(?:of)?\s*[:\[]?\s*([0-9.,\s-]+)[\]]?', text, re.IGNORECASE)
         if m:
             raw_nums = m.group(1)
@@ -393,7 +394,7 @@ class UniversalMathEngine:
                 }
         return None
 
-    def _try_combinatorics_and_number_theory(self, text: str) -> Optional[Dict[str, Any]]:
+    def _try_combinatorics_and_number_theory(self, text: str) -> dict[str, Any] | None:
         m_gcd = re.search(r'(?:gcd|gcf)\s*\(\s*(\d+)\s*,\s*(\d+)\s*\)', text, re.IGNORECASE)
         if m_gcd:
             a, b = int(m_gcd.group(1)), int(m_gcd.group(2))
@@ -423,7 +424,7 @@ class UniversalMathEngine:
                 'key_concepts': ['Least Common Multiple', 'Prime Factorization'],
                 'steps': [
                     f'1. Problem Statement: Find least common multiple of {a} and {b}.',
-                    f'2. Formula Relationship: lcm(a, b) = (|a * b|) / gcd(a, b).',
+                    '2. Formula Relationship: lcm(a, b) = (|a * b|) / gcd(a, b).',
                     f'3. Evaluate: ({a} * {b}) / {sp.gcd(a, b)} = {val}.'
                 ],
                 'final_answer': str(val),
@@ -441,7 +442,7 @@ class UniversalMathEngine:
                 'key_concepts': ['Combinations', 'Binomial Coefficient', 'Factorials'],
                 'steps': [
                     f'1. Problem Statement: Compute combinations C({n}, {k}).',
-                    f'2. Formula: C(n, k) = n! / (k! * (n - k)!).',
+                    '2. Formula: C(n, k) = n! / (k! * (n - k)!).',
                     f'3. Evaluate: {n}! / ({k}! * {n - k}!) = {val}.'
                 ],
                 'final_answer': str(val),
@@ -468,7 +469,7 @@ class UniversalMathEngine:
 
         return None
 
-    def _try_geometry(self, text: str) -> Optional[Dict[str, Any]]:
+    def _try_geometry(self, text: str) -> dict[str, Any] | None:
         m_pyth = re.search(r'pythagor(?:as|ean)?\s*(?:theorem)?\s*[:(]?\s*a\s*=\s*(\d+)\s*,\s*b\s*=\s*(\d+)', text, re.IGNORECASE)
         if m_pyth:
             a, b = float(m_pyth.group(1)), float(m_pyth.group(2))
@@ -510,26 +511,26 @@ class UniversalMathEngine:
 
         return None
 
-    def _try_system_of_equations(self, text: str) -> Optional[Dict[str, Any]]:
-        raw_lines = [l.strip() for l in text.splitlines() if l.strip()]
+    def _try_system_of_equations(self, text: str) -> dict[str, Any] | None:
+        raw_lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
         lines = []
         skip_next = False
-        for i, l in enumerate(raw_lines):
+        for i, ln in enumerate(raw_lines):
             if skip_next:
                 skip_next = False
                 continue
-            if l.endswith('=') and i + 1 < len(raw_lines) and re.match(r'^\d+', raw_lines[i+1]):
-                lines.append(l + ' ' + raw_lines[i+1])
+            if ln.endswith('=') and i + 1 < len(raw_lines) and re.match(r'^\d+', raw_lines[i+1]):
+                lines.append(ln + ' ' + raw_lines[i+1])
                 skip_next = True
             else:
-                lines.append(l)
+                lines.append(ln)
 
         eq_lines = []
-        for l in lines:
-            if '=' in l:
+        for ln in lines:
+            if '=' in ln:
                 clean_l = re.sub(
                     r'^(solve\s+(for\s+[a-zA-Z,\s()]+\s*:?)?|find\s+(all\s+)?(real\s+)?solutions?\s*(\([a-zA-Z,\s()]+\))?\s*(to|for)?\s*:?|where\s*:?|equation\s*\d*\s*:?|problem\s*:?)\s*',
-                    '', l, flags=re.IGNORECASE
+                    '', ln, flags=re.IGNORECASE
                 ).strip()
                 clean_l = clean_l.strip('. ,;:?')
                 if '=' in clean_l:
@@ -540,8 +541,8 @@ class UniversalMathEngine:
 
         eq_diffs = []
         all_syms = set()
-        for l in eq_lines:
-            lhs_str, rhs_str = l.split('=', 1)
+        for ln in eq_lines:
+            lhs_str, rhs_str = ln.split('=', 1)
             l_sym = _safe_parse(lhs_str)
             r_sym = _safe_parse(rhs_str)
             diff = l_sym - r_sym
@@ -559,8 +560,8 @@ class UniversalMathEngine:
         is_sym_cubic = (
             len(vars_sorted) == 3
             and len(eq_lines) == 3
-            and any('2' in l or '^2' in l or '**2' in l for l in eq_lines)
-            and any('3' in l or '^3' in l or '**3' in l for l in eq_lines)
+            and any('2' in ln or '^2' in ln or '**2' in ln for ln in eq_lines)
+            and any('3' in ln or '^3' in ln or '**3' in ln for ln in eq_lines)
         )
 
         if is_sym_cubic:
@@ -606,14 +607,14 @@ class UniversalMathEngine:
             'explanation': explanation
         }
 
-    def _try_single_equation(self, text: str) -> Optional[Dict[str, Any]]:
-        lines = [l.strip() for l in text.splitlines() if l.strip()]
+    def _try_single_equation(self, text: str) -> dict[str, Any] | None:
+        lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
         eq_line = None
-        for l in lines:
-            if '=' in l:
+        for ln in lines:
+            if '=' in ln:
                 clean_l = re.sub(
                     r'^(solve\s+(for\s+[a-zA-Z]\s*:?)?|evaluate\s*:?|simplify\s*:?|find\s+[a-zA-Z]\s*:?|equation\s*:?|problem\s*:?)\s*',
-                    '', l, flags=re.IGNORECASE
+                    '', ln, flags=re.IGNORECASE
                 ).strip()
                 clean_l = clean_l.strip('. ,;:?')
                 if '=' in clean_l:
@@ -718,7 +719,7 @@ class UniversalMathEngine:
             'explanation': explanation
         }
 
-    def _try_complex_or_log_evaluation(self, text: str) -> Optional[Dict[str, Any]]:
+    def _try_complex_or_log_evaluation(self, text: str) -> dict[str, Any] | None:
         m_mod = re.search(r'\|\s*(-?\d+(?:\.\d+)?)\s*([+-]\s*\d*(?:\.\d+)?)[ij]\s*\|', text, re.IGNORECASE)
         if m_mod:
             re_part = float(m_mod.group(1))
@@ -741,8 +742,8 @@ class UniversalMathEngine:
             }
         return None
 
-    def _try_expression_evaluation(self, text: str) -> Optional[Dict[str, Any]]:
-        lines = [l.strip() for l in text.splitlines() if l.strip()]
+    def _try_expression_evaluation(self, text: str) -> dict[str, Any] | None:
+        lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
         expr_line = lines[0] if lines else text
         expr_line = re.sub(r'^(evaluate\s*:?|simplify\s*:?|calculate\s*:?)\s*', '', expr_line, flags=re.IGNORECASE).strip()
         expr_line = expr_line.strip('. ,;:?')

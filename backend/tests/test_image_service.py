@@ -1,9 +1,15 @@
 import pytest
-from httpx import AsyncClient, ASGITransport
+from httpx import ASGITransport, AsyncClient
+
 from app.main import app
-from app.services.ai.image_service import ImageGenerationService, ImageProvider, image_service
 from app.services.ai.diagram_synthesizer import diagram_synthesizer
+from app.services.ai.image_service import (
+    ImageGenerationService,
+    ImageProvider,
+    image_service,
+)
 from app.services.security.rate_limiter import rate_limiter
+
 
 @pytest.fixture(autouse=True)
 def reset_rate_limits():
@@ -51,10 +57,10 @@ def test_topic_relevance_heart():
     assert spec.category == "anatomy_system"
     assert "Human Heart" in spec.title
     labels = [e.label for e in spec.elements]
-    assert any("Vena Cava" in l for l in labels)
-    assert any("Right Atrium" in l or "Tricuspid" in l for l in labels)
-    assert any("Left Ventricle" in l or "Myocardium" in l for l in labels)
-    assert any("Aorta" in l for l in labels)
+    assert any("Vena Cava" in ln for ln in labels)
+    assert any("Right Atrium" in ln or "Tricuspid" in ln for ln in labels)
+    assert any("Left Ventricle" in ln or "Myocardium" in ln for ln in labels)
+    assert any("Aorta" in ln for ln in labels)
     assert len(spec.key_takeaways) > 0
     assert "left ventricle" in spec.key_takeaways[0].lower()
 
@@ -65,26 +71,26 @@ def test_topic_relevance_python_arrays():
     assert spec.code_snippet is not None
     assert "arr[1:4]" in spec.code_snippet
     labels = [e.label for e in spec.elements]
-    assert any("arr[0]" in l for l in labels)
-    assert any("arr[1]" in l for l in labels)
-    assert any("arr[-1]" in l for l in labels)
+    assert any("arr[0]" in ln for ln in labels)
+    assert any("arr[1]" in ln for ln in labels)
+    assert any("arr[-1]" in ln for ln in labels)
 
 def test_topic_relevance_water_cycle():
     spec = diagram_synthesizer.get_diagram_spec(topic="Water Cycle", prompt="diagram of water cycle")
     assert spec.category == "flow_or_cycle"
     assert "Water" in spec.title or "Hydrologic" in spec.title
     labels = [e.label for e in spec.elements]
-    assert any("Evaporation" in l for l in labels)
-    assert any("Condensation" in l for l in labels)
-    assert any("Precipitation" in l for l in labels)
+    assert any("Evaporation" in ln for ln in labels)
+    assert any("Condensation" in ln for ln in labels)
+    assert any("Precipitation" in ln for ln in labels)
 
 def test_topic_relevance_database_normalization():
     spec = diagram_synthesizer.get_diagram_spec(topic="Database Normalization", prompt="explain 1NF 2NF 3NF")
     assert spec.category == "comparison_matrix"
     labels = [e.label for e in spec.elements]
-    assert any("1NF" in l for l in labels)
-    assert any("2NF" in l for l in labels)
-    assert any("3NF" in l for l in labels)
+    assert any("1NF" in ln for ln in labels)
+    assert any("2NF" in ln for ln in labels)
+    assert any("3NF" in ln for ln in labels)
 
 def test_dynamic_arbitrary_topic():
     spec = diagram_synthesizer.get_diagram_spec(
@@ -100,6 +106,7 @@ def test_dynamic_arbitrary_topic():
 async def test_image_service_generates_base64():
     import base64
     import io
+
     from PIL import Image
 
     result = await image_service.generate_image("Binary Search Tree with left and right child nodes")
@@ -181,7 +188,7 @@ async def test_image_route_rate_limiting():
         headers = {"Authorization": "Bearer test-token-img-user-3"}
 
         # Limit is 5 per minute for images
-        for i in range(5):
+        for _ in range(5):
             allowed, _, _, _ = await rate_limiter.check_limit("img-user-3", "math", limit=5, window_seconds=60)
             assert allowed is True
 
@@ -204,10 +211,10 @@ def test_subtopic_requirements_electrical_conduction():
     )
     assert "Conduction" in spec.title
     labels = [e.label for e in spec.elements]
-    assert any("Sinoatrial" in l or "SA" in l for l in labels)
-    assert any("AV Node" in l or "Atrioventricular" in l for l in labels)
-    assert any("Bundle of His" in l for l in labels)
-    assert any("Purkinje" in l for l in labels)
+    assert any("Sinoatrial" in ln or "SA" in ln for ln in labels)
+    assert any("AV Node" in ln or "Atrioventricular" in ln for ln in labels)
+    assert any("Bundle of His" in ln for ln in labels)
+    assert any("Purkinje" in ln for ln in labels)
 
 def test_subtopic_requirements_heart_valves():
     spec = diagram_synthesizer.get_diagram_spec(
@@ -217,9 +224,9 @@ def test_subtopic_requirements_heart_valves():
     )
     assert "Valves" in spec.title
     labels = [e.label for e in spec.elements]
-    assert any("Tricuspid" in l for l in labels)
-    assert any("Mitral" in l or "Bicuspid" in l for l in labels)
-    assert any("Aortic" in l for l in labels)
+    assert any("Tricuspid" in ln for ln in labels)
+    assert any("Mitral" in ln or "Bicuspid" in ln for ln in labels)
+    assert any("Aortic" in ln for ln in labels)
 
 def test_custom_bst_values():
     spec = diagram_synthesizer.get_diagram_spec(
@@ -228,9 +235,9 @@ def test_custom_bst_values():
         requirements="tree with nodes 50, 30, 70, 20"
     )
     labels = [e.label for e in spec.elements]
-    assert any("50" in l for l in labels)
-    assert any("30" in l for l in labels)
-    assert any("70" in l for l in labels)
+    assert any("50" in ln for ln in labels)
+    assert any("30" in ln for ln in labels)
+    assert any("70" in ln for ln in labels)
 
 def test_custom_array_values():
     spec = diagram_synthesizer.get_diagram_spec(
@@ -239,9 +246,9 @@ def test_custom_array_values():
         requirements="array with elements 'Alpha', 'Bravo', 'Charlie', 'Delta'"
     )
     labels = [e.label for e in spec.elements]
-    assert any("Alpha" in l for l in labels)
-    assert any("Bravo" in l for l in labels)
-    assert any("Charlie" in l for l in labels)
+    assert any("Alpha" in ln for ln in labels)
+    assert any("Bravo" in ln for ln in labels)
+    assert any("Charlie" in ln for ln in labels)
 
 @pytest.mark.asyncio
 async def test_image_route_with_requirements():

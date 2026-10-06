@@ -95,7 +95,7 @@ class RetrievalService:
             document_id=document_id
         )
 
-        doc_name_cache: dict[str, str] = {}
+        doc_name_cache: dict[str, str | None] = {}
         enriched_results: list[dict[str, Any]] = []
 
         for c in chunks:

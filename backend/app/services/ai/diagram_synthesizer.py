@@ -1,8 +1,7 @@
 import logging
 import re
-import json
-from typing import List, Optional, Tuple, Dict, Any
-from pydantic import BaseModel, Field
+
+from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
 
@@ -10,21 +9,21 @@ class DiagramElement(BaseModel):
     id: str
     label: str
     subtext: str
-    badge: Optional[str] = None
-    role: Optional[str] = None
-    color_hint: Optional[str] = "primary"  # "primary", "secondary", "accent", "success", "warning"
+    badge: str | None = None
+    role: str | None = None
+    color_hint: str | None = "primary"  # "primary", "secondary", "accent", "success", "warning"
 
 class DiagramSpec(BaseModel):
     topic: str
     category: str  # "anatomy_system", "data_structure_memory", "flow_or_cycle", "tree_hierarchy", "layers_stack", "comparison_matrix", "concept_breakdown"
     title: str
     subtitle: str
-    elements: List[DiagramElement]
-    flow_arrows: List[Tuple[str, str, str]] = []  # (from_id, to_id, label)
-    key_takeaways: List[str]
+    elements: list[DiagramElement]
+    flow_arrows: list[tuple[str, str, str]] = []  # (from_id, to_id, label)
+    key_takeaways: list[str]
     badge_label: str
-    code_snippet: Optional[str] = None
-    source_citation: Optional[str] = None
+    code_snippet: str | None = None
+    source_citation: str | None = None
 
 class DiagramSynthesizer:
     """
@@ -33,9 +32,9 @@ class DiagramSynthesizer:
     """
 
     def __init__(self):
-        self.curated_registry: Dict[str, DiagramSpec] = self._build_curated_registry()
+        self.curated_registry: dict[str, DiagramSpec] = self._build_curated_registry()
 
-    def _build_curated_registry(self) -> Dict[str, DiagramSpec]:
+    def _build_curated_registry(self) -> dict[str, DiagramSpec]:
         registry = {}
 
         # 1a. Human Heart - Double Circulation
@@ -354,7 +353,7 @@ class DiagramSynthesizer:
                     new_elems.append(DiagramElement(
                         id="root_c",
                         label=f"Root Node [{root_val}]",
-                        subtext=f"Root element chosen from user values; partitions tree.",
+                        subtext="Root element chosen from user values; partitions tree.",
                         badge="Root",
                         color_hint="primary"
                     ))
@@ -433,7 +432,7 @@ class DiagramSynthesizer:
 
         return spec
 
-    def find_curated_spec(self, topic: str, prompt: str, requirements: Optional[str] = None) -> Optional[DiagramSpec]:
+    def find_curated_spec(self, topic: str, prompt: str, requirements: str | None = None) -> DiagramSpec | None:
         """
         Looks up a curated diagram specification, giving high priority to user requirements.
         """
@@ -478,8 +477,8 @@ class DiagramSynthesizer:
         self,
         topic: str,
         prompt: str,
-        requirements: Optional[str] = None,
-        context: Optional[str] = None
+        requirements: str | None = None,
+        context: str | None = None
     ) -> DiagramSpec:
         """
         Dynamically decomposes an arbitrary topic or user notes into an accurate,
@@ -519,7 +518,7 @@ class DiagramSynthesizer:
             badge = "Core Blueprint"
 
         # Generate topic-specific components by extracting facts from requirements, context, or prompt
-        elements: List[DiagramElement] = []
+        elements: list[DiagramElement] = []
         source_text = f"{requirements or ''}\n{context or ''}"
         sentences = [s.strip() for s in re.split(r"[\.\n;]", source_text) if len(s.strip()) > 15]
 
@@ -558,14 +557,14 @@ class DiagramSynthesizer:
                 DiagramElement(
                     id="dyn_3",
                     label="System Equilibrium & Control",
-                    subtext=f"Regulatory feedback, boundary validation, and stability constraints maintaining integrity.",
+                    subtext="Regulatory feedback, boundary validation, and stability constraints maintaining integrity.",
                     badge="Regulation",
                     color_hint="accent"
                 ),
                 DiagramElement(
                     id="dyn_4",
                     label="Observable Output & Application",
-                    subtext=f"Final product release, downstream effects, and practical synthesis for exam mastery.",
+                    subtext="Final product release, downstream effects, and practical synthesis for exam mastery.",
                     badge="System Yield",
                     color_hint="success"
                 ),
@@ -590,8 +589,8 @@ class DiagramSynthesizer:
         self,
         topic: str,
         prompt: str,
-        requirements: Optional[str] = None,
-        context: Optional[str] = None
+        requirements: str | None = None,
+        context: str | None = None
     ) -> DiagramSpec:
         """
         Main entrypoint: returns a highly relevant DiagramSpec for any given topic/prompt/requirements.

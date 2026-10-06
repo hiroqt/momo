@@ -1,12 +1,15 @@
-import io
 import base64
+import io
+import logging
 import os
 import re
-import logging
-from typing import Optional, List, Tuple
+
 from PIL import Image, ImageDraw, ImageFont
 
-from app.services.ai.diagram_synthesizer import diagram_synthesizer, DiagramSpec, DiagramElement
+from app.services.ai.diagram_synthesizer import (
+    DiagramSpec,
+    diagram_synthesizer,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -60,11 +63,11 @@ class EducationalDiagramRenderer:
             if os.path.exists(p):
                 try:
                     return ImageFont.truetype(p, size)
-                except Exception:
+                except Exception:  # noqa: BLE001 - Unreadable font candidates are skipped.
                     continue
         return ImageFont.load_default()
 
-    def _wrap_text(self, text: str, max_chars: int) -> List[str]:
+    def _wrap_text(self, text: str, max_chars: int) -> list[str]:
         words = text.split()
         lines = []
         curr = ""
@@ -435,8 +438,8 @@ class EducationalDiagramRenderer:
         self,
         spec: DiagramSpec,
         prompt: str = "",
-        requirements: Optional[str] = None
-    ) -> Tuple[int, int]:
+        requirements: str | None = None
+    ) -> tuple[int, int]:
         """
         Dynamically adapts canvas width and height based on:
         1. Explicit user format needs (e.g. vertical/portrait for mobile vs square vs widescreen).
@@ -481,8 +484,8 @@ class EducationalDiagramRenderer:
     def render_diagram(
         self,
         spec: DiagramSpec,
-        width: Optional[int] = None,
-        height: Optional[int] = None
+        width: int | None = None,
+        height: int | None = None
     ) -> str:
         """
         Renders a DiagramSpec and returns it as a base64 encoded PNG string.
@@ -525,9 +528,9 @@ class EducationalDiagramRenderer:
     def render_educational_diagram(
         self,
         topic: str,
-        prompt: Optional[str] = None,
-        requirements: Optional[str] = None,
-        context: Optional[str] = None
+        prompt: str | None = None,
+        requirements: str | None = None,
+        context: str | None = None
     ) -> str:
         """
         High-level wrapper: finds or synthesizes the best DiagramSpec for the topic/prompt/requirements,

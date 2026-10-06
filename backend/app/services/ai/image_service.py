@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from abc import ABC, abstractmethod
 import logging
 import re
-from typing import Any, Dict, Literal, Optional
+from abc import ABC, abstractmethod
+from typing import Any, Literal
 
 import httpx
 
@@ -25,11 +25,11 @@ class ImageProvider(ABC):
         self,
         *,
         prompt: str,
-        topic: Optional[str],
-        context: Optional[str],
-        requirements: Optional[str],
+        topic: str | None,
+        context: str | None,
+        requirements: str | None,
         aspect_ratio: str,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         raise NotImplementedError
 
 
@@ -38,11 +38,11 @@ class DiagramImageProvider(ImageProvider):
         self,
         *,
         prompt: str,
-        topic: Optional[str],
-        context: Optional[str],
-        requirements: Optional[str],
+        topic: str | None,
+        context: str | None,
+        requirements: str | None,
         aspect_ratio: str,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         del aspect_ratio  # The renderer derives dimensions from the diagram requirements.
         resolved_topic = topic.strip() if topic else ImageGenerationService.extract_topic_from_prompt(prompt)
         diagram_b64 = diagram_renderer.render_educational_diagram(
@@ -72,11 +72,11 @@ class OpenRouterImageProvider(ImageProvider):
         self,
         *,
         prompt: str,
-        topic: Optional[str],
-        context: Optional[str],
-        requirements: Optional[str],
+        topic: str | None,
+        context: str | None,
+        requirements: str | None,
         aspect_ratio: str,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         del topic, context, requirements  # Already synthesized into the safe prompt by the service.
         if not self.api_key or self.api_key == "mock-openrouter-key":
             raise ImageProviderUnavailableError(
@@ -127,8 +127,8 @@ class ImageGenerationService:
 
     def __init__(
         self,
-        diagram_provider: Optional[ImageProvider] = None,
-        generative_provider: Optional[ImageProvider] = None,
+        diagram_provider: ImageProvider | None = None,
+        generative_provider: ImageProvider | None = None,
     ):
         self.diagram_provider = diagram_provider or DiagramImageProvider()
         self.generative_provider = generative_provider or OpenRouterImageProvider(
@@ -150,8 +150,8 @@ class ImageGenerationService:
     @staticmethod
     def format_general_image_prompt(
         raw_prompt: str,
-        context: Optional[str] = None,
-        requirements: Optional[str] = None,
+        context: str | None = None,
+        requirements: str | None = None,
     ) -> str:
         clean = raw_prompt.strip().rstrip(".")
         parts = [
@@ -186,12 +186,12 @@ class ImageGenerationService:
     async def generate_image(
         self,
         prompt: str,
-        topic: Optional[str] = None,
-        context: Optional[str] = None,
-        requirements: Optional[str] = None,
+        topic: str | None = None,
+        context: str | None = None,
+        requirements: str | None = None,
         mode: ImageMode = "diagram",
         aspect_ratio: str = "1:1",
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         if mode == "image":
             provider = self.generative_provider
             final_prompt = self.format_general_image_prompt(prompt, context, requirements)

@@ -1,15 +1,14 @@
+import logging
 import re
 from dataclasses import dataclass
-from typing import Optional, List, Tuple
-import logging
 
 logger = logging.getLogger(__name__)
 
 @dataclass
 class GuardrailResult:
     passed: bool
-    flagged_category: Optional[str] = None
-    refusal_response: Optional[str] = None
+    flagged_category: str | None = None
+    refusal_response: str | None = None
     sanitized_text: str = ""
 
 class AIGuardrailsService:
@@ -137,7 +136,7 @@ class AIGuardrailsService:
         result = text
         for pat, replacement in self._credential_patterns:
             if pat.search(result):
-                logger.critical(f"Guardrail intercepted sensitive credential leak in model output! Redacting.")
+                logger.critical("Guardrail intercepted sensitive credential leak in model output! Redacting.")
                 result = pat.sub(replacement, result)
 
         return result

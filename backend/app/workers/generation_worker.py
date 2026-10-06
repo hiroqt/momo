@@ -3,7 +3,7 @@ from typing import Any
 
 from app.db.repositories.documents_repo import documents_repo
 from app.db.repositories.generation_repo import generation_repo
-from app.services.ai.ai_provider import ai_provider
+from app.services.ai.ai_provider import ProviderUnavailableError, ai_provider
 from app.services.retrieval.retrieval_service import retrieval_service
 from app.services.synthesis.synthesis_service import synthesis_service
 from app.services.validation.grounding_validator import grounding_validator
@@ -127,12 +127,25 @@ class GenerationWorker:
                 if is_reviewer else
                 "You are an expert educational quiz generator strictly bound to the supplied study evidence."
             )
-            raw_items = await ai_provider.generate_study_material(
-                system_instruction=system_instruction,
-                generation_spec=buffered_spec,
-                source_evidence=synthesized.context_text,
-                sources_metadata=synthesized.sources
-            )
+            try:
+                raw_items = await ai_provider.generate_study_material(
+                    system_instruction=system_instruction,
+                    generation_spec=buffered_spec,
+                    source_evidence=synthesized.context_text,
+                    sources_metadata=synthesized.sources
+                )
+            except ProviderUnavailableError:
+                # Timeout/quota/malformed output: controlled, retryable failure; never a mock.
+                logger.warning("Generation provider unavailable for job %s", job_id)
+                await generation_repo.update_job(
+                    job_id=job_id,
+                    status="FAILED",
+                    stage="Generation Failed",
+                    progress=100,
+                    message="Momo could not reach the study generator. Please retry in a moment.",
+                    error="PROVIDER_UNAVAILABLE"
+                )
+                return
 
             if not raw_items:
                 await generation_repo.update_job(
@@ -157,7 +170,9 @@ class GenerationWorker:
             valid_items = grounding_validator.validate_and_deduplicate(
                 raw_items=raw_items,
                 target_count=target_count,
-                allowed_types=effective_types
+                allowed_types=effective_types,
+                trusted_sources=synthesized.sources,
+                evidence=synthesized.evidence_texts,
             )
 
             if not valid_items:

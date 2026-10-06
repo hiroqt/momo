@@ -1,10 +1,12 @@
 import pytest
-from httpx import AsyncClient, ASGITransport
-from app.main import app
-from app.db.repositories.documents_repo import documents_repo
+from httpx import ASGITransport, AsyncClient
+
 from app.db.repositories.chunks_repo import chunks_repo
+from app.db.repositories.documents_repo import documents_repo
 from app.domain.documents.models import DocumentChunk
+from app.main import app
 from app.workers.generation_worker import generation_worker
+
 
 @pytest.mark.asyncio
 async def test_end_to_end_generation_pipeline():
@@ -113,7 +115,6 @@ async def test_openrouter_nemotron_payload_and_parallel_batching(monkeypatch):
 
     async def fake_call_nemotron(system_prompt: str, user_prompt: str, timeout: float = 35.0):
         # Record what was requested
-        import json
         recorded_payloads.append({"system": system_prompt, "user": user_prompt})
         return {
             "items": [
@@ -148,8 +149,9 @@ async def test_openrouter_nemotron_payload_and_parallel_batching(monkeypatch):
 
     # Verify that multiple batches were spawned in parallel for 16 items
     assert len(recorded_payloads) >= 2
-    # Verify custom instruction was injected into prompt
-    assert any("phosphofructokinase" in p["system"] for p in recorded_payloads)
+    # Untrusted instructions stay in requirements, never system-level authority.
+    assert any("phosphofructokinase" in p["user"] for p in recorded_payloads)
+    assert all("phosphofructokinase" not in p["system"] for p in recorded_payloads)
     assert any("DIFFICULTY LEVEL - HARD" in p["system"] for p in recorded_payloads)
     # Verify items returned
     assert len(items) >= 2
@@ -166,7 +168,7 @@ async def test_multiple_choice_options_randomized():
         "difficulty": "medium",
         "question_types": ["multiple_choice"]
     }
-    items = await mock_provider.generate_study_material("sys", spec, "The left ventricle pumps oxygenated blood into the aorta.", [])
+    items = await mock_provider.generate_study_material("sys", spec, "The left ventricle pumps oxygenated blood into the aorta.", [{"document_id": "test-document", "page": 1, "section": "Cardiovascular"}])
     mcq_items = [i for i in items if i["type"] == "multiple_choice"]
     assert len(mcq_items) > 0
     indices = [item["options"].index(item["answer"]) for item in mcq_items if item["answer"] in item["options"]]
@@ -184,7 +186,7 @@ async def test_identification_hint_generated():
         "difficulty": "medium",
         "question_types": ["identification"]
     }
-    items = await mock_provider.generate_study_material("sys", spec, "The left ventricle pumps oxygenated blood into the aorta.", [])
+    items = await mock_provider.generate_study_material("sys", spec, "The left ventricle pumps oxygenated blood into the aorta.", [{"document_id": "test-document", "page": 1, "section": "Cardiovascular"}])
     id_items = [i for i in items if i["type"] == "identification"]
     assert len(id_items) > 0
     assert "hint" in id_items[0]
@@ -200,7 +202,7 @@ async def test_mock_provider_supports_high_item_count():
         "difficulty": "medium",
         "question_types": ["flashcard", "multiple_choice"]
     }
-    items = await mock_provider.generate_study_material("sys", spec, "The left ventricle pumps oxygenated blood into the aorta. Systemic circulation delivers oxygen to tissues.", [])
+    items = await mock_provider.generate_study_material("sys", spec, "The left ventricle pumps oxygenated blood into the aorta. Systemic circulation delivers oxygen to tissues.", [{"document_id": "test-document", "page": 1, "section": "Cardiovascular"}])
     assert len(items) == 35
     flashcard_items = [i for i in items if i["type"] == "flashcard"]
     assert len(flashcard_items) > 0
@@ -241,7 +243,10 @@ async def test_mock_provider_avoids_page_metadata_and_dangling_fragments():
 
 @pytest.mark.asyncio
 async def test_quiz_generation_topic_relevance_and_importance():
-    from app.services.ai.ai_provider import MockNemotronProvider, OpenRouterNemotronProvider
+    from app.services.ai.ai_provider import (
+        MockNemotronProvider,
+        OpenRouterNemotronProvider,
+    )
 
     # 1. Verify prompt engineering includes topic focus mandate in OpenRouterNemotronProvider
     provider = OpenRouterNemotronProvider(api_key="test-key", model="test-model")
@@ -252,8 +257,8 @@ async def test_quiz_generation_topic_relevance_and_importance():
         question_types=["multiple_choice", "true_false", "identification"],
         topic="Photosynthesis"
     )
-    assert "CRITICAL TOPIC RELEVANCE & IMPORTANCE MANDATE" in prompt
-    assert "Photosynthesis" in prompt
+    assert "Follow the requested topic only when supported by SOURCE EVIDENCE" in prompt
+    assert "Photosynthesis" not in prompt
     assert "QUIZ QUESTION STEMS & PLAUSIBLE DISTRACTORS (TOPIC-GROUNDED & HIGH-YIELD)" in prompt
 
     # 2. Verify MockNemotronProvider generates topic-anchored quiz questions
@@ -305,7 +310,10 @@ async def test_quiz_generation_topic_relevance_and_importance():
 
 @pytest.mark.asyncio
 async def test_generation_avoids_in_entire_document_text():
-    from app.services.ai.ai_provider import MockNemotronProvider, OpenRouterNemotronProvider
+    from app.services.ai.ai_provider import (
+        MockNemotronProvider,
+        OpenRouterNemotronProvider,
+    )
 
     mock = MockNemotronProvider()
     spec = {

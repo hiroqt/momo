@@ -1,7 +1,9 @@
 import pytest
-from httpx import AsyncClient, ASGITransport
+from httpx import ASGITransport, AsyncClient
+
 from app.main import app
 from app.services.security.guardrails_service import guardrails_service
+
 
 def test_guardrails_neutral_study_input():
     result = guardrails_service.validate_user_input("Explain the citric acid cycle in cellular respiration.")

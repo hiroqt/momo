@@ -1,6 +1,8 @@
 import pytest
+
 from app.services.embeddings.embedding_service import embedding_service
 from app.services.synthesis.synthesis_service import synthesis_service
+
 
 @pytest.mark.asyncio
 async def test_embedding_generation():

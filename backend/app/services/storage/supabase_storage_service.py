@@ -33,7 +33,7 @@ class SupabaseStorageService(BaseStorageService):
             self._require_mock()
             return f"/api/documents/mock-upload/{object_key}"
         try:
-            result = supabase_session.client.storage.from_(self.bucket).create_signed_upload_url(
+            result = supabase_session.require_client().storage.from_(self.bucket).create_signed_upload_url(
                 path=object_key
             )
             url = result.get("signed_url") or result.get("signedUrl")
@@ -51,7 +51,7 @@ class SupabaseStorageService(BaseStorageService):
                 raise StorageUnavailableError("Uploaded document was not found")
             return self._mock_storage[object_key]
         try:
-            data = supabase_session.client.storage.from_(self.bucket).download(object_key)
+            data = supabase_session.require_client().storage.from_(self.bucket).download(object_key)
             if len(data) > settings.MAX_FILE_SIZE_MB * 1024 * 1024:
                 raise StorageUnavailableError("Document exceeds the allowed size")
             return data
@@ -66,7 +66,7 @@ class SupabaseStorageService(BaseStorageService):
                 raise StorageUnavailableError("Uploaded document was not found")
             return len(self._mock_storage[object_key])
         try:
-            info = supabase_session.client.storage.from_(self.bucket).info(object_key)
+            info = supabase_session.require_client().storage.from_(self.bucket).info(object_key)
             size = info.get("size", info.get("metadata", {}).get("size"))
             if not isinstance(size, int) or size < 1:
                 raise ValueError("Invalid object metadata")
@@ -80,7 +80,7 @@ class SupabaseStorageService(BaseStorageService):
             self._mock_storage.pop(object_key, None)
             return True
         try:
-            supabase_session.client.storage.from_(self.bucket).remove([object_key])
+            supabase_session.require_client().storage.from_(self.bucket).remove([object_key])
             return True
         except Exception:  # noqa: BLE001 - redact all provider failures at the storage boundary
             logger.error("Document deletion failed")

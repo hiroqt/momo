@@ -1,8 +1,10 @@
+
 import pytest
-import time
-from httpx import AsyncClient, ASGITransport
+from httpx import ASGITransport, AsyncClient
+
 from app.main import app
 from app.services.security.rate_limiter import rate_limiter
+
 
 @pytest.fixture(autouse=True)
 def reset_rate_limiter():
@@ -68,7 +70,7 @@ async def test_rate_limiter_http_429_response():
 
         # Exhaust chat limit by calling quick endpoint
         # Default chat limit is 20 per minute
-        for i in range(20):
+        for _ in range(20):
             allowed, _, _, _ = await rate_limiter.check_limit("rate-limit-user", "chat", limit=20, window_seconds=60)
             assert allowed is True
 

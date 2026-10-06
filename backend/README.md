@@ -1,5 +1,12 @@
 # AI Study Platform - Backend Service
 
+Before choosing backend work, read the
+[Production Readiness Checklist](../docs/PRODUCTION_READINESS_CHECKLIST.md).
+It separates verified local security work from pending grounding, worker,
+integration and deployment requirements. Update the relevant task ID and evidence
+with each implementation; startup requires real Supabase configuration or explicit
+local memory mode.
+
 FastAPI backend service powering document ingestion, text extraction, semantic chunking, vector retrieval, and grounded educational content generation using NVIDIA Nemotron.
 
 ---
@@ -43,40 +50,74 @@ backend/
 
 ## Environment Configuration
 
-Create a `.env` file from the provided template:
+`APP_ENV` is required and has no default. The backend refuses to start without
+it, and `ENVIRONMENT` is derived from it (do not set both).
+
+| `APP_ENV` | Purpose | Supabase target | Test traffic |
+| --- | --- | --- | --- |
+| `local` | Developer machine | Loopback only (`127.0.0.1`/`::1`) or memory mode | All automated tests run locally |
+| `test` | Automated pytest, e2e, load, stress and edge cases | Loopback only; sockets blocked; disposable pgvector container | Yes, zero Supabase egress |
+| `staging` | Bounded synthetic smoke checks | Pinned to `momo-staging` (`zkouryrzhsgaeqyiwwyb`) | Smoke only; never load/stress |
+| `production` | Real users | Pinned to `momo-prod` (`liyuyfqkbknxorzoekkq`) | None, ever |
+
+Project refs are pinned in `app/config.py`. A staging process configured with
+the production ref or URL (or the reverse) fails validation at startup, and
+local/test refuse any hosted ref or non-loopback URL. Staging and production
+also reject memory persistence, development identity, inline job execution,
+local/mock embeddings, placeholder (`mock-`, `your-`, `replace-`, `placeholder`,
+`changeme`) or blank secrets, placeholder CORS origins and non-HTTPS origins.
+Startup errors never echo configuration values.
+
+Local development:
 
 ```bash
-cp .env.example .env
+cp .env.example .env   # APP_ENV=local, memory mode, mock providers
 ```
 
-Ensure the following variables are configured:
+Templates for hosted services are `.env.staging.example` and
+`.env.production.example`; they intentionally fail startup until secrets are
+injected.
 
-```ini
-# Supabase
-SUPABASE_URL=https://your-project.supabase.co
-SUPABASE_ANON_KEY=your-supabase-anon-key
-SUPABASE_SERVICE_ROLE_KEY=your-supabase-service-role-key
+### Secret Injection And Rotation
 
-# AWS S3 (3-day document retention)
-AWS_ACCESS_KEY_ID=your-aws-access-key
-AWS_SECRET_ACCESS_KEY=your-aws-secret-key
-AWS_REGION=us-east-1
-AWS_S3_BUCKET=study-platform-documents
-S3_PRESIGNED_URL_EXPIRE_SECONDS=3600
-DOCUMENT_RETENTION_DAYS=3
+- Never write real values into `.env*.example`, commits, CI logs or tickets.
+  `.env` files are git-ignored; CI fails on tracked `.env` files or key material.
+- Hosted processes receive `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`,
+  `OPENROUTER_API_KEY` (and S3 keys if used) from the hosting platform's secret
+  store as environment variables. Staging and production use separate secrets
+  scoped to their own project; never share a key across environments.
+- Managed JWTs are verified through the project's JWKS; leave
+  `SUPABASE_JWT_SECRET` empty unless a legacy HS256 secret is deliberately used.
+- Rotation: create the new key in the provider dashboard (Supabase API keys,
+  OpenRouter), update the hosting secret, roll API and worker processes, verify
+  startup and a staging smoke check, then revoke the old key. Rotate immediately
+  if a key appears in logs or history; rewriting history does not un-leak it.
+- Mobile/web clients only ever receive the public anon key and API URL.
 
-# AI Provider (NVIDIA Nemotron Ultra)
-OPENROUTER_API_KEY=your-openrouter-api-key
-NEMOTRON_MODEL=nvidia/nemotron-4-340b-instruct
+### Durable Workers And Scheduling
 
-# Quotas and Restrictions
-MONTHLY_DOCUMENT_LIMIT=10
-MAX_FILE_SIZE_MB=15
-MAX_PAGE_COUNT=50
-ENVIRONMENT=development
-DATABASE_BACKEND=supabase
-ENABLE_DEV_AUTH=false
+The API only enqueues work (`internal.background_jobs`, migration 006). Run one
+or more separate worker processes in staging/production:
+
+```bash
+uv run python -m app.workers.runner
 ```
+
+Workers claim jobs with `FOR UPDATE SKIP LOCKED`, hold renewable leases
+(`JOB_LEASE_SECONDS`, heartbeat every `JOB_HEARTBEAT_SECONDS`), retry up to
+`JOB_MAX_ATTEMPTS`, and dead-letter exhausted jobs with a controlled user-facing
+failure. A killed worker's jobs are reclaimed after its lease expires. SIGTERM
+drains in-flight jobs for up to `WORKER_DRAIN_SECONDS`. Each worker also runs
+retention cleanup and orphaned-work recovery every `CLEANUP_INTERVAL_SECONDS`
+and logs `RETENTION_OVERDUE` when the oldest unexpired original is overdue by
+more than `CLEANUP_OVERDUE_ALERT_SECONDS`. Local/test may set
+`INLINE_JOB_EXECUTION=true`, which runs queued jobs in-process through the same
+lease path after the response is sent.
+
+Expensive-operation rate limits (generation, chat, math, images, signed upload,
+registration) are stored in PostgreSQL and shared across replicas and restarts.
+They key on the verified user ID only (forwarding headers are not trusted) and
+fail closed with `503 RATE_LIMIT_UNAVAILABLE` if shared state is unreachable.
 
 ---
 
@@ -132,8 +173,8 @@ uv run pytest --cov=app tests/
 
 ## Security Setup And Local Verification
 
-Apply both migrations in order to the new Momo Supabase project using Supabase
-MCP. Configure Google Auth, the backend JWT issuer/audience and signing settings,
+Apply all migrations in `migrations/` in order to the intended Momo Supabase
+project using Supabase MCP. Configure Google Auth, the backend JWT issuer/audience and signing settings,
 and explicit production CORS origins. All application records belong to
 `auth.users.id`; authenticated clients can only read their own rows. All writes
 use verified FastAPI ownership checks plus database constraints. A server-role
@@ -154,10 +195,11 @@ docker compose -f ../scripts/testing/compose.yml down
 
 The SQL suite resets schemas only in the dedicated loopback database named
 `momo_security_test`. Without that environment variable it skips real database
-checks; API and local ASGI tests still run. Never point tests at a hosted database.
+checks locally; with `REQUIRE_PG_INTEGRATION=1` (set in CI) a missing database
+fails instead. Never point tests at a hosted database.
 
-Schedule the bounded retention task at least every five minutes, increasing
-frequency/batch capacity when expiration volume grows:
+The worker runner schedules retention cleanup. For an external scheduler, the
+one-shot task is still available:
 
 ```bash
 uv run python -m app.workers.cleanup_worker

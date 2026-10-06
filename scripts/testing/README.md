@@ -23,6 +23,42 @@ LOCAL_TEST_DATABASE_URL=postgresql://postgres:local-test-only@127.0.0.1:55432/mo
 docker compose -f scripts/testing/compose.yml down
 ```
 
+The port is configurable for parallel, isolated stacks (any loopback port is
+accepted; host, scheme, query options and database name are still enforced):
+
+```sh
+MOMO_TEST_PG_PORT=55435 docker compose -p momo-team-d -f scripts/testing/compose.yml up -d --wait
+# or a one-off container:
+docker run -d --rm --name momo-team-d-pg -e POSTGRES_PASSWORD=local-test-only \
+  -e POSTGRES_DB=momo_security_test -p 127.0.0.1:55435:5432 \
+  --tmpfs /var/lib/postgresql/data pgvector/pgvector:pg16
+LOCAL_TEST_DATABASE_URL=postgresql://postgres:local-test-only@127.0.0.1:55435/momo_security_test \
+  uv run --locked --project backend pytest backend/tests -q
+```
+
+Set `REQUIRE_PG_INTEGRATION=1` to make a missing database a failure instead of a
+skip (CI does this and additionally rejects any skipped test via
+`assert_no_skips.py`). Static checks: from `backend/`, run
+`uv run --locked python ../scripts/testing/static_checks.py` (Ruff + mypy over
+all files except the shrinking legacy list in `static_check_exclusions.txt`, empty since
+2026-10-06). The same pinned tools run directly: `uv run --project backend ruff check backend`
+and, from `backend/`, `uv run mypy` (configured in `pyproject.toml`).
+
+Environment separation: every command here uses `APP_ENV=test` with loopback
+targets only. `momo-staging` accepts only bounded synthetic smoke checks (never
+load/stress), and `momo-prod` receives no test traffic. Neither hosted project
+is reachable from the test suite: sockets are blocked, configuration rejects
+hosted refs/URLs in local/test, and the SQL fixture accepts loopback IPs only.
+
+Durable jobs and shared rate limits (migration 006) are covered by
+`test_job_queue.py` (memory-mode semantics, runner leases/heartbeats/retries,
+API dispatch), `test_durable_jobs_postgres.py` (real `FOR UPDATE SKIP LOCKED`
+claims across 8 concurrent workers, SIGKILLed lock holder, expired-lease
+recovery and dead-lettering, owner-only completion, READY/EXPIRED downgrade
+guard, orphan recovery, 24 concurrent rate-limit calls across connections) and
+`test_shared_rate_limits.py` (replica/restart sharing, fail-closed 503,
+upload/registration limits, forwarded-header spoofing).
+
 The integration fixture resets `public` and `auth` schemas **only** in that
 dedicated database. It rejects hosted URLs, DNS hostnames (including localhost),
 connection-option query strings and alternate database names before invoking

@@ -25,8 +25,9 @@ from app.schemas.documents import (
     UploadUrlRequest,
     UploadUrlResponse,
 )
+from app.services.security.rate_limiter import require_rate_limit
 from app.services.storage import storage_service
-from app.workers.document_worker import document_worker
+from app.workers.dispatch import dispatch_job
 
 logger = logging.getLogger(__name__)
 
@@ -49,7 +50,8 @@ async def mock_s3_upload(object_key: str, request: Request, user: AuthenticatedU
     storage_service.save_mock_object(object_key, body)
     return {"status": "success", "object_key": object_key, "size": len(body)}
 
-@router.post("/upload-url", response_model=UploadUrlResponse)
+@router.post("/upload-url", response_model=UploadUrlResponse,
+             dependencies=[Depends(require_rate_limit(category="upload"))])
 async def get_upload_url(
     req: UploadUrlRequest,
     user: AuthenticatedUser = Depends(get_current_user)
@@ -108,7 +110,8 @@ async def get_upload_url(
         expires_in_seconds=7200 if settings.STORAGE_PROVIDER == "supabase" else settings.S3_PRESIGNED_URL_EXPIRE_SECONDS
     )
 
-@router.post("", response_model=DocumentResponse)
+@router.post("", response_model=DocumentResponse,
+             dependencies=[Depends(require_rate_limit(category="registration"))])
 async def register_document(
     doc_in: DocumentCreate,
     background_tasks: BackgroundTasks,
@@ -126,6 +129,8 @@ async def register_document(
         raise HTTPException(400, detail={"code": "INVALID_OBJECT_KEY", "message": "Invalid upload destination."})
     existing = await documents_repo.get_by_id(document_id, user.id)
     if existing:
+        # Lost-response retries re-dispatch idempotently: one logical ingestion per document.
+        await dispatch_job("document_ingestion", user.id, document_id, background_tasks)
         return existing
     actual_size = await asyncio.to_thread(storage_service.get_object_size, expected_key)
     if actual_size != doc_in.file_size or actual_size <= 0 or actual_size > settings.MAX_FILE_SIZE_MB * 1024 * 1024:
@@ -151,15 +156,8 @@ async def register_document(
 
     created = await documents_repo.register(doc_data)
 
-    # Trigger async background worker pipeline
-    background_tasks.add_task(
-        document_worker.process_document,
-        document_id=document_id,
-        user_id=user.id,
-        s3_object_key=doc_in.s3_object_key,
-        filename=doc_in.original_filename,
-        file_type=doc_in.file_type
-    )
+    # Durable dispatch; separate workers parse/OCR/embed outside the API process.
+    await dispatch_job("document_ingestion", user.id, document_id, background_tasks)
 
     return created
 
@@ -220,7 +218,8 @@ async def get_document_status(
         stage=stage_map.get(st, st),
         progress=progress_map.get(st, 0),
         error=doc.get("processing_error"),
-        suggested_topics=doc.get("suggested_topics", [])
+        suggested_topics=doc.get("suggested_topics", []),
+        page_count=doc.get("page_count"),
     )
 
 @router.delete("/{document_id}")

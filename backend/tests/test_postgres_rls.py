@@ -25,6 +25,8 @@ spec.loader.exec_module(local_only)
 def database():
     url = os.environ.get("LOCAL_TEST_DATABASE_URL")
     if not url:
+        if os.environ.get("REQUIRE_PG_INTEGRATION") == "1":
+            pytest.fail("REQUIRE_PG_INTEGRATION=1 but LOCAL_TEST_DATABASE_URL is not set")
         pytest.skip("Set LOCAL_TEST_DATABASE_URL for dedicated local PostgreSQL integration")
     local_only.require_loopback_url(url, ("postgres", "postgresql"))
     from urllib.parse import urlsplit
@@ -35,6 +37,7 @@ def database():
         pytest.fail("psql is required for PostgreSQL integration")
 
     def sql(statement, success=True, role=None):
+        statement = "SET search_path=public,extensions; " + statement
         if role:
             assert role in {"anon", "authenticated", "service_role"}
             statement = f"SET ROLE {role}; " + statement
@@ -51,8 +54,10 @@ def database():
 
     sql("""
         DROP SCHEMA IF EXISTS public CASCADE;
+        DROP SCHEMA IF EXISTS extensions CASCADE;
         DROP SCHEMA IF EXISTS auth CASCADE;
         DROP SCHEMA IF EXISTS storage CASCADE;
+        DROP SCHEMA IF EXISTS internal CASCADE;
         CREATE SCHEMA public;
         CREATE SCHEMA auth;
         CREATE SCHEMA storage;

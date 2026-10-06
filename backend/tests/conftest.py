@@ -6,8 +6,12 @@ import socket
 import pytest
 
 # Set before application imports during collection. Never load local credentials.
+# ENVIRONMENT is derived from APP_ENV; a stale shell value must not leak in.
+os.environ.pop("ENVIRONMENT", None)
 os.environ.update({
-    "ENVIRONMENT": "test",
+    "APP_ENV": "test",
+    "SUPABASE_PROJECT_REF": "",
+    "LOCAL_ONLY": "true",
     "DATABASE_BACKEND": "memory",
     "ENABLE_DEV_AUTH": "false",
     "SUPABASE_URL": "http://127.0.0.1:54321",

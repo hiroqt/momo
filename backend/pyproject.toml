@@ -24,9 +24,24 @@ dependencies = [
     "uvicorn>=0.53.0",
 ]
 
+[dependency-groups]
+# Static analysis pinned to the versions used by scripts/testing/static_checks.py.
+dev = [
+    "mypy==2.4.0",
+    "ruff==0.16.10",
+]
+
 [tool.pytest.ini_options]
 pythonpath = ["."]
 asyncio_mode = "auto"
+
+[tool.mypy]
+# Run from backend/: `uv run mypy`. Matches scripts/testing/static_checks.py.
+files = ["app"]
+check_untyped_defs = true
+follow_imports = "skip"
+ignore_missing_imports = true
+explicit_package_bases = true
 
 [tool.ruff.lint]
 select = ["E4", "E7", "E9", "F", "I", "UP", "B", "BLE"]

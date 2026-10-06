@@ -9,7 +9,7 @@ from app.dependencies import AuthenticatedUser, get_current_user
 from app.schemas.generation import GenerationCreateRequest, GenerationJobResponse
 from app.services.security.guardrails_service import guardrails_service
 from app.services.security.rate_limiter import require_rate_limit
-from app.workers.generation_worker import generation_worker
+from app.workers.dispatch import dispatch_job
 
 logger = logging.getLogger(__name__)
 
@@ -87,14 +87,8 @@ async def create_generation(
     }
     created_job = await generation_repo.create_job(job_data)
 
-    # 4. Enqueue background generation worker
-    background_tasks.add_task(
-        generation_worker.process_generation,
-        job_id=job_id,
-        user_id=user.id,
-        document_id=req.document_id,
-        generation_spec=req.model_dump()
-    )
+    # 4. Durable dispatch; a separate worker runs retrieval and generation.
+    await dispatch_job("study_generation", user.id, job_id, background_tasks)
 
     return GenerationJobResponse(
         generation_id=job_id,
@@ -158,13 +152,8 @@ async def retry_generation(
     if not updated:
         raise HTTPException(409, detail={"code": "GENERATION_NOT_RETRYABLE", "message": "Only failed generations can be retried."})
 
-    background_tasks.add_task(
-        generation_worker.process_generation,
-        job_id=generation_id,
-        user_id=user.id,
-        document_id=job["document_id"],
-        generation_spec=job["generation_config"]
-    )
+    # retry_failed atomically authorized this restart; requeue the finished queue row.
+    await dispatch_job("study_generation", user.id, generation_id, background_tasks, requeue=True)
 
     return GenerationJobResponse(
         generation_id=generation_id,

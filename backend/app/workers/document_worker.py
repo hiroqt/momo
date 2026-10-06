@@ -4,6 +4,9 @@ import io
 import logging
 import zipfile
 
+import httpx
+from postgrest.exceptions import APIError
+
 from app.config import settings
 from app.db.repositories.chunks_repo import chunks_repo
 from app.db.repositories.documents_repo import documents_repo
@@ -11,8 +14,16 @@ from app.services.embeddings.embedding_service import embedding_service
 from app.services.extraction.chunking_service import chunking_service
 from app.services.extraction.extractor_service import extractor_service
 from app.services.storage import storage_service
+from app.services.storage.base import StorageUnavailableError
+from app.workers.errors import TransientJobError
 
 logger = logging.getLogger(__name__)
+
+TRANSIENT_FAILURES: tuple[type[BaseException], ...] = (
+    StorageUnavailableError, APIError, TimeoutError, ConnectionError, httpx.TransportError,
+)
+FINISHED_STATES = {"READY", "EXPIRED"}
+
 
 class DocumentWorker:
     async def process_document(
@@ -21,10 +32,18 @@ class DocumentWorker:
         user_id: str,
         s3_object_key: str,
         filename: str,
-        file_type: str
+        file_type: str,
+        *,
+        final_attempt: bool = True,
     ):
+        """Ingest one document. Re-running is safe: finished documents are reused,
+        partial chunk indexes are replaced, and a transient failure on a
+        non-final attempt is raised for the durable queue to retry."""
         try:
             logger.info(f"Starting document processing: {document_id}")
+            current = await documents_repo.get_by_id(document_id, user_id)
+            if current and current.get("processing_status") in FINISHED_STATES:
+                return
             # 1. Status: VALIDATING
             await documents_repo.update_status(document_id, "VALIDATING")
 
@@ -67,6 +86,8 @@ class DocumentWorker:
 
             # 6. Status: INDEXING
             await documents_repo.update_status(document_id, "INDEXING")
+            # A retried attempt replaces any partial index instead of duplicating it.
+            await chunks_repo.delete_by_document_id(document_id, user_id)
             await chunks_repo.save_chunks(document_id=document_id, user_id=user_id, chunks=chunks)
 
             # 7. Status: READY
@@ -79,8 +100,17 @@ class DocumentWorker:
             )
             logger.info(f"Document {document_id} successfully processed and indexed with {len(topics)} suggested topics.")
 
-        except Exception:  # noqa: BLE001 - persist a safe terminal failure for any pipeline stage
+        except Exception as exc:  # noqa: BLE001 - persist a safe terminal failure for any pipeline stage
+            if not final_attempt and isinstance(exc, TRANSIENT_FAILURES):
+                logger.warning("Document processing interrupted for %s (%s); retry scheduled",
+                               document_id, type(exc).__name__)
+                raise TransientJobError("Document processing will be retried") from None
             logger.error("Document processing failed for %s", document_id)
+            latest = await documents_repo.get_by_id(document_id, user_id)
+            # A duplicate/late attempt never downgrades a finished document
+            # (also enforced by the migration 006 trigger).
+            if latest and latest.get("processing_status") in FINISHED_STATES:
+                return
             await documents_repo.update_status(
                 document_id, "FAILED", error="The uploaded document could not be processed."
             )

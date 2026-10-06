@@ -1,0 +1,122 @@
+# CI-01: reproducible release checks on clean runners.
+# Every job is local-only: no Supabase project (staging or production), no AI
+# provider and no hosted storage is contacted. PostgreSQL integration runs against
+# a disposable pgvector service container on loopback and must not skip.
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  hygiene:
+    name: repository hygiene
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Block tracked secrets, env files and generated artifacts
+        run: |
+          set -euo pipefail
+          bad=$(git ls-files | grep -E '(^|/)\.env($|\.)' | grep -vE '\.example$' || true)
+          bad+=$(git ls-files | grep -E '(\.pem|\.key|\.p12|\.pfx|\.keystore|\.jks)$|serviceAccountKey.*\.json$|(^|/)(node_modules|\.venv|__pycache__|\.pytest_cache|\.mypy_cache|\.ruff_cache|\.next)/' || true)
+          if [ -n "$bad" ]; then echo "Forbidden tracked files:"; echo "$bad"; exit 1; fi
+          # AKIAIOSFODNN7EXAMPLE is AWS's documented placeholder used by redaction tests.
+          leaks=$(git grep -nE 'sb_secret_[A-Za-z0-9_-]{20,}|service_role.{0,20}eyJ[A-Za-z0-9_-]{20,}|sk-or-v1-[A-Za-z0-9]{20,}|AKIA[0-9A-Z]{16}|-----BEGIN [A-Z ]*PRIVATE KEY-----' -- ':!*.lock' ':!*package-lock.json' | grep -v 'AKIAIOSFODNN7EXAMPLE' || true)
+          if [ -n "$leaks" ]; then echo "Possible credential committed:"; echo "$leaks" | cut -d: -f1,2; exit 1; fi
+
+  backend:
+    name: backend (pytest + real PostgreSQL, ruff, mypy)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: local-test-only
+          POSTGRES_DB: momo_security_test
+        ports:
+          - 127.0.0.1:55432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d momo_security_test"
+          --health-interval 2s --health-timeout 2s --health-retries 30
+    env:
+      APP_ENV: test
+      # Loopback-only disposable database; the fixture refuses anything else.
+      LOCAL_TEST_DATABASE_URL: postgresql://postgres:local-test-only@127.0.0.1:55432/momo_security_test
+      REQUIRE_PG_INTEGRATION: "1"
+      AWS_EC2_METADATA_DISABLED: "true"
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install psql client
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends postgresql-client
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.11.32"
+      - name: Install locked dependencies
+        run: uv sync --locked
+      - name: Tool versions
+        run: uv run python --version && psql --version && uv --version
+      - name: Ruff + mypy (enforced set; legacy ratchet in scripts/testing/static_check_exclusions.txt)
+        run: uv run --locked python ../scripts/testing/static_checks.py
+      - name: Pytest (unit, API, workloads, real PostgreSQL)
+        run: uv run pytest tests -q -rs --junitxml=../backend-junit.xml
+      - name: Fail if any test (including PostgreSQL integration) skipped
+        if: always()
+        run: uv run python ../scripts/testing/assert_no_skips.py ../backend-junit.xml 300
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: backend-junit
+          path: backend-junit.xml
+          retention-days: 14
+
+  mobile:
+    name: mobile (tests + type check)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: mobile
+    env:
+      EXPO_PUBLIC_APP_ENV: development
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+      - run: npm ci
+      - run: npm test
+      - run: npm run lint
+
+  web:
+    name: web (tests + type check)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci
+      - run: npm test
+      - run: npm run lint

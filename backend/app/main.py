@@ -12,6 +12,7 @@ from app.api.routes import (
     auth,
     chat,
     documents,
+    economy,
     folders,
     generations,
     images,
@@ -120,6 +121,7 @@ app.include_router(folders.router)
 app.include_router(stats.router)
 app.include_router(chat.router)
 app.include_router(images.router)
+app.include_router(economy.router)
 
 @app.get("/health")
 async def health_check():

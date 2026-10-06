@@ -1,10 +1,10 @@
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.dependencies import AuthenticatedUser, get_current_user
-from app.services.ai.ai_provider import ai_provider
+from app.services.ai.ai_provider import ProviderUnavailableError, ai_provider
 from app.services.security.guardrails_service import guardrails_service
 from app.services.security.rate_limiter import require_rate_limit
 
@@ -13,8 +13,9 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/math", tags=["math"])
 
 class MathSolveRequest(BaseModel):
-    base64_image: str | None = None
-    equation_text: str | None = None
+    # Bounded untrusted inputs (~6 MB decoded image, typed problem text).
+    base64_image: str | None = Field(default=None, max_length=8_000_000)
+    equation_text: str | None = Field(default=None, max_length=2000)
 
 class MathSolveResponse(BaseModel):
     problem: str
@@ -49,6 +50,12 @@ async def solve_math_problem(
             if "steps" in result and isinstance(result["steps"], list):
                 result["steps"] = [guardrails_service.sanitize_model_output(s) for s in result["steps"]]
         return result
+    except ProviderUnavailableError:
+        logger.warning("Math provider unavailable")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={"code": "AI_UNAVAILABLE", "message": "The math solver is temporarily unavailable. Please try again shortly."}
+        ) from None
     except Exception as e:  # noqa: BLE001 - expose only a safe provider failure
         logger.error("Math solving failed (%s)", type(e).__name__)
         raise HTTPException(

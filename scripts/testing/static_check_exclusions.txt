@@ -1,0 +1,6 @@
+# Legacy files not yet clean under the enforced static checks (CI-01 ratchet).
+# Paths are relative to backend/. Remove a line when its owner fixes the file;
+# never add a file to hide a new violation. Recorded 2026-10-06 (team-d).
+# Emptied 2026-10-06 (integration): the whole backend passes ruff and mypy.
+[ruff]
+[mypy]

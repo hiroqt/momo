@@ -5,7 +5,7 @@ from typing import Any
 from supabase import Client, create_client
 from supabase.lib.client_options import ClientOptions
 
-from app.config import settings
+from app.config import is_placeholder, settings
 
 
 def page_range(limit: int, offset: int) -> tuple[int, int]:
@@ -30,13 +30,20 @@ class SupabaseSession:
                 raise RuntimeError("Local storage is disabled")
             return False
         if self.client is None:
-            if not settings.SUPABASE_URL.startswith("https://") or not settings.SUPABASE_SERVICE_ROLE_KEY or settings.SUPABASE_SERVICE_ROLE_KEY.startswith(("mock-", "your-")):
+            settings.validate_supabase_endpoint()
+            if is_placeholder(settings.SUPABASE_SERVICE_ROLE_KEY):
                 raise RuntimeError("Supabase server configuration is required")
             self.client = create_client(settings.SUPABASE_URL, settings.SUPABASE_SERVICE_ROLE_KEY,
                 options=ClientOptions(auto_refresh_token=False, persist_session=False,
                     postgrest_client_timeout=settings.DATABASE_QUERY_TIMEOUT_SECONDS,
                     storage_client_timeout=settings.DATABASE_QUERY_TIMEOUT_SECONDS))
         return True
+
+    def require_client(self) -> Client:
+        """Typed access to the configured server client; never falls back to memory."""
+        if not self.is_configured or self.client is None:
+            raise RuntimeError("Supabase server configuration is required")
+        return self.client
 
     async def execute(self, query: Any) -> Any:
         await self._semaphore.acquire()

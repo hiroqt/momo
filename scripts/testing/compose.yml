@@ -6,7 +6,8 @@ services:
       POSTGRES_PASSWORD: local-test-only
       POSTGRES_DB: momo_security_test
     ports:
-      - "127.0.0.1:55432:5432"
+      # Loopback only. Override MOMO_TEST_PG_PORT to run isolated parallel stacks.
+      - "127.0.0.1:${MOMO_TEST_PG_PORT:-55432}:5432"
     tmpfs:
       - /var/lib/postgresql/data
     healthcheck:

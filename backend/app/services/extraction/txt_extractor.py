@@ -1,16 +1,20 @@
-from typing import List
+
 from app.domain.documents.models import DocumentPage, ExtractedSection
 
+
 class TXTExtractor:
-    async def extract(self, file_bytes: bytes) -> List[DocumentPage]:
+    async def extract(self, file_bytes: bytes) -> list[DocumentPage]:
         try:
-            text = file_bytes.decode("utf-8")
+            text = file_bytes.decode("utf-8-sig")
         except UnicodeDecodeError:
-            text = file_bytes.decode("latin-1", errors="replace")
+            raise ValueError("The text document must use UTF-8 encoding") from None
+
+        if "\x00" in text:
+            raise ValueError("The text document contains binary data")
 
         # Split roughly every 2500 characters into pseudo pages
         chunk_size = 2500
-        pages: List[DocumentPage] = []
+        pages: list[DocumentPage] = []
         for i in range(0, len(text), chunk_size):
             page_text = text[i:i + chunk_size]
             page_num = (i // chunk_size) + 1

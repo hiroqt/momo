@@ -1,14 +1,15 @@
 import uuid
-from typing import List
-from app.domain.documents.models import DocumentContent, DocumentChunk
+
+from app.domain.documents.models import DocumentChunk, DocumentContent
+
 
 class ChunkingService:
     def __init__(self, target_chunk_size: int = 800, overlap: int = 150):
         self.target_chunk_size = target_chunk_size
         self.overlap = overlap
 
-    def chunk_document(self, content: DocumentContent) -> List[DocumentChunk]:
-        chunks: List[DocumentChunk] = []
+    def chunk_document(self, content: DocumentContent) -> list[DocumentChunk]:
+        chunks: list[DocumentChunk] = []
         chunk_index = 0
 
         for page in content.pages:
@@ -59,12 +60,12 @@ class ChunkingService:
 
         return chunks
 
-    def _split_text(self, text: str) -> List[str]:
+    def _split_text(self, text: str) -> list[str]:
         words = text.split()
         if not words:
             return []
 
-        chunks: List[str] = []
+        chunks: list[str] = []
         i = 0
         while i < len(words):
             end = min(i + self.target_chunk_size, len(words))

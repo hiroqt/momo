@@ -1,7 +1,9 @@
 import pytest
-from app.services.extraction.txt_extractor import txt_extractor
-from app.services.extraction.chunking_service import chunking_service
+
 from app.domain.documents.models import DocumentContent, DocumentPage, ExtractedSection
+from app.services.extraction.chunking_service import chunking_service
+from app.services.extraction.txt_extractor import txt_extractor
+
 
 @pytest.mark.asyncio
 async def test_txt_extractor():

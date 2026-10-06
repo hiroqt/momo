@@ -1,11 +1,11 @@
-from typing import List
-from app.domain.documents.models import DocumentPage, DocumentContent
-from app.services.extraction.pdf_extractor import pdf_extractor
+import logging
+
+from app.config import settings
+from app.domain.documents.models import DocumentContent, DocumentPage
 from app.services.extraction.docx_extractor import docx_extractor
+from app.services.extraction.pdf_extractor import pdf_extractor
 from app.services.extraction.pptx_extractor import pptx_extractor
 from app.services.extraction.txt_extractor import txt_extractor
-from app.config import settings
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -47,8 +47,8 @@ class ExtractorService:
             metadata={"suggested_topics": suggested_topics}
         )
 
-    def extract_suggested_topics(self, pages: List[DocumentPage], filename: str) -> List[str]:
-        topics: List[str] = []
+    def extract_suggested_topics(self, pages: list[DocumentPage], filename: str) -> list[str]:
+        topics: list[str] = []
         clean_name = filename.rsplit(".", 1)[0].replace("_", " ").replace("-", " ").title()
         
         seen = set()
@@ -77,7 +77,7 @@ class ExtractorService:
             # Find capitalized term patterns (e.g. "Action Potential", "Krebs Cycle")
             import re
             candidates = re.findall(r"\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,3}\b", combined)
-            freq = {}
+            freq: dict[str, int] = {}
             for c in candidates:
                 c_clean = c.strip()
                 c_lower = c_clean.lower()

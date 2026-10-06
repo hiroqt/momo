@@ -1,23 +1,26 @@
+import asyncio
 import io
+import logging
 import re
-from typing import List, Tuple
+
 from pypdf import PdfReader
+
+from app.config import settings
 from app.domain.documents.models import DocumentPage, ExtractedSection
 from app.services.ocr.ocr_service import ocr_service
-import logging
 
 logger = logging.getLogger(__name__)
 
 class PDFExtractor:
-    def _detect_running_headers_footers(self, raw_pages_lines: List[List[str]]) -> Tuple[set, set]:
+    def _detect_running_headers_footers(self, raw_pages_lines: list[list[str]]) -> tuple[set, set]:
         """
         Detect running headers and footers that repeat at the top or bottom across multiple pages.
         """
         if len(raw_pages_lines) <= 1:
             return set(), set()
 
-        first_lines = {}
-        last_lines = {}
+        first_lines: dict[str, int] = {}
+        last_lines: dict[str, int] = {}
         for lines in raw_pages_lines:
             if not lines:
                 continue
@@ -56,11 +59,11 @@ class PDFExtractor:
                 return True
         return False
 
-    def _extract_sections_from_page(self, lines: List[str], page_num: int) -> Tuple[List[ExtractedSection], str]:
-        sections: List[ExtractedSection] = []
+    def _extract_sections_from_page(self, lines: list[str], page_num: int) -> tuple[list[ExtractedSection], str]:
+        sections: list[ExtractedSection] = []
         current_title = ""
-        current_lines: List[str] = []
-        cleaned_body_lines: List[str] = []
+        current_lines: list[str] = []
+        cleaned_body_lines: list[str] = []
 
         for line in lines:
             if self._is_heading_candidate(line):
@@ -82,40 +85,38 @@ class PDFExtractor:
         cleaned_text = "\n".join(cleaned_body_lines).strip() if cleaned_body_lines else "\n".join(lines).strip()
         return sections, cleaned_text
 
-    async def extract(self, file_bytes: bytes) -> List[DocumentPage]:
-        # Graceful fallback: If file lacks %PDF header (e.g. plain text or mock payload)
-        if not file_bytes.startswith(b"%PDF"):
-            try:
-                decoded_text = file_bytes.decode("utf-8", errors="replace").strip()
-                if decoded_text:
-                    logger.warning("Document does not contain %PDF header; falling back to text extraction.")
-                    lines = [l.strip() for l in decoded_text.splitlines() if l.strip()]
-                    sections, _ = self._extract_sections_from_page(lines, 1)
-                    return [DocumentPage(page_number=1, text=decoded_text, sections=sections, is_ocr=False)]
-            except Exception:
-                pass
+    def _read_lines(self, file_bytes: bytes) -> list[list[str]]:
+        reader = PdfReader(io.BytesIO(file_bytes))
+        if reader.is_encrypted:
+            raise ValueError("Encrypted PDFs are unsupported")
+        # Enforce the page cap before text extraction or OCR does any per-page work.
+        if not 1 <= len(reader.pages) <= settings.MAX_PAGE_COUNT:
+            raise ValueError("PDF page count is outside the allowed range")
+        raw_pages_lines: list[list[str]] = []
+        for page in reader.pages:
+            text = page.extract_text() or ""
+            raw_pages_lines.append([line.strip() for line in text.splitlines() if line.strip()])
+        return raw_pages_lines
+
+    async def extract(self, file_bytes: bytes) -> list[DocumentPage]:
+        if not file_bytes.startswith(b"%PDF-"):
+            raise ValueError("Invalid PDF document")
 
         try:
-            stream = io.BytesIO(file_bytes)
-            reader = PdfReader(stream)
-            raw_pages_lines: List[List[str]] = []
-
-            for page in reader.pages:
-                text = page.extract_text() or ""
-                lines = [l.strip() for l in text.splitlines() if l.strip()]
-                raw_pages_lines.append(lines)
+            # CPU-bound parsing runs off the event loop.
+            raw_pages_lines = await asyncio.to_thread(self._read_lines, file_bytes)
 
             # Detect and eliminate running headers/footers
             running_headers, running_footers = self._detect_running_headers_footers(raw_pages_lines)
 
-            pages: List[DocumentPage] = []
+            pages: list[DocumentPage] = []
             total_extracted_text = ""
 
             for idx, lines in enumerate(raw_pages_lines):
                 # Filter out repetitive running headers and footers from each page
                 filtered_lines = [
-                    l for l in lines
-                    if l not in running_headers and l not in running_footers
+                    line for line in lines
+                    if line not in running_headers and line not in running_footers
                 ]
 
                 sections, cleaned_text = self._extract_sections_from_page(filtered_lines, idx + 1)
@@ -129,27 +130,18 @@ class PDFExtractor:
                 )
                 total_extracted_text += cleaned_text
 
-            # If PDF is scanned (empty or near-empty text across pages), invoke OCR
+            # Scanned/low-text PDF: run the configured OCR provider. If OCR is unavailable
+            # or reads nothing, extraction fails; no placeholder text reaches generation.
             if len(total_extracted_text.strip()) < 50:
-                logger.info("PDF text insufficient (<50 chars), invoking OCR fallback")
+                logger.info("PDF text insufficient (<50 chars), invoking OCR")
                 ocr_pages = await ocr_service.extract_ocr(file_bytes)
-                if ocr_pages:
-                    return ocr_pages
+                if not ocr_pages or not any(page.text.strip() for page in ocr_pages):
+                    raise ValueError("No readable text")
+                return ocr_pages
 
             return pages
-        except Exception as e:
-            logger.warning(f"pypdf extraction encountered error ({e}); attempting text and OCR fallback.")
-            try:
-                decoded_text = file_bytes.decode("utf-8", errors="replace").strip()
-                if len(decoded_text) > 20:
-                    lines = [l.strip() for l in decoded_text.splitlines() if l.strip()]
-                    sections, _ = self._extract_sections_from_page(lines, 1)
-                    return [DocumentPage(page_number=1, text=decoded_text, sections=sections, is_ocr=False)]
-            except Exception:
-                pass
-            ocr_pages = await ocr_service.extract_ocr(file_bytes)
-            if ocr_pages:
-                return ocr_pages
-            raise
+        except Exception as exc:  # noqa: BLE001 - untrusted parser/OCR boundary; log class only
+            logger.warning("PDF extraction failed (%s)", type(exc).__name__)
+            raise ValueError("The PDF could not be extracted") from None
 
 pdf_extractor = PDFExtractor()

@@ -1,32 +1,31 @@
+import asyncio
 import io
-from typing import List
-from pptx import Presentation
-from app.domain.documents.models import DocumentPage, ExtractedSection, ExtractedTable
 import logging
+
+from pptx import Presentation
+
+from app.domain.documents.models import DocumentPage, ExtractedSection, ExtractedTable
+from app.services.extraction.archive_guard import validate_office_archive
 
 logger = logging.getLogger(__name__)
 
 class PPTXExtractor:
-    async def extract(self, file_bytes: bytes) -> List[DocumentPage]:
+    async def extract(self, file_bytes: bytes) -> list[DocumentPage]:
+        validate_office_archive(file_bytes, "ppt/presentation.xml")
         try:
             stream = io.BytesIO(file_bytes)
-            prs = Presentation(stream)
-        except Exception as e:
-            logger.warning(f"Failed to parse pptx presentation ({e}), attempting text fallback.")
-            try:
-                decoded = file_bytes.decode("utf-8", errors="replace").strip()
-                if decoded:
-                    return [DocumentPage(page_number=1, text=decoded, sections=[], tables=[])]
-            except Exception:
-                pass
-            raise
-        pages: List[DocumentPage] = []
+            prs = await asyncio.to_thread(Presentation, stream)
+        except Exception as exc:  # noqa: BLE001 - untrusted archive parser boundary
+            logger.warning("Office extraction failed (%s)", type(exc).__name__)
+            raise ValueError("The PPTX could not be extracted") from None
+
+        pages: list[DocumentPage] = []
 
         for idx, slide in enumerate(prs.slides):
             slide_number = idx + 1
             slide_title = f"Slide {slide_number}"
-            slide_text_lines: List[str] = []
-            tables: List[ExtractedTable] = []
+            slide_text_lines: list[str] = []
+            tables: list[ExtractedTable] = []
 
             for shape in slide.shapes:
                 if shape.has_text_frame:

@@ -1,32 +1,30 @@
+import asyncio
 import io
-from typing import List
-import docx
-from app.domain.documents.models import DocumentPage, ExtractedSection, ExtractedTable
 import logging
+
+import docx
+
+from app.domain.documents.models import DocumentPage, ExtractedSection, ExtractedTable
+from app.services.extraction.archive_guard import validate_office_archive
 
 logger = logging.getLogger(__name__)
 
 class DocxExtractor:
-    async def extract(self, file_bytes: bytes) -> List[DocumentPage]:
+    async def extract(self, file_bytes: bytes) -> list[DocumentPage]:
+        validate_office_archive(file_bytes, "word/document.xml")
         try:
             stream = io.BytesIO(file_bytes)
-            doc = docx.Document(stream)
-        except Exception as e:
-            logger.warning(f"Failed to parse docx package ({e}), attempting text fallback.")
-            try:
-                decoded = file_bytes.decode("utf-8", errors="replace").strip()
-                if decoded:
-                    return [DocumentPage(page_number=1, text=decoded, sections=[], tables=[])]
-            except Exception:
-                pass
-            raise
+            doc = await asyncio.to_thread(docx.Document, stream)
+        except Exception as exc:  # noqa: BLE001 - untrusted archive parser boundary
+            logger.warning("Office extraction failed (%s)", type(exc).__name__)
+            raise ValueError("The DOCX could not be extracted") from None
 
-        sections: List[ExtractedSection] = []
-        tables: List[ExtractedTable] = []
-        full_text_blocks: List[str] = []
+        sections: list[ExtractedSection] = []
+        tables: list[ExtractedTable] = []
+        full_text_blocks: list[str] = []
 
         current_heading = "Introduction"
-        current_content: List[str] = []
+        current_content: list[str] = []
 
         for p in doc.paragraphs:
             text = p.text.strip()

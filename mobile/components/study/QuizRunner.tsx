@@ -8,7 +8,9 @@ import { useOnboardingReducedMotion } from '@/components/onboarding/useOnboardin
 import { MomoAnimation } from '@/components/mascot/MomoAnimation';
 import { colors } from '@/constants/theme';
 import { useCredits } from '@/context/CreditsContext';
-import { syncEngine } from '@/lib/sync/syncEngine';
+import { studySessions } from '@/lib/study/studyRuntime';
+import { restoreQuizSession } from '@/lib/study/sessionResume';
+import type { StudySessionRecord } from '@/lib/study/studySessionService';
 import { claimQuizReveal, commitQuizAnswer, correctQuizAnswer, feedbackScrollOffset, nextPendingQuestion, quizOptions, summarizeQuiz, type QuizAnswers } from '@/lib/study/quizSession';
 import { sanitizeQuestionText } from '@/utils/formatters';
 import type { StudyItem } from '@/types';
@@ -19,6 +21,12 @@ export { getQuestionXP } from '@/lib/study/quizSession';
 
 interface Props {
   items: StudyItem[];
+  /** Enables durable sessions that resume after the app restarts. */
+  studySetId?: string;
+  /** Resume an unfinished session for these items instead of starting fresh. */
+  resumeSession?: boolean;
+  /** False for local preview decks whose items do not exist on the server. */
+  syncable?: boolean;
   title?: string;
   isExamMode?: boolean;
   timeLimitPerQuestion?: number;
@@ -27,7 +35,7 @@ interface Props {
 }
 export interface QuizRunnerRef { showOverview: () => void }
 
-export const QuizRunner = forwardRef<QuizRunnerRef, Props>(function QuizRunner({ items, title, isExamMode, timeLimitPerQuestion, onFinish, onRestart }, ref) {
+export const QuizRunner = forwardRef<QuizRunnerRef, Props>(function QuizRunner({ items: sourceItems, studySetId, resumeSession = true, syncable = true, title, isExamMode, timeLimitPerQuestion, onFinish, onRestart }, ref) {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const focused = useIsFocused();
@@ -37,6 +45,9 @@ export const QuizRunner = forwardRef<QuizRunnerRef, Props>(function QuizRunner({
   const viewportHeightRef = useRef(0);
   const pendingFeedbackRef = useRef<number | null>(null);
   const { hearts, addXP, deductHeart, deductCredits } = useCredits();
+  const [items, setItems] = useState(sourceItems);
+  const sessionRef = useRef<StudySessionRecord | null>(null);
+  const [sessionReady, setSessionReady] = useState(!studySetId);
   const [index, setIndex] = useState(0);
   const [draft, setDraft] = useState('');
   const [answers, setAnswers] = useState<QuizAnswers>({});
@@ -65,7 +76,35 @@ export const QuizRunner = forwardRef<QuizRunnerRef, Props>(function QuizRunner({
 
   useImperativeHandle(ref, () => ({ showOverview: () => setOverview(true) }), []);
   useEffect(() => {
-    const listener = AppState.addEventListener('change', state => setForeground(state === 'active'));
+    if (!studySetId || !sourceItems.length) { setSessionReady(true); return; }
+    let active = true;
+    studySessions.begin({ studySetId, mode: isExamMode ? 'exam' : 'quiz', itemIds: sourceItems.map(question => question.id), resume: resumeSession })
+      .then(({ session, resumed }) => {
+        if (!active) return;
+        sessionRef.current = session;
+        if (resumed) {
+          const restored = restoreQuizSession(session, sourceItems);
+          answerRef.current = restored.answers;
+          remainingRef.current = restored.remainingMs;
+          setItems(restored.items);
+          setAnswers(restored.answers);
+          setIndex(restored.index);
+          setDraft(restored.answers[restored.index]?.answer ?? '');
+          setRemaining(Math.ceil((restored.remainingMs[restored.index] ?? seconds * 1000) / 1000));
+          if (restored.allAnswered) { finishRef.current = true; setFinished(true); void studySessions.complete(session.id).catch(() => {}); onFinish?.(summarizeQuiz(restored.answers, restored.items.length)); }
+          else if (Object.keys(restored.answers).length) setNotice('Welcome back. Your checked answers were saved.');
+        }
+      })
+      .catch(() => { if (active) setNotice('This session will not be saved on your device. Your answers still count here.'); })
+      .finally(() => { if (active) setSessionReady(true); });
+    return () => { active = false; };
+  }, []);
+  function persistProgress(nextIndex = index) {
+    const session = sessionRef.current;
+    if (session) void studySessions.saveProgress(session.id, { currentIndex: nextIndex, remainingMs: remainingRef.current }).catch(() => {});
+  }
+  useEffect(() => {
+    const listener = AppState.addEventListener('change', state => { setForeground(state === 'active'); if (state !== 'active') persistProgress(); });
     return () => listener.remove();
   }, []);
 
@@ -82,7 +121,7 @@ export const QuizRunner = forwardRef<QuizRunnerRef, Props>(function QuizRunner({
   }, [index, finished]);
 
   function commit(answer: string, status?: 'timeout' | 'revealed' | 'skipped') {
-    if (!item || finished || answerRef.current[index]) return;
+    if (!item || finished || !sessionReady || answerRef.current[index]) return;
     if (!status && !answer.trim()) return;
     if (hearts <= 0 && status !== 'skipped') { setNotice('You are out of hearts. Visit the shop to refill, or review your checked answers.'); return; }
     const previous = Object.values(answerRef.current).at(-1)?.streak ?? 0;
@@ -93,24 +132,32 @@ export const QuizRunner = forwardRef<QuizRunnerRef, Props>(function QuizRunner({
     pendingFeedbackRef.current = index;
     Keyboard.dismiss();
     setAnswers(result.answers);
-    if (result.record.xp) addXP(result.record.xp);
-    if (result.record.heartCost) deductHeart();
-    if (status !== 'skipped') {
-      void syncEngine.recordStudyAnswer(item.id, result.record.status === 'correct' ? 'correct' : 'incorrect', status === 'timeout' ? '(Time Expired)' : result.record.status === 'revealed' ? `(Answer Revealed: ${item.answer})` : answer.trim()).catch(() => setNotice('This answer could not be saved on your device. Your session result is still shown here.'));
+    const session = sessionRef.current;
+    if (!session) {
+      if (result.record.xp) addXP(result.record.xp);
+      if (result.record.heartCost) deductHeart();
+      return;
     }
+    const userAnswer = status === 'timeout' ? '(Time Expired)' : result.record.status === 'revealed' ? `(Answer Revealed: ${item.answer})` : answer.trim();
+    const sync = status === 'skipped' || !syncable ? null : { studyItemId: item.id, result: result.record.status === 'correct' ? 'correct' as const : 'incorrect' as const, userAnswer };
+    // Answer, reward and sync event commit atomically and at most once per question.
+    void studySessions.commitAnswer(session.id, index, result.record, sync)
+      .then(outcome => { if (!outcome.committed && outcome.reason === 'no_hearts') setNotice('You are out of hearts. Visit the shop to refill, or review your checked answers.'); })
+      .catch(() => setNotice('This answer could not be saved on your device. Your session result is still shown here.'));
   }
 
   useEffect(() => {
     if (!seconds || !item || record || finished || !focused || !foreground || overview || hearts <= 0) return;
     remainingRef.current[index] ??= seconds * 1000;
     setRemaining(Math.ceil(remainingRef.current[index] / 1000));
-    let lastTick = Date.now();
+    let lastTick = Date.now(), lastSaved = lastTick;
     const ticker = setInterval(() => {
       const now = Date.now();
       remainingRef.current[index] = Math.max(0, remainingRef.current[index] - (now - lastTick));
       lastTick = now;
       setRemaining(Math.ceil(remainingRef.current[index] / 1000));
       if (remainingRef.current[index] === 0) { clearInterval(ticker); commit('', 'timeout'); }
+      else if (now - lastSaved >= 2000) { lastSaved = now; persistProgress(); }
     }, 200);
     return () => clearInterval(ticker);
   }, [index, seconds, !!record, finished, focused, foreground, overview, hearts]);
@@ -128,6 +175,7 @@ export const QuizRunner = forwardRef<QuizRunnerRef, Props>(function QuizRunner({
     setRemaining(Math.ceil((remainingRef.current[next] ?? seconds * 1000) / 1000));
     setNotice('');
     setOverview(false);
+    persistProgress(next);
   }
 
   function next() {
@@ -137,20 +185,35 @@ export const QuizRunner = forwardRef<QuizRunnerRef, Props>(function QuizRunner({
     if (finishRef.current) return;
     finishRef.current = true;
     setFinished(true);
+    if (sessionRef.current) void studySessions.complete(sessionRef.current.id).catch(() => {});
     onFinish?.(summarizeQuiz(answerRef.current, items.length));
   }
 
-  function revealAnswer() {
+  async function revealAnswer() {
     if (!item || answerRef.current[index]) return;
-    const claim = claimQuizReveal(revealedRef, () => deductCredits(50));
+    const session = sessionRef.current, questionIndex = index;
+    const claim = await claimQuizReveal(revealedRef, () => session ? studySessions.chargeReveal(session.id, questionIndex, 50) : deductCredits(50));
     if (claim === 'locked') return;
     if (claim === 'insufficient') { setNotice('You need 50 coins to reveal an answer. A hint is free when your reviewer includes one.'); return; }
+    if (claim === 'failed') { setNotice('We could not save that reveal on your device. Your coins were not spent. Try again.'); return; }
+    // Opening another question resets the lock; the paid reveal stays recorded for this
+    // question and is free (idempotent) if the learner returns to it.
+    if (!revealedRef.current || answerRef.current[questionIndex]) return;
     setRevealed(true);
     setDraft(correctQuizAnswer(item));
     setNotice('Answer revealed. Checking it earns no XP and costs no heart.');
   }
 
   function restart() {
+    if (sessionRef.current && studySetId) {
+      // Starting fresh abandons the finished/old session; its rewards stay counted once.
+      sessionRef.current = null;
+      setSessionReady(false);
+      void studySessions.begin({ studySetId, mode: isExamMode ? 'exam' : 'quiz', itemIds: items.map(question => question.id), resume: false })
+        .then(({ session }) => { sessionRef.current = session; })
+        .catch(() => setNotice('This session will not be saved on your device. Your answers still count here.'))
+        .finally(() => setSessionReady(true));
+    }
     answerRef.current = {};
     pendingFeedbackRef.current = null;
     mainScrollRef.current?.scrollTo({ y: 0, animated: false });
@@ -200,7 +263,7 @@ export const QuizRunner = forwardRef<QuizRunnerRef, Props>(function QuizRunner({
       }} style={[styles.feedback, record.status === 'correct' ? styles.correctFeedback : styles.retryFeedback]} accessibilityLiveRegion="polite"><View style={styles.feedbackHeading}><MomoAnimation name={record.status === 'correct' ? 'answer-correct' : 'answer-retry'} size={60} replayKey={`${index}-${record.status}`} /><View style={styles.grow}><Text style={styles.feedbackTitle}>{statusLabel(record.status)}</Text><Text style={styles.body}>{record.status === 'correct' ? `+${record.xp} XP` : record.status === 'timeout' ? 'Time ran out. Read the answer before moving on.' : 'Take a moment to understand the answer.'}</Text></View></View><Text style={styles.caption}>Correct answer</Text><Text selectable style={styles.answer}>{correctQuizAnswer(item)}</Text>{!!item.explanation && <Text selectable style={styles.body}>{item.explanation}</Text>}<SourceAttribution source={item.source_metadata} /></View>}
       {!!notice && <Text testID="quiz-notice" accessibilityLiveRegion="polite" style={styles.notice}>{notice}</Text>}
       {!record && hearts <= 0 && <View style={styles.card}><Text style={styles.feedbackTitle}>Time for a heart refill</Text><Text style={styles.body}>Your checked answers are still here. Visit the shop when you are ready to continue.</Text><Action label="Open shop" onPress={() => router.push('/shop')} secondary /></View>}
-      {record ? <Action testID="quiz-next" label={nextPendingQuestion(answers, index, items.length) === null ? 'See results' : 'Next question'} onPress={next} /> : <><Action testID="quiz-check-answer" label="Check answer" disabled={!draft.trim() || hearts <= 0} onPress={() => commit(draft)} /><Action testID="quiz-skip" label="Skip question" onPress={() => commit('', 'skipped')} secondary /></>}
+      {record ? <Action testID="quiz-next" label={nextPendingQuestion(answers, index, items.length) === null ? 'See results' : 'Next question'} onPress={next} /> : <><Action testID="quiz-check-answer" label="Check answer" disabled={!draft.trim() || hearts <= 0 || !sessionReady} onPress={() => commit(draft)} /><Action testID="quiz-skip" label="Skip question" onPress={() => commit('', 'skipped')} secondary /></>}
       {!record && !!seconds && <Text style={styles.timerNote}>Timer pauses when the app is away or the overview is open.</Text>}
       {index > 0 && !seconds && <Action testID="quiz-previous" label="Previous question" onPress={() => openQuestion(index - 1)} secondary />}
     </ScrollView>

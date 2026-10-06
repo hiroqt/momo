@@ -84,10 +84,19 @@ export function feedbackScrollOffset(feedbackY: number, feedbackHeight: number, 
   return Math.max(0, feedbackY - 16);
 }
 
-/** Lock before charging so repeated taps in the same render cannot buy the same reveal twice. */
-export function claimQuizReveal(lock: { current: boolean }, charge: () => boolean): 'revealed' | 'locked' | 'insufficient' {
+export type RevealCharge = 'revealed' | 'insufficient' | 'failed';
+/**
+ * Lock before charging so repeated taps cannot buy the same reveal twice. The lock is
+ * held until the charge settles; the answer may be shown only after `revealed`.
+ */
+export async function claimQuizReveal(lock: { current: boolean }, charge: () => boolean | RevealCharge | Promise<RevealCharge>): Promise<RevealCharge | 'locked'> {
   if (lock.current) return 'locked';
   lock.current = true;
-  if (!charge()) { lock.current = false; return 'insufficient'; }
-  return 'revealed';
+  let outcome: RevealCharge;
+  try {
+    const value = await charge();
+    outcome = value === true ? 'revealed' : value === false ? 'insufficient' : value;
+  } catch { outcome = 'failed'; }
+  if (outcome !== 'revealed') lock.current = false;
+  return outcome;
 }

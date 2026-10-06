@@ -13,6 +13,7 @@ SplashScreen.preventAutoHideAsync().catch(() => {});
 
 export { ErrorBoundary } from "expo-router";
 
+import { AuthProvider } from '../context/AuthContext';
 import { CreditsProvider } from '../context/CreditsContext';
 import { OnboardingProvider, useOnboarding } from '../context/OnboardingContext';
 import { useRouter, useSegments } from 'expo-router';
@@ -84,6 +85,7 @@ export default function RootLayout() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
+      <AuthProvider>
       <CreditsProvider>
         <OnboardingProvider>
           <InitialGate fontsReady={fontsReady}>
@@ -179,6 +181,7 @@ export default function RootLayout() {
           </InitialGate>
         </OnboardingProvider>
       </CreditsProvider>
+      </AuthProvider>
     </GestureHandlerRootView>
   );
 }

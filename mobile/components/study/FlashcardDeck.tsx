@@ -12,16 +12,26 @@ import { useCredits } from '@/context/CreditsContext';
 import { useOnboarding } from '@/context/OnboardingContext';
 import { colors } from '@/constants/theme';
 import { generateStudyImage } from '@/lib/api/images';
-import { syncEngine } from '@/lib/sync/syncEngine';
+import { studySessions } from '@/lib/study/studyRuntime';
+import { restoreFlashcardSession } from '@/lib/study/sessionResume';
+import type { StudySessionRecord } from '@/lib/study/studySessionService';
 import { canRecordFlashcardResult, flashcardProgress, recordFlashcardResult, type FlashcardScore } from '@/utils/flashcardScore';
 import { isMeaningfulSection, sanitizeQuestionText } from '@/utils/formatters';
 import type { StudyItem } from '@/types';
 import { SourceAttribution } from './SourceAttribution';
 
-interface Props { items: StudyItem[]; onFinish?: (score: FlashcardScore) => void }
+interface Props {
+  items: StudyItem[];
+  onFinish?: (score: FlashcardScore) => void;
+  /** Enables durable sessions that resume after the app restarts. */
+  studySetId?: string;
+  resumeSession?: boolean;
+  /** False for local preview decks whose items do not exist on the server. */
+  syncable?: boolean;
+}
 
 /** Recall first, reveal second, then commit one self-assessment per card. */
-export const FlashcardDeck: React.FC<Props> = ({ items, onFinish }) => {
+export const FlashcardDeck: React.FC<Props> = ({ items, onFinish, studySetId, resumeSession = true, syncable = true }) => {
   const insets = useSafeAreaInsets();
   const { width, fontScale } = useWindowDimensions();
   const reducedMotion = useOnboardingReducedMotion();
@@ -41,8 +51,32 @@ export const FlashcardDeck: React.FC<Props> = ({ items, onFinish }) => {
   const mountedRef = useRef(true);
   const scrollRef = useRef<ScrollView>(null);
   const stackActions = width < 350 || fontScale > 1.3;
+  const sessionRef = useRef<StudySessionRecord | null>(null);
+  const [sessionReady, setSessionReady] = useState(!studySetId);
+  const [saveNotice, setSaveNotice] = useState<string | null>(null);
 
-  useEffect(() => { setDeckItems(items); }, [items]);
+  useEffect(() => {
+    if (!studySetId || !items.length) { setSessionReady(true); return; }
+    let active = true;
+    studySessions.begin({ studySetId, mode: 'flashcards', itemIds: items.map(item => item.id), resume: resumeSession })
+      .then(({ session, resumed }) => {
+        if (!active) return;
+        sessionRef.current = session;
+        if (!resumed) return;
+        const restored = restoreFlashcardSession(session, items);
+        scoreRef.current = restored.score;
+        setMasteredCount(restored.score.correct);
+        setDeckItems(restored.items);
+        answeredIndexRef.current = restored.finished ? restored.index : restored.index - 1;
+        setCurrentIndex(restored.index);
+        if (restored.finished) { void studySessions.complete(session.id).catch(() => {}); onFinish?.(restored.score); }
+      })
+      .catch(() => { if (active) setSaveNotice('This session will not be saved on your device.'); })
+      .finally(() => { if (active) setSessionReady(true); });
+    return () => { active = false; };
+  }, []);
+
+  useEffect(() => { if (!sessionRef.current) setDeckItems(items); }, [items]);
   useEffect(() => {
     mountedRef.current = true;
     return () => { mountedRef.current = false; };
@@ -69,17 +103,23 @@ export const FlashcardDeck: React.FC<Props> = ({ items, onFinish }) => {
   };
 
   const handleNext = (mastered: boolean) => {
-    if (!canRecordFlashcardResult(currentIndex, answeredIndexRef.current, revealedRef.current)) return;
+    if (!sessionReady || !canRecordFlashcardResult(currentIndex, answeredIndexRef.current, revealedRef.current)) return;
     answeredIndexRef.current = currentIndex;
-    syncEngine.recordStudyAnswer(currentItem.id, mastered ? 'correct' : 'review_again').catch(() => {
-      // Offline progress remains in the existing synchronization queue.
-    });
     // Commit before requesting React updates so the last card is included exactly once.
     const score = recordFlashcardResult(scoreRef.current, mastered);
     scoreRef.current = score;
     setMasteredCount(score.correct);
-    if (mastered) addXP(15);
-    if (currentIndex === deckItems.length - 1) {
+    const session = sessionRef.current;
+    const last = currentIndex === deckItems.length - 1;
+    if (session) {
+      // Result, XP and sync event commit atomically and at most once per card.
+      void studySessions.commitAnswer(session.id, currentIndex,
+        { answer: '', status: mastered ? 'correct' : 'review_again', xp: mastered ? 15 : 0, streak: 0, heartCost: 0 },
+        syncable ? { studyItemId: currentItem.id, result: mastered ? 'correct' : 'review_again' } : null)
+        .then(() => { if (last) return studySessions.complete(session.id); })
+        .catch(() => { if (mountedRef.current) setSaveNotice('This card could not be saved on your device.'); });
+    } else if (mastered) addXP(15);
+    if (last) {
       onFinish?.(score);
       return;
     }
@@ -195,6 +235,7 @@ export const FlashcardDeck: React.FC<Props> = ({ items, onFinish }) => {
           <View style={styles.headingCopy}><Text style={styles.textActionLabel}>{generatingImageId === currentItem.id ? 'Creating your study visual…' : 'Create a study visual'}</Text><Text style={styles.visualHelper}>Optional · needs internet</Text></View>
         </TouchableOpacity>}
         {diagramError && <Text style={styles.error} accessibilityLiveRegion="polite">{diagramError}</Text>}
+        {saveNotice && <Text style={styles.error} accessibilityLiveRegion="polite">{saveNotice}</Text>}
       </View>
       <ImageZoomModal visible={!!zoomDiagram} onClose={() => setZoomDiagram(null)} imageBase64={zoomDiagram?.uri}
         title={currentItem.source_metadata?.section || 'Study visual'} caption={zoomDiagram?.caption} />

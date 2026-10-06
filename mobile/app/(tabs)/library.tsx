@@ -12,6 +12,7 @@ import {
   StatusBar as RNStatusBar,
   Image,
   Modal,
+  Alert,
 } from 'react-native';
 import { AppText as Text, AppTextInput as TextInput } from '@/components/common/app-text';
 import { useFocusEffect, useRouter } from 'expo-router';
@@ -50,7 +51,12 @@ import { StudyIcon } from '@/components/common/StudyIcon';
 import { isSetQuiz, matchesSetTypeFilter, filterLibrarySets, type SetFilterType } from '@/lib/screens/libraryModel';
 import { CreateFolderModal } from '../../components/library/CreateFolderModal';
 import { MoveToFolderModal } from '../../components/library/MoveToFolderModal';
-import { mutationQueue } from '../../lib/sync/mutationQueue';
+import { libraryActions } from '../../lib/sync/libraryRuntime';
+import { LibraryActionError } from '../../lib/sync/libraryActions';
+
+function reportLibraryError(error: unknown) {
+  Alert.alert('Change not saved', error instanceof LibraryActionError ? error.message : 'This change could not be saved on your device. Please try again.');
+}
 import { StudySet, DocumentItem, Folder } from '../../types';
 import { isIpad } from '@/utils/device';
 
@@ -102,10 +108,8 @@ export default function LibraryScreen() {
     setSets((prev) =>
       prev.map((s) => (s.id === target.id ? { ...s, title: newTitle } : s))
     );
-    await localDb.updateStudySetTitle(target.id, newTitle);
-
-    // Enqueue background network task
-    mutationQueue.enqueue('RENAME_STUDY_SET', { id: target.id, title: newTitle });
+    // Local record and durable server mutation commit together.
+    await libraryActions.renameStudySet(target.id, newTitle).catch(reportLibraryError);
   };
 
   const loadData = useCallback(async () => {
@@ -141,21 +145,13 @@ export default function LibraryScreen() {
   const handleCreateFolder = async (name: string) => {
     setShowCreateFolder(false); // Instant modal dismiss
 
-    const newFolder: Folder = {
-      id: 'fld-' + Date.now(),
-      user_id: 'current-user',
-      name,
-      reviewer_count: 0,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    };
-
-    // 0ms Optimistic Update
-    setFolders((prev) => [...prev, newFolder]);
-    await localDb.saveFolder(newFolder);
-
-    // Enqueue background network creation
-    mutationQueue.enqueue('CREATE_FOLDER', { name });
+    try {
+      // Client UUID folder plus idempotent create mutation, stored atomically.
+      const newFolder: Folder = await libraryActions.createFolder(name);
+      setFolders((prev) => [...prev, newFolder]);
+    } catch (error) {
+      reportLibraryError(error);
+    }
   };
 
   const handleSelectFolderForSet = async (folderId: string | null) => {
@@ -176,10 +172,7 @@ export default function LibraryScreen() {
         return { ...f, reviewer_count: count };
       })
     );
-    await localDb.updateStudySetFolder(setId, folderId);
-
-    // Enqueue background move
-    mutationQueue.enqueue('MOVE_STUDY_SET', { id: setId, folderId });
+    await libraryActions.moveStudySet(setId, folderId).catch(reportLibraryError);
   };
 
   const handleDeleteFolder = async () => {
@@ -195,10 +188,7 @@ export default function LibraryScreen() {
     if (selectedFolderId === fId) {
       setSelectedFolderId(null);
     }
-    await localDb.deleteFolder(fId);
-
-    // Enqueue background delete
-    mutationQueue.enqueue('DELETE_FOLDER', { id: fId });
+    await libraryActions.deleteFolder(fId).catch(reportLibraryError);
   };
 
   const handleRenameFolder = async (newName: string) => {
@@ -210,10 +200,7 @@ export default function LibraryScreen() {
     setFolders((prev) =>
       prev.map((f) => (f.id === fId ? { ...f, name: newName } : f))
     );
-    await localDb.updateFolder(fId, { name: newName });
-
-    // Enqueue background rename
-    mutationQueue.enqueue('RENAME_FOLDER', { id: fId, name: newName });
+    await libraryActions.renameFolder(fId, newName).catch(reportLibraryError);
   };
 
   const handleConfirmDelete = async () => {
@@ -235,8 +222,7 @@ export default function LibraryScreen() {
           )
         );
       }
-      await localDb.deleteStudySet(id);
-      mutationQueue.enqueue('DELETE_STUDY_SET', { id });
+      await libraryActions.deleteStudySet(id).catch(reportLibraryError);
     } else {
       const id = target.doc.id;
       setDocs((prev) => prev.filter((d) => d.id !== id));

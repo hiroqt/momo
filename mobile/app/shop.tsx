@@ -5,6 +5,7 @@ import { formatBalance, tradeEligibility } from '@/utils/shopRules';
 import React, { useState, useRef } from 'react';
 import {
   View,
+  Alert,
   ScrollView,
   useWindowDimensions,
   Modal,
@@ -39,6 +40,8 @@ import {
   AlertCircleIcon,
 } from '@hugeicons/core-free-icons';
 
+import { canRefillHearts, heartPackGrant } from '../lib/study/heartCapacity';
+
 const CREDIT_PACKS = [
   { art: 'shop-credit-pouch' as const, title: 'Little Pouch', reward: '100 credits', subtext: 'For a few hints or explanations', price: '$0.99', amount: 100, icon: Coins01Icon, iconColor: '#B45309', iconBgColor: '#FEF3C7', accentColor: '#92400E' },
   { art: 'shop-credit-backpack' as const, title: "Momo's Backpack", reward: '500 credits', subtext: 'For regular study sessions', price: '$3.99', amount: 500, icon: Coins02Icon, iconColor: colors.primary, iconBgColor: colors.primarySoft, accentColor: colors.primary },
@@ -47,8 +50,8 @@ const CREDIT_PACKS = [
 
 const LIFE_PACKS = [
   { art: 'shop-heart-single' as const, title: 'Single Heart', reward: '1 extra life', subtext: 'One more try in a quiz', price: '$0.99', amount: 1, icon: HeartIcon, iconColor: '#DC2626', iconBgColor: '#FEE2E2', accentColor: '#B91C1C' },
-  { art: 'shop-heart-five' as const, title: 'High Five', reward: '5 extra lives', subtext: 'A few more chances to practice', price: '$2.99', amount: 5, icon: HeartPulseIcon, iconColor: '#DC2626', iconBgColor: '#FEE2E2', accentColor: '#B91C1C' },
-  { art: 'shop-heart-bowl' as const, title: 'Full Bowl', reward: '15 extra lives', subtext: 'The lowest price per life', price: '$4.99', amount: 15, badgeText: 'BEST VALUE', icon: HeartPlusIcon, iconColor: '#991B1B', iconBgColor: '#FEE2E2', accentColor: '#991B1B' },
+  { art: 'shop-heart-five' as const, title: 'High Five', reward: '3 extra lives', subtext: 'A few more chances to practice', price: '$2.99', amount: 3, icon: HeartPulseIcon, iconColor: '#DC2626', iconBgColor: '#FEE2E2', accentColor: '#B91C1C' },
+  { art: 'shop-heart-bowl' as const, title: 'Full Bowl', reward: 'Refill to 5 lives', subtext: 'Preview: tops up every missing heart', price: '$4.99', amount: 5, refill: true, badgeText: 'BEST VALUE', icon: HeartPlusIcon, iconColor: '#991B1B', iconBgColor: '#FEE2E2', accentColor: '#991B1B' },
 ];
 
 const XP_TRADES = [
@@ -71,6 +74,8 @@ export default function ShopScreen({ isTab = false }: { isTab?: boolean } = {}) 
   const [purchaseAmount, setPurchaseAmount] = useState(0);
   const [purchasePrice, setPurchasePrice] = useState('');
   const [purchaseType, setPurchaseType] = useState<'credit' | 'heart'>('credit');
+  const [purchaseArt, setPurchaseArt] = useState<ShopMotionName>('shop-credit-pouch');
+  const [purchaseRefill, setPurchaseRefill] = useState(false);
 
   // Trade modal
   const [showTradeModal, setShowTradeModal] = useState(false);
@@ -89,12 +94,17 @@ export default function ShopScreen({ isTab = false }: { isTab?: boolean } = {}) 
 
   const { credits, xp, hearts, addCredits, addHeart, convertXPToCredits, convertXPToHearts } = useCredits();
 
-  const selectedPurchaseArt: ShopMotionName = purchaseType === 'credit'
-    ? purchaseAmount === 100 ? 'shop-credit-pouch' : purchaseAmount === 500 ? 'shop-credit-backpack' : 'shop-credit-vault'
-    : purchaseAmount === 1 ? 'shop-heart-single' : purchaseAmount === 5 ? 'shop-heart-five' : 'shop-heart-bowl';
+  const selectedPurchaseArt = purchaseArt;
 
-  const handlePurchase = (amount: number, price: string, type: 'credit' | 'heart') => {
+  const handlePurchase = (pack: { amount: number; refill?: boolean; art: ShopMotionName }, price: string, type: 'credit' | 'heart') => {
     actionPending.current = false;
+    const amount = type === 'heart' ? heartPackGrant(hearts, pack) : pack.amount;
+    if (!amount) {
+      Alert.alert('Five-heart limit', 'Choose a refill that fits your missing hearts.');
+      return;
+    }
+    setPurchaseArt(pack.art);
+    setPurchaseRefill(type === 'heart' && !!pack.refill);
     setPurchaseAmount(amount);
     setPurchasePrice(price);
     setPurchaseType(type);
@@ -115,20 +125,31 @@ export default function ShopScreen({ isTab = false }: { isTab?: boolean } = {}) 
 
   const confirmPurchase = () => {
     if (actionPending.current) return;
+    // A refill grants whatever is missing at confirmation time; fixed packs must still fit.
+    const grant = purchaseType === 'heart' ? heartPackGrant(hearts, { amount: purchaseAmount, refill: purchaseRefill }) : purchaseAmount;
+    if (!grant) {
+      setShowPurchaseModal(false);
+      Alert.alert('Five-heart limit', 'This refill no longer fits your missing hearts.');
+      return;
+    }
     actionPending.current = true;
     setShowPurchaseModal(false);
     if (purchaseType === 'credit') {
-      addCredits(purchaseAmount);
+      addCredits(grant);
     } else {
-      addHeart(purchaseAmount);
+      addHeart(grant);
     }
-    setSuccessAmount(purchaseAmount);
+    setSuccessAmount(grant);
     setSuccessType(purchaseType);
     openSuccess();
   };
 
   const handleExchange = (xpCost: number, rewardAmount: number, type: 'credit' | 'heart') => {
     actionPending.current = false;
+    if (type === 'heart' && !canRefillHearts(hearts, rewardAmount)) {
+      Alert.alert('Five-heart limit', 'Choose a refill that fits your missing hearts.');
+      return;
+    }
     if (!tradeEligibility(xp, xpCost).eligible) {
       setRequiredXp(xpCost);
       setShowNotEnoughXpModal(true);
@@ -155,6 +176,8 @@ export default function ShopScreen({ isTab = false }: { isTab?: boolean } = {}) 
       setSuccessAmount(tradeRewardAmount);
       setSuccessType(tradeType);
       openSuccess();
+    } else if (tradeType === 'heart' && !canRefillHearts(hearts, tradeRewardAmount)) {
+      Alert.alert('Five-heart limit', 'No XP was spent. This refill no longer fits your missing hearts.');
     } else {
       setRequiredXp(tradeXpCost);
       setShowNotEnoughXpModal(true);
@@ -248,7 +271,7 @@ export default function ShopScreen({ isTab = false }: { isTab?: boolean } = {}) 
             <SectionHeader icon={Coins01Icon} iconColor="#B45309" title="Credits for helpful hints" subtitle="Choose an amount that fits your study plans." />
             <View style={styles.offerList}>
               {CREDIT_PACKS.map((pack) => (
-                <PackageCard key={pack.amount} {...pack} onPress={() => handlePurchase(pack.amount, pack.price, 'credit')} />
+                <PackageCard key={pack.amount} {...pack} onPress={() => handlePurchase(pack, pack.price, 'credit')} />
               ))}
             </View>
           </View>
@@ -259,7 +282,7 @@ export default function ShopScreen({ isTab = false }: { isTab?: boolean } = {}) 
             <SectionHeader icon={HeartIcon} iconColor="#DC2626" title="More tries for your quizzes" subtitle="Keep practicing after you use a life." />
             <View style={styles.offerList}>
               {LIFE_PACKS.map((pack) => (
-                <PackageCard key={pack.amount} {...pack} onPress={() => handlePurchase(pack.amount, pack.price, 'heart')} />
+                <PackageCard key={pack.art} {...pack} onPress={() => handlePurchase(pack, pack.price, 'heart')} />
               ))}
             </View>
           </View>

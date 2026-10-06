@@ -1,5 +1,10 @@
 # AI Study Platform - Mobile Application
 
+Read the [Production Readiness Checklist](../docs/PRODUCTION_READINESS_CHECKLIST.md)
+before selecting mobile work. Development preview/native UI checks do not prove
+real Google login, durable offline storage, sync recovery or release readiness.
+Track implementation and verification against the checklist's stable task IDs.
+
 Cross-platform mobile application built with React Native, Expo, and TypeScript for interactive, grounded document-based studying.
 
 ---

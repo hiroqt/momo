@@ -12,7 +12,7 @@ export interface GenerationRequest {
   count?: number;
   difficulty?: 'easy' | 'medium' | 'hard';
   question_types?: string[];
-  source_only?: boolean;
+  source_only?: true;
   custom_instruction?: string;
   academic_level?: string;
   learner_focus?: string;

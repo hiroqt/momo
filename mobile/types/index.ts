@@ -1,6 +1,8 @@
 export interface SourceMetadata {
   document_id?: string;
   document_name?: string;
+  chunk_id?: string;
+  source_id?: number;
   page?: number;
   section?: string;
   snippet?: string;
@@ -95,9 +97,10 @@ export interface GenerationJob {
 
 export interface UserProfile {
   id: string;
-  email: string;
-  full_name?: string;
-  avatar_url?: string;
+  // Null when the server has no verified value; never invented.
+  email: string | null;
+  full_name?: string | null;
+  avatar_url?: string | null;
   documents_used_this_month: number;
   monthly_limit: number;
   quota_resets_at: string;
@@ -142,6 +145,7 @@ export interface StudyCardMetadata {
   study_set_id?: string;
   image_base64?: string;
   diagram_prompt?: string;
+  source_metadata?: SourceMetadata;
 }
 
 export interface ToolCallRecord {

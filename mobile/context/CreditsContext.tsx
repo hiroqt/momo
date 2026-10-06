@@ -1,10 +1,14 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import React, { createContext, useContext, useEffect, useState } from 'react';
+import { MAX_HEARTS } from '../lib/study/heartCapacity';
+import { newOperationKey, walletService } from '../lib/study/studyRuntime';
+import type { WalletState } from '../lib/study/wallet';
 
 interface CreditsContextType {
   credits: number;
   xp: number;
   hearts: number;
+  /** False while the active account's wallet is loading. */
+  ready: boolean;
   addCredits: (amount: number) => void;
   deductCredits: (amount: number) => boolean;
   addXP: (amount: number) => void;
@@ -16,149 +20,43 @@ interface CreditsContextType {
 
 const CreditsContext = createContext<CreditsContextType | null>(null);
 
-const HEARTS_RESET_INTERVAL = 24 * 60 * 60 * 1000; // 24 hours
-const DEFAULT_HEARTS = 15;
+function positive(value: number): boolean { return Number.isSafeInteger(value) && value > 0; }
+function run(op: Parameters<typeof walletService.apply>[0]): boolean {
+  const result = walletService.apply(op);
+  result.persisted.catch(() => {});
+  return result.outcome === 'applied';
+}
 
+/**
+ * Thin view over the account-partitioned wallet service. Balances are a device preview
+ * until the server economy ledger is authoritative; rules live in lib/study/wallet.ts.
+ */
 export const CreditsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [credits, setCredits] = useState(0);
-  const [xp, setXp] = useState(0);
-  const [hearts, setHearts] = useState(DEFAULT_HEARTS);
+  const [wallet, setWallet] = useState<WalletState | null>(() => walletService.getState());
 
   useEffect(() => {
-    const loadData = async () => {
-      try {
-        const storedCredits = await AsyncStorage.getItem('@user_credits');
-        const storedXp = await AsyncStorage.getItem('@user_xp');
-        const storedHearts = await AsyncStorage.getItem('@user_hearts');
-        const storedHeartsReset = await AsyncStorage.getItem('@user_hearts_reset_time');
-        
-        if (storedCredits) {
-          setCredits(parseInt(storedCredits, 10));
-        } else {
-          setCredits(50);
-        }
-        
-        if (storedXp) {
-          setXp(parseInt(storedXp, 10));
-        }
-
-        const now = Date.now();
-        if (storedHeartsReset) {
-          const resetTime = parseInt(storedHeartsReset, 10);
-          if (now - resetTime >= HEARTS_RESET_INTERVAL) {
-            // Reset after 24 hrs
-            setHearts(DEFAULT_HEARTS);
-            await AsyncStorage.multiSet([
-              ['@user_hearts', DEFAULT_HEARTS.toString()],
-              ['@user_hearts_reset_time', now.toString()]
-            ]);
-          } else if (storedHearts) {
-            setHearts(parseInt(storedHearts, 10));
-          }
-        } else {
-          // Initialize hearts
-          setHearts(DEFAULT_HEARTS);
-          await AsyncStorage.multiSet([
-            ['@user_hearts', DEFAULT_HEARTS.toString()],
-            ['@user_hearts_reset_time', now.toString()]
-          ]);
-        }
-      } catch (err) {
-        console.error('Failed to load data', err);
-      }
-    };
-    loadData();
+    const unsubscribe = walletService.subscribe(setWallet);
+    if (!walletService.getState()) void walletService.load().catch(() => {});
+    return unsubscribe;
   }, []);
 
-  const addCredits = async (amount: number) => {
-    try {
-      const newCredits = credits + amount;
-      setCredits(newCredits);
-      await AsyncStorage.setItem('@user_credits', newCredits.toString());
-    } catch (err) {
-      console.error('Failed to save credits', err);
-    }
+  const value: CreditsContextType = {
+    credits: wallet?.credits ?? 0,
+    xp: wallet?.xp ?? 0,
+    hearts: wallet?.hearts ?? MAX_HEARTS,
+    ready: !!wallet,
+    addCredits: amount => { if (positive(amount)) run({ key: newOperationKey(), credits: amount }); },
+    deductCredits: amount => positive(amount) && run({ key: newOperationKey(), credits: -amount }),
+    addXP: amount => { if (positive(amount)) run({ key: newOperationKey(), xp: amount }); },
+    convertXPToCredits: (xpAmount, creditAmount) =>
+      positive(xpAmount) && positive(creditAmount) && run({ key: newOperationKey(), xp: -xpAmount, credits: creditAmount }),
+    convertXPToHearts: (xpAmount, heartAmount) =>
+      positive(xpAmount) && positive(heartAmount) && run({ key: newOperationKey(), xp: -xpAmount, hearts: heartAmount }),
+    deductHeart: () => run({ key: newOperationKey(), hearts: -1 }),
+    addHeart: amount => { if (positive(amount)) run({ key: newOperationKey(), hearts: amount }); },
   };
 
-  const deductCredits = (amount: number): boolean => {
-    if (credits >= amount) {
-      const newCredits = credits - amount;
-      setCredits(newCredits);
-      AsyncStorage.setItem('@user_credits', newCredits.toString()).catch(err => {
-        console.error('Failed to save credits', err);
-      });
-      return true;
-    }
-    return false;
-  };
-
-  const addXP = async (amount: number) => {
-    try {
-      const newXp = xp + amount;
-      setXp(newXp);
-      await AsyncStorage.setItem('@user_xp', newXp.toString());
-    } catch (err) {
-      console.error('Failed to save xp', err);
-    }
-  };
-
-  const convertXPToCredits = (xpAmount: number, creditAmount: number): boolean => {
-    if (xp >= xpAmount) {
-      const newXp = xp - xpAmount;
-      const newCredits = credits + creditAmount;
-      setXp(newXp);
-      setCredits(newCredits);
-      AsyncStorage.multiSet([
-        ['@user_xp', newXp.toString()],
-        ['@user_credits', newCredits.toString()]
-      ]).catch(err => console.error('Failed to save converted data', err));
-      return true;
-    }
-    return false;
-  };
-
-  const deductHeart = (): boolean => {
-    if (hearts > 0) {
-      const newHearts = hearts - 1;
-      setHearts(newHearts);
-      AsyncStorage.setItem('@user_hearts', newHearts.toString()).catch(err => {
-        console.error('Failed to save hearts', err);
-      });
-      return true;
-    }
-    return false;
-  };
-
-  const addHeart = async (amount: number) => {
-    try {
-      const newHearts = hearts + amount;
-      setHearts(newHearts);
-      await AsyncStorage.setItem('@user_hearts', newHearts.toString());
-    } catch (err) {
-      console.error('Failed to save hearts', err);
-    }
-  };
-
-  const convertXPToHearts = (xpAmount: number, heartAmount: number): boolean => {
-    if (xp >= xpAmount) {
-      const newXp = xp - xpAmount;
-      const newHearts = hearts + heartAmount;
-      setXp(newXp);
-      setHearts(newHearts);
-      AsyncStorage.multiSet([
-        ['@user_xp', newXp.toString()],
-        ['@user_hearts', newHearts.toString()]
-      ]).catch(err => console.error('Failed to save converted data', err));
-      return true;
-    }
-    return false;
-  };
-
-  return (
-    <CreditsContext.Provider value={{ credits, xp, hearts, addCredits, deductCredits, addXP, convertXPToCredits, convertXPToHearts, deductHeart, addHeart }}>
-      {children}
-    </CreditsContext.Provider>
-  );
+  return <CreditsContext.Provider value={value}>{children}</CreditsContext.Provider>;
 };
 
 export const useCredits = () => {

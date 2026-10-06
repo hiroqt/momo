@@ -13,12 +13,15 @@ import { colors, spacing } from '@/constants/theme';
 import { apiFetch } from '@/lib/api/client';
 import { formatStudyFormats, formatStudyTrack, getQuotaSummary } from '@/lib/screens/settings';
 import { useOnboarding } from '@/context/OnboardingContext';
+import { useAuth } from '@/context/AuthContext';
 import type { UserProfile } from '@/types';
 
 export default function ProfileScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const preferences = useOnboarding();
+  const auth = useAuth();
+  const isGuest = auth.status !== 'signed_in';
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [profileState, setProfileState] = useState<'loading' | 'ready' | 'unavailable'>('loading');
   const [retry, setRetry] = useState(0);
@@ -27,7 +30,7 @@ export default function ProfileScreen() {
 
   useEffect(() => {
     let active = true;
-    if (preferences.isGuestMode) {
+    if (isGuest) {
       setProfile(null);
       setProfileState('ready');
       return;
@@ -37,7 +40,7 @@ export default function ProfileScreen() {
       .then(value => { if (active) { setProfile(value); setProfileState('ready'); } })
       .catch(() => { if (active) { setProfile(null); setProfileState('unavailable'); } });
     return () => { active = false; };
-  }, [retry, preferences.isGuestMode]);
+  }, [retry, isGuest, auth.accountId]);
 
   const quota = getQuotaSummary(profile);
   const name = [preferences.firstName, preferences.lastName].filter(Boolean).join(' ') || profile?.full_name || 'Your study space';
@@ -59,8 +62,8 @@ export default function ProfileScreen() {
         <View style={styles.accountCard}>
           <View style={styles.identity}>
             <Text style={styles.accountName}>{name}</Text>
-            <Text style={styles.accountDetail}>{preferences.isGuestMode ? 'Guest preview · stored on this device' : profile?.email || 'Account details unavailable'}</Text>
-            <View style={styles.pill}><Text style={styles.pillText}>{preferences.isGuestMode ? 'Exploring with Momo' : 'Learning with Momo'}</Text></View>
+            <Text style={styles.accountDetail}>{isGuest ? 'Guest preview · stored on this device' : auth.offline ? 'Signed in · offline, changes sync later' : profile?.email || 'Account details unavailable'}</Text>
+            <View style={styles.pill}><Text style={styles.pillText}>{isGuest ? 'Exploring with Momo' : 'Learning with Momo'}</Text></View>
           </View>
           <MomoAnimation name="momo-rest" size={96} />
         </View>
@@ -86,8 +89,8 @@ export default function ProfileScreen() {
             <View style={styles.track} accessibilityRole="progressbar" accessibilityLabel="Monthly uploads used" accessibilityValue={{ min: 0, max: quota.limit, now: quota.used }}><View style={[styles.fill, { width: `${quota.percent}%` }]} /></View>
             <Text style={styles.footnote}>{quota.remaining ? 'Your next reviewer starts with your notes.' : 'You have reached your monthly upload limit.'}</Text>
           </> : profileState === 'loading' ? <View style={styles.loading} accessibilityLiveRegion="polite"><ActivityIndicator color={colors.primary} /><Text style={styles.cardSubtitle}>Checking your account…</Text></View> : <>
-            <Text style={styles.body}>{preferences.isGuestMode ? 'Upload availability is checked on your account when you upload a document.' : 'We could not check your upload usage. Connect and try again.'}</Text>
-            {!preferences.isGuestMode && <Pressable testID="settings-retry-profile" accessibilityRole="button" onPress={() => setRetry(value => value + 1)} style={({ pressed }) => [styles.retryButton, pressed && styles.pressed]}><Text style={styles.actionText}>Try again</Text></Pressable>}
+            <Text style={styles.body}>{isGuest ? 'Upload availability is checked on your account when you upload a document.' : 'We could not check your upload usage. Connect and try again.'}</Text>
+            {!isGuest && <Pressable testID="settings-retry-profile" accessibilityRole="button" onPress={() => setRetry(value => value + 1)} style={({ pressed }) => [styles.retryButton, pressed && styles.pressed]}><Text style={styles.actionText}>Try again</Text></Pressable>}
           </>}
         </View>
 
@@ -105,10 +108,13 @@ export default function ProfileScreen() {
           <Pressable testID="settings-open-library" accessibilityRole="button" onPress={() => router.push('/(tabs)/library')} style={({ pressed }) => [styles.actionRow, pressed && styles.pressed]}><Text style={styles.actionText}>Go to my library</Text><HugeiconsIcon icon={ArrowRight01Icon} size={18} color={colors.primary} /></Pressable>
         </View>
 
-        {!preferences.isGuestMode && <Pressable testID="settings-sign-out" accessibilityRole="button" onPress={() => setShowSignOutModal(true)} style={({ pressed }) => [styles.signOut, pressed && styles.pressed]}><HugeiconsIcon icon={Logout01Icon} size={18} color={colors.textSecondary} /><Text style={styles.signOutText}>Account options</Text></Pressable>}
+        {!!auth.noticeMessage && <Text testID="settings-auth-notice" accessibilityRole="alert" style={styles.authNotice}>{auth.noticeMessage}</Text>}
+        {isGuest && auth.configured && auth.status !== 'restoring' && <Pressable testID="settings-sign-in" accessibilityRole="button" accessibilityLabel="Sign in with Google" accessibilityState={{ disabled: auth.busy, busy: auth.busy }} disabled={auth.busy} onPress={() => { auth.clearNotice(); void auth.signInWithGoogle(); }} style={({ pressed }) => [styles.signIn, (pressed || auth.busy) && styles.pressed]}>{auth.busy ? <ActivityIndicator color={colors.onPrimary} /> : <Text style={styles.signInText}>Sign in with Google</Text>}</Pressable>}
+        {isGuest && !auth.configured && <Text style={styles.footnote}>Account sign-in is not available in this preview build. Your sample stays on this device.</Text>}
+        {!isGuest && <Pressable testID="settings-sign-out" accessibilityRole="button" onPress={() => setShowSignOutModal(true)} style={({ pressed }) => [styles.signOut, pressed && styles.pressed]}><HugeiconsIcon icon={Logout01Icon} size={18} color={colors.textSecondary} /><Text style={styles.signOutText}>Sign out</Text></Pressable>}
       </SmoothScrollView>
       <ConfirmationModal visible={showResetModal} icon="thinking" title="Review your preferences?" message="This reopens the welcome guide and resets helpful tips. Your saved study sets stay in your library." confirmText="Open guide" isDestructive={false} onConfirm={async () => { setShowResetModal(false); await preferences.resetOnboarding(); router.replace('/(auth)/welcome'); }} onCancel={() => setShowResetModal(false)} />
-      <ConfirmationModal visible={showSignOutModal} icon="logout" title="Account preview" message="Account sign-out is not connected in this preview. Your study materials are kept on this device." confirmText="Got it" isDestructive={false} onConfirm={() => setShowSignOutModal(false)} onCancel={() => setShowSignOutModal(false)} />
+      <ConfirmationModal visible={showSignOutModal} icon="logout" title="Sign out?" message="Your reviewers stay saved for this account on this device. Changes that have not synced yet will sync when you sign back in." confirmText="Sign out" isDestructive={false} onConfirm={async () => { setShowSignOutModal(false); await auth.signOut(); }} onCancel={() => setShowSignOutModal(false)} />
     </View>
   );
 }
@@ -157,5 +163,8 @@ const styles = StyleSheet.create({
   privacyTitle: { color: colors.text, fontSize: 13, fontWeight: '600', marginBottom: 6 },
   signOut: { minHeight: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
   signOutText: { color: colors.textSecondary, fontSize: 13, fontWeight: '600' },
+  signIn: { minHeight: 52, borderRadius: 16, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16, marginBottom: 12 },
+  signInText: { color: colors.onPrimary, fontSize: 14, fontWeight: '700' },
+  authNotice: { color: colors.textSecondary, fontSize: 12, lineHeight: 19, padding: 12, backgroundColor: colors.primarySoft, borderRadius: 12, marginBottom: 12 },
   pressed: { opacity: 0.65 },
 });

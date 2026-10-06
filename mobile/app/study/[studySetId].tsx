@@ -35,6 +35,7 @@ import { localDb } from '../../lib/storage/localDb';
 import { loadStudyContent } from '../../lib/data/loadStudyContent';
 import { FlashcardDeck } from '../../components/study/FlashcardDeck';
 import { QuizRunner, QuizRunnerRef } from '../../components/study/QuizRunner';
+import { libraryActions } from '../../lib/sync/libraryRuntime';
 import { ReviewerGuideView } from '../../components/study/ReviewerGuideView';
 import { PageHeader } from '../../components/common/PageHeader';
 import { PlatformPressable } from '../../components/common/PlatformPressable';
@@ -89,15 +90,12 @@ export default function StudySessionScreen() {
   const handleRename = async (newTitle: string) => {
     setIsRenaming(true);
     try {
-      await updateStudySet(studySetId, { title: newTitle });
-      await localDb.updateStudySetTitle(studySetId, newTitle);
+      // Durable local rename plus queued server update; syncs when online.
+      await libraryActions.renameStudySet(studySetId, newTitle);
       setStudySet((prev) => (prev ? { ...prev, title: newTitle } : null));
       setShowRenameModal(false);
-    } catch (err: any) {
-      // Local fallback for offline mode
-      await localDb.updateStudySetTitle(studySetId, newTitle);
-      setStudySet((prev) => (prev ? { ...prev, title: newTitle } : null));
-      setShowRenameModal(false);
+    } catch {
+      Alert.alert('Could not rename reviewer', 'This change could not be saved on your device. Please try again.');
     } finally {
       setIsRenaming(false);
     }
@@ -395,12 +393,18 @@ export default function StudySessionScreen() {
           <FlashcardDeck
             key={`fc-${sessionKey}-${actualFlashcardItems.length}`}
             items={actualFlashcardItems}
+            studySetId={studySetId}
+            resumeSession={sessionKey === 0}
+            syncable={studySet?.generation_config?.preview !== true}
             onFinish={setFinishedScore}
           />
         ) : (
           <QuizRunner ref={quizRef}
             key={`quiz-${sessionKey}-${actualQuizItems.map((i) => i.id).join('-')}`}
             items={actualQuizItems}
+            studySetId={studySetId}
+            resumeSession={sessionKey === 0}
+            syncable={studySet?.generation_config?.preview !== true}
             title={studySet?.title}
             timeLimitPerQuestion={studySet?.generation_config?.time_limit_per_question}
             onFinish={(score) => {

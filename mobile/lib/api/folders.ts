@@ -8,9 +8,11 @@ export async function listFolders(): Promise<Folder[]> {
   );
 }
 
-export async function createFolder(name: string, color?: string | null): Promise<Folder> {
+export async function createFolder(name: string, color?: string | null, idempotencyKey?: string): Promise<Folder> {
   return apiFetch<Folder>('/api/folders', {
     method: 'POST',
+    // Server-side honoring of Idempotency-Key is a pending API-01 contract item.
+    headers: idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : undefined,
     body: JSON.stringify({ name, color }),
   });
 }

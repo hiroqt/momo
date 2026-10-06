@@ -87,16 +87,28 @@ test('single-letter option text is preserved after canonical answer and options 
 });
 
 
-test('repeated paid reveal taps charge once before rendering and failed payment can retry', () => {
+test('repeated paid reveal taps charge once before rendering and failed payment can retry', async () => {
   const lock = { current: false };
   let charges = 0;
   const charge = () => { charges++; return true; };
-  assert.equal(claimQuizReveal(lock, charge), 'revealed');
-  assert.equal(claimQuizReveal(lock, charge), 'locked');
+  assert.equal(await claimQuizReveal(lock, charge), 'revealed');
+  assert.equal(await claimQuizReveal(lock, charge), 'locked');
   assert.equal(charges, 1);
   lock.current = false;
-  assert.equal(claimQuizReveal(lock, () => false), 'insufficient');
+  assert.equal(await claimQuizReveal(lock, () => false), 'insufficient');
   assert.equal(lock.current, false);
-  assert.equal(claimQuizReveal(lock, charge), 'revealed');
+  assert.equal(await claimQuizReveal(lock, charge), 'revealed');
   assert.equal(charges, 2);
+});
+
+test('a reveal is shown only after its charge is durably stored; taps during the save are locked', async () => {
+  const lock = { current: false };
+  let settle!: (value: 'revealed' | 'failed') => void;
+  const pending = claimQuizReveal(lock, () => new Promise(resolve => { settle = resolve; }));
+  assert.equal(await claimQuizReveal(lock, () => 'revealed'), 'locked');
+  settle('failed');
+  assert.equal(await pending, 'failed');
+  assert.equal(lock.current, false);
+  assert.equal(await claimQuizReveal(lock, () => { throw new Error('disk'); }), 'failed');
+  assert.equal(lock.current, false);
 });

@@ -94,8 +94,8 @@ def database():
             TO anon,authenticated USING (true) WITH CHECK (true);
     """)
     for path in sorted((ROOT / "backend/migrations").glob("*.sql")):
-        if path.name == "014_google_profile_sync.sql":
-            # Exercise the upgrade backfill with an Auth identity that predates migration 014.
+        if path.name == "002_tenant_security.sql":
+            # Seed an old Auth identity before tenant FKs and profile provisioning exist.
             sql(
                 "INSERT INTO auth.users(id,email,raw_app_meta_data,raw_user_meta_data) "
                 "VALUES ('00000000-0000-4000-8000-000000000014',"
@@ -104,6 +104,16 @@ def database():
                 "'{\"full_name\":\"Existing Learner\"}');",
                 role="supabase_auth_admin",
             )
+        if path.name == "012_upload_tickets.sql":
+            # This pre-ticket document verifies the legacy destination migration.
+            sql("""
+                INSERT INTO public.documents(id,user_id,original_filename,file_type,mime_type,file_size,
+                    s3_object_key,uploaded_at,expires_at,processing_status)
+                VALUES ('00000000-0000-4000-8000-000000000015',
+                    '00000000-0000-4000-8000-000000000014','legacy.txt','txt','text/plain',64,
+                    'documents/00000000-0000-4000-8000-000000000014/00000000-0000-4000-8000-000000000015/original.txt',
+                    now()-interval '96 hours',now()-interval '24 hours','EXPIRED');
+            """)
         sql(path.read_text())
     sql("NOTIFY pgrst, 'reload schema';")
     return sql
@@ -295,6 +305,30 @@ def test_google_auth_profile_migration_backfills_existing_identity(database):
         "SELECT email||'|'||full_name FROM public.users "
         "WHERE id='00000000-0000-4000-8000-000000000014';"
     ) == "existing-google@example.test|Existing Learner"
+
+
+def test_verified_legacy_storage_destination_is_queued_on_account_deletion(database):
+    user_id = "00000000-0000-4000-8000-000000000014"
+    document_id = "00000000-0000-4000-8000-000000000015"
+    assert database(
+        f"SELECT provider||'|'||bucket||'|'||legacy::text FROM internal.upload_tickets WHERE id='{document_id}';",
+        role="service_role",
+    ) == "supabase|documents|true"
+    assert database(
+        "SELECT indexdef LIKE '%WHERE (legacy AND (status = ''retired''::text))%' "
+        "FROM pg_indexes WHERE schemaname='internal' AND indexname='upload_tickets_legacy_cleanup_idx';"
+    ) == "t"
+    assert database(
+        "SELECT count(*) FROM claim_upload_cleanup(100,'supabase','documents');",
+        role="service_role",
+    ) == "0"
+    database(f"DELETE FROM auth.users WHERE id='{user_id}';")
+    assert database(f"SELECT count(*) FROM public.documents WHERE id='{document_id}';") == "0"
+    claims = [json.loads(line) for line in database(
+        "SELECT claim_upload_cleanup(100,'supabase','documents');", role="service_role"
+    ).splitlines() if line]
+    claim = next(row for row in claims if row["id"] == document_id)
+    assert claim["status"] == "retired" and claim["auth_ref"] is None
 
 
 def test_non_google_or_email_less_auth_identity_does_not_create_profile(database):

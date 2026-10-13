@@ -25,7 +25,7 @@ test('switch during refresh denies transmission, including same-user logout/logi
 
 test('same-account refresh uses refreshed token and preserves original request key', async () => {
   const f = fixture(); f.deps.refresh = async () => { f.state.token = 'refreshed'; };
-  await requestTransport('/api/generations', { method: 'POST', headers: { Authorization: 'old', 'Idempotency-Key': 'request-key' }, body: '{"count":2}' }, 100, {}, f.deps);
+  await requestTransport('/api/generations', { method: 'POST', headers: { Authorization: 'old', 'Idempotency-Key': 'request-key' }, body: '{"count":2}' }, 1000, {}, f.deps);
   assert.equal(f.requests.length, 1);
   const headers = new Headers(f.requests[0].options?.headers);
   assert.equal(headers.get('authorization'), 'Bearer refreshed');

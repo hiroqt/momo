@@ -73,6 +73,16 @@ backfill for existing Google Auth users. PostgreSQL integration tests cover
 backfill, profile updates, provider exclusion, email collision, and Auth delete
 cascade. The trigger uses `supabase_auth_admin` in the local fixture; managed
 GoTrue behavior is not proven. Migration 014 has not been applied to staging.
-The account deletion endpoint/mobile flow and logout/account-switch device
-journey remain open. Full backend suite: 823 passed, zero skipped; Ruff 138
-files, mypy 75 source files, no-skip check and `git diff --check` passed.
+The local account-deletion flow now adds `DELETE /api/me` (verified JWT subject
+only, Supabase Auth Admin, safe retry after a lost response) and mobile
+account-scoped SQLite clearing. The user confirmed historical uploads used the
+Supabase `documents` bucket. Local-only migration 015 records that destination
+for pre-ticket rows and indexes retired legacy cleanup; PostgreSQL verifies
+those objects become claimable after Auth deletion. Migration 015 is not
+applied to staging. Managed Auth cascade, physical object purge (including old
+versions), and files without database inventory remain unverified. Final local
+verification: 827 backend/API/PostgreSQL/PostgREST tests passed, zero skipped,
+errors, or failures; Ruff 138 files and mypy 75 source files passed; no-skip
+checker, mobile TypeScript lint, 182 mobile tests, Canvas JSON validation, and
+`git diff --check` passed. The suite used only loopback PostgreSQL/PostgREST;
+32 existing Starlette 422 deprecation warnings remain.

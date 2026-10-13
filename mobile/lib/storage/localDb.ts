@@ -148,6 +148,17 @@ export class LocalDatabase {
     }
     await this.mutate(active => this.write(changes, active), binding);
   }
+  /** Erase every synced record for one deleted account after its session is cleared. */
+  async clearAccountData(owner: string): Promise<void> {
+    if (!UUID_REFERENCE.test(owner)) throw new Error('Account id is invalid.');
+    const kinds: RecordKind[] = ['set','items','folder','event','event_hold','sync_state','mutation','id_map','session','generation_request','wallet'];
+    const clearing = this.writes.catch(() => {}).then(async () => {
+      const rows = (await Promise.all(kinds.map(kind => this.accounts.list(owner, kind)))).flat();
+      await this.accounts.write(owner, rows.map(row => ({kind:row.kind,id:row.id})));
+    });
+    this.writes = clearing;
+    await clearing;
+  }
   async init(): Promise<void> { await this.previewRows(); }
   async saveStudySet(set: StudySet, items: StudyItem[]): Promise<void> {
     if (set.generation_config?.preview === true) { await this.savePreview(set, items); return; }

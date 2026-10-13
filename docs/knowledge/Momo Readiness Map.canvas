@@ -203,7 +203,7 @@
       "fromSide": "bottom",
       "toNode": "1",
       "toSide": "right",
-      "label": "Google-only JWT + local profile migration 014"
+      "label": "Google-only JWT + local profile/deletion migrations 014–015"
     },
     {
       "id": "completion-db",
@@ -211,7 +211,7 @@
       "fromSide": "bottom",
       "toNode": "2",
       "toSide": "right",
-      "label": "Migrations 001–013"
+      "label": "Staging 001–013; local-only 014–015"
     },
     {
       "id": "completion-deploy",

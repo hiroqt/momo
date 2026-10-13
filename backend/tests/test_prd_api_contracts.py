@@ -176,6 +176,7 @@ def test_every_prd_endpoint_is_routed():
     routed = {(method.upper(), path) for path, operations in paths.items() for method in operations}
     missing = [endpoint for endpoint in PRD_ENDPOINTS if endpoint not in routed]
     assert missing == []
+    assert ("DELETE", "/api/me") in routed  # AUTH-02 account-deletion extension.
     # The legacy sync path remains as a documented, deprecated compatibility alias.
     assert ("POST", "/api/sync") in routed
 

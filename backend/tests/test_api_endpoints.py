@@ -16,6 +16,99 @@ async def test_api_me():
         assert data["id"] == "user123"
         assert data["monthly_limit"] == 10
 
+
+@pytest.mark.asyncio
+async def test_delete_me_deletes_only_verified_identity_and_queues_storage_cleanup(monkeypatch):
+    from app.db.session import supabase_session
+    from app.dependencies import AuthenticatedUser, get_current_user
+
+    owner, forged = str(uuid4()), str(uuid4())
+    deleted: list[str] = []
+
+    class Admin:
+        def delete_user(self, user_id: str) -> None:
+            deleted.append(user_id)
+
+    class Client:
+        auth = type("Auth", (), {"admin": Admin()})()
+
+    monkeypatch.setattr(supabase_session, "require_client", lambda: Client())
+    app.dependency_overrides[get_current_user] = lambda: AuthenticatedUser(owner)
+    try:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            response = await client.request("DELETE", "/api/me", json={"user_id": forged})
+    finally:
+        app.dependency_overrides.pop(get_current_user, None)
+
+    assert response.status_code == 202
+    assert response.json() == {
+        "status": "accepted",
+        "message": "Account deletion was accepted. Original-file cleanup may take time; files missing from the upload inventory need separate cleanup.",
+    }
+    assert deleted == [owner]
+
+
+@pytest.mark.asyncio
+async def test_delete_me_hides_supabase_admin_error(monkeypatch):
+    from app.db.session import supabase_session
+    from app.dependencies import AuthenticatedUser, get_current_user
+
+    class Admin:
+        def delete_user(self, _user_id: str) -> None:
+            raise RuntimeError("secret provider response must not escape")
+
+    class Client:
+        auth = type("Auth", (), {"admin": Admin()})()
+
+    monkeypatch.setattr(supabase_session, "require_client", lambda: Client())
+    app.dependency_overrides[get_current_user] = lambda: AuthenticatedUser(str(uuid4()))
+    try:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            response = await client.delete("/api/me")
+    finally:
+        app.dependency_overrides.pop(get_current_user, None)
+
+    assert response.status_code == 503
+    assert response.json() == {"error": {
+        "code": "ACCOUNT_DELETION_UNAVAILABLE",
+        "message": "Account deletion is temporarily unavailable.",
+    }}
+    assert "secret provider response" not in response.text
+
+
+@pytest.mark.asyncio
+async def test_delete_me_retry_accepts_user_deleted_before_lost_response(monkeypatch):
+    from supabase_auth.errors import AuthApiError
+
+    from app.db.session import supabase_session
+    from app.dependencies import AuthenticatedUser, get_current_user
+
+    owner, deleted = str(uuid4()), False
+
+    class Admin:
+        def delete_user(self, user_id: str) -> None:
+            nonlocal deleted
+            assert user_id == owner
+            if deleted:
+                raise AuthApiError("User not found", 404, "user_not_found")
+            deleted = True
+            raise RuntimeError("response lost after deletion")
+
+    class Client:
+        auth = type("Auth", (), {"admin": Admin()})()
+
+    monkeypatch.setattr(supabase_session, "require_client", lambda: Client())
+    app.dependency_overrides[get_current_user] = lambda: AuthenticatedUser(owner)
+    try:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            first = await client.delete("/api/me")
+            second = await client.delete("/api/me")
+    finally:
+        app.dependency_overrides.pop(get_current_user, None)
+
+    assert first.status_code == 503
+    assert second.status_code == 202
+
 @pytest.mark.asyncio
 async def test_upload_url_and_document_registration():
     user_id = str(uuid4())

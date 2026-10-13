@@ -11,6 +11,7 @@ import { ConfirmationModal } from '@/components/common/ConfirmationModal';
 import { SmoothScrollView } from '@/components/common/SmoothScrollView';
 import { colors, spacing } from '@/constants/theme';
 import { apiFetch } from '@/lib/api/client';
+import { localDb } from '@/lib/storage/localDb';
 import { formatStudyFormats, formatStudyTrack, getQuotaSummary } from '@/lib/screens/settings';
 import { useOnboarding } from '@/context/OnboardingContext';
 import { useAuth } from '@/context/AuthContext';
@@ -27,6 +28,32 @@ export default function ProfileScreen() {
   const [retry, setRetry] = useState(0);
   const [showResetModal, setShowResetModal] = useState(false);
   const [showSignOutModal, setShowSignOutModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deletingAccount, setDeletingAccount] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  async function deleteAccount() {
+    const owner = auth.accountId;
+    if (!owner || auth.offline || deletingAccount) return;
+    setDeletingAccount(true);
+    setDeleteError(null);
+    let accepted = false;
+    try {
+      await apiFetch<{ status: 'accepted' }>('/api/me', { method: 'DELETE' });
+      accepted = true;
+      setShowDeleteModal(false);
+      await auth.signOut();
+      await localDb.clearAccountData(owner);
+      router.replace('/(auth)/welcome');
+    } catch {
+      setShowDeleteModal(false);
+      setDeleteError(accepted
+        ? 'Your account was deleted, but this device could not clear its saved study data. Remove the app’s local data before using this device again.'
+        : 'We could not delete your account. Try again when your connection is stable.');
+    } finally {
+      setDeletingAccount(false);
+    }
+  }
 
   useEffect(() => {
     let active = true;
@@ -112,9 +139,12 @@ export default function ProfileScreen() {
         {isGuest && auth.configured && auth.status !== 'restoring' && <Pressable testID="settings-sign-in" accessibilityRole="button" accessibilityLabel="Sign in with Google" accessibilityState={{ disabled: auth.busy, busy: auth.busy }} disabled={auth.busy} onPress={() => { auth.clearNotice(); void auth.signInWithGoogle(); }} style={({ pressed }) => [styles.signIn, (pressed || auth.busy) && styles.pressed]}>{auth.busy ? <ActivityIndicator color={colors.onPrimary} /> : <Text style={styles.signInText}>Sign in with Google</Text>}</Pressable>}
         {isGuest && !auth.configured && <Text style={styles.footnote}>Account sign-in is not available in this preview build. Your sample stays on this device.</Text>}
         {!isGuest && <Pressable testID="settings-sign-out" accessibilityRole="button" onPress={() => setShowSignOutModal(true)} style={({ pressed }) => [styles.signOut, pressed && styles.pressed]}><HugeiconsIcon icon={Logout01Icon} size={18} color={colors.textSecondary} /><Text style={styles.signOutText}>Sign out</Text></Pressable>}
+        {!!deleteError && <Text testID="settings-delete-account-error" accessibilityRole="alert" style={styles.authNotice}>{deleteError}</Text>}
+        {!isGuest && <Pressable testID="settings-delete-account" accessibilityRole="button" accessibilityState={{ disabled: auth.offline || deletingAccount }} disabled={auth.offline || deletingAccount} onPress={() => setShowDeleteModal(true)} style={({ pressed }) => [styles.deleteAccount, (pressed || auth.offline || deletingAccount) && styles.pressed]}><Text style={styles.deleteAccountText}>{auth.offline ? 'Connect to delete account' : 'Delete account'}</Text></Pressable>}
       </SmoothScrollView>
       <ConfirmationModal visible={showResetModal} icon="thinking" title="Review your preferences?" message="This reopens the welcome guide and resets helpful tips. Your saved study sets stay in your library." confirmText="Open guide" isDestructive={false} onConfirm={async () => { setShowResetModal(false); await preferences.resetOnboarding(); router.replace('/(auth)/welcome'); }} onCancel={() => setShowResetModal(false)} />
       <ConfirmationModal visible={showSignOutModal} icon="logout" title="Sign out?" message="Your reviewers stay saved for this account on this device. Changes that have not synced yet will sync when you sign back in." confirmText="Sign out" isDestructive={false} onConfirm={async () => { setShowSignOutModal(false); await auth.signOut(); }} onCancel={() => setShowSignOutModal(false)} />
+      <ConfirmationModal visible={showDeleteModal} title="Delete your account permanently?" message="Your synced study sets and progress will be deleted. Original-file cleanup may take time, and files missing from the upload inventory may need separate cleanup. This cannot be undone." confirmText="Delete account" isDestructive isLoading={deletingAccount} onConfirm={() => { void deleteAccount(); }} onCancel={() => setShowDeleteModal(false)} />
     </View>
   );
 }
@@ -163,6 +193,8 @@ const styles = StyleSheet.create({
   privacyTitle: { color: colors.text, fontSize: 13, fontWeight: '600', marginBottom: 6 },
   signOut: { minHeight: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
   signOutText: { color: colors.textSecondary, fontSize: 13, fontWeight: '600' },
+  deleteAccount: { minHeight: 48, alignItems: 'center', justifyContent: 'center', marginTop: 4 },
+  deleteAccountText: { color: colors.danger, fontSize: 12, fontWeight: '700' },
   signIn: { minHeight: 52, borderRadius: 16, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16, marginBottom: 12 },
   signInText: { color: colors.onPrimary, fontSize: 14, fontWeight: '700' },
   authNotice: { color: colors.textSecondary, fontSize: 12, lineHeight: 19, padding: 12, backgroundColor: colors.primarySoft, borderRadius: 12, marginBottom: 12 },

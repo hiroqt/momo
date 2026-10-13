@@ -7,6 +7,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { LocalDatabase } from '../lib/storage/localDb';
 import { createSqliteAccountStore, type SqlConnection } from '../lib/storage/sqliteAccountStore';
+import type { AccountStore } from '../lib/storage/accountStore.types';
 import { SyncEngine } from '../lib/sync/syncEngine';
 import type { SyncEvent } from '../types';
 import type { SyncResponse } from '../lib/api/sync';
@@ -29,12 +30,14 @@ function fixture() {
   const directory=mkdtempSync(join(tmpdir(),'momo-local-'));
   const path=join(directory,'study.sqlite');
   const handles: DatabaseSync[]=[];
+  let currentStore: AccountStore | undefined;
   function restart() {
     while (handles.length) handles.pop()!.close();
     const sqlite=new DatabaseSync(path); handles.push(sqlite);
-    return new LocalDatabase(noPreviews,createSqliteAccountStore(async()=>connection(sqlite)));
+    currentStore=createSqliteAccountStore(async()=>connection(sqlite));
+    return new LocalDatabase(noPreviews,currentStore);
   }
-  return {restart,close:()=>{handles.forEach(db=>db.close());rmSync(directory,{recursive:true,force:true});}};
+  return {restart,store:()=>currentStore!,close:()=>{handles.forEach(db=>db.close());rmSync(directory,{recursive:true,force:true});}};
 }
 function deck(owner:string) {
   const preview=buildSampleDeck({studyTrack:'general'});
@@ -67,6 +70,24 @@ test('ordinary SQLite sets, folders and queue survive close/reopen and account s
     assert.equal((await reopened.getStudySet(data.set.id))?.folder_id,null);
     assert.equal((await reopened.getStudyItems(data.set.id)).length,data.items.length);
     reopened.bindVerifiedAccount(null);assert.deepEqual(await reopened.listStudySets(),[]);
+  } finally {f.close();}
+});
+
+test('account deletion clears every local record kind for one owner only',async()=>{
+  const f=fixture();try {
+    const db=f.restart(), owner=randomUUID(), other=randomUUID();
+    const store=f.store();
+    const kinds:import('../lib/storage/accountStore.types').RecordKind[]=['set','items','folder','event','event_hold','sync_state','mutation','id_map','session','generation_request','wallet'];
+    const changes=kinds.map(kind=>({kind,id:`${kind}-private`,data:{owner:owner,kind}}));
+    const otherChange={kind:'wallet' as const,id:'other-wallet',data:{owner:other}};
+    db.bindVerifiedAccount(owner);
+    await store.write(owner,changes);
+    db.bindVerifiedAccount(other);
+    await store.write(other,[otherChange]);
+    db.bindVerifiedAccount(null);
+    await db.clearAccountData(owner);
+    for(const kind of kinds) assert.deepEqual(await store.list(owner,kind),[]);
+    assert.deepEqual(await store.list(other,'wallet'),[{kind:'wallet',id:'other-wallet',data:{owner:other}}]);
   } finally {f.close();}
 });
 

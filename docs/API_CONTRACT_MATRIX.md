@@ -76,7 +76,7 @@ yet; see Economy below for the reason.
 
 | PRD | Route | Mobile client | Status / compatibility |
 | --- | --- | --- | --- |
-| `GET/POST/GET{id}/PATCH/DELETE /api/folders` | same (`routes/folders.py`, owned by another team) | `listFolders`, `createFolder`, `updateFolder`, `deleteFolder` | CRUD aligned. **Gap:** `POST /api/folders` does not check the credit economy yet, and it ignores the `Idempotency-Key` header that `createFolder` now sends. The atomic, idempotent server operation exists as `economy_repo.create_folder_with_charge` / RPC `create_folder_with_charge`. Wiring it in is BLOCKED_INPUT (see the report). |
+| `GET/POST/GET{id}/PATCH/DELETE /api/folders` | same (`routes/folders.py`) | `listFolders`, `createFolder`, `updateFolder`, `deleteFolder` | CRUD aligned. `POST` honors the owner-scoped `Idempotency-Key` through `create_folder_request` and returns the saved folder on replay. **Gap:** folder creation is not charged through `create_folder_with_charge`; activating the pending economy policy is BLOCKED_INPUT (see the report). |
 
 ## 8.7-8.10
 

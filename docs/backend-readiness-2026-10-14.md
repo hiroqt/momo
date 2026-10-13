@@ -48,7 +48,7 @@ The initial attempt to record migration 008 hit a duplicate migration version be
 
 ## Local verification
 
-- Full backend/API/database/gateway suite with loopback-only disposable PostgreSQL and PostgREST: **823 passed, 0 skipped, 0 failed**, 32 existing Starlette deprecation warnings (227.53s). JUnit: `/tmp/momo-auth02-final-2026-10-14.xml`; the no-skips gate reported 823 tests.
+- At the profile-provisioning milestone, the full backend/API/database/gateway suite with loopback-only disposable PostgreSQL and PostgREST had **823 passed, 0 skipped, 0 failed**, with 32 existing Starlette deprecation warnings (227.53s). That was an earlier checkpoint; the later account-deletion run below verified 827 tests. JUnit from the profile checkpoint: `/tmp/momo-auth02-final-2026-10-14.xml`.
 - Ruff and mypy: **138 Ruff files** and **75 Python source files** passed.
 - Mobile: lint passed; **181 tests passed**. No mobile code changed during the final index migration.
 - `docker build -t momo-backend:2026-10-14 backend` passed. Network-isolated non-root real-SDK construction failed closed on denied database I/O as expected. The non-root scanned-PDF OCR smoke preserved text/page metadata. `/health` and `/ready` both returned 200 through a `PORT`-bound container, which then stopped cleanly.
@@ -86,3 +86,13 @@ errors, or failures; Ruff 138 files and mypy 75 source files passed; no-skip
 checker, mobile TypeScript lint, 182 mobile tests, Canvas JSON validation, and
 `git diff --check` passed. The suite used only loopback PostgreSQL/PostgREST;
 32 existing Starlette 422 deprecation warnings remain.
+
+## CHAT-01 expiry follow-up
+
+`generate_study_card` now uses the shared `_usable_source` predicate, rejecting
+expired or malformed-expiry READY documents before semantic retrieval. The
+parameterized regression passed for `generate_study_card`, `create_study_deck`,
+and `generate_weakness_review` (3 passed); it asserts no retrieval/embedding or
+model generation occurs. Ruff/mypy and `git diff --check` passed. This closes
+the recorded local A2-2 expiry gap only; CHAT-01 provenance/device evidence and
+all hosted behavior remain open.

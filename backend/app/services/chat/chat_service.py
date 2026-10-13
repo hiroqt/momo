@@ -512,7 +512,7 @@ class ChatService:
 
         elif tool_name == "generate_study_card":
             docs = await documents_repo.list_by_user(user_id)
-            ready_docs = [d for d in docs if d.get("processing_status") == "READY"]
+            ready_docs = [d for d in docs if _usable_source(d)]
             doc_id = arguments.get("document_id") or context_document_id
             target = next((d for d in ready_docs if not doc_id or d["id"] == doc_id), None)
             if not target:

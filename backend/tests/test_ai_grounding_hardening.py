@@ -620,7 +620,7 @@ def test_validator_output_is_whitelisted_and_difficulty_checked():
     assert valid[0]["difficulty"] == "hard" and valid[0]["hint"] == "Starts with P"
 
 
-@pytest.mark.parametrize("tool", ["create_study_deck", "generate_weakness_review"])
+@pytest.mark.parametrize("tool", ["create_study_deck", "generate_weakness_review", "generate_study_card"])
 async def test_chat_deck_tools_skip_expired_sources_before_generation(monkeypatch, owned_source, tool):
     import app.services.chat.chat_service as module
     from app.db.repositories.documents_repo import documents_repo
@@ -628,9 +628,12 @@ async def test_chat_deck_tools_skip_expired_sources_before_generation(monkeypatc
     owner, document_id, _ = owned_source
     documents_repo._store[document_id]["expires_at"] = (datetime.now(UTC) - timedelta(seconds=1)).isoformat()
     generate = AsyncMock()
+    retrieve = AsyncMock()
     monkeypatch.setattr(module.ai_provider, "generate_study_material", generate)
+    monkeypatch.setattr(module.retrieval_service, "retrieve_evidence", retrieve)
     result = await module.chat_service.execute_tool(tool, {"topic": "Cells"}, owner)
     assert result["status"] == "insufficient_source"
+    retrieve.assert_not_awaited()
     generate.assert_not_awaited()
 
 

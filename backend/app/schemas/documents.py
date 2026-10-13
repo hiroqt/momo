@@ -16,6 +16,7 @@ class UploadUrlResponse(BaseModel):
     s3_object_key: str
     document_id: str
     expires_in_seconds: int
+    upload_headers: dict[str, str] = Field(default_factory=dict)
 
 class DocumentCreate(BaseModel):
     document_id: str = Field(validation_alias=AliasChoices("id", "document_id"), pattern=r"^[0-9a-fA-F-]{36}$")

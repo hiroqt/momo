@@ -1,7 +1,7 @@
 import asyncio
 import logging
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from fastapi import (
     APIRouter,
@@ -16,6 +16,7 @@ from fastapi import (
 from app.config import settings
 from app.db.repositories.chunks_repo import chunks_repo
 from app.db.repositories.documents_repo import documents_repo
+from app.db.repositories.upload_ticket_repo import upload_ticket_repo
 from app.db.repositories.usage_repo import usage_repo
 from app.dependencies import AuthenticatedUser, get_current_user
 from app.schemas.documents import (
@@ -27,6 +28,7 @@ from app.schemas.documents import (
 )
 from app.services.security.rate_limiter import require_rate_limit
 from app.services.storage import storage_service
+from app.services.storage.base import ObjectAlreadyExistsError, ObjectNotFoundError
 from app.workers.dispatch import dispatch_job
 
 logger = logging.getLogger(__name__)
@@ -44,10 +46,23 @@ async def mock_s3_upload(object_key: str, request: Request, user: AuthenticatedU
         raise HTTPException(400, detail={"code": "INVALID_OBJECT_KEY", "message": "Invalid upload destination."})
     if int(request.headers.get("content-length", "0")) > settings.MAX_FILE_SIZE_MB * 1024 * 1024:
         raise HTTPException(413, detail="Document too large")
+    parts = object_key.split("/")
+    if len(parts) != 4:
+        raise HTTPException(400, detail={"code": "INVALID_OBJECT_KEY", "message": "Invalid upload destination."})
+    ticket = await upload_ticket_repo.get(parts[2], user.id)
+    if (not ticket or ticket.get("status") != "issued" or ticket.get("object_key") != object_key
+            or ticket.get("provider") != storage_service.provider or ticket.get("bucket") != storage_service.bucket
+            or datetime.fromisoformat(ticket["signed_until"]) <= datetime.now(UTC)):
+        raise HTTPException(409, detail={"code": "UPLOAD_UNAVAILABLE", "message": "Please request a new upload destination."})
     body = await request.body()
     if len(body) > settings.MAX_FILE_SIZE_MB * 1024 * 1024:
         raise HTTPException(413, detail="Document too large")
-    storage_service.save_mock_object(object_key, body)
+    if not body:
+        raise HTTPException(400, detail={"code": "INVALID_DOCUMENT_SIZE", "message": "The uploaded document is empty."})
+    try:
+        storage_service.save_mock_object(object_key, body)
+    except ObjectAlreadyExistsError:
+        raise HTTPException(409, detail={"code": "UPLOAD_ALREADY_EXISTS", "message": "This upload has already finished. Please select the document again."}) from None
     return {"status": "success", "object_key": object_key, "size": len(body)}
 
 @router.post("/upload-url", response_model=UploadUrlResponse,
@@ -97,6 +112,14 @@ async def get_upload_url(
         extension=clean_type
     )
 
+    signed_seconds = 7200 if storage_service.provider == "supabase" else settings.S3_PRESIGNED_URL_EXPIRE_SECONDS
+    await upload_ticket_repo.issue({
+        "id": doc_id, "user_id": user.id, "object_key": object_key,
+        "file_type": clean_type, "mime_type": req.mime_type, "file_size": req.file_size,
+        "provider": storage_service.provider, "bucket": storage_service.bucket,
+        "signed_until": (datetime.now(UTC) + timedelta(seconds=signed_seconds)).isoformat(),
+    })
+
     presigned_url = await asyncio.to_thread(storage_service.generate_presigned_upload_url,
         object_key=object_key,
         mime_type=req.mime_type,
@@ -105,9 +128,10 @@ async def get_upload_url(
 
     return UploadUrlResponse(
         upload_url=presigned_url,
+        upload_headers=storage_service.get_upload_headers(req.mime_type),
         s3_object_key=object_key,
         document_id=doc_id,
-        expires_in_seconds=7200 if settings.STORAGE_PROVIDER == "supabase" else settings.S3_PRESIGNED_URL_EXPIRE_SECONDS
+        expires_in_seconds=signed_seconds
     )
 
 @router.post("", response_model=DocumentResponse,
@@ -127,16 +151,26 @@ async def register_document(
     expected_key = storage_service.build_object_key(user.id, document_id, file_type)
     if doc_in.s3_object_key != expected_key:
         raise HTTPException(400, detail={"code": "INVALID_OBJECT_KEY", "message": "Invalid upload destination."})
+    ticket = await upload_ticket_repo.get(document_id, user.id)
+    if not ticket or ticket.get("status") not in {"issued", "registered"}:
+        raise HTTPException(409, detail={"code": "UPLOAD_UNAVAILABLE", "message": "Please upload the document again."})
+    if not ticket.get("legacy") and (ticket.get("provider") != storage_service.provider or ticket.get("bucket") != storage_service.bucket):
+        raise HTTPException(409, detail={"code": "UPLOAD_UNAVAILABLE", "message": "Please upload the document again."})
     existing = await documents_repo.get_by_id(document_id, user.id)
     if existing:
         # Lost-response retries re-dispatch idempotently: one logical ingestion per document.
+        existing = await documents_repo.register(existing)
         await dispatch_job("document_ingestion", user.id, document_id, background_tasks)
         return existing
-    actual_size = await asyncio.to_thread(storage_service.get_object_size, expected_key)
+    try:
+        metadata = await asyncio.to_thread(storage_service.get_object_metadata, expected_key)
+    except ObjectNotFoundError:
+        raise HTTPException(400, detail={"code": "UPLOAD_NOT_READY", "message": "The document upload has not finished."}) from None
+    actual_size = metadata.size
     if actual_size != doc_in.file_size or actual_size <= 0 or actual_size > settings.MAX_FILE_SIZE_MB * 1024 * 1024:
         raise HTTPException(400, detail={"code": "INVALID_DOCUMENT_SIZE", "message": "Uploaded document size is invalid."})
 
-    now = datetime.now(UTC)
+    now = metadata.uploaded_at
     expires_at = storage_service.calculate_expiration(now)
 
     doc_data = {
@@ -150,6 +184,9 @@ async def register_document(
         "s3_object_key": doc_in.s3_object_key,
         "uploaded_at": now.isoformat(),
         "expires_at": expires_at.isoformat(),
+        "object_identity": metadata.identity,
+        "object_version": metadata.version,
+        "object_etag": metadata.etag,
         "processing_status": "UPLOADED",
         "processing_error": None
     }
@@ -231,7 +268,16 @@ async def delete_document(
     if not doc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail={"code": "DOCUMENT_NOT_FOUND", "message": "Not found"})
 
-    await asyncio.to_thread(storage_service.delete_object, doc.get("s3_object_key", ""))
+    ticket = await upload_ticket_repo.get(document_id, user.id)
+    if not ticket or ticket.get("provider") != storage_service.provider or ticket.get("bucket") != storage_service.bucket:
+        raise HTTPException(409, detail={"code": "UPLOAD_UNAVAILABLE", "message": "The document storage destination requires verification."})
+    if not await upload_ticket_repo.retire(document_id, user.id):
+        raise HTTPException(409, detail={"code": "UPLOAD_UNAVAILABLE", "message": "The document is unavailable."})
+    expected_key = storage_service.build_object_key(user.id, document_id, doc["file_type"])
+    if doc.get("s3_object_key") != expected_key:
+        raise HTTPException(409, detail={"code": "UPLOAD_UNAVAILABLE", "message": "The document is unavailable."})
+    if not await asyncio.to_thread(storage_service.delete_object, expected_key):
+        raise HTTPException(503, detail={"code": "STORAGE_UNAVAILABLE", "message": "Document removal will be retried. Please try again later."})
     await chunks_repo.delete_by_document_id(document_id, user.id)
     await documents_repo.delete(document_id, user.id)
     return {"deleted": True, "document_id": document_id}

@@ -269,15 +269,12 @@ export default function UploadScreen() {
           mime_type: file.mimeType || 'application/pdf',
         });
 
-        try {
-          await uploadFileToS3(
-            uploadData.upload_url,
-            file.uri,
-            file.mimeType || 'application/pdf'
-          );
-        } catch (uploadErr) {
-          console.warn('Storage upload note:', uploadErr);
-        }
+        await uploadFileToS3(
+          uploadData.upload_url,
+          file.uri,
+          file.mimeType || 'application/pdf',
+          uploadData.upload_headers
+        );
 
         await registerDocument({
           document_id: uploadData.document_id,

@@ -27,29 +27,19 @@ class DocumentsRepository:
         return doc_data
 
     async def register(self, doc_data: dict[str, Any]) -> dict[str, Any]:
-        from fastapi import HTTPException
-
         from app.config import settings
-        from app.db.repositories.usage_repo import usage_repo
+        from app.db.repositories.upload_ticket_repo import (
+            map_ticket_error,
+            upload_ticket_repo,
+        )
         if supabase_session.is_configured and supabase_session.client:
             try:
                 resp = await supabase_session.execute(supabase_session.client.rpc("register_document", {"p_document": doc_data, "p_monthly_limit": settings.MONTHLY_DOCUMENT_LIMIT}))
                 return resp.data
             except Exception as exc:
-                if getattr(exc, "message", "") == "MONTHLY_DOCUMENT_LIMIT":
-                    raise HTTPException(429, detail={"code": "QUOTA_EXCEEDED", "message": "Monthly document limit reached."}) from None
+                map_ticket_error(exc)
                 raise
-        # No await between the quota check and increment: one event-loop transaction.
-        key = f"{doc_data['user_id']}:{usage_repo._get_year_month()}"
-        existing = self._store.get(doc_data["id"])
-        if existing:
-            if existing["user_id"] != doc_data["user_id"]:
-                raise HTTPException(404, detail={"code": "DOCUMENT_NOT_FOUND", "message": "Document not found."})
-            return existing
-        if usage_repo._counts.get(key, 0) >= settings.MONTHLY_DOCUMENT_LIMIT:
-            raise HTTPException(429, detail={"code": "QUOTA_EXCEEDED", "message": "Monthly document limit reached."})
-        usage_repo._counts[key] = usage_repo._counts.get(key, 0) + 1
-        return await self.create(doc_data)
+        return upload_ticket_repo.register_memory(doc_data, settings.MONTHLY_DOCUMENT_LIMIT)
 
     async def get_by_id(self, doc_id: str, user_id: str) -> dict[str, Any] | None:
         if supabase_session.is_configured and supabase_session.client:
@@ -102,6 +92,10 @@ class DocumentsRepository:
             return resp.data[0] if resp.data else None
 
         if doc_id in self._store:
+            current = self._store[doc_id].get("processing_status")
+            if current == "EXPIRED" or (current == "READY" and status not in {"READY", "EXPIRED"}):
+                updates.pop("processing_status")
+                updates.pop("processing_error", None)
             self._store[doc_id].update(updates)
             return self._store[doc_id]
         return None

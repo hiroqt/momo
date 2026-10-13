@@ -1,14 +1,16 @@
 import { Platform } from 'react-native';
 import * as FileSystem from 'expo-file-system/legacy';
-import { apiFetch, getBaseUrl, BASE_URL } from './client';
+import { apiFetch, getBaseUrl, getAuthToken, BASE_URL } from './client';
 import { collectPages } from './pagination';
 import { DocumentItem } from '../../types';
+import { buildUploadHeaders, withMockUploadAuth } from './uploadHeaders';
 
 export interface UploadUrlResponse {
   upload_url: string;
   s3_object_key: string;
   document_id: string;
   expires_in_seconds: number;
+  upload_headers?: Record<string, string>;
 }
 
 export async function requestUploadUrl(params: {
@@ -26,8 +28,10 @@ export async function requestUploadUrl(params: {
 export async function uploadFileToS3(
   uploadUrl: string,
   fileData: Blob | string,
-  mimeType: string
+  mimeType: string,
+  requiredHeaders?: Record<string, string>
 ): Promise<void> {
+  const headers = withMockUploadAuth(buildUploadHeaders(mimeType, requiredHeaders), uploadUrl, getAuthToken());
   const currentBase = getBaseUrl();
   const targetUrl = uploadUrl.startsWith('http') ? uploadUrl : `${currentBase}${uploadUrl}`;
 
@@ -40,7 +44,7 @@ export async function uploadFileToS3(
     try {
       const uploadRes = await FileSystem.uploadAsync(targetUrl, fileData, {
         httpMethod: 'PUT',
-        headers: { 'Content-Type': mimeType },
+        headers,
         uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
       });
 
@@ -48,26 +52,23 @@ export async function uploadFileToS3(
         return;
       }
       throw new Error(`Upload failed with server status ${uploadRes.status}`);
-    } catch (fsErr: any) {
-      console.warn('[uploadFileToS3] Native upload failed:', fsErr);
-      throw new Error(fsErr.message || 'Failed to upload document from device storage.');
+    } catch {
+      throw new Error('The upload could not finish. Please try uploading the document again.');
     }
   }
 
-  // Fallback for Web (where fileData is a Blob or File object)
-  let body: any = fileData;
-  if (typeof fileData === 'string') {
-    const resp = await fetch(fileData);
-    body = await resp.blob();
-  }
-
-  const resp = await fetch(targetUrl, {
-    method: 'PUT',
-    headers: { 'Content-Type': mimeType },
-    body,
-  });
-  if (!resp.ok) {
-    throw new Error(`Failed to upload document to storage: ${resp.statusText}`);
+  // Web uploads use the same immutable constraints as native streaming uploads.
+  try {
+    let body: Blob | string = fileData;
+    if (typeof fileData === 'string') {
+      const response = await fetch(fileData);
+      if (!response.ok) throw new Error('File unavailable');
+      body = await response.blob();
+    }
+    const response = await fetch(targetUrl, { method: 'PUT', headers, body });
+    if (!response.ok) throw new Error('Upload rejected');
+  } catch {
+    throw new Error('The upload could not finish. Please try uploading the document again.');
   }
 }
 

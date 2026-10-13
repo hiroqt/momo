@@ -114,9 +114,12 @@ async def test_delete_document_and_study_set():
     headers = {"Authorization": f"Bearer test-token-{user_id}"}
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         # 1. Register a document
-        doc_id = str(uuid4())
-        key = storage_service.build_object_key(user_id, doc_id, "txt")
         content = b"The heart pumps blood through the circulatory system."
+        issued = await ac.post("/api/documents/upload-url", headers=headers, json={
+            "filename": "to_delete.txt", "file_type": "txt", "mime_type": "text/plain", "file_size": len(content)})
+        assert issued.status_code == 200
+        doc_id = issued.json()["document_id"]
+        key = issued.json()["s3_object_key"]
         storage_service.save_mock_object(key, content)
         create_req = {
             "document_id": doc_id,

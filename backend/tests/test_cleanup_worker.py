@@ -1,12 +1,19 @@
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
-from uuid import uuid4
 
 import pytest
 
 from app.config import settings
 from app.db.session import supabase_session
 from app.workers.cleanup_worker import cleanup_expired_originals
+
+
+@pytest.fixture(autouse=True)
+def isolated_ticket_cleanup(monkeypatch):
+    from app.workers.cleanup_worker import storage_service, upload_ticket_repo
+    monkeypatch.setattr(upload_ticket_repo, "claim_cleanup", AsyncMock(return_value=[]))
+    monkeypatch.setattr(upload_ticket_repo, "get", AsyncMock(return_value={
+        "legacy": True, "provider": storage_service.provider, "bucket": storage_service.bucket}))
 
 
 class Query:
@@ -21,20 +28,14 @@ class Query:
         return call
 
 
-async def test_cleanup_marks_expired_only_after_storage_deletion(monkeypatch):
-    from app.workers.cleanup_worker import storage_service
-    user, doc = str(uuid4()), str(uuid4())
-    record = {"id": doc, "user_id": user, "file_type": "txt",
-              "s3_object_key": f"documents/{user}/{doc}/original.txt"}
-    updates = []
+async def test_cleanup_runs_fenced_outbox_only(monkeypatch):
+    from app.workers import cleanup_worker
     monkeypatch.setattr(settings, "DATABASE_BACKEND", "supabase")
-    monkeypatch.setattr(supabase_session, "client", Query(updates))
-    execute = AsyncMock(side_effect=[SimpleNamespace(data=[record]), SimpleNamespace(data=[])])
-    monkeypatch.setattr(supabase_session, "execute", execute)
-    monkeypatch.setattr(storage_service, "delete_object", lambda key: True)
-    assert await cleanup_expired_originals() == 1
-    assert updates[0]["processing_status"] == "EXPIRED"
-    assert execute.await_count == 2
+    monkeypatch.setattr(supabase_session, "client", Query([]))
+    cleanup = AsyncMock(return_value=2)
+    monkeypatch.setattr(cleanup_worker, "cleanup_upload_tickets", cleanup)
+    assert await cleanup_expired_originals(20) == 2
+    cleanup.assert_awaited_once_with(20)
 
 
 async def test_retention_backlog_alerts_when_oldest_overdue_exceeds_threshold(monkeypatch, caplog):
@@ -44,7 +45,8 @@ async def test_retention_backlog_alerts_when_oldest_overdue_exceeds_threshold(mo
     monkeypatch.setattr(settings, "CLEANUP_OVERDUE_ALERT_SECONDS", 60)
     monkeypatch.setattr(supabase_session, "execute", AsyncMock(
         return_value=SimpleNamespace(data={"overdue_count": 4, "oldest_overdue_seconds": 7200})))
-    assert await report_retention_backlog() == {"overdue_count": 4, "oldest_overdue_seconds": 7200}
+    assert await report_retention_backlog() == {"overdue_count": 4, "oldest_overdue_seconds": 7200,
+                                               "unresolved_legacy_count": 0, "pending_probe_count": 0}
     assert "RETENTION_OVERDUE" in caplog.text
 
 
@@ -78,18 +80,3 @@ async def test_cleanup_rejects_unbounded_batches():
     for size in (0, 101):
         with pytest.raises(ValueError):
             await cleanup_expired_originals(size)
-
-
-async def test_cleanup_failure_keeps_record_retryable(monkeypatch):
-    from app.workers.cleanup_worker import storage_service
-    user, doc = str(uuid4()), str(uuid4())
-    record = {"id": doc, "user_id": user, "file_type": "txt",
-              "s3_object_key": f"documents/{user}/{doc}/original.txt"}
-    updates = []
-    monkeypatch.setattr(settings, "DATABASE_BACKEND", "supabase")
-    monkeypatch.setattr(supabase_session, "client", Query(updates))
-    monkeypatch.setattr(supabase_session, "execute", AsyncMock(return_value=SimpleNamespace(data=[record])))
-    monkeypatch.setattr(storage_service, "delete_object", lambda key: False)
-    with pytest.raises(RuntimeError):
-        await cleanup_expired_originals()
-    assert updates == []

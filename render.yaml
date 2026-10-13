@@ -1,0 +1,93 @@
+services:
+  - type: web
+    name: momo-api-staging
+    runtime: docker
+    region: singapore
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    healthCheckPath: /ready
+    autoDeployTrigger: "off"
+    maxShutdownDelaySeconds: 60
+    envVars:
+      - key: APP_ENV
+        value: staging
+      - key: LOCAL_ONLY
+        value: "false"
+      - key: DATABASE_BACKEND
+        value: supabase
+      - key: SUPABASE_URL
+        value: https://zkouryrzhsgaeqyiwwyb.supabase.co
+      - key: SUPABASE_PROJECT_REF
+        value: zkouryrzhsgaeqyiwwyb
+      - key: SUPABASE_ANON_KEY
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: SUPABASE_JWT_SECRET
+        value: ""
+      - key: ENABLE_DEV_AUTH
+        value: "false"
+      - key: INLINE_JOB_EXECUTION
+        value: "false"
+      - key: STORAGE_PROVIDER
+        value: supabase
+      - key: SUPABASE_STORAGE_BUCKET
+        value: documents
+      - key: EMBEDDING_PROVIDER
+        value: openrouter
+      - key: OPENROUTER_API_KEY
+        sync: false
+      - key: CORS_ORIGINS
+        sync: false
+  - type: worker
+    name: momo-worker-staging
+    runtime: docker
+    region: singapore
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    dockerCommand: python -m app.workers.runner
+    autoDeployTrigger: "off"
+    maxShutdownDelaySeconds: 60
+    envVars:
+      - key: APP_ENV
+        value: staging
+      - key: LOCAL_ONLY
+        value: "false"
+      - key: DATABASE_BACKEND
+        value: supabase
+      - key: SUPABASE_URL
+        value: https://zkouryrzhsgaeqyiwwyb.supabase.co
+      - key: SUPABASE_PROJECT_REF
+        value: zkouryrzhsgaeqyiwwyb
+      - key: SUPABASE_ANON_KEY
+        fromService:
+          type: web
+          name: momo-api-staging
+          envVarKey: SUPABASE_ANON_KEY
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        fromService:
+          type: web
+          name: momo-api-staging
+          envVarKey: SUPABASE_SERVICE_ROLE_KEY
+      - key: SUPABASE_JWT_SECRET
+        value: ""
+      - key: ENABLE_DEV_AUTH
+        value: "false"
+      - key: INLINE_JOB_EXECUTION
+        value: "false"
+      - key: STORAGE_PROVIDER
+        value: supabase
+      - key: SUPABASE_STORAGE_BUCKET
+        value: documents
+      - key: EMBEDDING_PROVIDER
+        value: openrouter
+      - key: OPENROUTER_API_KEY
+        fromService:
+          type: web
+          name: momo-api-staging
+          envVarKey: OPENROUTER_API_KEY
+      - key: CORS_ORIGINS
+        fromService:
+          type: web
+          name: momo-api-staging
+          envVarKey: CORS_ORIGINS

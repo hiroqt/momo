@@ -98,3 +98,137 @@ storage or embedding services; provider HTTP traffic fails immediately. Initial
 dependency/container downloads can use the internet but do not use Supabase
 egress. The tester-army/e2e framework was considered; pytest, HTTPX ASGI and real
 local PostgreSQL are a better fit for these backend authorization/query checks.
+
+October 8 continuation suites (same disposable local database and `REQUIRE_PG_INTEGRATION=1`):
+`test_generation_request_idempotency.py`, `test_bounded_orphan_recovery.py` and
+`test_folder_request_replay.py` cover owner-key replay, terminal/expiry handling,
+recovery lifetime budgets, SQL lock-order concurrency and deletion tombstones.
+The fixture applies every ordered migration from `backend/migrations/`, not just
+001–006. Client keys must be retained across retries; tests of server replay alone
+do not establish native request persistence or hosted PostgREST readiness.
+
+### Local mobile generation replay against real JWT/HTTP
+
+Start the loopback-only fixture from repository root (use a fresh private config
+path; exclusive creation refuses existing files):
+
+```sh
+uv run --locked --project backend python scripts/testing/generation_replay_server.py --config /tmp/momo-generation-replay-local.json --port 58041
+```
+
+Then in another terminal from `mobile/`:
+
+```sh
+./node_modules/.bin/tsx ../scripts/testing/mobile_generation_replay.ts /tmp/momo-generation-replay-local.json
+```
+
+Stop the fixture with Ctrl-C afterward; its lifespan removes the private synthetic
+JWT configuration. The TypeScript runner cleans its file-SQLite fixture. Do not
+print configuration contents or reuse hosted tokens. The fixture verifies actual
+JWT authentication, disables workers/dev auth, uses backend memory and rejects
+external sockets; the mobile runner permits only its exact loopback origin.
+Expected: PASS,8 invariant groups,4 POSTs. Covers lost successful response +SQLite
+reopen/same job, received receipt/no POST, owned GET/ack/fresh intent, second-owner
+denial. This is not native Expo navigation, PostgreSQL worker recovery, generated
+content or hosted readiness evidence.
+
+### Actual Python worker crash boundaries and unforced query plans
+
+`test_worker_process_recovery.py` starts the actual `JobRunner`, `JobQueue`,
+`handle_study_generation` and `GenerationRepository` in child Python processes.
+A test-only psql adapter replaces PostgREST transport; a deterministic processor
+replaces external model generation. The parent SIGKILLs after claim or atomic
+publication, advances only the disposable DB lease, then starts a fresh process.
+It verifies attempts2, one set/item, successful queue completion, a completed-job
+processor skip, foreign-owner denial and retention after source deletion. Python
+sockets are denied before imports; subprocess SQL accepts only a loopback
+`momo_security_test` database. Child processes are cleaned on failure.
+
+`test_database_query_plans.py` seeds20 tenants with4,000 sets,20,000 items and
+20,000 chunks, runs ANALYZE, then EXPLAIN ANALYZE/BUFFERS for exact owner-filtered
+repository library/item/chunk query shapes. It does not force planner settings or
+assert machine-specific timing. The library limit is50; indexes must bound subset
+access. This covers sampled SQL access patterns, not semantic vector quality,
+PostgREST latency, production cardinality or capacity.
+
+Run with the dedicated local database described above, from `backend/`:
+
+```sh
+LOCAL_TEST_DATABASE_URL=postgresql://postgres:local-test-only@127.0.0.1:55432/momo_security_test REQUIRE_PG_INTEGRATION=1 uv run --locked pytest tests/test_worker_process_recovery.py tests/test_database_query_plans.py -q -s
+```
+
+Tests pin local providers and override stale `.env` environment values before
+application imports. Environment-selection tests still verify explicit conflicting
+values fail closed. Full suite/static commands above remain required.
+
+The same worker-process module also covers actual TXT ingestion. A task-owned file
+replaces private object transport; real byte validation, SHA256/extraction/chunking,
+local embeddings and atomic index publication run through actual repositories.
+Four cases kill before/after publication, then restart with source present/deleted.
+Assertions cover replacement, unique positions, READY reuse/no reread and owner
+isolation. This does not test hosted storage, OCR or semantic provider embeddings.
+
+### Real Supabase SDK and local PostgREST gateway
+
+The gateway overlay uses version/digest-pinned PostgREST12.2.3 and nginx1.27.5.
+PostgREST stays on an internal Docker network; a separate entry network publishes
+only loopback database/router ports (Docker Desktop does not publish ports on an
+internal-only network). Router exposes only `/rest/v1/`; no Auth/Storage service
+is provided. Configuration follows [PostgREST12 configuration](https://docs.postgrest.org/en/v12/references/configuration.html).
+All JWTs/passwords in this stack are synthetic test values.
+
+From root:
+
+```sh
+MOMO_TEST_PG_PORT=55439 MOMO_TEST_GATEWAY_PORT=56439 docker compose -p momo-gateway-local -f scripts/testing/compose.yml -f scripts/testing/compose.gateway.yml up -d --wait
+```
+
+From backend/:
+
+```sh
+LOCAL_TEST_DATABASE_URL=postgresql://postgres:local-test-only@127.0.0.1:55439/momo_security_test LOCAL_TEST_GATEWAY_URL=http://127.0.0.1:56439 REQUIRE_PG_INTEGRATION=1 REQUIRE_GATEWAY_INTEGRATION=1 uv run --locked pytest tests -q --junitxml=/tmp/momo-local-gateway.xml
+uv run --locked python ../scripts/testing/assert_no_skips.py /tmp/momo-local-gateway.xml
+```
+
+Finally from root:
+
+```sh
+MOMO_TEST_PG_PORT=55439 MOMO_TEST_GATEWAY_PORT=56439 docker compose -p momo-gateway-local -f scripts/testing/compose.yml -f scripts/testing/compose.gateway.yml down
+```
+
+Process tests run both psql and real SDK/gateway modes. Gateway mode keeps the actual
+SupabaseSession/client/pooled bounded transport; child socket access allows only the
+selected exact loopback port. Signed-user RLS reads, foreign-user denial, anonymous
+denial, authenticated write/service-RPC denial and bad-signature rejection run
+through actual HTTP/JWT role selection. The auth.uid fixture accepts both explicit
+per-claim test settings and PostgREST's JSON claims setting. Schema fixtures notify
+the gateway to refresh after migrations. CI requires this stack/integration flag
+and retains the no-skips gate; clean hosted CI still requires a requested push.
+
+Without `LOCAL_TEST_GATEWAY_URL`, optional gateway tests skip unless
+`REQUIRE_GATEWAY_INTEGRATION=1`, which fails. A PG-only run therefore does not verify
+all transport paths or qualify a no-skips release run. This remains local synthetic
+proof; hosted Supabase Auth/Storage, managed gateway versions/settings and AI providers
+are outside the fixture.
+
+Image regression after SDK changes (from root):
+
+```sh
+docker run --rm -i --network none --read-only --tmpfs /tmp --cap-drop ALL --security-opt no-new-privileges -e APP_ENV=local -e DATABASE_BACKEND=memory momo-backend:oct08-gateway python - < scripts/testing/container_sdk_smoke.py
+```
+
+This constructs the actual synchronous SDK and verifies denied I/O fails closed;
+it does not connect to a database. The gateway process tests provide actual HTTP
+proof separately. Repeat the scanned-PDF smoke for the final image as above.
+
+### Local database recovery regression
+
+`test_database_restore.py` uses pg_dump/pg_restore/psql (PostgreSQL client tools)
+against only the disposable source fixture. It exclusively creates a random target,
+restores a private synthetic archive, checks generated data/security/expiry and
+cleans its target/archive on failure. Run within the full PG/gateway suite above or
+use `uv run --locked pytest tests/test_database_restore.py -q` with the loopback
+`LOCAL_TEST_DATABASE_URL`. Source schema is reset by the dedicated fixture.
+Global roles/extensions share the disposable cluster; managed backups, new-cluster
+recovery and app rollback are outside the proof. See
+[recovery runbook](../../docs/DATABASE_RECOVERY_RUNBOOK.md).

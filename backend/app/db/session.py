@@ -3,7 +3,7 @@ import asyncio
 from typing import Any
 
 from supabase import Client, create_client
-from supabase.lib.client_options import ClientOptions
+from supabase.lib.client_options import SyncClientOptions
 
 from app.config import is_placeholder, settings
 
@@ -34,7 +34,7 @@ class SupabaseSession:
             if is_placeholder(settings.SUPABASE_SERVICE_ROLE_KEY):
                 raise RuntimeError("Supabase server configuration is required")
             self.client = create_client(settings.SUPABASE_URL, settings.SUPABASE_SERVICE_ROLE_KEY,
-                options=ClientOptions(auto_refresh_token=False, persist_session=False,
+                options=SyncClientOptions(auto_refresh_token=False, persist_session=False,
                     postgrest_client_timeout=settings.DATABASE_QUERY_TIMEOUT_SECONDS,
                     storage_client_timeout=settings.DATABASE_QUERY_TIMEOUT_SECONDS))
         return True

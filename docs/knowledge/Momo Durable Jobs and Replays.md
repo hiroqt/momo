@@ -55,7 +55,7 @@ providers and native/deployed operation remain separate gates. Reproduce via
 
 ## October 14 backend completion
 
-The ordered schema through migrations 001–013 is applied to `momo-staging`.
+The ordered schema through migrations 001–015 is applied to `momo-staging`.
 The full backend/API/database/gateway suite passes 819 tests with zero skips;
 the local Render image and mobile checks are recorded in the
 [[docs/backend-readiness-2026-10-14|October 14 report]]. Hosted API/worker

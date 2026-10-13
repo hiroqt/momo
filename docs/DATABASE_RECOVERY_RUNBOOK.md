@@ -27,7 +27,7 @@ Before managed backup use, select archive access/encryption/retention policy and
 
 ## Schema/application rollback boundary
 
-Migrations001–013 are forward migrations. No general down-migration or arbitrary schema rewind is qualified. Do not roll an application/worker back to an older image while assuming compatibility with the newer RPC/data contract. The older recovery image also predates the SDK client-options startup fix.
+Migrations 001–015 are forward migrations. No general down-migration or arbitrary schema rewind is qualified. Do not roll an application/worker back to an older image while assuming compatibility with the newer RPC/data contract. The older recovery image also predates the SDK client-options startup fix.
 
 The current-schema local restore proves that the existing finalization RPC remains callable and idempotent with restored generated data. A release must separately review backward read/write/RPC compatibility for its selected old/new app and worker revisions. Prefer an explicitly reviewed forward repair or an approved isolated restore/cutover plan when a change cannot be reversed without data loss. Do not delete/reassign inconsistent tenant records to make rollback work.
 

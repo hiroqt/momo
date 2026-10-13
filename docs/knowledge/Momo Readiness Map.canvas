@@ -211,7 +211,7 @@
       "fromSide": "bottom",
       "toNode": "2",
       "toSide": "right",
-      "label": "Staging 001–013; local-only 014–015"
+      "label": "Staging 001–015; managed Auth verification open"
     },
     {
       "id": "completion-deploy",

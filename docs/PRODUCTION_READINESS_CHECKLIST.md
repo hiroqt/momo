@@ -5,7 +5,7 @@ Last audited: **October 14, 2026 (Asia/Manila)**. This pass started from
 [October 14 evidence report](backend-readiness-2026-10-14.md). Historical October
 6 and October 8 results below are preserved with their original scope and dates.
 Overall status: **NOT PRODUCTION READY**. The staging database has migrations
-001–013 and metadata/security checks; the API, worker and real-account journey
+001–015 and metadata/security checks; the API, worker and real-account journey
 have not been deployed or verified.
 
 This is the canonical task and progress tracker. Requirements remain governed by
@@ -56,9 +56,9 @@ October 14 work includes user-authorized staging schema changes and local backen
 | --- | --- | --- | --- | --- | --- |
 | DOC-02 real OCR multi-page smoke | October 14 root + extraction/OCR audit | main | DONE_LOCAL | 2026-10-14 | Actual Tesseract/Poppler processed two raster-only synthetic pages in the non-root, network-isolated image; ordered page numbers, OCR flags and distinct recognized text passed. Representative scanned-document corpus and real-world OCR accuracy remain open. |
 | CHAT-01 expired source guard | October 14 root + API-01 read-only audit | main | DONE_LOCAL | 2026-10-14 | `generate_study_card` now uses the existing READY-and-unexpired predicate. Focused tests prove expired READY sources skip retrieval/embedding and model generation. Other CHAT-01 provenance and native import gates remain open. |
-| AUTH-02 account deletion | October 14 root + auth lifecycle audit + independent review | main | DONE_LOCAL | 2026-10-14 | `DELETE /api/me` deletes only the verified subject, treats Auth Admin `user_not_found` as a safe retry after a lost response, and the mobile clears that account's SQLite partition. Migration 015 assigns confirmed pre-ticket uploads to Supabase `documents`; local PostgreSQL verifies deletion retires and claims cleanup, with a partial index for retired legacy tickets. Full hosted object purge and untracked-object inventory remain release blockers; 015 is local only. |
-| AUTH-02 profile provisioning | October 14 root + auth lifecycle audit + independent review | main | DONE_LOCAL | 2026-10-14 | Migration 014 installs a Google-only Auth profile trigger and safely backfills existing Google users. Local PostgreSQL verifies backfill, updates, provider exclusion, email collision and cascade. Migration 014 is not applied to staging; managed trigger behavior and cross-account device proof remain. |
-| ENV-02 / AUTH-01 / AUTH-02 / OPS-01 | October 14 root + backend/database/review agents | main | PARTIAL | 2026-10-14 | Staging migrations 001–013, forced-RLS/grant/bucket checks and local backend/mobile/container suites pass. Render Blueprint is prepared, not deployed. Next: enter approved HTTPS CORS origin/secrets in Render; run bounded two-user Google/API/upload/worker smoke; finish profile/account lifecycle, operations and release gates. |
+| AUTH-02 account deletion | October 14 root + auth lifecycle audit + independent review | main | DONE_LOCAL | 2026-10-14 | `DELETE /api/me` deletes only the verified subject, treats Auth Admin `user_not_found` as a safe retry after a lost response, and the mobile clears that account's SQLite partition. Migration 015 assigns confirmed pre-ticket uploads to Supabase `documents`; staging application and local PostgreSQL cleanup-claim checks pass. Full hosted object purge and untracked-object inventory remain release blockers. |
+| AUTH-02 profile provisioning | October 14 root + auth lifecycle audit + independent review | main | DONE_LOCAL | 2026-10-14 | Migration 014 installs a Google-only Auth profile trigger and safely backfills existing Google users; staging ledger/catalog verification passes. Local PostgreSQL verifies backfill, updates, provider exclusion, email collision and cascade. Managed GoTrue behavior and cross-account device proof remain. |
+| ENV-02 / AUTH-01 / AUTH-02 / OPS-01 | October 14 root + backend/database/review agents | main | PARTIAL | 2026-10-14 | Staging migrations 001–015 and forced-RLS/grant/bucket checks pass; local backend/mobile/container suites pass. Render Blueprint is prepared, not deployed. Next: enter approved HTTPS CORS origin/secrets in Render; run bounded two-user Google/API/upload/worker smoke; finish profile/account lifecycle, operations and release gates. |
 | RET-01 metadata/immutable-upload contract | October8 root + storage builder; independent reviewer | main | PARTIAL (prerequisites verified locally) | 2026-10-08 | Provider metadata/absence contract, first-write constraints and client upload headers;767 backend/181 mobile passed. Tickets/clock/orphan cleanup remain open. |
 | RET-01 transactional lifecycle | October8 root + backend specialist + fixture specialist; independent reviewer | main | DONE_LOCAL lifecycle; RET-01 release PARTIAL | 2026-10-08 | Migration012/tickets, provider upload clock, registration/cleanup fences and deletion outbox.802 backend/181 mobile passed; provider deletion, legacy inventory and hosted timing/capacity remain gates. |
 | RET-01 orphan lifecycle design | October8 root + backend specialist | main | PARTIAL (verified design gaps; implementation open) | 2026-10-08 | No durable signing record; registration resets72h clock. Provider timestamp/overwrite and race/rollout prerequisites documented. |
@@ -211,7 +211,7 @@ for selected boundaries; managed storage/provider/native/deployed gates remain o
 
 **Hosted application setup remains ENV-01/ENV-02/AUTH-01/OPS-01.** The user
 authorized database work only on `momo-staging` and selected Render for host
-preparation. Migrations 001–013 and database metadata/security checks now pass
+preparation. Migrations 001–015 and database metadata/security checks now pass
 there; no API, worker, Google-account, Storage-byte or provider smoke was run.
 `momo-prod` was not queried or changed. The Render Blueprint is prepared but not
 deployed; CORS origins and host-managed secrets still need to be entered. The
@@ -282,7 +282,7 @@ is listed under Acceptance. Add dates, commits and reports after actual completi
 - Acceptance: audit any existing records, apply ordered migrations to the chosen environment, check advisors, verify two real users and anon cannot access/mutate foreign data, and verify service-only RPCs through managed PostgREST. Confirm metadata-only queries and migration rollback strategy.
 - Evidence: migration IDs, sanitized advisor findings/remediations, bounded synthetic smoke report and cleanup. No hosted stress/load tests or original-document downloads for general diagnostics.
 - Evidence 2026-10-06 (local only): ordered bundle 001-006 with hashes, advisors, metadata-only verification and a two-user synthetic smoke + cleanup prepared in the [staging rollout plan](../.agents/tasks/momo-readiness-2026-10-06/staging-rollout-plan.md).
-- Evidence 2026-10-14 (staging schema only): user-authorized migrations 005–013 applied to `momo-staging`; ledger now records 001–013. All 20 public/internal app tables have forced RLS; anon has no app-table SELECT; authenticated direct writes and client grants on internal tables are absent. The `documents` bucket is private with a 15 MiB limit and the four expected MIME types. Three auth-cleanup indexes exist. Security advisor reports five INFO no-policy notices on internal tables (intentional deny-by-default); performance advisor reports 14 composite-FK notices with an existing leading-column index on each and 43 unused-index notices on a fresh empty staging workload. Core app tables and new request/ticket queues contained zero rows. Migration 008's DDL was catalog-verified after a migration-ledger timestamp collision and then recorded via a no-op ledger reconciliation. No managed PostgREST two-user smoke, OAuth login, API/worker deployment or storage-byte inventory was performed; `momo-prod` untouched. See [October 14 evidence](backend-readiness-2026-10-14.md) and the private [staging rollout record](../.agents/tasks/momo-readiness-2026-10-06/staging-rollout-plan.md).
+- Evidence 2026-10-14 (staging schema only): user-authorized migrations 005–015 applied to `momo-staging`; ledger now records 001–015. All 20 public/internal app tables have forced RLS; anon has no app-table SELECT; authenticated direct writes and client grants on internal tables are absent. The `documents` bucket is private with a 15 MiB limit and the four expected MIME types. The Google profile trigger and legacy cleanup index are catalog-verified; no legacy rows needed mapping. Security advisor reports five INFO no-policy notices on internal tables (intentional deny-by-default); performance advisor reports 14 composite-FK notices and 44 unused-index notices on a fresh empty staging workload. Core app tables and new request/ticket queues contained zero rows. Migration 008's DDL was catalog-verified after a migration-ledger timestamp collision and then recorded via a no-op ledger reconciliation. No managed PostgREST two-user smoke, OAuth login, API/worker deployment or storage-byte inventory was performed; `momo-prod` untouched. See [October 14 evidence](backend-readiness-2026-10-14.md) and the private [staging rollout record](../.agents/tasks/momo-readiness-2026-10-06/staging-rollout-plan.md).
 
 ### AUTH-01: Implement Real Supabase Google Sessions On Mobile
 
@@ -739,8 +739,10 @@ pinned `momo-staging` project, reports its Google OAuth provider configured, and
 selected Render. No production operation was performed.
 
 Staging was `ACTIVE_HEALTHY` on Supabase PostgreSQL 17, Singapore. Migrations
-005–013 were applied after confirming the existing 001–004 ledger. The ordered
-ledger now contains 001–013. Migration 008's DDL had completed before a generated
+005–015 were applied after confirming the existing 001–004 ledger. The ordered
+ledger now contains 001–015. Migrations 014/015 install the Google profile
+trigger and confirmed Supabase legacy-storage destination/index; catalog checks
+found both objects and zero legacy tickets to map. Migration 008's DDL had completed before a generated
 ledger timestamp collision; its objects were inspected, then the migration was
 recorded through a no-op reconciliation rather than replaying the DDL. Catalog
 checks report 20 public/internal app tables with forced RLS; no anonymous SELECT,
@@ -752,7 +754,7 @@ Migration 013 adds three owner/auth-reference B-tree indexes for Auth account
 deletion and ticket retirement. Unforced local `EXPLAIN ANALYZE` chose each index
 for its intended 1,000-row synthetic owner lookup. The staging advisor now reports
 14 composite-FK coverage notices; catalog review found a valid index whose leading
-column matches the first FK field for each. It also reports 43 unused-index
+column matches the first FK field for each. It also reports 44 unused-index
 notices on the fresh staging workload, which is insufficient evidence to remove
 them. Five security INFO notices identify internal tables with RLS and no
 policies; those tables are also inaccessible to anon/authenticated by grants.
@@ -796,7 +798,8 @@ collision handling, and Auth deletion cascade. The trigger fixture simulates
 `supabase_auth_admin`; managed GoTrue execution remains unverified. This does
 not finish AUTH-02: managed Auth behavior, physical object deletion,
 untracked-object inventory, and logout/account-switch device proof remain release
-gates. Migration 014 and local-only migration 015 remain unapplied to staging.
+gates. Migrations 014/015 are applied to staging, but managed Auth behavior and
+physical Storage deletion remain unverified.
 Verification 2026-10-14: 827 backend/API/PostgreSQL/PostgREST tests passed with
 zero skips/errors/failures, Ruff 138 files, mypy 75 source files, no-skip check,
 mobile type/lint and 182 tests, Canvas JSON validation, and `git diff --check`.

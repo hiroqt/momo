@@ -35,7 +35,26 @@ def _verify_token(token: str) -> dict:
     UUID(payload["sub"])
     if payload.get("role") != "authenticated":
         raise ValueError("User access token required")
+    _require_google_oauth(payload)
     return payload
+
+
+def _require_google_oauth(payload: dict) -> None:
+    # Only issuer-signed app metadata and AMR are authoritative; user_metadata is not.
+    metadata = payload.get("app_metadata")
+    amr = payload.get("amr")
+    if (payload.get("is_anonymous") is not False or not isinstance(metadata, dict)
+            or metadata.get("provider") != "google" or metadata.get("providers") != ["google"]
+            or not isinstance(amr, list) or not amr):
+        raise ValueError("Google OAuth required")
+    methods = []
+    for entry in amr:
+        if not isinstance(entry, dict) or not isinstance(entry.get("method"), str):
+            raise ValueError("Invalid authentication method")
+        methods.append(entry["method"])
+    if "oauth" not in methods or any(method not in {"oauth", "token_refresh", "totp"} for method in methods):
+        raise ValueError("Google OAuth required")
+
 
 async def get_current_user(authorization: str | None = Header(None)) -> AuthenticatedUser:
     local_auth = settings.ENABLE_DEV_AUTH and settings.DATABASE_BACKEND == "memory" and settings.ENVIRONMENT in {"development", "test"}

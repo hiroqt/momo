@@ -23,7 +23,9 @@ def secure_auth(monkeypatch):
 
 def token(**updates):
     payload = {"sub": str(uuid4()), "exp": int(time.time()) + 60, "iat": int(time.time()),
-               "aud": "authenticated", "iss": "https://example.supabase.co/auth/v1", "role": "authenticated"}
+               "aud": "authenticated", "iss": "https://example.supabase.co/auth/v1", "role": "authenticated", "is_anonymous": False,
+               "app_metadata": {"provider": "google", "providers": ["google"]},
+               "amr": [{"method": "oauth", "timestamp": int(time.time())}]}
     payload.update(updates)
     return jwt.encode(payload, settings.SUPABASE_JWT_SECRET, algorithm="HS256")
 

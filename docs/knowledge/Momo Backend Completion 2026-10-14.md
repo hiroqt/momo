@@ -21,6 +21,8 @@ Parent: [[Momo Public Readiness]]. Map: [[Momo Readiness Map.canvas]]. Full evid
 
 **Chat source expiry (CHAT-01, local):** `generate_study_card` now shares the READY-and-unexpired source filter used by deck tools, so expired/malformed-expiry documents stop before retrieval/embedding. Three parameterized regression cases passed; this closes the recorded A2-2 local gap, not the remaining provenance, native or hosted chat gates.
 
+**Scanned PDF OCR (DOC-02, local):** the actual Tesseract/Poppler runtime processed two synthetic raster-only pages in the non-root, network-isolated backend image. Ordered page numbers, OCR flags and distinct text were verified. This is a runtime smoke, not a representative corpus or OCR accuracy claim.
+
 **Database (ENV-02):** staging migration ledger contains 001–013. All 20 `public` and `internal` application tables have forced RLS. Anonymous has no app-table reads, authenticated has no direct writes, and internal tables have no client grants. The private `documents` bucket has a 15 MiB cap and PDF/DOCX/TXT/PPTX allow-list. No app or queue rows were present. Migration 013 adds auth-deletion/retirement lookup indexes for chat messages, study items and upload tickets; local unforced plans selected them on synthetic data. Local-only migration 015 adds the legacy retired-cleanup index.
 
 **Jobs/storage (WORK-02, RET-01):** durable jobs, request replay, bounded recovery and upload tickets are applied in staging and tested locally. Supabase automatic object deletion is still fail-closed because path removal is not tied to an object generation. Legacy/unregistered object inventory and physical 72-hour deletion proof remain release blockers.

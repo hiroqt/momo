@@ -96,3 +96,12 @@ and `generate_weakness_review` (3 passed); it asserts no retrieval/embedding or
 model generation occurs. Ruff/mypy and `git diff --check` passed. This closes
 the recorded local A2-2 expiry gap only; CHAT-01 provenance/device evidence and
 all hosted behavior remain open.
+
+## DOC-02 multi-page OCR follow-up
+
+Extended `scripts/testing/container_ocr_smoke.py` to create a two-page raster-
+only synthetic PDF. The actual Tesseract and Poppler binaries processed it in
+the pinned non-root backend image under `--network none` and a read-only root
+filesystem. Both pages returned in order with `is_ocr=true` and their distinct
+expected text. This proves the runtime path for this synthetic sample, not
+general OCR accuracy or support for a representative scan corpus.

@@ -54,6 +54,7 @@ October 14 work includes user-authorized staging schema changes and local backen
 
 | Task ID | Owner/chat | Branch | Status | Last update | Blocker or next action |
 | --- | --- | --- | --- | --- | --- |
+| DOC-02 real OCR multi-page smoke | October 14 root + extraction/OCR audit | main | DONE_LOCAL | 2026-10-14 | Actual Tesseract/Poppler processed two raster-only synthetic pages in the non-root, network-isolated image; ordered page numbers, OCR flags and distinct recognized text passed. Representative scanned-document corpus and real-world OCR accuracy remain open. |
 | CHAT-01 expired source guard | October 14 root + API-01 read-only audit | main | DONE_LOCAL | 2026-10-14 | `generate_study_card` now uses the existing READY-and-unexpired predicate. Focused tests prove expired READY sources skip retrieval/embedding and model generation. Other CHAT-01 provenance and native import gates remain open. |
 | AUTH-02 account deletion | October 14 root + auth lifecycle audit + independent review | main | DONE_LOCAL | 2026-10-14 | `DELETE /api/me` deletes only the verified subject, treats Auth Admin `user_not_found` as a safe retry after a lost response, and the mobile clears that account's SQLite partition. Migration 015 assigns confirmed pre-ticket uploads to Supabase `documents`; local PostgreSQL verifies deletion retires and claims cleanup, with a partial index for retired legacy tickets. Full hosted object purge and untracked-object inventory remain release blockers; 015 is local only. |
 | AUTH-02 profile provisioning | October 14 root + auth lifecycle audit + independent review | main | DONE_LOCAL | 2026-10-14 | Migration 014 installs a Google-only Auth profile trigger and safely backfills existing Google users. Local PostgreSQL verifies backfill, updates, provider exclusion, email collision and cascade. Migration 014 is not applied to staging; managed trigger behavior and cross-account device proof remain. |
@@ -314,6 +315,7 @@ is listed under Acceptance. Add dates, commits and reports after actual completi
 - Acceptance: real scanned/low-text OCR preserves page/slide metadata; mock OCR is test-only. Reject corrupt/encrypted/oversized archives or binary parsing failures safely instead of decoding binary bytes as valid lecture text. Enforce 50 pages on scans as well as normal extraction; bound parsing resources.
 - Evidence: fixture corpus for all formats, scans, empty material, hostile archives and extraction failures. No invented OCR text can reach generation.
 - Evidence 2026-10-06 (local only): encrypted/corrupt/spoofed PDF and corrupt DOCX/PPTX fail with safe messages end to end (5 e2e cases); archive guard bounds members/expansion; mock OCR refused outside dev/test.
+- Evidence 2026-10-14 (local only): actual Tesseract/Poppler OCR ran on a two-page raster-only synthetic PDF inside the non-root backend image with networking disabled. Both ordered page numbers, `is_ocr` flags and distinct text assertions passed. This is a runtime smoke, not a representative OCR quality corpus.
 
 ### WORK-01: Durable Job Dispatch And Separate Workers
 

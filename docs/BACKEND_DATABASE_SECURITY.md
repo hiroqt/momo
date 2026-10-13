@@ -105,9 +105,10 @@ contract remains a possible future improvement for very large active libraries.
    ownership filters and key isolation remain necessary. Demo clients must use
    real Supabase Google sessions for a hosted rollout; dummy tokens are rejected.
 4. Schedule `python -m app.workers.cleanup_worker` at least every five minutes and
-   monitor overdue expirations. It removes at most 100 originals per invocation,
-   marking EXPIRED only after successful deletion. Adjust scheduling capacity to
-   volume; S3 lifecycle is an additional backstop. Generated material is retained.
+   monitor overdue expirations. Migration012 claims at most100 tickets per invocation,
+   fences sources before deletion and acknowledges physical removal afterward.
+   Generation-safe deletion, legacy inventory and capacity/timing must be qualified;
+   S3 lifecycle/version policy is an additional backstop. Generated material is retained.
 5. Existing document/generation jobs and rate limiting are process-local. Durable
    job dispatch, recovery, shared rate-limit state and multi-replica deployment
    tests remain operational requirements. These were not replaced in this change.
@@ -135,3 +136,13 @@ The later source audit and canonical remaining work are recorded in
 October 6, 2026. It distinguishes the verified generation-job/security boundaries
 above from unresolved chat/grounding, client identity, offline persistence and
 release requirements. The original validation counts remain historical evidence.
+
+## October 8 backend readiness
+
+Local atomic index publication, request bounds, asymmetric auth regression tests,
+database readiness and container/OCR preparation are recorded in the
+[October 8 report](backend-readiness-2026-10-08.md). Public release remains blocked.
+The [Obsidian knowledge map](knowledge/Momo%20Public%20Readiness.md) links
+authentication, database, security and deployment dependencies.
+
+October8 retention lifecycle: migration012 persists tickets before signing, atomically registers against actual provider upload time+72h and preserves cleanup outboxes after source/account deletion. Leases fence registration; automatic deletion targets the observed generation. S3 requires version-aware removal; hosted Supabase automatic expiry fails closed without a generation predicate. Unknown legacy origins require explicit inventory/backfill. These remain public-release gates. See [upload-retention design](UPLOAD_RETENTION_DESIGN.md) and the dated readiness report for current local verification and remaining provider/runtime gates.

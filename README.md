@@ -466,3 +466,12 @@ Developers and autonomous agents must preserve these six system invariants:
 4. Direct-to-Storage Uploads: Document bytes must never pass through the FastAPI HTTP cycle. Clients must upload directly via presigned PUT URLs.
 5. Offline-First Study: Study set review and quiz completion must operate with 0ms latency in offline mode via local Expo SQLite. Progress synchronization must be idempotent via unique `event_id` keys.
 6. Server-Side Secrets: Cloud credentials and API keys must remain strictly in backend environment variables and must never be distributed to client bundles.
+
+## Backend readiness
+
+The backend is **not yet ready for public launch**. Latest local/staging evidence,
+remaining release blockers and the migration record are in the
+[October 14 report](docs/backend-readiness-2026-10-14.md). The [Obsidian knowledge
+map](docs/knowledge/Momo%20Public%20Readiness.md) links authentication, database,
+security, retention and deployment dependencies. The earlier
+[October 8 report](docs/backend-readiness-2026-10-08.md) remains historical.

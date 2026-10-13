@@ -205,10 +205,26 @@ one-shot task is still available:
 uv run python -m app.workers.cleanup_worker
 ```
 
-It removes at most 100 expired original objects per invocation and marks metadata
-`EXPIRED` only after successful deletion. It never deletes generated sets or
+It claims at most100 upload tickets per invocation and fences registration by marking
+sources `EXPIRED` before physical deletion. The outbox is acknowledged only after
+successful generation-aware deletion. It never deletes generated sets or
 items. Configure S3 lifecycle rules as a backstop when using S3. Monitor cleanup
 failures and oldest overdue expiry; scheduling is required for physical deletion.
 
 See [the security and verification report](../docs/BACKEND_DATABASE_SECURITY.md)
 for agent report cards, test scope and production deployment limitations.
+
+## Backend release status
+
+The backend is not ready for public launch. Current local tests, staging
+migrations 001–013, Render preparation and remaining release gates are recorded
+in the [October 14 report](../docs/backend-readiness-2026-10-14.md). The
+[Obsidian knowledge map](../docs/knowledge/Momo%20Public%20Readiness.md) links
+authentication, database, security and deployment dependencies. See the
+[October 8 report](../docs/backend-readiness-2026-10-08.md) for earlier local
+evidence.
+
+Automatic retention requires generation-safe provider deletion: versioned S3 is
+prepared locally; hosted Supabase path-only removal fails closed. Unknown legacy
+origins need inventory/backfill before cleanup. See
+[the retention rollout contract](../docs/UPLOAD_RETENTION_DESIGN.md).

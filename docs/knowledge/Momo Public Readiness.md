@@ -1,0 +1,34 @@
+---
+tags: [momo, backend, release, knowledge-map]
+audited: 2026-10-14
+status: public-release-blocked
+---
+# Momo Public Readiness
+
+Momo is **not ready for public launch**. This October 14 pass started at `07fa026`; its backend work is recorded in the task commits and dated evidence report. It applies and inspects migrations 001–013 on the user-selected `momo-staging`, hardens Google-only backend JWT checks, and prepares a Render API/worker Blueprint. It does not deploy hosted application services or run a real-account journey. This repository is the configured Obsidian vault.
+
+Start with [[Momo Readiness Map.canvas|the visual dependency map]]. The authoritative task IDs and acceptance criteria remain in [[docs/PRODUCTION_READINESS_CHECKLIST|Production Readiness Checklist]]; requirements remain in [[ARD_PRD]]. These notes link the decisions and evidence without replacing either document.
+
+## What remains before students can use the public app
+
+| Sequence | Work | Task IDs | Required proof / input |
+| --- | --- | --- | --- |
+| 1 | Connect actual Google accounts | AUTH-01, AUTH-02 | OAuth client and redirects; native login, refresh, logout, account switch; populate real profiles; account deletion including originals |
+| 2 | Verify hosted database/storage contracts | ENV-02, DOC-01 | Migrations 001–013 and catalog security checks are complete in staging; still run two-user/anonymous denial through PostgREST and a real private signed-upload flow |
+| 3 | Complete ingestion and source lifecycle | WORK-02, RET-01 | Native intent/navigation and worker process recovery, generation-safe orphan cleanup, physical 72-hour deletion and retained study sets |
+| 4 | Verify actual AI output | AI-02, AI-03, AI-04, DOC-02, FORMAT-01 | Available Nemotron and embedding model/dimension agreement, calibrated grounding, real OCR, safe failure and all study formats |
+| 5 | Finish tutor and economics | CHAT-01, ECON-01, API-01, SYNC-01 | Trusted card import reference/expiry; two-device folder replay; approved earning/XP/refill/regeneration policy before charging activation |
+| 6 | Operate the backend | CI-01, OPS-01, OPS-02, SEC-02 | Clean CI run, selected hosting/HTTPS, worker/cleanup monitoring, capacity targets, privacy audit and isolated restore/rollback drill |
+| 7 | Qualify and publish | QA-01, QA-02, MATH-01, IMAGE-01, WEB-01, RELEASE-01 | Real-account release builds, offline/reconnect/two-device journeys, accessibility/device performance, required capabilities and distribution/privacy/support |
+
+No readiness percentage is meaningful here: account access, grounding, durability and operations are mandatory gates with different evidence. Existing local test counts cannot establish any hosted gate.
+
+## Focused next actions
+
+Latest status and release gates: [[Momo Backend Completion 2026-10-14]]. The staging schema now has 001–013, forced RLS/catalog checks, and a private documents bucket. Backend auth accepts only signed Google Supabase identities. Render API/worker configuration and local container probes are prepared, not deployed. The full backend suite passes 819 tests with zero skips; mobile has 181 passing tests. Real Google login, managed PostgREST/storage/API flows, generation-safe physical deletion, real provider generation, account lifecycle and release/device/operations checks remain open.
+
+The user authorized database changes on `momo-staging` and selected Render for preparation. No staging API or worker deployment occurred. Put credentials only in the host's secret store; never paste service keys into these notes. No production changes or load tests were performed.
+
+[[Momo Upload Retention]] maps the implemented transactional lifecycle and remaining provider/inventory/deployment gates.
+
+Latest integrated local verification: **819 backend tests passed, zero skipped**, Ruff 138 files and mypy 75 files passed; mobile lint and **181 tests** passed. The rebuilt non-root container passes SDK fail-closed, scanned-PDF OCR and Render-style port/readiness smokes. See [[docs/backend-readiness-2026-10-14|dated report]] for exact commands, staging migration versions and open public gates.

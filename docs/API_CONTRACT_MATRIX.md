@@ -119,3 +119,58 @@ price for heart refills, XP amounts per difficulty/format, how coins are earned,
 XP→credit/heart conversion rates, cosmetic prices, and how quiz reveals and
 flashcard results map to rewards. Until these are approved, regeneration is off
 and the refill/reward paths fail closed.
+
+## October 8 request replay contracts (local evidence)
+
+`POST /api/generations` accepts an optional `Idempotency-Key` (8–128 ASCII letters,
+digits, underscore, period, colon or hyphen). Persist one key with the original
+request before sending; reuse it after timeouts/lost responses. The server scopes
+keys to verified identity and fingerprints the validated original request. A replay
+returns the current job/status; changed settings under the same key return
+`409 IDEMPOTENCY_KEY_REUSED`. Fresh generation requires an owned READY, unexpired
+source. Completed job replay is still available after source expiry. Failed jobs
+restart only through the explicit retry endpoint. A durable retry-dispatch flag
+is consumed in the same transaction as queue reset, allowing recovery of an interrupted explicit retry; ordinary create replay cannot
+reset automatic recovery budgets. No key retains independent-create behavior.
+The mobile generation flow now persists its key, validated settings and received job
+in account-partitioned SQLite before sending/navigation. Restarts reuse unfinished
+intent; an owned status read acknowledges receipt. Transport pins owner/account epoch,
+bounds the whole request deadline and never guesses another port for mutations.
+Uncertain explicit retry responses reconcile through GET without another POST.
+Local file-SQLite/real-JWT HTTP evidence exists; native release journeys remain WORK-02/QA-01.
+
+`POST /api/folders` accepts optional `Idempotency-Key` (1–128 characters from the
+same ASCII alphabet). Same key/details return the existing folder including later
+renames/counts. Changed details return409; deletion retains a tombstone and replay
+returns `409 FOLDER_REQUEST_DELETED`. Keys are owner-scoped and client access to
+request tables is denied. Omitted colors resolve to the schema's `#4F46E5` default.
+No key retains existing duplicate-name compatibility. This does not activate
+pending folder economics; ECON-01 decisions still govern that activation.
+
+Apply migrations 008–011 before deploying this API revision. Both request mappings
+are internal forced-RLS tables and service-only RPCs. Local SQL/API concurrency and
+lost-response tests are supporting evidence; managed PostgREST and two-device proof
+remain open.
+
+## October8 immutable upload response extension
+
+`POST /api/documents/upload-url` additionally returns upload_headers. Clients must
+forward Content-Type and provider constraints (S3 If-None-Match:*); existing S3
+clients that omit newly signed required headers will fail closed and need the
+coordinated client release. Supabase signing explicitly disallows upsert.
+Mobile helpers permit only known constraint headers, never provider Authorization.
+Development relative mock API uploads use the authenticated API session instead.
+Failed PUT prevents registration; mock duplicates return409 UPLOAD_ALREADY_EXISTS.
+Local mock binary PUT cap is the configured15MiB; other API requests retain10MiB.
+Registration clock/ticket/orphan lifecycle changes are still pending RET-01.
+
+## October8 upload lifecycle contract
+
+Upload destinations are persisted as service-only tickets before signing. Registration
+requires the owned ticket and verified object observation; the database derives expiry
+from actual upload+72h and fences replay against expiry/cleanup leases. New unticketed,
+retired or mismatched-location registration fails closed with a safe conflict. The
+local mock PUT likewise requires an eligible issued ticket. DELETE retires the ticket
+before removing original bytes; incomplete physical deletion returns503 and retains
+retryable responsibility. Generated material is preserved. Unknown legacy origins
+require verification before deletion; see [retention rollout](UPLOAD_RETENTION_DESIGN.md).

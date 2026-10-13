@@ -1,0 +1,34 @@
+---
+tags: [momo, deployment, operations]
+---
+# Momo Deployment
+
+Parent: [[Momo Public Readiness]]. Dependencies: [[Momo Database]], [[Momo Authentication]], [[Momo Backend Security]].
+
+## Prepared runtime
+
+Build from repository root: `docker build -t momo-backend:2026-10-14 backend`. The Dockerfile installs the existing locked dependencies and runs as uid/gid10001. The build allowlist includes app source and dependency manifests only; `.env`, tests and local data are excluded. The API binds the platform `PORT`, disables URL-bearing access logs and stops through Uvicorn's SIGTERM handler. The same image supports `python -m app.workers.runner` for the separate database-backed worker.
+
+Render was selected for host preparation. `render.yaml` defines a Singapore staging API and separate worker with manual deploys, `/ready`, 60-second shutdown and host-injected secrets. CORS origins and secret values remain `sync:false` inputs. Public staging JWKS metadata advertises an ES256/EC key, matching the template's blank `SUPABASE_JWT_SECRET` and asymmetric verification path. No Render service was created or deployed; no instance size, public origin or spend was chosen. Use `.env.staging.example` or `.env.production.example` as configuration inventories, injecting real values through the host's secret store. Never copy hosted credentials into local test configuration.
+
+## Deployment sequence to review with the release owner
+
+1. Complete CI-01, ENV-02 and provider/OAuth decisions. Staging migrations 001–013 are applied; review backup/restore, data inventory and production migration behavior separately.
+2. Keep deployed worker/API versions aligned with migrations and drain old workers during a transition. No worker was deployed in this pass.
+3. Deploy API and separate workers from the same immutable release image. Set `INLINE_JOB_EXECUTION=false`, pin APP_ENV/project, and inject scoped secrets. Set ingress HTTPS, request limits/timeouts and controlled access logs.
+4. Probe `/health` for liveness and `/ready` for database connectivity. The probe uses a metadata-only table request with a three-second deadline; failure returns safe503. It does not verify all RPCs, workers, storage, OCR or providers.
+5. Monitor queue age/failures, lease recovery, cleanup backlog, AI latency/spend, quota/rate-limit/sync errors. Exercise drain/alerts and isolated restores before launch.
+6. Run an explicitly approved, bounded staging real-account synthetic journey. Record release builds and cleanup. No hosted load/stress tests and no production test traffic.
+
+Local container checks verify non-root SDK construction with denied database I/O failing closed, scanned-PDF OCR with network disabled, and `/health`/`/ready` through the platform `PORT`; both endpoints returned 200 with local memory configured, then the container stopped cleanly. This does not verify hosted SDK connectivity or a separate database-backed worker process. The image includes Tesseract and Poppler for the scanned-PDF OCR path. One synthetic page is supporting evidence; broad document/OCR quality and camera math remain DOC-02/MATH-01 gates.
+
+## Latest local artifact
+
+`momo-backend:2026-10-14` passes non-root/network-isolated SDK failure and
+scanned-PDF OCR smoke. Its `/health` and `/ready` endpoints were probed using a
+Render-style port binding and it stopped cleanly. The backend suite passed 819
+tests with zero skips, including local PostgreSQL/PostgREST gateway checks.
+The Render API and worker are not deployed. See
+[[docs/backend-readiness-2026-10-14|dated evidence]].
+
+Local synthetic restore now checks persistent material, tenant security and preserved expiry. Read [[Momo Database Recovery]] for evidence limits and remaining recovery decisions.

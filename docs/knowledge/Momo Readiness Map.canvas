@@ -1,0 +1,233 @@
+{
+  "nodes": [
+    {
+      "id": "0",
+      "type": "file",
+      "file": "docs/knowledge/Momo Public Readiness.md",
+      "x": 0,
+      "y": 0,
+      "width": 550,
+      "height": 350
+    },
+    {
+      "id": "1",
+      "type": "file",
+      "file": "docs/knowledge/Momo Authentication.md",
+      "x": -700,
+      "y": 500,
+      "width": 550,
+      "height": 350
+    },
+    {
+      "id": "2",
+      "type": "file",
+      "file": "docs/knowledge/Momo Database.md",
+      "x": 0,
+      "y": 500,
+      "width": 550,
+      "height": 350
+    },
+    {
+      "id": "3",
+      "type": "file",
+      "file": "docs/knowledge/Momo Backend Security.md",
+      "x": 700,
+      "y": 500,
+      "width": 550,
+      "height": 350
+    },
+    {
+      "id": "4",
+      "type": "file",
+      "file": "docs/knowledge/Momo Deployment.md",
+      "x": 0,
+      "y": 1000,
+      "width": 550,
+      "height": 350
+    },
+    {
+      "id": "5",
+      "type": "file",
+      "file": "docs/knowledge/Momo Durable Jobs and Replays.md",
+      "x": 700,
+      "y": 1000,
+      "width": 550,
+      "height": 350
+    },
+    {
+      "id": "6",
+      "type": "file",
+      "file": "docs/knowledge/Momo Database Recovery.md",
+      "x": -700,
+      "y": 1000,
+      "width": 600,
+      "height": 380
+    },
+    {
+      "id": "7",
+      "type": "file",
+      "file": "docs/knowledge/Momo Upload Retention.md",
+      "x": 700,
+      "y": 1500,
+      "width": 600,
+      "height": 380
+    },
+    {
+      "id": "8",
+      "type": "file",
+      "file": "docs/knowledge/Momo Backend Completion 2026-10-14.md",
+      "x": 1450,
+      "y": 0,
+      "width": 650,
+      "height": 460
+    }
+  ],
+  "edges": [
+    {
+      "id": "0",
+      "fromNode": "0",
+      "fromSide": "bottom",
+      "toNode": "1",
+      "toSide": "top",
+      "label": "Identity"
+    },
+    {
+      "id": "1",
+      "fromNode": "0",
+      "fromSide": "bottom",
+      "toNode": "2",
+      "toSide": "top",
+      "label": "Persistence"
+    },
+    {
+      "id": "2",
+      "fromNode": "0",
+      "fromSide": "bottom",
+      "toNode": "3",
+      "toSide": "top",
+      "label": "Boundaries"
+    },
+    {
+      "id": "3",
+      "fromNode": "2",
+      "fromSide": "bottom",
+      "toNode": "4",
+      "toSide": "top",
+      "label": "Migration before deploy"
+    },
+    {
+      "id": "4",
+      "fromNode": "1",
+      "fromSide": "bottom",
+      "toNode": "4",
+      "toSide": "top",
+      "label": "Real-account verification"
+    },
+    {
+      "id": "5",
+      "fromNode": "3",
+      "fromSide": "bottom",
+      "toNode": "4",
+      "toSide": "top",
+      "label": "Release controls"
+    },
+    {
+      "id": "6",
+      "fromNode": "2",
+      "fromSide": "right",
+      "toNode": "5",
+      "toSide": "top",
+      "label": "Transactions and recovery"
+    },
+    {
+      "id": "7",
+      "fromNode": "5",
+      "fromSide": "left",
+      "toNode": "4",
+      "toSide": "right",
+      "label": "Crash/restart evidence"
+    },
+    {
+      "id": "recovery-db",
+      "fromNode": "2",
+      "fromSide": "bottom",
+      "toNode": "6",
+      "toSide": "top"
+    },
+    {
+      "id": "recovery-deploy",
+      "fromNode": "4",
+      "fromSide": "bottom",
+      "toNode": "6",
+      "toSide": "top"
+    },
+    {
+      "id": "recovery-public",
+      "fromNode": "0",
+      "fromSide": "bottom",
+      "toNode": "6",
+      "toSide": "top"
+    },
+    {
+      "id": "upload-public",
+      "fromNode": "0",
+      "fromSide": "bottom",
+      "toNode": "7",
+      "toSide": "top"
+    },
+    {
+      "id": "upload-security",
+      "fromNode": "3",
+      "fromSide": "bottom",
+      "toNode": "7",
+      "toSide": "top"
+    },
+    {
+      "id": "upload-db",
+      "fromNode": "2",
+      "fromSide": "bottom",
+      "toNode": "7",
+      "toSide": "top"
+    },
+    {
+      "id": "completion-readiness",
+      "fromNode": "0",
+      "fromSide": "right",
+      "toNode": "8",
+      "toSide": "left",
+      "label": "Oct 14 verified status"
+    },
+    {
+      "id": "completion-auth",
+      "fromNode": "8",
+      "fromSide": "bottom",
+      "toNode": "1",
+      "toSide": "right",
+      "label": "Google-only JWT"
+    },
+    {
+      "id": "completion-db",
+      "fromNode": "8",
+      "fromSide": "bottom",
+      "toNode": "2",
+      "toSide": "right",
+      "label": "Migrations 001–013"
+    },
+    {
+      "id": "completion-deploy",
+      "fromNode": "8",
+      "fromSide": "bottom",
+      "toNode": "4",
+      "toSide": "right",
+      "label": "Render prepared"
+    },
+    {
+      "id": "completion-retention",
+      "fromNode": "8",
+      "fromSide": "bottom",
+      "toNode": "7",
+      "toSide": "right",
+      "label": "Physical deletion gate"
+    }
+  ]
+}

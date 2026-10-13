@@ -1,8 +1,12 @@
 # Momo Production Readiness Checklist
 
-Last audited: **October 6, 2026 (Asia/Manila)**. Code baseline: **896d534 on main** plus the
-uncommitted October 6 four-team integration (see [integration report](../.agents/tasks/momo-readiness-2026-10-06/integration-report.md)).
-Overall status: **NOT PRODUCTION READY**. No Momo hosted environment is verified.
+Last audited: **October 14, 2026 (Asia/Manila)**. This pass started from
+**07fa026 on main**; its backend changes are recorded in the task commits and
+[October 14 evidence report](backend-readiness-2026-10-14.md). Historical October
+6 and October 8 results below are preserved with their original scope and dates.
+Overall status: **NOT PRODUCTION READY**. The staging database has migrations
+001–013 and metadata/security checks; the API, worker and real-account journey
+have not been deployed or verified.
 
 This is the canonical task and progress tracker. Requirements remain governed by
 [ARD_PRD.md](../ARD_PRD.md), with boundaries in [ARCHITECTURE.md](../ARCHITECTURE.md)
@@ -46,10 +50,21 @@ Never mark a parent feature done merely because a child task passed.
 
 ### Active Work
 
-Confirmed first wave: PRD mismatches, AI safety and environment setup. Parallel implementation is active. Hosted projects use hiroqt/Singapore; only local staging rehearsals are authorized now. Production test traffic is prohibited. Google OAuth is unavailable.
+October 14 work includes user-authorized staging schema changes and local backend verification. Historical team rows below retain their dated ownership/evidence and do not imply those teams are running now. No production changes or hosted load tests are authorized. The user reports Google OAuth is configured in staging; a real-account login remains unverified.
 
 | Task ID | Owner/chat | Branch | Status | Last update | Blocker or next action |
 | --- | --- | --- | --- | --- | --- |
+| ENV-02 / AUTH-01 / AUTH-02 / OPS-01 | October 14 root + backend/database/review agents | main | PARTIAL | 2026-10-14 | Staging migrations 001–013, forced-RLS/grant/bucket checks and local backend/mobile/container suites pass. Render Blueprint is prepared, not deployed. Next: enter approved HTTPS CORS origin/secrets in Render; run bounded two-user Google/API/upload/worker smoke; finish profile/account lifecycle, operations and release gates. |
+| RET-01 metadata/immutable-upload contract | October8 root + storage builder; independent reviewer | main | PARTIAL (prerequisites verified locally) | 2026-10-08 | Provider metadata/absence contract, first-write constraints and client upload headers;767 backend/181 mobile passed. Tickets/clock/orphan cleanup remain open. |
+| RET-01 transactional lifecycle | October8 root + backend specialist + fixture specialist; independent reviewer | main | DONE_LOCAL lifecycle; RET-01 release PARTIAL | 2026-10-08 | Migration012/tickets, provider upload clock, registration/cleanup fences and deletion outbox.802 backend/181 mobile passed; provider deletion, legacy inventory and hosted timing/capacity remain gates. |
+| RET-01 orphan lifecycle design | October8 root + backend specialist | main | PARTIAL (verified design gaps; implementation open) | 2026-10-08 | No durable signing record; registration resets72h clock. Provider timestamp/overwrite and race/rollout prerequisites documented. |
+| OPS-02 local restore rehearsal | October 8 root; independent reviewer | main | PARTIAL (local synthetic restore verified) | 2026-10-08 | Restored persistent material/tenant security/expiry;730 backend tests. Managed recovery/RPO/RTO/app rollback unverified. |
+| WORK-02 local SDK/gateway recovery | October 8 root; independent reviewer | main | PARTIAL (actual local transport verified) | 2026-10-08 | Real SDK/PostgREST13 process/security cases;729 full backend tests. SDK startup bug fixed; hosted services/providers/native gates open. |
+| WORK-02 ingestion recovery | October 8 root; independent reviewer | main | PARTIAL (TXT crash boundaries verified locally) | 2026-10-08 | Four actual TXT pipeline kill/restart/source-deletion cases passed;722 backend tests. Local/managed PostgREST, semantic providers and hosted storage journeys open. |
+| WORK-02 process recovery | October 8 root; independent review | main | PARTIAL (generation crash boundaries verified locally) | 2026-10-08 | Actual Python runner SIGKILL/restart before/after publication; unforced query plans;718 backend tests. Ingestion/full provider/PostgREST/deployed journeys open. |
+| WORK-02 mobile generation intents | October 8 root + mobile builder; independent review | main | PARTIAL (client substeps verified locally) | 2026-10-08 | Durable intent/receipt, account-bound transport, serial polling/retry reconciliation; 178 mobile tests and real-JWT loopback replay passed. Native/process/hosted gates open. |
+| WORK-02 / API-01 continuation | October 8 root + backend/database specialists | main | PARTIAL (server substeps verified locally) | 2026-10-08 | Generation request replay, bounded orphan recovery and folder replay; no economy activation or hosted changes. |
+| WORK-02 / API-01 / AUTH-02 audit / OPS-01 prep | October 8 backend pass; root + backend/database specialists | main | PARTIAL (verified local substeps) | 2026-10-08 | Atomic index publication, READY-only retrieval, request bounds, auth regression coverage and OPS-01 deployment preparation. Hosted changes excluded by user. |
 | API-01 | Team B; integration | main | PARTIAL | 2026-10-06 | Contract matrix + tests done; `POST /api/folders` Idempotency-Key and chat/image bounds open. |
 | ECON-01 | Team B (server), Team C (client); integration | main | PARTIAL / BLOCKED_INPUT | 2026-10-06 | Server ledger + `/api/economy/*` registered; regen interval, refill price, XP table, coin/credit naming, reward path and folder-charge activation need product decisions. |
 | AI-01 / AI-02 / AI-04 / DOC-02 / CHAT-01 | Team A; integration | main | AI-01 DONE_LOCAL; others PARTIAL | 2026-10-06 | TypeSafe calibration, embedding model vs VECTOR(1536), math vision fallback policy (BLOCKED_INPUT). |
@@ -134,17 +149,17 @@ agent report cards and validation scope. Commits are visible on main.
 | --- | --- | --- | --- |
 | Supabase schema / sections 7, 8 security contract | DONE_LOCAL | Intended hosted project/migration/advisor checks | ENV-01, ENV-02 |
 | Backend auth / invariant 3, section 8.1 | DONE_LOCAL | Real Google-issued JWT flow, profile and session lifecycle | AUTH-01, AUTH-02 |
-| Upload/extraction / section 6.1 | PARTIAL | Managed upload protocol, real OCR, worker recovery | DOC-01, DOC-02, WORK-01 |
-| Retention / invariant 1 | PARTIAL | Scheduler, monitoring, orphan uploads and hosted deletion proof | RET-01 |
+| Upload/extraction / section 6.1 | PARTIAL; TXT crash recovery and container OCR DONE_LOCAL | Managed upload/OCR/storage/provider journeys and deployed recovery | DOC-01, DOC-02, WORK-02 |
+| Retention / invariant 1 | PARTIAL; local scheduler/backlog alert exists | Orphan uploads, actual scheduled physical deletion and hosted timing proof | RET-01 |
 | Embeddings/retrieval / section 6.2 | PARTIAL | Configured semantic model, relevance and dimension evaluation | AI-03 |
 | Generation / section 6.2 | PARTIAL (2026-10-06: source-only DONE_LOCAL) | Calibrated evidence verification, real-model evaluation | AI-02, AI-04, FORMAT-01 |
 | Tutor/card imports / section 6.3 | PARTIAL / PRD conflict | Non-source paths, rejected-item backfill and direct import validation | AI-01, CHAT-01 |
 | Math/camera / section 6.4 | PARTIAL | Real OCR/vision, verified answers, fail-closed provider behavior | AI-04, MATH-01 |
 | Images/diagrams / section 6.5 | PARTIAL | Hosted provider/rendering and factual-versus-creative labels | IMAGE-01 |
-| Library/folders / section 6.6 | PARTIAL | Atomic imported-item append/count, durable offline mutations, credit charging | CHAT-01, OFF-01, SYNC-01, ECON-01 |
+| Library/folders / section 6.6 | PARTIAL; atomic imports/offline mutations/server folder replay DONE_LOCAL | Trusted import provenance/expiry, two-device journey and approved credit policy | CHAT-01, SYNC-01, ECON-01 |
 | Hearts/XP/coins/cosmetics / section 6.7 | PARTIAL / policy BLOCKED_INPUT (2026-10-06) | Five hearts aligned; server ledger exists; approved policy values and client wiring | ECON-01 |
 | Offline sets/sessions / invariant 5 | DONE_LOCAL (2026-10-06) | Native release-build kill/airplane-mode journeys | OFF-01, OFF-02, QA-01 |
-| Offline sync / section 8.5 | Backend DONE_LOCAL; client PARTIAL | Durable UUID queue, batches <=100, exact acknowledgments and recovery | SYNC-01, API-01 |
+| Offline sync / section 8.5 | Backend/client substeps DONE_LOCAL; release PARTIAL | Real two-device/account/reconnect journeys with hosted ownership | SYNC-01, API-01, QA-01 |
 | Onboarding/mobile UX / section 6.8 | DONE_LOCAL for reported preview flows | Release devices, accessibility, real-account flows | AUTH-01, QA-01 |
 | Web showcase / section 6.9 | NOT_VERIFIED in this audit | Current build/tests, honest preview boundary and deployment | WEB-01 |
 | Deployment/operations / DoD | TODO / NOT_VERIFIED | CI, deployment, observability, restores and rollback | CI-01, OPS-01, OPS-02, RELEASE-01 |
@@ -182,12 +197,21 @@ detail items are reconciled (API-01 PARTIAL). `/api/me` no longer invents facts 
 
 ## What To Work On Next
 
-**First coding task: AI-01.** It can be completed locally with mocked providers;
-it removes known source-only/validation bypasses before real users upload notes.
-**First infrastructure task: ENV-01.** Project selection is pending. The previous
-decision was local preparation for a new Momo project, not deployment to dtr,
-run-app, or yhel-os. Do not repurpose those projects or create paid resources by
-assuming an organization/region. Collect the missing target choices when doing it.
+**Next RET-01 gate: resolve generation-safe storage deletion and approve a concrete
+inventory/rollout on the selected target.** Migration012 implements signing tickets,
+actual upload clocks, registration/cleanup fencing and deletion/account outboxes
+locally. Hosted Supabase automatic expiry fails closed; S3 requires versioning and
+bounded version inventory. Unknown legacy origins require explicit verification.
+WORK-02 generation/TXT crash recovery through actual local SDK/PostgREST is verified
+for selected boundaries; managed storage/provider/native/deployed gates remain open.
+
+**Hosted application setup remains ENV-01/ENV-02/AUTH-01/OPS-01.** The user
+authorized database work only on `momo-staging` and selected Render for host
+preparation. Migrations 001–013 and database metadata/security checks now pass
+there; no API, worker, Google-account, Storage-byte or provider smoke was run.
+`momo-prod` was not queried or changed. The Render Blueprint is prepared but not
+deployed; CORS origins and host-managed secrets still need to be entered. The
+historical waves remain dependency guidance.
 
 | Wave | Recommended sequence | Work that may proceed independently |
 | --- | --- | --- |
@@ -241,7 +265,7 @@ is listed under Acceptance. Add dates, commits and reports after actual completi
 
 ### ENV-01: Select And Configure The New Momo Environments
 
-- [ ] **PARTIAL / BLOCKED_INPUT; release blocker. Owner: infrastructure. Missing: hosting target, server secret injection, Google OAuth client + `aistudy://auth/callback` redirect allow-list, staging/prod anon keys, allowed origins.**
+- [ ] **PARTIAL; release blocker. Owner: infrastructure.** Staging Supabase and Render are selected; staging Google OAuth is reported configured. Actual redirect/native validation, Render secret injection, staging/prod public keys, allowed HTTPS origins and production separation still require completion.
 - Scope: dedicated development/staging/production configuration, server secrets and public client configuration.
 - Acceptance: record intended project refs and environment ownership without secret values; configure service credentials, JWT issuer/audience and allowed origins; production disables development identity/memory. Define secret injection/rotation and separation of staging from production. Existing unrelated Supabase projects remain untouched.
 - Evidence: configuration/startup smoke report with redacted configuration categories. MCP connection by itself does not configure `.env` or deploy anything.
@@ -249,18 +273,19 @@ is listed under Acceptance. Add dates, commits and reports after actual completi
 
 ### ENV-02: Apply And Verify Hosted Database Contracts
 
-- [ ] **NOT_VERIFIED; release blocker. Owner: database (root via Supabase MCP). Dependencies: ENV-01.**
+- [ ] **PARTIAL; release blocker. Owner: database (root via Supabase MCP). Dependencies: ENV-01.** Staging migrations and metadata checks pass; the managed API/account authorization smoke and rollback exercise remain open.
 - Scope: migrations 001/002 through Supabase MCP; RLS/grants/RPCs/storage settings.
 - Acceptance: audit any existing records, apply ordered migrations to the chosen environment, check advisors, verify two real users and anon cannot access/mutate foreign data, and verify service-only RPCs through managed PostgREST. Confirm metadata-only queries and migration rollback strategy.
 - Evidence: migration IDs, sanitized advisor findings/remediations, bounded synthetic smoke report and cleanup. No hosted stress/load tests or original-document downloads for general diagnostics.
-- Evidence 2026-10-06 (local only): ordered bundle 001-006 with hashes, advisors, metadata-only verification and a two-user synthetic smoke + cleanup prepared in the [staging rollout plan](../.agents/tasks/momo-readiness-2026-10-06/staging-rollout-plan.md). Not applied by the integration step; momo-prod untouched.
+- Evidence 2026-10-06 (local only): ordered bundle 001-006 with hashes, advisors, metadata-only verification and a two-user synthetic smoke + cleanup prepared in the [staging rollout plan](../.agents/tasks/momo-readiness-2026-10-06/staging-rollout-plan.md).
+- Evidence 2026-10-14 (staging schema only): user-authorized migrations 005–013 applied to `momo-staging`; ledger now records 001–013. All 20 public/internal app tables have forced RLS; anon has no app-table SELECT; authenticated direct writes and client grants on internal tables are absent. The `documents` bucket is private with a 15 MiB limit and the four expected MIME types. Three auth-cleanup indexes exist. Security advisor reports five INFO no-policy notices on internal tables (intentional deny-by-default); performance advisor reports 14 composite-FK notices with an existing leading-column index on each and 43 unused-index notices on a fresh empty staging workload. Core app tables and new request/ticket queues contained zero rows. Migration 008's DDL was catalog-verified after a migration-ledger timestamp collision and then recorded via a no-op ledger reconciliation. No managed PostgREST two-user smoke, OAuth login, API/worker deployment or storage-byte inventory was performed; `momo-prod` untouched. See [October 14 evidence](backend-readiness-2026-10-14.md) and the private [staging rollout record](../.agents/tasks/momo-readiness-2026-10-06/staging-rollout-plan.md).
 
 ### AUTH-01: Implement Real Supabase Google Sessions On Mobile
 
-- [ ] **PARTIAL; release blocker. Owner: mobile/auth. Hosted journey BLOCKED_INPUT: Google OAuth client, Supabase redirect allow-list, staging anon key.**
+- [ ] **PARTIAL; release blocker. Owner: mobile/auth.** User reports staging Google OAuth configured; actual login journey, redirect behavior and native device proof remain unverified.
 - Scope: auth/session service, secure token persistence, deep links, routing and API client.
 - Acceptance: Google login/cancel/error, token refresh, expired session, logout, cold start and guest preview work; remove default dummy identity from hosted builds. Server identity always comes from verified tokens. Public client configuration contains no elevated key.
-- Evidence: unit tests and staging iOS/Android auth journeys including redirect failures, revoked/expired tokens and restart. Pure implementation can start before hosted choices are complete.
+- Evidence: unit tests and staging iOS/Android auth journeys including redirect failures, revoked/expired tokens and restart. Backend now accepts signed Google Supabase identities only; it does not recheck Google on each API request, per the selected sign-in verification + Supabase JWT policy.
 - Evidence 2026-10-06 (local only): Team C ([report](../.agents/tasks/momo-readiness-2026-10-06/team-c-report.md)): PKCE GoTrue session service, chunked SecureStore, refresh/single-flight 401/revocation/cold start/account switch/logout; elevated keys rejected. Unit tests only; no device run.
 
 ### AUTH-02: Real Profiles And Account Data Isolation
@@ -309,7 +334,8 @@ is listed under Acceptance. Add dates, commits and reports after actual completi
 - Scope: cleanup scheduler, S3 lifecycle if used, storage inventory and alerts.
 - Acceptance: enforce 72-hour original retention, monitor overdue expirations and cleanup failure, handle orphan signed uploads that were never registered, and retry deletion safely. Bound batch capacity to volume. Remove bytes through the storage provider, not only metadata; verify sources disappearing cannot remove generated sets/items.
 - Evidence: aged synthetic objects, unregistered objects, failed deletion/retry, scheduler execution and oldest-overdue alert report. Record scheduling granularity and observed deletion timing.
-- Evidence 2026-10-06 (local only): worker schedules cleanup every 900 s (batch 100) plus `RETENTION_OVERDUE` alert; e2e proves expiry keeps generated sets in memory and PG paths. Open: unregistered orphan uploads, hosted deletion proof, measured timing.
+- Evidence 2026-10-08 (local only): migration012 persists issued tickets, atomic actual-upload+72h registration/quota, fenced cleanup and source/account outboxes;802 backend/181 mobile tests pass with no skips. Automatic mocks/S3version deletion are generation-safe; hosted Supabase automatic deletion fails closed. Legacy/unregistered inventory, selected-provider rollout, capacity/index measurements and hosted timing remain open. See [retention rollout](UPLOAD_RETENTION_DESIGN.md) and [report](backend-readiness-2026-10-08.md).
+- Evidence 2026-10-06 (local only): worker schedules cleanup every 900 s (batch 100) plus `RETENTION_OVERDUE` alert; e2e proves expiry keeps generated sets in memory and PG paths. Historical gaps: unregistered orphan uploads, hosted deletion proof, measured timing. Migration012 now covers issued orphans locally; provider/runtime gates remain.
 
 ### OFF-01: SQLite Persistence For Ordinary Study Data
 
@@ -413,14 +439,15 @@ is listed under Acceptance. Add dates, commits and reports after actual completi
 
 ### OPS-01: Deploy Services With Observability And Readiness
 
-- [ ] **TODO; release blocker. Owner: infrastructure/backend. Dependencies: ENV-02, WORK-01, SEC-01, CI-01.**
+- [ ] **PARTIAL; release blocker. Owner: infrastructure/backend. Dependencies: ENV-02, WORK-01, SEC-01, CI-01.** Render configuration and local container probes are prepared; no hosted services are deployed.
 - Scope: API/worker/scheduler deployment, HTTPS/domain, configuration and monitoring.
 - Acceptance: reproducible release artifacts, dependency-aware readiness separate from liveness, bounded probes and structured privacy-safe correlation logs. Alert on failed/stale jobs, quota violations, AI spend, cleanup backlog and sync errors; define incident/runbooks and capacity objectives. Existing health endpoint alone does not prove DB/worker readiness.
 - Evidence: staging rollout and dependency-failure/drain tests, dashboards/alert exercise and documented latency/error/cost targets. Use local synthetic load for capacity experiments.
+- Evidence 2026-10-14 (local preparation): Render Blueprint defines Singapore staging API and separate worker, secrets as platform variables, `/ready`, disabled auto-deploy, and 60-second shutdown. The built non-root image passed SDK fail-closed, scanned-PDF OCR and `PORT`/health/readiness/graceful-stop smoke. No Render service was created; origin, secrets, provider/model configuration, monitoring, capacity and hosted worker behavior remain open.
 
 ### OPS-02: Backups, Restore And Rollback
 
-- [ ] **NOT_VERIFIED; release blocker. Owner: database/infrastructure. Dependencies: ENV-02, OPS-01.**
+- [ ] **PARTIAL (local restore only); release blocker. Owner: database/infrastructure. Dependencies: ENV-02, OPS-01.**
 - Scope: database backup/restore, schema rollout and app/worker compatibility.
 - Acceptance: restore persistent generated material into an isolated target, verify owner security after restore, define recoverable migration/app rollback and approved recovery objectives. Backups must not silently extend temporary original-file retention beyond policy; document backup/access implications.
 - Evidence: restore drill, restored-set checks, compatibility/rollback report and recovery runbook. Never run destructive reset fixtures against hosted application data.
@@ -486,3 +513,269 @@ verification changes; do not overwrite an old result to imply it was rerun.
 Do not add estimates, percentage completion or production guarantees without an
 explicit basis. At this baseline, local checks passed and hosted/release gates
 remain open.
+
+## October 8 local backend pass
+
+[Evidence report](backend-readiness-2026-10-08.md): 678 backend tests passed with zero
+skips, Ruff and mypy over 74 files clean; container API and real scanned-PDF OCR smoke
+passed locally. WORK-02 now publishes complete chunks and READY state atomically
+through migration 007, rejects foreign/expired publication, and preserves first
+successful indexes. Retrieval requires READY/unexpired sources. API-01 adds 10 MiB
+whole-body limits and schema bounds. Asymmetric JWT regression tests and a bounded
+`/ready` database probe plus non-root image support AUTH/OPS preparation.
+
+WORK-02/API-01/AUTH-02/OPS-01 remain PARTIAL: generation enqueue retry identity,
+orphan recovery caps, folder replay, profile/account lifecycle, hosted auth,
+worker deployment and monitoring remain open. Migration 007 is local only. No
+hosted gates or release decision closed. Next eligible local task WORK-02
+(generation retry identity and orphan recovery), then API-01 folder replay.
+Obsidian: [linked readiness map](knowledge/Momo%20Public%20Readiness.md).
+
+### October 8 continuation evidence
+
+WORK-02/API-01: migrations 008–011 add owner-scoped generation/folder request replay,
+a durable explicit-retry dispatch marker and automatic recovery lifetime budgets.
+Folder deletion tombstones prevent stale offline recreation. Reconciliation locks
+queue before subject, skips active jobs before the batch cap, and cannot reset its
+lifetime counter without an explicit manual retry. Whole local backend suite: 703
+passed, zero skipped (32 existing Starlette deprecation warnings); Ruff and mypy over 74
+files passed. [Contracts](API_CONTRACT_MATRIX.md) and [report](backend-readiness-2026-10-08.md).
+
+WORK-02 remains PARTIAL: mobile generation must persist/send keys across retries,
+and deployed process-crash journeys remain unverified. API-01 folder replay server
+substep is DONE_LOCAL; SYNC-01 still needs two-device staging proof. No economy
+activation, hosted migration or production traffic. Next eligible local task is
+WORK-02 mobile request intent persistence and replay adoption. Other release gates
+remain unchanged and open.
+
+Final continuation verification (October 8 local only): 713 backend tests passed with
+zero skips/errors/failures; Ruff and mypy over 74 files clean. Migration 011 consumes
+retry authorization and resets queue state transactionally, rejects stale/missing
+subjects, and removes tentative queued work on rejection. Independent review has
+no remaining actionable findings for this pass. Final container/OCR smoke and
+credential-pattern scan passed. Earlier 678/703 results above are historical
+substeps. Obsidian map: 6 notes/8 valid links between canvas nodes, all wikilinks
+resolve. WORK-02 client key adoption and native/process/hosted verification remain
+open; no release gate was closed by these local counts.
+
+## October 8 mobile generation intent continuation (local only)
+
+WORK-02 client substeps: save account-owned action key/settings before POST; persist
+received job before navigation; restore pending draft or received job on reopen;
+acknowledge only after an owned status GET. Account epoch and route guards prevent
+late results from updating another account/source. Transport uses one deadline
+across refresh/fetch/JSON/401, preserves headers and forbids mutation port fallback.
+Polling is serial; uncertain explicit retry delivery resumes status reads without
+repeating POST. Corrupt intents fail closed; offline drafts send no AI request.
+
+Verification: `npm test --prefix mobile` **178 passed**, zero skips/failures;
+`npm run lint --prefix mobile` (repository TypeScript) passed. Local real-JWT
+FastAPI/file-SQLite replay smoke: **8 invariant groups, 4 generation POSTs**; lost
+response/reopen reuses same key/job, received receipt avoids another POST, owned
+acknowledgment permits new intentional work, verified second owner gets404.
+Harness configuration/tokens and fixtures were removed; no hosted/provider traffic.
+See [report](backend-readiness-2026-10-08.md) and [harness instructions](../scripts/testing/README.md).
+WORK-02 stays PARTIAL: native Expo SQLite/navigation and deployed worker process
+kill/restart journeys remain unverified. Hosted setup/auth/storage/operations and
+public release gates remain open under the user's local-only scope.
+
+## October 8 Python worker recovery and query-plan continuation
+
+WORK-02 local proof now kills the actual Python JobRunner after a durable claim and
+after atomic generation publication before queue acknowledgment. Restart reclaims
+the expired lease (test clock advanced in disposable SQL), completes attempts2,
+retains one set/item and skips the generation processor for already-completed jobs.
+Foreign-user denial and source-deletion retention are verified. Actual queue,
+handler and GenerationRepository are used; psql replaces PostgREST and deterministic
+content replaces the model. This does not prove complete provider/OCR/ingestion or
+deployed gateway/process operation. Next local WORK-02 step is document-ingestion
+process recovery.
+
+Schema access evidence:20 synthetic tenants,4,000 sets,20,000 items,20,000 chunks;
+ANALYZE +unforced EXPLAIN ANALYZE/BUFFERS for exact repository library/items/chunks
+shapes uses existing owner/order indexes. Sample rows50/5/100, shared blocks3/10/102
+and execution0.021/0.053/0.163ms. These are one local sample, not capacity targets.
+No speculative index/migration was added.
+
+Final:718 backend tests passed in41.61s, zero skipped/errors/failures
+(`/tmp/momo-oct08-process-final.xml`, no-skip verifier passed);32 existing Starlette
+deprecation warnings. Ruff whole backend and mypy74 app files passed. Tests now
+pin local provider choices and override stale dotenv ENVIRONMENT with an empty
+derivable value;84 environment-isolation tests pass without weakening production
+configuration validation. Atomic-index rows received a typing annotation only.
+Independent review query-shape finding fixed; no remaining actionable findings in
+the reviewed scope. Dedicated Docker PG stack removed; no hosted/provider traffic.
+
+## October 8 actual TXT ingestion crash recovery
+
+WORK-02 now has four more actual Python subprocess cases: SIGKILL before atomic
+index publication or after publication before queue acknowledgment, each with source
+present or deleted before restart. Actual DocumentWorker validates bytes, persists
+SHA256, extracts TXT, chunks, computes local embeddings and invokes the atomic
+publisher. Only private-object transport (task-owned file) and PostgREST transport
+(psql adapter) are replaced. An old partial index is replaced without duplicate
+chunk positions; READY sources skip storage/extraction and keep chunk IDs even when
+fixture bytes are removed. Deleted sources remain absent, queue succeeds without
+storage reread, and foreign-owner chunk reads are denied. This proves selected TXT
+process boundaries; OCR/formats, semantic providers, real storage and PostgREST/SDK
+recovery remain separate gates.
+
+Focused six process cases passed; full backend **722 passed in43.43s**, zero
+skips/errors/failures,32 existing Starlette warnings. JUnit
+`/tmp/momo-oct08-ingestion-final.xml`; no-skip verifier passed. Ruff backend and
+mypy74 app files passed. Independent review: no actionable findings in the new
+fixture/test scope. Disposable PG container/network removed. Next safe local
+WORK-02 verification is actual SDK/local PostgREST transport; managed environments
+remain excluded by the user's local-only scope. No production code change was
+required in this continuation.
+
+## October 8 actual Supabase SDK/PostgREST continuation
+
+Local gateway overlay now runs pinned PostgREST12.2.3/nginx1.27.5 with synthetic
+JWTs, loopback ports and an internal gateway network. Worker child processes allow
+only the exact selected loopback socket. Six recovery cases run through both psql
+and the actual SupabaseSession/SDK/HTTP gateway. One additional signed-user gateway
+case proves owner reads, foreign denial, anonymous denial, authenticated write and
+service-RPC denial, and invalid-signature rejection. The auth.uid fixture now
+supports PostgREST JSON claims alongside direct psql test claims.
+
+The real SDK exposed a production startup defect: generic ClientOptions lacks
+the synchronous client's required storage/httpx attributes in the locked version.
+Server session now uses SyncClientOptions; auto refresh/session persistence stay
+disabled. Actual gateway recovery and rebuilt image construction exercise the fix.
+CI source starts/stops the isolated gateway and requires PG/gateway integration
+with zero skips; no GitHub run/push occurred.
+
+Final:729 passed in51.83s, zero skips/errors/failures,32 existing Starlette warnings;
+`/tmp/momo-oct08-gateway-final.xml` plus no-skip verifier. Ruff backend/helper and
+mypy74 passed. New image `momo-backend:oct08-gateway`, manifest list
+`sha256:d237059bd68ca1655d3e6c98aaa97a391a31c463a46d242d5e869261815c80f0`,
+passed non-root/network-isolated real SDK construction/fail-closed database denial
+and actual scanned-PDF OCR. Independent review found no actionable defects in
+session/gateway/CI/recovery scope. All stack containers/networks removed.
+
+WORK-02 remains PARTIAL for managed services/providers/full native/deployed journeys.
+This removes the psql transport substitution gap locally; it does not close ENV-02
+or hosted Supabase Auth/Storage. Remaining safe local preparation includes RET-01
+orphan-upload lifecycle design and OPS-02 isolated restore/rollback rehearsal;
+dependency/hosting/product inputs remain explicit before dependent release work.
+
+## October8 local database recovery preparation
+
+OPS-02 local-only rehearsal: custom-format pg_dump/pg_restore into an exclusively
+created random target in the disposable cluster. Restored sets/items, completed
+finalization replay, owner/foreign/anonymous reads, denied client writes, service-only
+grants and forced RLS pass. Expired timestamps remain unchanged; deleting restored
+source metadata preserves items and does not affect the source DB. Archive is
+created0600 and target/archive cleanup runs in finally. No original object bytes
+are backed up by this drill. Source-derived text/account metadata backup policy
+requires explicit decisions. Roles/extensions share the disposable cluster.
+
+Full **730 passed in50.62s**, zero skips/errors/failures,32 existing warnings;
+`/tmp/momo-oct08-restore-final.xml` no-skip verifier passed. Ruff and mypy74 passed.
+Independent review found no actionable test defects. No production code change in
+this continuation. Disposable stack/target/archive removed. Added
+[recovery runbook](DATABASE_RECOVERY_RUNBOOK.md) and Obsidian recovery node (7nodes,
+11edges). Managed backups/new-cluster recovery, approved RPO/RTO/access/retention,
+app-worker rollback and ENV-02/OPS-01 dependencies remain unverified. Remaining safe
+local preparation includes RET-01 orphan-upload lifecycle; hosted setup requires
+separate inputs/approval.
+
+## October8 upload/orphan lifecycle discovery
+
+Source audit verifies unregistered signed objects have no durable cleanup record;
+cleanup scans only existing documents. Registration RPC ignores input upload time
+and resets72h at registration, extending retention when registration is delayed.
+A ticket-issued+72h shortcut would instead shorten retention and conflicts with
+PRD uploaded_at+72h. Storage currently exposes size only; S3 PUT overwrite and
+actual metadata/identity semantics must be settled in implementation.
+
+[Upload retention design](UPLOAD_RETENTION_DESIGN.md) defines durable signing
+tickets, observed object age/identity, transactional registration/quota, bounded
+cleanup leases, source/account-deletion responsibility, legacy inventory and
+strict-rollout contract. Backend specialist independently reviewed these gaps
+and prerequisites. No new provider policy, schema or deletion was applied.
+RET-01 stays PARTIAL. Next local implementation starts with verified provider
+metadata/immutable-upload contract, then the complete transactional ticket slice;
+managed inventory/scheduling/physical deletion remain separate approval gates.
+Existing730 backend test evidence is unchanged, not a new verification of this
+proposed design.
+
+## October8 storage metadata/immutable-upload prerequisites
+
+Validated object metadata now exposes aware UTC upload time and optional identity/
+version/etag; missing/malformed/naive/implausibly future timestamps fail closed.
+Confirmed missing objects are distinguished from bucket/config/403/timeout failures
+using structured provider errors only. S3 URLs sign If-None-Match:*; Supabase signing
+explicitly disallows upsert. Mocks capture initial time atomically and reject overwrite.
+API returns upload_headers; native/web helpers validate/forward only known constraints,
+keep session tokens off provider URLs, authenticate canonical relative mock API paths,
+and stop registration on failed PUT. Raw provider errors/URLs are not logged/displayed.
+Local mock PUTs alone allow bounded15MiB bodies; other requests retain10MiB.
+
+Final **767 backend passed in51.47s**, zero skips/errors/failures,32 existing warnings;
+`/tmp/momo-oct08-storage-final.xml` no-skip verifier passed. **181 mobile tests** and
+TypeScript passed; Ruff/backend and mypy74 passed.56 focused storage cases and API
+size/ownership/overwrite regressions passed. Independent review cap mismatch fixed;
+no remaining actionable findings in reviewed changes. SDK mock transports and actual
+locked botocore signing prove contract code, not hosted object behavior.
+
+Image `momo-backend:oct08-storage`, manifest list
+`sha256:f6f1edacfc8bd58d234d5c769c98187b7590e08ff459ef404ff8cf96c410183e`,
+passed non-root/network-isolated SDK fail-closed and scanned-PDF OCR smoke.
+Disposable stack removed. **Registration still resets the72h clock; durable tickets
+and orphan cleanup are not implemented by these prerequisites.** RET-01 remains
+PARTIAL; next coherent slice is the reviewed transactional ticket lifecycle.
+
+## October 14 backend, auth, database and Render preparation
+
+Claimed ENV-02/AUTH-01/AUTH-02/OPS-01. User authorized resuming and using the
+pinned `momo-staging` project, reports its Google OAuth provider configured, and
+selected Render. No production operation was performed.
+
+Staging was `ACTIVE_HEALTHY` on Supabase PostgreSQL 17, Singapore. Migrations
+005–013 were applied after confirming the existing 001–004 ledger. The ordered
+ledger now contains 001–013. Migration 008's DDL had completed before a generated
+ledger timestamp collision; its objects were inspected, then the migration was
+recorded through a no-op reconciliation rather than replaying the DDL. Catalog
+checks report 20 public/internal app tables with forced RLS; no anonymous SELECT,
+authenticated direct writes or internal client grants; private `documents`
+bucket with 15 MiB and PDF/DOCX/TXT/PPTX MIME restrictions; and zero rows in the
+core app, generation, sync, upload-ticket and request-queue tables.
+
+Migration 013 adds three owner/auth-reference B-tree indexes for Auth account
+deletion and ticket retirement. Unforced local `EXPLAIN ANALYZE` chose each index
+for its intended 1,000-row synthetic owner lookup. The staging advisor now reports
+14 composite-FK coverage notices; catalog review found a valid index whose leading
+column matches the first FK field for each. It also reports 43 unused-index
+notices on the fresh staging workload, which is insufficient evidence to remove
+them. Five security INFO notices identify internal tables with RLS and no
+policies; those tables are also inaccessible to anon/authenticated by grants.
+See the [staging rollout record](../.agents/tasks/momo-readiness-2026-10-06/staging-rollout-plan.md).
+
+Backend auth verifies the Supabase JWT signature, pinned issuer/audience, expiry,
+authenticated role and UUID subject, then accepts only signed Google OAuth
+identities. It does not call Supabase Auth on every API request, matching the
+selected sign-in verification + Supabase JWT policy. Tests cover non-Google,
+anonymous, password and unsupported-auth-method rejection. This does not verify
+a real Google account or revoke an already-issued Supabase session immediately
+if Google later disables that account.
+
+Render preparation defines a Singapore API and separate database-backed worker,
+with staged secrets injected by Render, `/ready`, disabled auto-deploy and 60-second
+shutdown. Local verification: backend **819 passed, zero skipped** (real local PG
+and gateway required), Ruff 138 files, mypy 75 source files, mobile lint plus
+**181 tests**, non-root SDK fail-closed and scanned-PDF OCR container smokes, and
+`PORT`/`/health`/`/ready`/SIGTERM smoke. Render services were not created. The
+configuration still needs the real HTTPS CORS origin, secret values and chosen
+instance size; no provider traffic was sent.
+
+Release gates remain open: real Google login and native journeys; managed
+PostgREST two-user/anonymous/RPC smoke; Render deploy and API/worker drain/alerts;
+Supabase Storage physical deletion is not generation-safe and legacy/unregistered
+object inventory is incomplete; actual model/embedding availability and grounded
+generation have not been proven; profile lifecycle/account deletion, economy
+policy, clean remote CI, managed restore/RPO/RTO, device QA, privacy/support/store
+setup and production rollout remain. The result is **not production ready**.
+See [dated backend report](backend-readiness-2026-10-14.md) and the linked
+[[Momo Backend Completion 2026-10-14]] Obsidian note.

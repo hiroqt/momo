@@ -491,3 +491,14 @@ When halting, the agent must output this standardized 5-part report:
 ### Guiding Rule for Agents
 > *"The goal was never to document every line. It is to write down the intent so agents aren't left guessing at it."*  
 > When in doubt, preserve the boundaries, protect student privacy, enforce strict grounding, and stop to ask.
+
+## Backend readiness
+
+The backend is not ready for public launch. Current local and staging evidence,
+the ordered migration ledger, Render preparation and release blockers are in the
+[October 14 report](docs/backend-readiness-2026-10-14.md). The [Obsidian knowledge
+map](docs/knowledge/Momo%20Public%20Readiness.md) links authentication, database,
+security and deployment dependencies. See the [October 8 report](docs/backend-readiness-2026-10-08.md)
+for the earlier continuation history.
+
+October8 retention lifecycle: migration012 persists tickets before signing, atomically registers against actual provider upload time+72h and preserves cleanup outboxes after source/account deletion. Leases fence registration; automatic deletion targets the observed generation. S3 requires version-aware removal; hosted Supabase automatic expiry fails closed without a generation predicate. Unknown legacy origins require explicit inventory/backfill. These remain public-release gates. See [upload-retention design](docs/UPLOAD_RETENTION_DESIGN.md) and the dated readiness report for current local verification and remaining provider/runtime gates.

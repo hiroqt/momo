@@ -48,7 +48,7 @@ The initial attempt to record migration 008 hit a duplicate migration version be
 
 ## Local verification
 
-- Full backend/API/database/gateway suite with loopback-only disposable PostgreSQL and PostgREST: **819 passed, 0 skipped, 0 failed**, 32 existing Starlette deprecation warnings (157.23s). JUnit: `/tmp/momo-backend-2026-10-14-final2.xml`; the no-skips gate reported 819 tests.
+- Full backend/API/database/gateway suite with loopback-only disposable PostgreSQL and PostgREST: **823 passed, 0 skipped, 0 failed**, 32 existing Starlette deprecation warnings (227.53s). JUnit: `/tmp/momo-auth02-final-2026-10-14.xml`; the no-skips gate reported 823 tests.
 - Ruff and mypy: **138 Ruff files** and **75 Python source files** passed.
 - Mobile: lint passed; **181 tests passed**. No mobile code changed during the final index migration.
 - `docker build -t momo-backend:2026-10-14 backend` passed. Network-isolated non-root real-SDK construction failed closed on denied database I/O as expected. The non-root scanned-PDF OCR smoke preserved text/page metadata. `/health` and `/ready` both returned 200 through a `PORT`-bound container, which then stopped cleanly.
@@ -61,7 +61,18 @@ The initial attempt to record migration 008 hit a duplicate migration version be
 2. Run a bounded staging journey with real Google OAuth and two synthetic users through `/api/me`, upload signing, actual private Storage upload, registration/quota, worker processing and owner-isolated study retrieval. Verify invalid/expired JWT denial and service-only RPC denial. Keep provider AI calls separately bounded and approved.
 3. Resolve generation-safe physical object deletion for Supabase Storage, inventory old/unregistered objects and observe actual `uploaded_at + 72h` deletion. Keep automatic cleanup fail-closed until it cannot delete a replacement object.
 4. Verify current OpenRouter/Nemotron generation and embedding model/dimension configuration against real controlled staging calls; prove source-only grounding, schema/evidence validation, safe provider failures and every advertised format.
-5. Complete Auth profile creation, logout/account switching and account deletion including stored objects; qualify native Android/iOS flows and offline/reconnect sync.
+5. Apply reviewed migration 014 to staging, then verify managed GoTrue profile synchronization. Complete logout/account switching and account deletion including stored objects; qualify native Android/iOS flows and offline/reconnect sync.
 6. Resolve economy/regen policy, clean remote CI, managed backup/restore and migration/app rollback, release-device/accessibility/performance QA, privacy/support/store details and an explicit release decision.
 
 The canonical tracker is [Production Readiness Checklist](PRODUCTION_READINESS_CHECKLIST.md). Obsidian links are in `docs/knowledge/Momo Backend Completion 2026-10-14.md` and `docs/knowledge/Momo Readiness Map.canvas`.
+
+## AUTH-02 profile provisioning follow-up
+
+Local migration 014 adds Google-only profile provisioning and a serialized
+backfill for existing Google Auth users. PostgreSQL integration tests cover
+backfill, profile updates, provider exclusion, email collision, and Auth delete
+cascade. The trigger uses `supabase_auth_admin` in the local fixture; managed
+GoTrue behavior is not proven. Migration 014 has not been applied to staging.
+The account deletion endpoint/mobile flow and logout/account-switch device
+journey remain open. Full backend suite: 823 passed, zero skipped; Ruff 138
+files, mypy 75 source files, no-skip check and `git diff --check` passed.

@@ -54,6 +54,7 @@ October 14 work includes user-authorized staging schema changes and local backen
 
 | Task ID | Owner/chat | Branch | Status | Last update | Blocker or next action |
 | --- | --- | --- | --- | --- | --- |
+| AUTH-02 profile provisioning | October 14 root + auth lifecycle audit + independent review | main | DONE_LOCAL | 2026-10-14 | Migration 014 installs a Google-only Auth profile trigger and safely backfills existing Google users. Local PostgreSQL verifies backfill, updates, provider exclusion, email collision and cascade. Migration 014 is not applied to staging; account deletion API/mobile journey and cross-account device proof remain. |
 | ENV-02 / AUTH-01 / AUTH-02 / OPS-01 | October 14 root + backend/database/review agents | main | PARTIAL | 2026-10-14 | Staging migrations 001–013, forced-RLS/grant/bucket checks and local backend/mobile/container suites pass. Render Blueprint is prepared, not deployed. Next: enter approved HTTPS CORS origin/secrets in Render; run bounded two-user Google/API/upload/worker smoke; finish profile/account lifecycle, operations and release gates. |
 | RET-01 metadata/immutable-upload contract | October8 root + storage builder; independent reviewer | main | PARTIAL (prerequisites verified locally) | 2026-10-08 | Provider metadata/absence contract, first-write constraints and client upload headers;767 backend/181 mobile passed. Tickets/clock/orphan cleanup remain open. |
 | RET-01 transactional lifecycle | October8 root + backend specialist + fixture specialist; independent reviewer | main | DONE_LOCAL lifecycle; RET-01 release PARTIAL | 2026-10-08 | Migration012/tickets, provider upload clock, registration/cleanup fences and deletion outbox.802 backend/181 mobile passed; provider deletion, legacy inventory and hosted timing/capacity remain gates. |
@@ -779,3 +780,17 @@ policy, clean remote CI, managed restore/RPO/RTO, device QA, privacy/support/sto
 setup and production rollout remain. The result is **not production ready**.
 See [dated backend report](backend-readiness-2026-10-14.md) and the linked
 [[Momo Backend Completion 2026-10-14]] Obsidian note.
+
+### AUTH-02 profile provisioning follow-up
+
+Migration 014 now provisions `public.users` from verified Google Auth rows, with
+display-only sanitized name/avatar metadata. It installs the trigger before the
+existing-user backfill so Auth writes serialize through migration commit; email
+collisions never associate a second Auth ID. Local-only PostgreSQL tests cover
+pre-existing-account backfill, profile update, non-Google/email-less exclusion,
+collision handling, and Auth deletion cascade. The trigger fixture simulates
+`supabase_auth_admin`; managed GoTrue execution remains unverified. This does
+not finish AUTH-02: account deletion API/mobile behavior and logout/account-switch
+device proof remain release gates. Migration 014 remains unapplied to staging.
+Verification 2026-10-14: backend suite 823 passed, 0 skipped/errors/failures;
+Ruff 138 files, mypy 75 source files, `git diff --check` passed.

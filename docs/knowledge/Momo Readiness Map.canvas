@@ -203,7 +203,7 @@
       "fromSide": "bottom",
       "toNode": "1",
       "toSide": "right",
-      "label": "Google-only JWT"
+      "label": "Google-only JWT + local profile migration 014"
     },
     {
       "id": "completion-db",

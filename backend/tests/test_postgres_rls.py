@@ -40,7 +40,7 @@ def database():
     def sql(statement, success=True, role=None):
         statement = "SET search_path=public,extensions; " + statement
         if role:
-            assert role in {"anon", "authenticated", "service_role"}
+            assert role in {"anon", "authenticated", "service_role", "supabase_auth_admin"}
             statement = f"SET ROLE {role}; " + statement
         result = subprocess.run(
             [psql, "-X", "-qAt", "-v", "ON_ERROR_STOP=1", "--dbname", url],
@@ -66,8 +66,16 @@ def database():
           IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname='anon') THEN CREATE ROLE anon NOLOGIN; END IF;
           IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname='authenticated') THEN CREATE ROLE authenticated NOLOGIN; END IF;
           IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname='service_role') THEN CREATE ROLE service_role NOLOGIN BYPASSRLS; END IF;
+          IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname='supabase_auth_admin') THEN CREATE ROLE supabase_auth_admin NOLOGIN; END IF;
         END $$;
-        CREATE TABLE auth.users(id uuid PRIMARY KEY, email text);
+        CREATE TABLE auth.users(
+            id uuid PRIMARY KEY,
+            email text,
+            raw_app_meta_data jsonb NOT NULL DEFAULT '{}'::jsonb,
+            raw_user_meta_data jsonb NOT NULL DEFAULT '{}'::jsonb
+        );
+        GRANT USAGE ON SCHEMA auth TO supabase_auth_admin;
+        GRANT SELECT,INSERT,UPDATE,DELETE ON auth.users TO supabase_auth_admin;
         CREATE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql STABLE AS $$
           SELECT coalesce(nullif(current_setting('request.jwt.claim.sub',true),''),
             nullif(current_setting('request.jwt.claims',true),'')::jsonb->>'sub')::uuid
@@ -86,6 +94,16 @@ def database():
             TO anon,authenticated USING (true) WITH CHECK (true);
     """)
     for path in sorted((ROOT / "backend/migrations").glob("*.sql")):
+        if path.name == "014_google_profile_sync.sql":
+            # Exercise the upgrade backfill with an Auth identity that predates migration 014.
+            sql(
+                "INSERT INTO auth.users(id,email,raw_app_meta_data,raw_user_meta_data) "
+                "VALUES ('00000000-0000-4000-8000-000000000014',"
+                "'existing-google@example.test',"
+                "'{\"provider\":\"google\",\"providers\":[\"google\"]}',"
+                "'{\"full_name\":\"Existing Learner\"}');",
+                role="supabase_auth_admin",
+            )
         sql(path.read_text())
     sql("NOTIFY pgrst, 'reload schema';")
     return sql
@@ -235,6 +253,78 @@ def test_profiles_and_derived_item_ownership_are_tenant_scoped(database, users):
     assert database(authenticated(alice, f"SELECT count(*) FROM users WHERE id='{alice}'")) == "1"
     assert database(authenticated(bob, f"SELECT count(*) FROM users WHERE id='{alice}'")) == "0"
     assert database(authenticated(bob, f"SELECT count(*) FROM study_items WHERE id='{item_id}'")) == "0"
+
+
+def test_google_auth_identity_provisions_and_updates_profile_then_cascades(database):
+    user_id = str(uuid4())
+    provider = "'" + json.dumps({"provider": "google", "providers": ["google"]}).replace("'", "''") + "'::jsonb"
+    profile = "'" + json.dumps({
+        "full_name": "  Ada O'Neil  ",
+        "name": "Ignored Fallback",
+        "picture": "https://lh3.googleusercontent.com/a/initial",
+    }).replace("'", "''") + "'::jsonb"
+    database(
+        f"INSERT INTO auth.users(id,email,raw_app_meta_data,raw_user_meta_data) "
+        f"VALUES ('{user_id}','ada@example.test',{provider},{profile});",
+        role="supabase_auth_admin",
+    )
+    assert database(
+        f"SELECT email||'|'||full_name||'|'||avatar_url FROM public.users WHERE id='{user_id}';"
+    ) == "ada@example.test|Ada O'Neil|https://lh3.googleusercontent.com/a/initial"
+
+    updated = "'" + json.dumps({
+        "full_name": "Ada Learner",
+        "picture": "https://profile.example.test/avatar.png",
+    }).replace("'", "''") + "'::jsonb"
+    database(
+        f"UPDATE auth.users SET email='ada.updated@example.test',raw_user_meta_data={updated} "
+        f"WHERE id='{user_id}';",
+        role="supabase_auth_admin",
+    )
+    assert database(
+        f"SELECT email||'|'||full_name||'|'||coalesce(avatar_url,'<null>') "
+        f"FROM public.users WHERE id='{user_id}';"
+    ) == "ada.updated@example.test|Ada Learner|<null>"
+
+    database(f"DELETE FROM auth.users WHERE id='{user_id}';", role="supabase_auth_admin")
+    assert database(f"SELECT count(*) FROM public.users WHERE id='{user_id}';") == "0"
+
+
+def test_google_auth_profile_migration_backfills_existing_identity(database):
+    assert database(
+        "SELECT email||'|'||full_name FROM public.users "
+        "WHERE id='00000000-0000-4000-8000-000000000014';"
+    ) == "existing-google@example.test|Existing Learner"
+
+
+def test_non_google_or_email_less_auth_identity_does_not_create_profile(database):
+    password_user = str(uuid4())
+    google_without_email = str(uuid4())
+    password_metadata = "'" + json.dumps({"provider": "email", "providers": ["email"]}) + "'::jsonb"
+    google_metadata = "'" + json.dumps({"provider": "google", "providers": ["google"]}) + "'::jsonb"
+    database(
+        f"INSERT INTO auth.users(id,email,raw_app_meta_data) VALUES "
+        f"('{password_user}','password@example.test',{password_metadata}),"
+        f"('{google_without_email}',NULL,{google_metadata});",
+        role="supabase_auth_admin",
+    )
+    assert database(
+        f"SELECT count(*) FROM public.users WHERE id IN ('{password_user}','{google_without_email}');"
+    ) == "0"
+
+
+def test_profile_email_collision_never_associates_another_auth_identity(database):
+    first_user, second_user = str(uuid4()), str(uuid4())
+    google_metadata = "'" + json.dumps({"provider": "google", "providers": ["google"]}) + "'::jsonb"
+    database(
+        f"INSERT INTO auth.users(id,email,raw_app_meta_data) VALUES "
+        f"('{first_user}','collision@example.test',{google_metadata}),"
+        f"('{second_user}','collision@example.test',{google_metadata});",
+        role="supabase_auth_admin",
+    )
+    assert database(
+        "SELECT id::text FROM public.users WHERE email='collision@example.test';"
+    ) == first_user
 
 
 def test_sync_is_owner_scoped_idempotent_and_preserves_original_event(database, users):

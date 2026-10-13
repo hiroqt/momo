@@ -65,7 +65,7 @@ class ChatSessionResponse(BaseModel):
 
 class ChatMessageCreate(BaseModel):
     content: str = Field(..., min_length=1, max_length=4000)
-    document_id: str | None = None
+    document_id: str | None = Field(default=None, max_length=128)
 
 class ChatMessageResponse(BaseModel):
     id: str

@@ -204,6 +204,22 @@ async def test_chat_quick_endpoint():
         assert res["session_id"] is not None
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("path", [
+    "/api/chat",
+    "/api/chat/sessions/test-session/messages",
+])
+async def test_chat_rejects_oversized_document_id(path):
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as ac:
+        resp = await ac.post(
+            path,
+            json={"content": "Summarize my notes", "document_id": "d" * 129},
+            headers={"Authorization": "Bearer test-token-chat-user-1"},
+        )
+
+    assert resp.status_code == 422
+
+@pytest.mark.asyncio
 async def test_chat_user_isolation():
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:

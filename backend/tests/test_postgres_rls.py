@@ -10,6 +10,7 @@ import shutil
 import subprocess
 import time
 from concurrent.futures import ThreadPoolExecutor
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from uuid import uuid4
 
@@ -68,7 +69,8 @@ def database():
         END $$;
         CREATE TABLE auth.users(id uuid PRIMARY KEY, email text);
         CREATE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql STABLE AS $$
-          SELECT nullif(current_setting('request.jwt.claim.sub',true),'')::uuid
+          SELECT coalesce(nullif(current_setting('request.jwt.claim.sub',true),''),
+            nullif(current_setting('request.jwt.claims',true),'')::jsonb->>'sub')::uuid
         $$;
         GRANT USAGE ON SCHEMA auth, public TO anon, authenticated, service_role;
         GRANT EXECUTE ON FUNCTION auth.uid() TO anon, authenticated, service_role;
@@ -85,6 +87,7 @@ def database():
     """)
     for path in sorted((ROOT / "backend/migrations").glob("*.sql")):
         sql(path.read_text())
+    sql("NOTIFY pgrst, 'reload schema';")
     return sql
 
 
@@ -101,14 +104,36 @@ def authenticated(user_id, statement):
 
 def document(user_id, document_id=None):
     doc_id = document_id or str(uuid4())
+    uploaded_at = datetime.now(UTC)
     return {"id": doc_id, "user_id": user_id, "original_filename": "notes.txt",
             "file_type": "txt", "mime_type": "text/plain", "file_size": 100,
             "s3_object_key": f"documents/{user_id}/{doc_id}/original.txt",
-            "expires_at": "2099-01-01T00:00:00Z"}
+            "uploaded_at": uploaded_at.isoformat(),
+            "expires_at": (uploaded_at + timedelta(hours=72)).isoformat()}
 
 
 def register_sql(payload):
-    return "SELECT public.register_document('" + json.dumps(payload) + "'::jsonb, 10);"
+    """Issue one durable synthetic ticket before exercising real registration.
+
+    The advisory lock makes concurrent fixture issuance idempotent without
+    weakening the production RPC's refusal to reissue an existing object path.
+    PERFORM keeps stdout limited to the final registration JSON.
+    """
+    ticket = {"id": payload["id"], "user_id": payload["user_id"],
+              "object_key": payload["s3_object_key"], "file_type": payload["file_type"],
+              "mime_type": payload["mime_type"], "file_size": payload["file_size"],
+              "provider": "supabase", "bucket": "study-documents",
+              "signed_until": (datetime.now(UTC) + timedelta(hours=1)).isoformat()}
+    ticket_json = json.dumps(ticket)
+    document_json = json.dumps(payload)
+    return (
+        "DO $fixture$ BEGIN "
+        f"PERFORM pg_advisory_xact_lock(hashtextextended('{payload['id']}',0)); "
+        f"IF NOT EXISTS (SELECT 1 FROM internal.upload_tickets WHERE id='{payload['id']}') THEN "
+        f"PERFORM public.issue_upload_ticket($ticket${ticket_json}$ticket$::jsonb); "
+        "END IF; END $fixture$; "
+        f"SELECT public.register_document($document${document_json}$document$::jsonb,10);"
+    )
 
 
 def sync_sql(user_id, events):
@@ -260,6 +285,7 @@ def test_rag_query_is_bounded_filters_tenants_and_expired_sources(database, user
     own, foreign = document(alice), document(bob)
     database(register_sql(own))
     database(register_sql(foreign))
+    database(f"UPDATE documents SET processing_status='READY' WHERE id IN ('{own['id']}','{foreign['id']}');")
     vector = "[" + ",".join(["1"] + ["0"] * 1535) + "]"
     for owner, source in [(alice, own), (bob, foreign)]:
         database(f"INSERT INTO document_chunks(document_id,user_id,chunk_index,content,section,embedding) SELECT '{source['id']}','{owner}',n,'Evidence','Biology','{vector}'::vector FROM generate_series(0,59) n;")

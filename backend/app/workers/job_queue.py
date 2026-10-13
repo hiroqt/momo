@@ -11,7 +11,7 @@ import re
 import time
 import uuid
 from copy import deepcopy
-from datetime import UTC, datetime
+from datetime import datetime
 from typing import Any, Literal
 
 from app.db.session import supabase_session
@@ -53,21 +53,47 @@ class JobQueue:
             }))
             return resp.data
         async with self._lock:
-            existing = self._find(kind, user_id, subject_id)
-            if existing is None:
-                now = time.time()
-                job: dict[str, Any] = {"id": str(uuid.uuid4()), "kind": kind, "user_id": user_id,
-                       "subject_id": subject_id, "payload": deepcopy(payload), "status": "queued",
-                       "attempts": 0, "max_attempts": max_attempts, "run_after": now,
-                       "lease_owner": None, "lease_expires_at": None, "last_error": None,
-                       "created_at": now, "updated_at": now, "completed_at": None}
-                self._jobs[job["id"]] = job
-                return deepcopy(job)
-            if requeue and existing["status"] in {"succeeded", "dead"}:
-                existing.update({"status": "queued", "attempts": 0, "max_attempts": max_attempts,
-                                 "payload": deepcopy(payload), "run_after": time.time(),
-                                 "last_error": None, "completed_at": None, "updated_at": time.time()})
-            return deepcopy(existing)
+            return self._enqueue_memory_locked(kind, user_id, subject_id, payload, max_attempts, requeue)
+
+    def _enqueue_memory_locked(self, kind: JobKind, user_id: str, subject_id: str,
+                               payload: dict[str, Any], max_attempts: int, requeue: bool) -> dict[str, Any]:
+        existing = self._find(kind, user_id, subject_id)
+        if existing is None:
+            now = time.time()
+            job: dict[str, Any] = {"id": str(uuid.uuid4()), "kind": kind, "user_id": user_id,
+                   "subject_id": subject_id, "payload": deepcopy(payload), "status": "queued",
+                   "attempts": 0, "orphan_recoveries": 0, "max_attempts": max_attempts, "run_after": now,
+                   "lease_owner": None, "lease_expires_at": None, "last_error": None,
+                   "created_at": now, "updated_at": now, "completed_at": None}
+            self._jobs[job["id"]] = job
+            return deepcopy(job)
+        if requeue and existing["status"] in {"succeeded", "dead"}:
+            existing.update({"status": "queued", "attempts": 0, "orphan_recoveries": 0, "max_attempts": max_attempts,
+                             "payload": deepcopy(payload), "run_after": time.time(),
+                             "last_error": None, "completed_at": None, "updated_at": time.time()})
+        return deepcopy(existing)
+
+    async def enqueue_generation_retry(self, user_id: str, subject_id: str, revision: str,
+                                       max_attempts: int = 3) -> dict[str, Any] | None:
+        """Consume one explicit retry authorization atomically with queue reset."""
+        if not 1 <= max_attempts <= 10:
+            raise JobQueueError("Invalid background job")
+        if supabase_session.is_configured and supabase_session.client:
+            response = await supabase_session.execute(supabase_session.client.rpc("enqueue_generation_retry", {
+                "p_user_id": user_id, "p_subject_id": subject_id, "p_revision": revision,
+                "p_max_attempts": max_attempts,
+            }))
+            return response.data or None
+        from app.db.repositories.generation_repo import generation_repo
+
+        async with self._lock:
+            job = generation_repo._jobs.get(subject_id)
+            if not job or job.get("user_id") != user_id or job.get("status") != "PENDING" \
+                or not job.get("retry_dispatch_pending") or job.get("updated_at") != revision:
+                return None
+            queued = self._enqueue_memory_locked("study_generation", user_id, subject_id, {}, max_attempts, True)
+            job["retry_dispatch_pending"] = False
+            return queued
 
     async def claim(self, worker_id: str, kinds: tuple[str, ...] = JOB_KINDS, *, limit: int = 1,
                     lease_seconds: int = 120, job_id: str | None = None) -> list[dict[str, Any]]:
@@ -170,22 +196,54 @@ class JobQueue:
             return int(resp.data or 0)
         from app.db.repositories.documents_repo import documents_repo
         from app.db.repositories.generation_repo import generation_repo
-        cutoff = datetime.now(UTC).timestamp() - grace_seconds
-        candidates: list[tuple[JobKind, str, str]] = []
-        for doc in list(documents_repo._store.values()):
-            if doc.get("processing_status") in PROCESSING_DOCUMENT_STATES and _older(doc, cutoff):
-                candidates.append(("document_ingestion", doc["user_id"], doc["id"]))
-        for gen in list(generation_repo._jobs.values()):
-            if (gen.get("status") in PROCESSING_GENERATION_STATES and not gen.get("study_set_id")
-                    and _older(gen, cutoff)):
-                candidates.append(("study_generation", gen["user_id"], gen["id"]))
+        now = time.time()
+        cutoff = now - grace_seconds
+        exhausted: list[dict[str, Any]] = []
         recovered = 0
-        for kind, user_id, subject_id in candidates[:limit]:
-            existing = self._find(kind, user_id, subject_id)
-            if existing and existing["status"] in {"queued", "running"}:
-                continue
-            await self.enqueue(kind, user_id, subject_id, max_attempts=max_attempts, requeue=True)
-            recovered += 1
+        async with self._lock:
+            candidates: list[tuple[JobKind, str, str, dict[str, Any]]] = []
+            for doc in list(documents_repo._store.values()):
+                try:
+                    unexpired = datetime.fromisoformat(str(doc["expires_at"])).timestamp() > now
+                except (KeyError, TypeError, ValueError):
+                    unexpired = False
+                if (doc.get("processing_status") in PROCESSING_DOCUMENT_STATES
+                        and unexpired and _older(doc, cutoff)):
+                    candidates.append(("document_ingestion", doc["user_id"], doc["id"], doc))
+            for gen in list(generation_repo._jobs.values()):
+                if (gen.get("status") in PROCESSING_GENERATION_STATES and not gen.get("study_set_id")
+                        and _older(gen, cutoff)):
+                    candidates.append(("study_generation", gen["user_id"], gen["id"], gen))
+            # Active rows do not consume the bounded recovery batch.
+            candidates = [candidate for candidate in candidates
+                          if (existing := self._find(*candidate[:3])) is None
+                          or existing["status"] not in {"queued", "running"}]
+            candidates.sort(key=lambda candidate: (
+                candidate[3].get("updated_at") or candidate[3].get("created_at") or "",
+                candidate[0], candidate[2]))
+            for kind, user_id, subject_id, _subject in candidates[:limit]:
+                existing = self._find(kind, user_id, subject_id)
+                if existing is None:
+                    job: dict[str, Any] = {"id": str(uuid.uuid4()), "kind": kind, "user_id": user_id,
+                           "subject_id": subject_id, "payload": {}, "status": "queued",
+                           "attempts": 0, "orphan_recoveries": 1, "max_attempts": max_attempts,
+                           "run_after": now, "lease_owner": None, "lease_expires_at": None,
+                           "last_error": None, "created_at": now, "updated_at": now,
+                           "completed_at": None}
+                    self._jobs[job["id"]] = job
+                elif existing.get("orphan_recoveries", 0) >= existing["max_attempts"]:
+                    existing.update({"status": "dead", "last_error": "ORPHAN_RECOVERY_EXHAUSTED",
+                                     "completed_at": now, "updated_at": now})
+                    exhausted.append(deepcopy(existing))
+                    continue
+                else:
+                    existing.update({"status": "queued", "attempts": 0,
+                                     "orphan_recoveries": existing.get("orphan_recoveries", 0) + 1,
+                                     "run_after": now, "last_error": None, "completed_at": None,
+                                     "updated_at": now})
+                recovered += 1
+        for job in exhausted:
+            await _fail_subject_in_memory(job)
         return recovered
 
     # ------------------------------------------------------------ helpers

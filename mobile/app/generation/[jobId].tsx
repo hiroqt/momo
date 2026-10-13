@@ -24,6 +24,11 @@ import {
   Folder01Icon,
 } from '@hugeicons/core-free-icons';
 import { getGenerationStatus, retryGeneration } from '../../lib/api/generations';
+import { generationIntents } from '../../lib/generation/generationIntents';
+import { startGenerationPolling } from '../../lib/generation/pollGeneration';
+import { retryAndReconcile } from '../../lib/generation/retryGeneration';
+import { classifyFailure } from '../../lib/api/errors';
+import { localDb, type AccountBinding } from '../../lib/storage/localDb';
 import { PlatformPressable } from '../../components/common/PlatformPressable';
 import { SmoothScrollView } from '../../components/common/SmoothScrollView';
 import { GenerationJob } from '../../types';
@@ -52,13 +57,31 @@ const CRAFTING_SUBTITLES = [
 ];
 
 export default function GenerationProgressScreen() {
-  const { jobId } = useLocalSearchParams<{ jobId: string }>();
+  const { jobId, intentId } = useLocalSearchParams<{ jobId: string; intentId?: string }>();
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
   const [job, setJob] = useState<GenerationJob | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isRetrying, setIsRetrying] = useState(false);
+  const [pollRevision, setPollRevision] = useState(0);
+  const mounted = useRef(true);
+  const retrying = useRef(false);
+  const activeJobId = useRef(jobId);
+  activeJobId.current = jobId;
+  const binding = useRef<AccountBinding | null>(null);
+  const acceptedIntent = useRef<string | null>(null);
+  useEffect(() => {
+    mounted.current = true;
+    try { binding.current = localDb.currentBinding(); }
+    catch { setErrorMsg('Sign in to continue this generation.'); }
+    const unsubscribe = localDb.onAccountChange(() => {
+      if (!mounted.current) return;
+      setJob(null);
+      setErrorMsg('Your account changed. Reopen this generation after signing in.');
+    });
+    return () => { mounted.current = false; unsubscribe(); };
+  }, []);
 
   // Optimistic auto-progress state (advances quickly, then holds near end at ~92% during backend traffic)
   const [simulatedProgress, setSimulatedProgress] = useState(12);
@@ -125,84 +148,80 @@ export default function GenerationProgressScreen() {
     return () => clearInterval(simInterval);
   }, []);
 
-  // 4. Polling backend generation status
+  // Serial, owner-bound status polling. Restart the effect after explicit retry.
   useEffect(() => {
-    let interval: any = null;
-    let isFinished = false;
+    const owner = binding.current;
+    if (!owner) return;
+    let active = true;
     let navigationTimer: ReturnType<typeof setTimeout> | undefined;
-
-    const poll = async () => {
-      if (isFinished) return;
-      try {
-        const data = await getGenerationStatus(jobId);
+    const controller = new AbortController();
+    const valid = () => active && mounted.current && activeJobId.current === jobId &&
+      localDb.getActiveAccountId() === owner.owner && localDb.getAccountEpoch() === owner.epoch;
+    const stop = startGenerationPolling({
+      isCurrent: valid,
+      fetchJob: async () => {
+        const data = await getGenerationStatus(jobId, owner, controller.signal);
+        if (!valid()) throw new Error('Your account changed. Open this generation again.');
+        // Consume receipt only after this destination has loaded the owned job.
+        if (intentId && acceptedIntent.current !== intentId) {
+          await generationIntents.acknowledge(intentId, jobId, owner);
+          if (!valid()) throw new Error('Your account changed. Open this generation again.');
+          acceptedIntent.current = intentId;
+        }
+        return data;
+      },
+      onJob: data => {
         setJob(data);
-
-        // If backend reports higher progress, jump to it
-        if (data.progress && data.progress > currentProgressRef.current) {
+        setErrorMsg(null);
+        if (data.progress > currentProgressRef.current) {
           const clamped = Math.min(data.progress, 92.5);
           currentProgressRef.current = clamped;
           setSimulatedProgress(clamped);
-          Animated.timing(progressAnim, {
-            toValue: clamped,
-            duration: 350,
-            useNativeDriver: true,
-          }).start();
+          Animated.timing(progressAnim, { toValue: clamped, duration: 350, useNativeDriver: true }).start();
         }
-
-        if (data.status === 'COMPLETED' && data.study_set_id) {
-          isFinished = true;
-          clearInterval(interval);
-          currentProgressRef.current = 100;
-          setSimulatedProgress(100);
-
-          // Swiftly animate to 100% completion
-          Animated.timing(progressAnim, {
-            toValue: 100,
-            duration: 350,
-            easing: Easing.out(Easing.cubic),
-            useNativeDriver: true,
-          }).start();
-
-          navigationTimer = setTimeout(() => {
-            router.replace(`/study/${data.study_set_id}`);
-          }, 1550);
-        } else if (data.status === 'FAILED') {
-          isFinished = true;
-          clearInterval(interval);
-          setErrorMsg(data.message || 'Generation failed. Please try again.');
-        }
-      } catch (err: any) {
-        setErrorMsg(err.message);
-      }
-    };
-
-    poll();
-    interval = setInterval(poll, 1400);
-
-    return () => {
-      isFinished = true;
-      clearInterval(interval);
-      if (navigationTimer) clearTimeout(navigationTimer);
-    };
-  }, [jobId]);
+      },
+      onCompleted: data => {
+        if (!data.study_set_id) { setErrorMsg('Your reviewer result could not be loaded. Please reopen this generation.'); return; }
+        currentProgressRef.current = 100;
+        setSimulatedProgress(100);
+        Animated.timing(progressAnim, { toValue: 100, duration: 350, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start();
+        navigationTimer = setTimeout(() => { if (valid()) router.replace(`/study/${data.study_set_id}`); }, 1550);
+      },
+      onFailed: data => setErrorMsg(data.message || 'Generation failed. Please try again.'),
+      onError: error => setErrorMsg(error instanceof Error ? error.message : 'Unable to load generation status.'),
+      isRetryable: error => classifyFailure(error) === 'transient',
+    });
+    return () => { active = false; stop(); controller.abort(); if (navigationTimer) clearTimeout(navigationTimer); };
+  }, [jobId, intentId, pollRevision]);
 
   const handleRetry = async () => {
+    const owner = binding.current;
+    if (!owner || retrying.current) return;
+    const requestedJobId = jobId;
+    const valid = () => mounted.current && activeJobId.current === requestedJobId &&
+      localDb.getActiveAccountId() === owner.owner && localDb.getAccountEpoch() === owner.epoch;
+    if (!valid()) return;
+    retrying.current = true;
     setIsRetrying(true);
     setErrorMsg(null);
-    currentProgressRef.current = 15;
-    setSimulatedProgress(15);
-    Animated.timing(progressAnim, {
-      toValue: 15,
-      duration: 300,
-      useNativeDriver: true,
-    }).start();
-
     try {
-      await retryGeneration(jobId);
-      setIsRetrying(false);
-    } catch (err: any) {
-      setErrorMsg('Retry failed: ' + err.message);
-      setIsRetrying(false);
+      await retryAndReconcile({
+        retry: () => retryGeneration(jobId, owner),
+        isCurrent: valid,
+        resumePolling: updated => {
+          if (updated) {
+            setJob(updated);
+            currentProgressRef.current = 15;
+            setSimulatedProgress(15);
+            Animated.timing(progressAnim, { toValue: 15, duration: 300, useNativeDriver: true }).start();
+          }
+          setPollRevision(revision => revision + 1);
+        },
+        onError: error => setErrorMsg('Retry failed: ' + (error instanceof Error ? error.message : 'Please try again.')),
+      });
+    } finally {
+      retrying.current = false;
+      if (valid()) setIsRetrying(false);
     }
   };
 

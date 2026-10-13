@@ -218,7 +218,7 @@ async def test_orphaned_subjects_are_recovered_once():
     old = (datetime.now(UTC) - timedelta(hours=1)).isoformat()
     doc_id, fresh_id, gen_id = str(uuid4()), str(uuid4()), str(uuid4())
     await documents_repo.create({"id": doc_id, "user_id": user, "processing_status": "UPLOADED",
-                                 "created_at": old, "updated_at": old})
+                                 "created_at": old, "updated_at": old, "expires_at": "2099-01-01T00:00:00Z"})
     await documents_repo.create({"id": fresh_id, "user_id": user, "processing_status": "UPLOADED"})
     await generation_repo.create_job({"id": gen_id, "user_id": user, "status": "PENDING"})
     generation_repo._jobs[gen_id]["updated_at"] = old

@@ -1,4 +1,5 @@
 import logging
+from datetime import UTC, datetime
 from typing import Any
 
 import numpy as np
@@ -37,6 +38,57 @@ class ChunksRepository:
 
         self._store[document_id] = chunk_dicts
 
+    async def publish_index(self, document_id: str, user_id: str,
+                            chunks: list[DocumentChunk], page_count: int,
+                            topics: list[str]) -> bool:
+        """Publish a complete owned index and READY state in one transaction."""
+        from app.db.repositories.documents_repo import documents_repo
+
+        rows: list[dict[str, Any]] = [{"id": c.chunk_id, "document_id": document_id, "user_id": user_id,
+                 "chunk_index": c.chunk_index, "content": c.content,
+                 "page_start": c.page_start, "page_end": c.page_end, "section": c.section,
+                 "source_type": c.source_type, "embedding": c.embedding, "metadata": c.metadata}
+                for c in chunks]
+        if supabase_session.is_configured and supabase_session.client:
+            resp = await supabase_session.execute(supabase_session.client.rpc("publish_document_index", {
+                "p_document_id": document_id, "p_user_id": user_id, "p_chunks": rows,
+                "p_page_count": page_count, "p_topics": topics,
+            }))
+            return bool(resp.data)
+        # No await between validation and publication: one event-loop transaction.
+        document = documents_repo._store.get(document_id)
+        if not document or document.get("user_id") != user_id or not self._unexpired(document):
+            raise ValueError("Document unavailable")
+        if document.get("processing_status") == "READY":
+            return False
+        if (document.get("processing_status") != "INDEXING" or not 1 <= page_count <= 50
+                or not 1 <= len(rows) <= 5000
+                or len({r["chunk_index"] for r in rows}) != len(rows)
+                or any(not r["content"].strip() or r["chunk_index"] < 0
+                       or not r["embedding"] or len(r["embedding"]) != 1536 for r in rows)):
+            raise ValueError("Invalid document index")
+        self._store[document_id] = rows
+        document.update({"processing_status": "READY", "processing_error": None,
+                         "page_count": page_count, "suggested_topics": topics,
+                         "updated_at": datetime.now(UTC).isoformat()})
+        return True
+
+    @staticmethod
+    def _unexpired(document: dict[str, Any]) -> bool:
+        try:
+            return (document.get("processing_status") != "EXPIRED"
+                    and datetime.fromisoformat(document["expires_at"].replace("Z", "+00:00"))
+                    > datetime.now(UTC))
+        except (KeyError, TypeError, ValueError):
+            return False
+
+    async def _ready(self, document_id: str, user_id: str) -> bool:
+        from app.db.repositories.documents_repo import documents_repo
+
+        document = await documents_repo.get_by_id(document_id, user_id)
+        return bool(document and document.get("processing_status") == "READY"
+                    and self._unexpired(document))
+
     async def get_by_document_id(self, document_id: str, user_id: str) -> list[dict[str, Any]]:
         if supabase_session.is_configured and supabase_session.client:
             resp = await supabase_session.execute(supabase_session.client.table("document_chunks").select("*").eq("document_id", document_id).eq("user_id", user_id))
@@ -58,6 +110,8 @@ class ChunksRepository:
                 "p_sections": section_filter,
             }))
             return resp.data or []
+        if not await self._ready(document_id, user_id):
+            return []
         chunks = await self.get_by_document_id(document_id, user_id)
         if not chunks:
             return []
@@ -113,7 +167,9 @@ class ChunksRepository:
             return resp.data or []
 
         if not all_chunks:
-            for doc_chunks in self._store.values():
+            for doc_id, doc_chunks in list(self._store.items()):
+                if not await self._ready(doc_id, user_id):
+                    continue
                 for c in doc_chunks:
                     if c.get("user_id") == user_id:
                         all_chunks.append(c)

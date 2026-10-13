@@ -12,6 +12,7 @@ export type RecordKind =
   | 'mutation'
   | 'id_map'
   | 'session'
+  | 'generation_request'
   | 'wallet';
 export interface StoredRecord { kind: RecordKind; id: string; data: unknown }
 export interface RecordChange { kind: RecordKind; id: string; data?: unknown }

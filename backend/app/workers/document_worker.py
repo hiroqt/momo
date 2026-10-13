@@ -86,17 +86,11 @@ class DocumentWorker:
 
             # 6. Status: INDEXING
             await documents_repo.update_status(document_id, "INDEXING")
-            # A retried attempt replaces any partial index instead of duplicating it.
-            await chunks_repo.delete_by_document_id(document_id, user_id)
-            await chunks_repo.save_chunks(document_id=document_id, user_id=user_id, chunks=chunks)
-
-            # 7. Status: READY
+            # The complete index and READY transition commit together. A late
+            # duplicate cannot overwrite an already published or expired source.
             topics = doc_content.metadata.get("suggested_topics", [])
-            await documents_repo.update_status(
-                document_id,
-                "READY",
-                page_count=doc_content.total_pages,
-                topics=topics
+            await chunks_repo.publish_index(
+                document_id, user_id, chunks, doc_content.total_pages, topics
             )
             logger.info(f"Document {document_id} successfully processed and indexed with {len(topics)} suggested topics.")
 

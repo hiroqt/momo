@@ -1,5 +1,5 @@
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
 
 from app.db.repositories.folder_repo import folder_repo
 from app.dependencies import AuthenticatedUser, get_current_user
@@ -14,7 +14,8 @@ async def list_folders(user: AuthenticatedUser = Depends(get_current_user), limi
 @router.post("", response_model=FolderResponse, status_code=status.HTTP_201_CREATED)
 async def create_folder(
     req: FolderCreateRequest,
-    user: AuthenticatedUser = Depends(get_current_user)
+    user: AuthenticatedUser = Depends(get_current_user),
+    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key", min_length=1, max_length=128, pattern=r"^[A-Za-z0-9._:-]+$")
 ):
     cleaned_name = req.name.strip()
     if not cleaned_name:
@@ -22,6 +23,9 @@ async def create_folder(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail={"code": "INVALID_NAME", "message": "Folder name cannot be empty."}
         )
+
+    if idempotency_key is not None:
+        return await folder_repo.create_request(user.id, idempotency_key, cleaned_name, req.color)
 
     # Check for duplicate folder name
     existing_folders = await folder_repo.list_folders(user.id)

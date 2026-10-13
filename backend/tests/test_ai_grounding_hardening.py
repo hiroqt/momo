@@ -267,7 +267,7 @@ async def test_worker_provider_outage_fails_job_without_study_set(monkeypatch):
 
     user, doc_id, job_id = "outage-user", f"outage-doc-{uuid4()}", str(uuid4())
     await documents_repo.create({"id": doc_id, "user_id": user, "processing_status": "READY",
-                                 "original_filename": "notes.pdf"})
+                                 "original_filename": "notes.pdf", "expires_at": "2099-01-01T00:00:00Z"})
     await chunks_repo.save_chunks(doc_id, user, [DocumentChunk(
         chunk_id="outage-chunk", document_id=doc_id, chunk_index=0, page_start=1, page_end=1,
         content="Ribosomes synthesize proteins from amino acids in every living cell.",

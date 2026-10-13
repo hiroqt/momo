@@ -53,7 +53,7 @@ def test_internal_state_is_not_client_accessible(database):
     assert database("SELECT has_schema_privilege('anon','internal','USAGE') OR has_schema_privilege('authenticated','internal','USAGE');") == "f"
     assert database("SELECT has_schema_privilege('service_role','internal','USAGE');") == "t"
     rls = database("SELECT string_agg(relname||':'||relrowsecurity||relforcerowsecurity, ',' ORDER BY relname) FROM pg_class WHERE relnamespace='internal'::regnamespace AND relkind='r';")
-    assert rls == "background_jobs:truetrue,rate_limit_events:truetrue"
+    assert rls == "background_jobs:truetrue,folder_requests:truetrue,generation_requests:truetrue,rate_limit_events:truetrue,upload_tickets:truetrue"
     functions = ["enqueue_background_job(text,uuid,uuid,jsonb,integer,boolean)",
                  "claim_background_jobs(text,text[],integer,integer,uuid)", "heartbeat_background_job(uuid,text,integer)",
                  "complete_background_job(uuid,text)", "fail_background_job(uuid,text,text,integer,boolean)",
@@ -281,9 +281,22 @@ def test_rate_limit_rejects_raw_identifiers_and_unbounded_limits(database, key, 
 def test_retention_backlog_reports_oldest_overdue_original(database, users):
     alice, _ = users
     overdue = registered(database, alice)
-    database(f"UPDATE public.documents SET uploaded_at=now()-interval '5 days',expires_at=now()-interval '2 days' WHERE id='{overdue}';")
+    database(f"BEGIN; UPDATE public.documents SET uploaded_at=now()-interval '5 days',expires_at=now()-interval '2 days' WHERE id='{overdue}'; "
+             f"UPDATE internal.upload_tickets SET issued_at=now()-interval '5 days 1 minute',signed_until=now()-interval '4 days 23 hours',"
+             f"uploaded_at=now()-interval '5 days',expires_at=now()-interval '2 days',"
+             f"physical_expires_at=now()-interval '2 days',next_check_at=now()-interval '2 days' WHERE id='{overdue}'; COMMIT;")
     backlog = json.loads(database("SELECT public.retention_backlog();", role=SERVICE))
     assert backlog["overdue_count"] >= 1 and backlog["oldest_overdue_seconds"] >= 2 * 86400 - 60
     database(f"UPDATE public.documents SET processing_status='EXPIRED' WHERE id='{overdue}';")
+    # Metadata expiry does not prove physical deletion; backlog clears only
+    # after the provider deletion's successful completion is acknowledged.
+    marked = json.loads(database("SELECT public.retention_backlog();", role=SERVICE))
+    assert marked["overdue_count"] == backlog["overdue_count"]
+    database("DO $$ BEGIN PERFORM public.claim_upload_cleanup(100,'supabase','study-documents'); END $$;", role=SERVICE)
+    lease = database(f"SELECT lease_token FROM internal.upload_tickets WHERE id='{overdue}';")
+    observation = (f"(SELECT jsonb_build_object('size',file_size,'uploaded_at',uploaded_at) "
+                   f"FROM internal.upload_tickets WHERE id='{overdue}')")
+    assert database(f"SELECT public.prepare_upload_cleanup('{overdue}','{lease}',{observation});", role=SERVICE) == "t"
+    assert database(f"SELECT public.finish_upload_cleanup('{overdue}','{lease}');", role=SERVICE) == "t"
     after = json.loads(database("SELECT public.retention_backlog();", role=SERVICE))
     assert after["overdue_count"] == backlog["overdue_count"] - 1

@@ -34,7 +34,9 @@ import {
   HelpCircleIcon,
   File01Icon,
 } from '@hugeicons/core-free-icons';
-import { createGeneration } from '../../lib/api/generations';
+import type { GenerationRequest } from '../../lib/api/generations';
+import { GenerationDraftScope, generationIntents } from '../../lib/generation/generationIntents';
+import { localDb } from '../../lib/storage/localDb';
 import { getDocument } from '../../lib/api/documents';
 import { PageHeader } from '../../components/common/PageHeader';
 import { PlatformPressable } from '../../components/common/PlatformPressable';
@@ -103,11 +105,39 @@ export default function CreateReviewerScreen() {
   const [timerOption, setTimerOption] = useState<'none' | '15' | '30' | '45' | '60' | 'custom'>('none');
   const [customTimer, setCustomTimer] = useState('90');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [draftReady, setDraftReady] = useState(false);
+  const restoredDraft = useRef<GenerationRequest | null>(null);
+  const submitting = useRef(false);
+  const draftScope = useRef(new GenerationDraftScope());
+  const routeIdentity = `${documentId}:${currentMode}:${otherDocIds ?? ''}`;
+  const latestRoute = useRef(routeIdentity);
+  latestRoute.current = routeIdentity;
+  const [draftError, setDraftError] = useState(false);
+  const activeBinding = () => ({ owner: localDb.getActiveAccountId() ?? '', epoch: localDb.getAccountEpoch() });
+
+  useEffect(() => localDb.onAccountChange(() => {
+    draftScope.current.invalidate();
+    restoredDraft.current = null; submitting.current = false;
+    setDraftReady(false); setDraftError(true); setIsSubmitting(false);
+    setTitle(''); setTopic(''); setInstructions(''); setSuggestedTopics([]); setDocumentName('');
+    setCount('20'); setDifficulty('medium'); setContentLevel('moderate');
+    setReviewerFormats({}); setQuizFormats({}); setTimerOption('none'); setCustomTimer('90'); setCurrentStep(1);
+  }), []);
 
   useEffect(() => {
     if (!documentId) return;
+    let active = true;
+    const snapshot = draftScope.current.activate(routeIdentity, activeBinding());
+    const valid = () => active && draftScope.current.matches(snapshot, activeBinding(), latestRoute.current);
+    setDraftReady(false); setDraftError(false); setIsSubmitting(false); submitting.current = false;
+    restoredDraft.current = null;
+    setTitle(''); setTopic(''); setInstructions(''); setSuggestedTopics([]); setDocumentName('');
+    setCount('20'); setDifficulty('medium'); setContentLevel('moderate'); setTimerOption('none'); setCustomTimer('90'); setCurrentStep(1);
+    setReviewerFormats({ glossary: true, concept_outline: true, cheat_sheet: true, compare_contrast: true, qa_study_sheet: true, timeline_process: false });
+    setQuizFormats({ flashcard: true, multiple_choice: true, true_false: false, identification: false });
     getDocument(documentId)
       .then((res) => {
+        if (!valid()) return;
         const defaultSuffix = isQuizFlow ? 'Quiz' : 'Reviewer';
         if (res.original_filename) {
           setDocumentName(res.original_filename);
@@ -125,10 +155,34 @@ export default function CreateReviewerScreen() {
           }
         }
       })
-      .catch((err) => {
-        console.warn('Failed to load document details:', err);
+      .catch(() => {
+        // Saved drafts can still hydrate while the document request is offline.
+      })
+      .then(async () => {
+        if (!valid()) return;
+        const intent = await generationIntents.unfinished(documentId, isQuizFlow ? 'quiz' : 'reviewer');
+        if (!valid()) return;
+        if (intent?.job) {
+          router.replace(`/generation/${intent.job.generation_id}?intentId=${intent.id}`);
+          return;
+        }
+        const draft = intent?.payload;
+        restoredDraft.current = draft ?? null;
+        if (draft) {
+          setTitle(draft.title ?? ''); setTopic(draft.topic ?? '');
+          setCount(String(draft.count ?? 20)); setDifficulty(draft.difficulty ?? 'medium');
+          setContentLevel(draft.content_level ?? 'moderate'); setInstructions(draft.custom_instruction ?? '');
+          setReviewerFormats(Object.fromEntries((draft.reviewer_types ?? []).map(type => [type, true])));
+          setQuizFormats(Object.fromEntries((draft.question_types ?? []).map(type => [type, true])));
+          setTimerOption(draft.time_limit_per_question ? 'custom' : 'none');
+          setCustomTimer(String(draft.time_limit_per_question ?? 90));
+        }
+        setDraftReady(true);
+      }).catch(() => {
+        if (valid()) { setDraftError(true); Alert.alert('Saved Settings Unavailable', 'Your saved settings could not be loaded. Reopen this screen before generating.'); }
       });
-  }, [documentId, isQuizFlow]);
+    return () => { active = false; draftScope.current.invalidate(); };
+  }, [documentId, currentMode, otherDocIds]);
 
   const animateProgress = (targetStep: number) => {
     Animated.timing(progressAnim, {
@@ -201,6 +255,10 @@ export default function CreateReviewerScreen() {
   };
 
   const handleGenerate = async () => {
+    if (!draftReady || submitting.current) return;
+    const snapshot = draftScope.current.capture();
+    const valid = () => draftScope.current.matches(snapshot, activeBinding(), latestRoute.current);
+    if (!valid()) return;
     const selectedRev = Object.keys(reviewerFormats).filter((k) => reviewerFormats[k]);
     const selectedQuiz = Object.keys(quizFormats).filter((k) => quizFormats[k]);
 
@@ -214,6 +272,7 @@ export default function CreateReviewerScreen() {
     }
 
     setIsSubmitting(true);
+    submitting.current = true;
     try {
       const parsedCustom = parseInt(customTimer, 10);
       const timerSeconds = isQuizFlow
@@ -229,9 +288,10 @@ export default function CreateReviewerScreen() {
 
       const reviewerItemCount = contentLevel === 'light' ? 12 : contentLevel === 'detailed' ? 35 : 20;
 
-      const job = await createGeneration({
+      const result = await generationIntents.submit({
+        ...restoredDraft.current,
         document_id: documentId,
-        document_ids: allDocIds.length > 1 ? allDocIds : undefined,
+        document_ids: restoredDraft.current?.document_ids ?? (allDocIds.length > 1 ? allDocIds : undefined),
         generation_mode: isQuizFlow ? 'quiz' : 'reviewer',
         reviewer_types: !isQuizFlow ? selectedRev : [],
         question_types: isQuizFlow ? selectedQuiz : [],
@@ -241,16 +301,20 @@ export default function CreateReviewerScreen() {
         count: isQuizFlow ? (parseInt(count, 10) || 20) : reviewerItemCount,
         difficulty: isQuizFlow ? difficulty : 'medium',
         custom_instruction: instructions.trim() || undefined,
-        academic_level: studyTrack === 'high_school' ? highSchoolGrade || undefined : collegeYear || undefined,
-        learner_focus: studyTrack === 'high_school' ? undefined : collegeCourse?.trim() || undefined,
+        academic_level: restoredDraft.current?.academic_level ?? (studyTrack === 'high_school' ? highSchoolGrade || undefined : collegeYear || undefined),
+        learner_focus: restoredDraft.current?.learner_focus ?? (studyTrack === 'high_school' ? undefined : collegeCourse?.trim() || undefined),
         source_only: true,
         time_limit_per_question: timerSeconds,
       });
 
-      router.replace(`/generation/${job.generation_id}`);
+      if (!valid()) return;
+      if (localDb.getActiveAccountId() !== result.binding.owner || localDb.getAccountEpoch() !== result.binding.epoch) throw new Error('Your account changed. Open this action again.');
+      router.replace(`/generation/${result.job.generation_id}?intentId=${result.intentId}`);
     } catch (err: any) {
+      if (!valid()) return;
       Alert.alert('Generation Error', err.message);
-      setIsSubmitting(false);
+    } finally {
+      if (valid()) { setIsSubmitting(false); submitting.current = false; }
     }
   };
 
@@ -979,13 +1043,13 @@ export default function CreateReviewerScreen() {
         </TouchableOpacity>
 
         <PlatformPressable
-          style={[styles.nextBtn, isSubmitting && styles.disabledBtn]}
-          disabled={isSubmitting}
+          style={[styles.nextBtn, (isSubmitting || !draftReady) && styles.disabledBtn]}
+          disabled={isSubmitting || !draftReady}
           onPress={goToNextStep}
         >
           <View style={styles.nextBtnContent}>
             <Text style={styles.nextBtnText}>
-              {currentStep === totalSteps
+              {!draftReady ? draftError ? 'Reopen to Load Settings' : 'Loading Saved Settings...' : currentStep === totalSteps
                 ? isSubmitting
                   ? isQuizFlow
                     ? 'Creating Quiz...'

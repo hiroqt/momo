@@ -1,9 +1,11 @@
 import logging
+import re
 import uuid
 from datetime import UTC, datetime
 from typing import Any
 
 from fastapi import HTTPException
+from postgrest.exceptions import APIError
 
 from app.db.repositories.study_repo import study_repo
 from app.db.session import page_range, supabase_session
@@ -25,12 +27,52 @@ def calculate_folder_credit_cost(existing_count: int) -> int:
 class FolderRepository:
     def __init__(self) -> None:
         self._folders: dict[str, dict[str, Any]] = {}
+        self._requests: dict[tuple[str, str], tuple[dict[str, Any], str]] = {}
 
     def _validate_unique_name(self, user_id: str, name: str, exclude_id: str | None = None) -> None:
         if any(row.get("user_id") == user_id and row["id"] != exclude_id and row["name"].strip().lower() == name.strip().lower() for row in self._folders.values()):
             raise HTTPException(409, detail={"code": "FOLDER_NAME_EXISTS", "message": "A folder with this name already exists."})
 
+    async def create_request(self, user_id: str, request_key: str, name: str, color: str | None) -> dict[str, Any]:
+        if not re.fullmatch(r"[A-Za-z0-9._:-]{1,128}", request_key):
+            raise HTTPException(422, detail={"code": "INVALID_IDEMPOTENCY_KEY", "message": "Invalid request key."})
+        errors = {
+            "IDEMPOTENCY_KEY_REUSED": "This request key was already used for different folder details.",
+            "FOLDER_REQUEST_DELETED": "The folder from this request has been deleted.",
+        }
+        if supabase_session.is_configured and supabase_session.client:
+            try:
+                response = await supabase_session.execute(supabase_session.client.rpc("create_folder_request", {
+                    "p_user_id": user_id, "p_request_key": request_key, "p_name": name, "p_color": color,
+                }))
+            except APIError as exc:
+                if exc.message in errors:
+                    raise HTTPException(409, detail={"code": exc.message, "message": errors[exc.message]}) from None
+                if exc.code == "23505":
+                    raise HTTPException(409, detail={"code": "FOLDER_NAME_EXISTS", "message": "A folder with this name already exists."}) from None
+                raise
+            folder = await self.get_folder(response.data["id"], user_id)
+            if folder is None:
+                raise HTTPException(409, detail={"code": "FOLDER_REQUEST_DELETED", "message": errors["FOLDER_REQUEST_DELETED"]})
+            return folder
+        key = (user_id, request_key)
+        payload = {"name": name.strip(), "color": color}
+        prior = self._requests.get(key)
+        if prior:
+            if prior[0] != payload:
+                raise HTTPException(409, detail={"code": "IDEMPOTENCY_KEY_REUSED", "message": errors["IDEMPOTENCY_KEY_REUSED"]})
+            folder = await self.get_folder(prior[1], user_id)
+            if folder is None:
+                raise HTTPException(409, detail={"code": "FOLDER_REQUEST_DELETED", "message": errors["FOLDER_REQUEST_DELETED"]})
+            return folder
+        # Memory create_folder performs no suspended I/O: one event-loop transaction.
+        folder = await self.create_folder({"user_id": user_id, **payload})
+        self._requests[key] = (payload, folder["id"])
+        return folder
+
     async def create_folder(self, data: dict[str, Any]) -> dict[str, Any]:
+        if data.get("color") is None:
+            data["color"] = "#4F46E5"
         if supabase_session.use_memory:
             self._validate_unique_name(data["user_id"], data["name"])
         folder_id = data.get("id") or str(uuid.uuid4())

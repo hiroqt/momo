@@ -22,3 +22,12 @@ async def dispatch_job(kind: JobKind, user_id: str, subject_id: str, background_
         from app.workers.runner import job_runner
         background_tasks.add_task(job_runner.run_now, job["id"])
     return job
+
+
+async def dispatch_generation_retry(user_id: str, subject_id: str, revision: str,
+                                    background_tasks: BackgroundTasks) -> dict[str, Any] | None:
+    job = await job_queue.enqueue_generation_retry(user_id, subject_id, revision, settings.JOB_MAX_ATTEMPTS)
+    if job and settings.INLINE_JOB_EXECUTION and not settings.is_managed and job.get("status") == "queued":
+        from app.workers.runner import job_runner
+        background_tasks.add_task(job_runner.run_now, job["id"])
+    return job

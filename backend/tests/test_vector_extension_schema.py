@@ -54,6 +54,7 @@ def test_relocated_cosine_retrieval_owned_expiry_filters_and_bound(database, use
     expired = document(alice)
     for source in (owned, foreign, expired):
         database(register_sql(source), role="service_role")
+        database(f"UPDATE documents SET processing_status='READY' WHERE id='{source['id']}';")
     database(
         f"UPDATE public.documents SET uploaded_at=now()-interval '4 days',expires_at=now()-interval '1 day' WHERE id='{expired['id']}';"
     )

@@ -46,7 +46,9 @@ def access_token(user_id: str, **updates) -> str:
     now = int(time.time())
     claims = {"sub": user_id, "exp": now + 300, "iat": now, "aud": settings.SUPABASE_JWT_AUDIENCE,
               "iss": f"{settings.SUPABASE_URL.rstrip('/')}/auth/v1", "role": "authenticated",
-              "email": f"{user_id[:8]}@example.test"}
+              "email": f"{user_id[:8]}@example.test", "is_anonymous": False,
+              "app_metadata": {"provider": "google", "providers": ["google"]},
+              "amr": [{"method": "oauth", "timestamp": now}]}
     claims.update(updates)
     return jwt.encode(claims, settings.SUPABASE_JWT_SECRET, algorithm="HS256")
 
@@ -61,7 +63,6 @@ def local_memory_only():
     assert settings.ENVIRONMENT == "test" and supabase_session.use_memory
     assert settings.SUPABASE_URL.startswith("http://127.0.0.1")
     assert settings.INLINE_JOB_EXECUTION and not settings.is_managed
-    yield
 
 
 @pytest.fixture
@@ -299,8 +300,11 @@ def test_pg_journey_register_job_generate_sync_economy_expire(database, users):
     assert database(f"SELECT count(*) FROM economy_ledger WHERE user_id='{alice}';") == "2"
 
     # Expiry cleanup: original marked EXPIRED then the document row removed; the set persists.
-    database(f"UPDATE documents SET uploaded_at=now()-interval '72 hours 1 minute',"
-             f"expires_at=now()-interval '1 minute' WHERE id='{doc['id']}';", role=SERVICE)
+    database(f"BEGIN; UPDATE documents SET uploaded_at=now()-interval '72 hours 1 minute',"
+             f"expires_at=now()-interval '1 minute' WHERE id='{doc['id']}'; "
+             f"UPDATE internal.upload_tickets SET issued_at=now()-interval '72 hours 2 minutes',signed_until=now()-interval '71 hours',"
+             f"uploaded_at=now()-interval '72 hours 1 minute',expires_at=now()-interval '1 minute',"
+             f"physical_expires_at=now()-interval '1 minute',next_check_at=now()-interval '1 minute' WHERE id='{doc['id']}'; COMMIT;", role=SERVICE)
     overdue = rpc(database, "SELECT public.retention_backlog();")
     assert overdue["overdue_count"] >= 1
     database(f"UPDATE documents SET processing_status='EXPIRED' WHERE id='{doc['id']}';", role=SERVICE)

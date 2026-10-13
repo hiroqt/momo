@@ -1,7 +1,10 @@
+import hashlib
+import json
 import logging
 import uuid
+from typing import Annotated
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException, status
 
 from app.db.repositories.documents_repo import documents_repo
 from app.db.repositories.generation_repo import generation_repo
@@ -9,11 +12,28 @@ from app.dependencies import AuthenticatedUser, get_current_user
 from app.schemas.generation import GenerationCreateRequest, GenerationJobResponse
 from app.services.security.guardrails_service import guardrails_service
 from app.services.security.rate_limiter import require_rate_limit
-from app.workers.dispatch import dispatch_job
+from app.workers.dispatch import dispatch_generation_retry, dispatch_job
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/generations", tags=["Generations"])
+
+
+def _response(job: dict) -> GenerationJobResponse:
+    return GenerationJobResponse(generation_id=job["id"], **{k: v for k, v in job.items() if k != "id"})
+
+
+async def _dispatch_pending(job: dict, user_id: str, tasks: BackgroundTasks) -> GenerationJobResponse:
+    if job["status"] == "PENDING":
+        # Automatic orphan recovery has a lifetime budget. A create replay may
+        # requeue terminal work only when an explicit retry authorized that reset.
+        retry_pending = bool(job.get("retry_dispatch_pending"))
+        revision = str(job["updated_at"])
+        if retry_pending:
+            await dispatch_generation_retry(user_id, job["id"], revision, tasks)
+        else:
+            await dispatch_job("study_generation", user_id, job["id"], tasks)
+    return _response(job)
 
 @router.post(
     "",
@@ -23,8 +43,14 @@ router = APIRouter(prefix="/api/generations", tags=["Generations"])
 async def create_generation(
     req: GenerationCreateRequest,
     background_tasks: BackgroundTasks,
-    user: AuthenticatedUser = Depends(get_current_user)
+    user: AuthenticatedUser = Depends(get_current_user),
+    idempotency_key: Annotated[str | None, Header(min_length=8, max_length=128, pattern=r"^[A-Za-z0-9_.:-]+$")] = None,
 ):
+    fingerprint = hashlib.sha256(json.dumps(req.model_dump(), sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()).hexdigest()
+    if idempotency_key:
+        existing = await generation_repo.get_requested_job(user.id, idempotency_key, fingerprint)
+        if existing:
+            return await _dispatch_pending(existing, user.id, background_tasks)
     # 1. Guardrail validation on custom instructions and topic
     if req.custom_instruction:
         g_check = guardrails_service.validate_user_input(req.custom_instruction)
@@ -62,7 +88,7 @@ async def create_generation(
         )
 
     # 3. Verify document is READY for generation
-    if doc.get("processing_status") != "READY":
+    if not generation_repo.source_ready(doc):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail={
@@ -85,24 +111,11 @@ async def create_generation(
         "error": None,
         "generation_config": req.model_dump()
     }
-    created_job = await generation_repo.create_job(job_data)
+    created_job = (await generation_repo.create_requested_job(job_data, idempotency_key, fingerprint)
+                   if idempotency_key else await generation_repo.create_job(job_data))
 
     # 4. Durable dispatch; a separate worker runs retrieval and generation.
-    await dispatch_job("study_generation", user.id, job_id, background_tasks)
-
-    return GenerationJobResponse(
-        generation_id=job_id,
-        document_id=req.document_id,
-        status="PENDING",
-        stage="Reading document",
-        progress=5,
-        message="Initializing reviewer generation...",
-        study_set_id=None,
-        generation_config=created_job.get("generation_config"),
-        error=None,
-        created_at=created_job["created_at"],
-        updated_at=created_job["updated_at"]
-    )
+    return await _dispatch_pending(created_job, user.id, background_tasks)
 
 @router.get("/{generation_id}", response_model=GenerationJobResponse)
 async def get_generation_status(
@@ -153,7 +166,7 @@ async def retry_generation(
         raise HTTPException(409, detail={"code": "GENERATION_NOT_RETRYABLE", "message": "Only failed generations can be retried."})
 
     # retry_failed atomically authorized this restart; requeue the finished queue row.
-    await dispatch_job("study_generation", user.id, generation_id, background_tasks, requeue=True)
+    await _dispatch_pending(updated, user.id, background_tasks)
 
     return GenerationJobResponse(
         generation_id=generation_id,

@@ -23,6 +23,7 @@ async def test_end_to_end_generation_pipeline():
             "mime_type": "application/pdf",
             "file_size": 2048,
             "s3_object_key": "documents/e2e/doc123.pdf",
+            "expires_at": "2099-01-01T00:00:00Z",
             "processing_status": "READY" # Ready for reviewer generation
         })
 

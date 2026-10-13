@@ -1,5 +1,6 @@
 import { apiFetch } from './client';
 import { GenerationJob } from '../../types';
+import type { AccountBinding } from '../storage/localDb';
 
 export interface GenerationRequest {
   document_id: string;
@@ -20,19 +21,20 @@ export interface GenerationRequest {
   time_limit_per_question?: number;
 }
 
-export async function createGeneration(req: GenerationRequest): Promise<GenerationJob> {
+export async function createGeneration(req: GenerationRequest, idempotencyKey: string, binding: AccountBinding): Promise<GenerationJob> {
   return apiFetch<GenerationJob>('/api/generations', {
     method: 'POST',
+    headers: { 'Idempotency-Key': idempotencyKey },
     body: JSON.stringify(req),
-  });
+  }, 15000, { expectedBinding: binding });
 }
 
-export async function getGenerationStatus(generationId: string): Promise<GenerationJob> {
-  return apiFetch<GenerationJob>(`/api/generations/${generationId}`);
+export async function getGenerationStatus(generationId: string, binding?: AccountBinding, signal?: AbortSignal): Promise<GenerationJob> {
+  return apiFetch<GenerationJob>(`/api/generations/${generationId}`, { signal }, 15000, { expectedBinding: binding });
 }
 
-export async function retryGeneration(generationId: string): Promise<GenerationJob> {
+export async function retryGeneration(generationId: string, binding?: AccountBinding): Promise<GenerationJob> {
   return apiFetch<GenerationJob>(`/api/generations/${generationId}/retry`, {
     method: 'POST',
-  });
+  }, 15000, { expectedBinding: binding });
 }

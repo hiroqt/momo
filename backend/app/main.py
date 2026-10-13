@@ -15,6 +15,7 @@ from app.api.routes import (
     economy,
     folders,
     generations,
+    health,
     images,
     math,
     stats,
@@ -23,6 +24,7 @@ from app.api.routes import (
 )
 from app.config import settings
 from app.db.session import supabase_session
+from app.services.security.request_limits import RequestBodyLimitMiddleware
 
 
 @asynccontextmanager
@@ -50,6 +52,7 @@ app = FastAPI(
 )
 
 # CORS configuration for Expo mobile client
+app.add_middleware(RequestBodyLimitMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.CORS_ORIGINS,
@@ -122,6 +125,7 @@ app.include_router(stats.router)
 app.include_router(chat.router)
 app.include_router(images.router)
 app.include_router(economy.router)
+app.include_router(health.router)
 
 @app.get("/health")
 async def health_check():

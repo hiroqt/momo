@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -41,11 +41,11 @@ class ImportCardRequest(BaseModel):
     answer: str = Field(min_length=1, max_length=4000)
     explanation: str | None = Field(default=None, max_length=4000)
     question_type: str = Field(default="flashcard", max_length=40)
-    options: list[str] | None = Field(default=None, max_length=10)
+    options: list[Annotated[str, Field(max_length=2000)]] | None = Field(default=None, max_length=10)
     topic: str | None = Field(default="Momo Study Cards", max_length=238)
     difficulty: Literal["easy", "medium", "hard"] = "medium"
     source_metadata: dict[str, Any] | None = None
-    image_base64: str | None = None
+    image_base64: str | None = Field(default=None, max_length=8_000_000)
 
 class ToolCallRecord(BaseModel):
     tool_name: str
@@ -53,7 +53,7 @@ class ToolCallRecord(BaseModel):
     result: Any | None = None
 
 class ChatSessionCreate(BaseModel):
-    title: str | None = None
+    title: str | None = Field(default=None, max_length=200)
 
 class ChatSessionResponse(BaseModel):
     id: str

@@ -473,3 +473,19 @@ loopback PostgreSQL/PostgREST gateway suite passed **920 tests, zero
 skips/errors/failures**; no-skip, Ruff (142 files), mypy (76 files), and
 `git diff --check` passed. Independent product-contract review found no issue.
 Native two-device and hosted import journeys remain unverified.
+
+## AUTH-01 Google-only session verification
+
+Rechecked the backend trust boundary: only signature-verified Supabase JWTs with
+the configured issuer/audience, valid lifetime, authenticated role, UUID subject,
+Google-only signed provider claims, and OAuth authentication method are accepted.
+The mobile exposes Google PKCE sign-in; it exchanges the code, asks the backend
+to verify the account, binds local data to that verified subject, and fails
+closed on verification or account mismatch. No email/password or other sign-in
+method is exposed. Supabase validates the Google identity during sign-in; API
+requests validate the signed Supabase JWT as previously selected by the user.
+
+`backend/tests/test_backend_security.py`: **28 passed**. The full mobile test
+suite: **188 passed**. These checks cover the local contract only; a real active
+Google account, Supabase refresh/revocation behavior, and native redirect journey
+still require the configured staging API and device.

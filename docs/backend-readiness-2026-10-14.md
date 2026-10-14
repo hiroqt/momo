@@ -200,6 +200,16 @@ the no-skip gate, Ruff (142 files), mypy (76 files), and diff check passed. An
 independent reviewer found no remaining issue. DOCX pseudo-pages are a stable
 word-based approximation, not Microsoft Word's rendered layout pagination.
 
+## API-01 oversized upload response
+
+`UploadUrlRequest` no longer rejects a size above 15 MiB before the route runs;
+the route's configured limit check consistently returns 400
+`DOCUMENT_TOO_LARGE`. The regression proves no upload ticket or signed URL is
+created. `DocumentCreate` retains its independent 15 MiB bound. Full disposable
+PostgreSQL/PostgREST suite: **912 passed, zero skips/errors/failures**; no-skip
+gate, Ruff 142, mypy 76 and diff check passed. This is local contract evidence;
+mobile and hosted journeys remain open.
+
 ## ECON-01 folder pricing follow-up
 
 The user approved PRD 6.6 folder pricing and asked that heart regeneration/refill

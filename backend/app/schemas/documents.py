@@ -8,7 +8,7 @@ from pydantic import AliasChoices, BaseModel, Field, field_validator, model_vali
 class UploadUrlRequest(BaseModel):
     filename: str = Field(min_length=1, max_length=255)
     file_type: str = Field(..., description="pdf, docx, txt, or pptx")
-    file_size: int = Field(..., gt=0, le=15*1024*1024, description="File size in bytes")
+    file_size: int = Field(..., gt=0, description="File size in bytes")
     mime_type: str
 
 class UploadUrlResponse(BaseModel):

@@ -26,7 +26,7 @@ from the verified token. Errors use `{"error": {"code", "message"}}`.
 
 | PRD | Route | Mobile client | Status / compatibility |
 | --- | --- | --- | --- |
-| `POST /api/documents/upload-url` | same | `requestUploadUrl` | Aligned; same request/response fields. |
+| `POST /api/documents/upload-url` | same | `requestUploadUrl` | Aligned; same request/response fields. Oversized declared files return 400 `DOCUMENT_TOO_LARGE` before ticket creation/signing; registration independently enforces the 15 MiB bound. |
 | `POST /api/documents` with `id` | same | `registerDocument` sends `document_id` | **Alias.** `DocumentCreate` accepts canonical `id` and legacy `document_id`. If both are sent they must be the same UUID, otherwise 422. Values are canonicalized UUIDs. |
 | `GET /api/documents` | same (bounded `limit`/`offset`) | `listDocuments` (page collector) | Aligned. |
 | `GET /api/documents/{id}` | same | `getDocument` | Aligned. |

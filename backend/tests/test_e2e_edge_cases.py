@@ -4,6 +4,7 @@ import io
 import json
 import socket
 from concurrent.futures import ThreadPoolExecutor
+from unittest.mock import AsyncMock, Mock
 from uuid import uuid4
 
 import jwt
@@ -34,14 +35,23 @@ MB = 1024 * 1024
 
 # --- Files ---------------------------------------------------------------------------
 
-async def test_oversized_documents_are_rejected_before_storage_and_processing(client):
+async def test_oversized_documents_are_rejected_before_storage_and_processing(client, monkeypatch):
     user = str(uuid4())
     too_big = settings.MAX_FILE_SIZE_MB * MB + 1
-    issued = await client.post("/api/documents/upload-url", headers=bearer(user), json={
-        "filename": "big.pdf", "file_type": "pdf", "mime_type": "application/pdf", "file_size": too_big})
-    # Schema bound (15 MB) answers 422 VALIDATION_ERROR; a lower configured cap answers 400.
-    assert (issued.status_code, issued.json()["error"]["code"]) in {
-        (400, "DOCUMENT_TOO_LARGE"), (422, "VALIDATION_ERROR")}
+    from app.db.repositories.upload_ticket_repo import upload_ticket_repo
+    from app.services.storage import storage_service
+
+    with monkeypatch.context() as scoped:
+        issue = AsyncMock()
+        sign = Mock()
+        scoped.setattr(upload_ticket_repo, "issue", issue)
+        scoped.setattr(storage_service, "generate_presigned_upload_url", sign)
+        issued = await client.post("/api/documents/upload-url", headers=bearer(user), json={
+            "filename": "big.pdf", "file_type": "pdf", "mime_type": "application/pdf", "file_size": too_big})
+        assert issued.status_code == 400
+        assert issued.json()["error"]["code"] == "DOCUMENT_TOO_LARGE"
+        issue.assert_not_awaited()
+        sign.assert_not_called()
 
     small = await client.post("/api/documents/upload-url", headers=bearer(user), json={
         "filename": "a.txt", "file_type": "txt", "mime_type": "text/plain", "file_size": 10})

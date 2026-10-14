@@ -108,6 +108,8 @@ def test_document_registration_alias_and_conflict():
         assert DocumentCreate.model_validate({**payload, **identifiers}).document_id == doc_id
     with pytest.raises(ValidationError):
         DocumentCreate.model_validate({**payload, "id": doc_id, "document_id": str(uuid4())})
+    with pytest.raises(ValidationError):
+        DocumentCreate.model_validate({**payload, "id": doc_id, "file_size": 15 * 1024 * 1024 + 1})
 
 
 async def test_canonical_registration_end_to_end(client_identity, monkeypatch):

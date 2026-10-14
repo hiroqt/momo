@@ -98,8 +98,6 @@ class OpenRouterImageProvider(ImageProvider):
             "n": 1,
             "resolution": "1K",
             "aspect_ratio": aspect_ratio,
-            "quality": "auto",
-            "output_format": "png",
         }
         headers = {
             "Authorization": f"Bearer {self.api_key}",
@@ -129,7 +127,7 @@ class OpenRouterImageProvider(ImageProvider):
             ) from exc
 
         try:
-            provider_result = httpx.Response(200, content=body).json()
+            provider_result = httpx.Response(200, content=bytes(body)).json()
         except (ValueError, TypeError):
             raise ImageProviderUnavailableError("The image provider returned an invalid response.") from None
         if not isinstance(provider_result, dict):
@@ -143,7 +141,7 @@ class OpenRouterImageProvider(ImageProvider):
             "image_base64": item["b64_json"],
             "provider": "openrouter",
             "prompt": prompt,
-            "mime_type": item.get("media_type") or "image/png",
+            "mime_type": item.get("media_type"),
             "mode": "image",
         }
 

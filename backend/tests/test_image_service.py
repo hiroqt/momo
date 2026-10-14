@@ -156,6 +156,51 @@ async def test_openrouter_image_provider_stops_stream_at_response_limit(monkeypa
 
 
 @pytest.mark.asyncio
+async def test_openrouter_image_request_uses_supported_fields_and_response_mime(monkeypatch):
+    import json
+
+    import app.services.ai.image_service as module
+
+    requests = []
+    class Response:
+        headers = {}
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *_args):
+            return None
+
+        def raise_for_status(self):
+            return None
+
+        async def aiter_bytes(self):
+            yield json.dumps({"data": [{"b64_json": "aW1hZ2U=", "media_type": "image/webp"}]}).encode()
+
+    class Client:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *_args):
+            return None
+
+        def stream(self, method, url, **kwargs):
+            requests.append((method, url, kwargs))
+            return Response()
+
+    monkeypatch.setattr(module.httpx, "AsyncClient", lambda **_kwargs: Client())
+    provider = module.OpenRouterImageProvider("test-key", "https://example.test/api/v1", "google/gemini-3.1-flash-image")
+    result = await provider.generate(prompt="x", topic=None, context=None, requirements=None, aspect_ratio="16:9")
+
+    assert requests[0][1] == "https://example.test/api/v1/images"
+    assert requests[0][2]["json"] == {
+        "model": "google/gemini-3.1-flash-image", "prompt": "x", "n": 1,
+        "resolution": "1K", "aspect_ratio": "16:9",
+    }
+    assert result["mime_type"] == "image/webp"
+
+
+@pytest.mark.asyncio
 async def test_openrouter_image_provider_failure_log_redacts_request_details(monkeypatch, caplog):
     import app.services.ai.image_service as module
 
@@ -315,6 +360,7 @@ def test_image_service_rejects_malformed_or_unsupported_media():
 
     for result in (
         {"image_base64": "not-base64", "mime_type": "image/png"},
+        {"image_base64": encoded_image(), "mime_type": None},
         {"image_base64": encoded_image(), "mime_type": "image/gif"},
         {"image_base64": encoded_image("JPEG"), "mime_type": "image/png"},
     ):

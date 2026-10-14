@@ -64,6 +64,25 @@ PostgreSQL/PostgREST suite passed 867 tests with zero skips/errors/failures.
 The no-skip gate, Ruff (138 files), mypy (75 files), and `git diff --check`
 passed. No provider request was made; math-photo fallback policy remains blocked.
 
+## AI-04 OpenRouter image request contract follow-up
+
+The configured `google/gemini-3.1-flash-image` endpoint metadata was checked
+through OpenRouter's public capability endpoint. It currently lists `resolution`,
+`aspect_ratio`, `n`, and `input_references`, so the request no longer sends the
+unlisted `quality` or `output_format` fields. The provider now retains the
+response's `media_type` without assuming PNG, allowing the existing image
+validator to reject missing or unsupported MIME types. A mocked response test
+also found and fixed streamed JSON parsing of `bytearray` content by converting
+it to `bytes` before passing it to HTTPX.
+
+Focused image-provider tests passed **33 tests**. The full local loopback
+PostgreSQL/PostgREST suite passed **868 tests with zero skips/errors/failures**;
+the no-skip gate, Ruff (138 files), mypy (75 files), and `git diff --check`
+passed. No inference request or paid provider traffic was sent. OpenRouter's
+[endpoint metadata](https://openrouter.ai/api/v1/images/models/google/gemini-3.1-flash-image/endpoints)
+is live and may change; AI-04 remains partial until provider behavior and the
+math-photo fallback policy are verified.
+
 Final local regression after this change: the required PostgreSQL/PostgREST suite
 passed **837 tests with zero skips/errors/failures** in 65.78 seconds; the no-skip
 gate passed. Full static checks passed (Ruff 138 files, mypy 75 files), and mobile

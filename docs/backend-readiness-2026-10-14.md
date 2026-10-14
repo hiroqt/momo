@@ -107,7 +107,7 @@ The initial attempt to record migration 008 hit a duplicate migration version be
 
 ## Local verification
 
-- Current dependency/SDK refresh (2026-10-14): mobile `npm audit` still reports 31 advisories (19 high, 12 moderate). `npm audit fix --dry-run` offered no compatible changes; published `braces` 3.0.3 and `node-forge` 1.4.0 remain in vulnerable ranges, so no dependency changes were made. Inspected the published `storage3` 2.32.0 wheel: synchronous and asynchronous `remove` accept only path lists, with no object-version parameter. The lockfile remains at 2.31.0. No hosted Storage calls were made.
+- Earlier dependency/SDK refresh (2026-10-14): mobile `npm audit` reported 31 vulnerable package nodes (19 high, 12 moderate). `npm audit fix --dry-run` offered no compatible global changes; published `braces` 3.0.3 and `node-forge` 1.4.0 remain in vulnerable ranges. Inspected the published `storage3` 2.32.0 wheel: synchronous and asynchronous `remove` accept only path lists, with no object-version parameter. The lockfile remains at 2.31.0. No hosted Storage calls were made.
 
 - At the profile-provisioning milestone, the full backend/API/database/gateway suite with loopback-only disposable PostgreSQL and PostgREST had **823 passed, 0 skipped, 0 failed**, with 32 existing Starlette deprecation warnings (227.53s). That was an earlier checkpoint; the later account-deletion run below verified 827 tests. JUnit from the profile checkpoint: `/tmp/momo-auth02-final-2026-10-14.xml`.
 - Final integrated rerun after the chat-bound and folder-contract updates: **830 passed, 0 skipped, 0 errors, 0 failures** in 480.31s using disposable loopback PostgreSQL and local PostgREST, with 34 existing Starlette 422 deprecation warnings. `assert_no_skips.py` passed for `/tmp/momo-local-gateway-2026-10-14-final.xml`. Full static checks passed: Ruff 138 files, mypy 75 files. The non-root, network-isolated two-page OCR runtime smoke passed after an import-order fix.
@@ -239,15 +239,21 @@ operational correlation; the reviewed calls contain no user UUID, object key,
 filename or document content.
 
 `uv audit --locked` reports no known backend dependency vulnerabilities after
-updating PyJWT and keeping multidict on patched 6.x. `npm audit
---audit-level=high` reports no known web dependency vulnerabilities. Mobile still
-reports 31 advisories (19 high, 12 moderate). Forced npm fixes were not applied
-because the suggested path includes a breaking Expo SDK/downgrade. Expo package
-compatibility check, iOS and Android exports, web build, and the selected-pattern
-scan of 106 generated bundle files passed; the scan found no credential-shaped
-matches. `braces` and `node-forge` are among the affected transitive packages and
-their current advisories list no patched releases. This is not a signed store
-artifact or a universal secret detector.
+updating PyJWT and keeping multidict on patched 6.x. `npm audit --audit-level=high`
+reports no known web dependency vulnerabilities. The mobile audit initially
+reported 31 vulnerable package nodes (19 high, 12 moderate). A scoped Expo
+Router override resolves its nested vulnerable query-string 7/decode-uri-component
+0.2 chain to the app's query-string 9.5.1 and decoder 0.5.0. Since Router 57's
+CommonJS build expects named exports, a version-guarded postinstall patch fixes
+the two parser imports. Tests cover repeated query parameters and malformed
+percent encoding. Clean `npm ci`, postinstall, Router smoke, 188 mobile tests,
+and TypeScript lint passed. The current audit reports 28 package nodes (19 high,
+9 moderate); `braces` and `node-forge` remain in vulnerable ranges without
+patched releases. Android and iOS bundle exports and source maps confirmed the
+old nested Router decoder is absent. No device deep-link test or signed store
+artifact scan was run. Expo dependency compatibility check, web build, and the
+selected-pattern scan of 106 generated bundle files passed; that scan found no
+credential-shaped matches and is not a universal secret detector.
 
 The full local backend/PostgreSQL/PostgREST suite passed **855 tests, zero
 skips/errors/failures**; `assert_no_skips.py` passed, Ruff checked 138 files,
@@ -278,8 +284,8 @@ after its hosting URL is available.
 
 Independent mobile review found no defect in the inspected token paths: native
 tokens use device-only SecureStore, web tokens remain memory-only, OAuth uses
-PKCE, and hosted API origins require HTTPS. Remaining release risks are the 31
-recorded mobile dependency advisories, preview-chat's reliance on trusted proxy
+PKCE, and hosted API origins require HTTPS. Remaining release risks are 28
+mobile package-node advisories (19 high, 9 moderate), preview-chat's reliance on trusted proxy
 handling and a shared/edge rate limiter, partial known-pattern secret scanning,
 and unverified Render HTTPS/CORS, two-account isolation and hosted retention
 and deletion. These are explicit deployment gates, not completed checks.

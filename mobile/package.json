@@ -8,6 +8,7 @@
     "ios": "expo run:ios",
     "web": "expo start --web",
     "lint": "tsc --noEmit",
+    "postinstall": "node scripts/patch-expo-router-query-string.cjs",
     "test": "tsx --import ./__tests__/setupTests.ts --test \"__tests__/**/*.test.ts\""
   },
   "dependencies": {
@@ -58,6 +59,11 @@
     "@types/react": "~19.2.4",
     "tsx": "^4.23.15",
     "typescript": "~6.0.3"
+  },
+  "overrides": {
+    "expo-router": {
+      "query-string": "$query-string"
+    }
   },
   "private": true
 }

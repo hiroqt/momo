@@ -74,6 +74,8 @@ def test_sync_rejects_naive_time_and_invalid_reference():
         SyncEventItem(event_id="x", result="correct", occurred_at="2026-01-01T12:00:00")
     with pytest.raises(ValidationError):
         SyncEventItem(event_id="x", result="correct", occurred_at="2026-01-01T12:00:00Z", study_item_id="not-uuid")
+    with pytest.raises(ValidationError, match="require a study item"):
+        SyncEventItem(event_id="x", result="correct", occurred_at="2026-01-01T12:00:00Z")
 
 
 async def test_generation_retry_claim_allows_one_caller():
@@ -150,7 +152,7 @@ async def test_document_specific_retrieval_requires_owner():
 
 async def test_sync_idempotency_is_owner_scoped():
     repo = SyncRepository()
-    events = [{"event_id": "same", "result": "correct"}]
+    events = [{"event_id": "same", "result": "incorrect"}]
     assert (await repo.process_batch("alice", events))[0:2] == (1, 0)
     assert (await repo.process_batch("alice", events))[0:2] == (0, 1)
     assert (await repo.process_batch("bob", events))[0:2] == (1, 0)

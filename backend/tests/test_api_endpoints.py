@@ -183,11 +183,13 @@ async def test_offline_sync_idempotency():
         assert res1.status_code == 200
         assert res1.json()["accepted_count"] == 2
         assert res1.json()["ignored_duplicates_count"] == 0
+        assert res1.json()["credits_balance"] == 1
 
         # Resend exact same batch (e.g. mobile network retry)
         res2 = await ac.post("/api/sync", json=batch, headers=headers)
         assert res2.status_code == 200
         assert res2.json()["accepted_count"] == 0
+        assert res2.json()["credits_balance"] == 1
         assert res2.json()["ignored_duplicates_count"] == 2
 
 @pytest.mark.asyncio

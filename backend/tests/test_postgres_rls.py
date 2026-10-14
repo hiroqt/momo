@@ -363,14 +363,17 @@ def test_profile_email_collision_never_associates_another_auth_identity(database
 
 def test_sync_is_owner_scoped_idempotent_and_preserves_original_event(database, users):
     alice, bob = users
+    alice_set, bob_set = seed_sets(database, users)
+    item_id = database(f"INSERT INTO study_items(study_set_id,type,question,answer) VALUES ('{alice_set}','flashcard','Q','A') RETURNING id;")
+    bob_item_id = database(f"INSERT INTO study_items(study_set_id,type,question,answer) VALUES ('{bob_set}','flashcard','Q','A') RETURNING id;")
     event_id = str(uuid4())
-    event = {"event_id": event_id, "result": "correct", "occurred_at": "2026-10-06T00:00:00Z"}
+    event = {"event_id": event_id, "study_item_id": item_id, "result": "correct", "occurred_at": "2026-10-06T00:00:00Z"}
     first = json.loads(database(sync_sql(alice, [event, event])))
     assert first["accepted_count"] == 1 and first["ignored_duplicates_count"] == 1
     replay = {**event, "result": "incorrect"}
     assert json.loads(database(sync_sql(alice, [replay])))["accepted_count"] == 0
     assert database(f"SELECT result FROM sync_events WHERE user_id='{alice}' AND event_id='{event_id}';") == "correct"
-    assert json.loads(database(sync_sql(bob, [event])))["accepted_count"] == 1
+    assert json.loads(database(sync_sql(bob, [{**event, "study_item_id": bob_item_id}])))["accepted_count"] == 1
     assert database(f"SELECT count(*) FROM learning_events WHERE user_id='{alice}';") == "1"
 
 
@@ -380,7 +383,7 @@ def test_sync_rejects_cross_tenant_missing_and_mismatched_references_atomically(
     item_id, session_id = str(uuid4()), str(uuid4())
     other_set = str(uuid4())
     database(f"INSERT INTO study_items(id,study_set_id,type,question,answer) VALUES ('{item_id}','{a}','flashcard','Q','A'); INSERT INTO study_sets(id,user_id,title) VALUES ('{other_set}','{alice}','Other'); INSERT INTO study_sessions(id,user_id,study_set_id,mode) VALUES ('{session_id}','{alice}','{other_set}','quiz');")
-    event = {"event_id": str(uuid4()), "result": "correct", "occurred_at": "2026-10-06T00:00:00Z"}
+    event = {"event_id": str(uuid4()), "result": "incorrect", "occurred_at": "2026-10-06T00:00:00Z"}
     for owner, invalid in [
         (bob, {**event, "study_item_id": item_id}),
         (alice, {**event, "study_item_id": str(uuid4())}),

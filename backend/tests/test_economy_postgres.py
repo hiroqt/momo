@@ -84,6 +84,54 @@ def test_prd_baseline_and_folder_formula(database, users):
     database(f"UPDATE economy_wallets SET credits=-1 WHERE user_id='{alice}';", success=False)
 
 
+def test_correct_sync_rewards_are_atomic_idempotent_and_user_scoped(database, users):
+    alice, bob = users
+    a_set, b_set = seed_sets(database, users)
+    a_item = database(f"INSERT INTO study_items(study_set_id,type,question,answer) VALUES ('{a_set}','flashcard','Q','A') RETURNING id;")
+    b_item = database(f"INSERT INTO study_items(study_set_id,type,question,answer) VALUES ('{b_set}','flashcard','Q','A') RETURNING id;")
+    event_id = str(uuid4())
+    event = {"event_id": event_id, "study_item_id": a_item, "result": "correct",
+             "user_answer": "A", "occurred_at": "2026-10-14T08:00:00Z"}
+    first = json.loads(database(rls.sync_sql(alice, [event, event]), role="service_role"))
+    assert first["accepted_count"] == 1 and first["ignored_duplicates_count"] == 1
+    assert wallet(database, alice)["credits"] == 1
+    replay = json.loads(database(rls.sync_sql(alice, [{**event, "result": "incorrect"}]), role="service_role"))
+    assert replay["accepted_count"] == 0 and wallet(database, alice)["credits"] == 1
+    assert database(f"SELECT count(*) FROM economy_ledger WHERE user_id='{alice}' AND idempotency_key='sync_correct:{event_id}';") == "1"
+
+    bob_event = {**event, "study_item_id": b_item}
+    assert json.loads(database(rls.sync_sql(bob, [bob_event]), role="service_role"))["accepted_count"] == 1
+    assert wallet(database, bob)["credits"] == 1
+    for result in ("incorrect", "review_again", "skipped", "mastered", "review_later"):
+        noncorrect = {**event, "event_id": str(uuid4()), "result": result}
+        assert json.loads(database(rls.sync_sql(alice, [noncorrect]), role="service_role"))["accepted_count"] == 1
+    assert wallet(database, alice)["credits"] == 1
+
+    missing_item = {**event, "event_id": str(uuid4()), "study_item_id": None}
+    database(rls.sync_sql(alice, [missing_item]), success=False, role="service_role")
+    assert database(f"SELECT count(*) FROM sync_events WHERE user_id='{alice}' AND event_id='{missing_item['event_id']}';") == "0"
+
+
+def test_concurrent_correct_sync_events_do_not_lose_coin_rewards(database, users):
+    alice, _ = users
+    a_set, _ = seed_sets(database, users)
+    item_id = database(f"INSERT INTO study_items(study_set_id,type,question,answer) VALUES ('{a_set}','flashcard','Q','A') RETURNING id;")
+    events = [{"event_id": str(uuid4()), "study_item_id": item_id, "result": "correct",
+               "occurred_at": "2026-10-14T08:00:00Z"} for _ in range(24)]
+    with ThreadPoolExecutor(max_workers=12) as executor:
+        outcomes = list(executor.map(lambda event: database(rls.sync_sql(alice, [event]), role="service_role"), events))
+    assert all(json.loads(outcome)["accepted_count"] == 1 for outcome in outcomes)
+    assert wallet(database, alice)["credits"] == len(events)
+    assert database(f"SELECT count(*) FROM economy_ledger WHERE user_id='{alice}' AND kind='credit_reward';") == str(len(events))
+    trigger = database("SELECT t.tgname,p.prosecdef,'search_path=pg_catalog, public'=ANY(p.proconfig),"
+                       "has_function_privilege('anon',p.oid,'EXECUTE'),"
+                       "has_function_privilege('authenticated',p.oid,'EXECUTE'),"
+                       "has_function_privilege('service_role',p.oid,'EXECUTE') "
+                       "FROM pg_trigger t JOIN pg_proc p ON p.oid=t.tgfoid "
+                       "WHERE t.tgrelid='public.sync_events'::regclass AND t.tgname='sync_correct_credit_reward';")
+    assert trigger == "sync_correct_credit_reward|t|t|f|f|t"
+
+
 def test_concurrent_heart_spend_cannot_overdraft(database, users):
     alice, _ = users
     keys = [f"heart-{uuid4()}" for _ in range(12)]

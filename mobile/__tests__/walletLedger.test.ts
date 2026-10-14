@@ -73,3 +73,46 @@ test('corrupt account wallet data fails closed', async () => {
     await assert.rejects(new WalletService(db, memoryKv()).load(), /corrupt/);
   } finally { f.close(); }
 });
+
+test('verified server credits reconcile the active account wallet and persist across reload', async () => {
+  const f = sqliteFixture();
+  try {
+    const { db } = f.restart(), owner = randomUUID(); db.bindVerifiedAccount(owner);
+    const wallet = new WalletService(db, memoryKv(), () => 0);
+    await wallet.load();
+    const xp = wallet.apply({ key: 'local-xp', xp: 25 }); await xp.persisted;
+    await wallet.reconcileCredits(3, db.currentBinding());
+    assert.deepEqual([wallet.getState()?.credits, wallet.getState()?.xp], [3, 25]);
+    assert.deepEqual([(await new WalletService(db, memoryKv(), () => 0).load())?.credits,
+      (await new WalletService(db, memoryKv(), () => 0).load())?.xp], [3, 25]);
+    await assert.rejects(wallet.reconcileCredits(-1, db.currentBinding()), /Invalid server credit balance/);
+  } finally { f.close(); }
+});
+
+test('loading a verified account refreshes its wallet even when no sync events are pending', async () => {
+  const f = sqliteFixture();
+  try {
+    const { db } = f.restart(); db.bindVerifiedAccount(randomUUID());
+    const wallet = new WalletService(db, memoryKv(), () => 0);
+    wallet.setServerCreditsLoader(async () => 9);
+    await wallet.load();
+    await wallet.refreshServerCredits();
+    assert.equal(wallet.getState()?.credits, 9);
+  } finally { f.close(); }
+});
+
+test('an older wallet GET cannot overwrite a newer sync balance', async () => {
+  const f = sqliteFixture();
+  try {
+    const { db } = f.restart(); db.bindVerifiedAccount(randomUUID());
+    const wallet = new WalletService(db, memoryKv(), () => 0);
+    await wallet.load();
+    let resolveLoad!: (credits: number) => void;
+    wallet.setServerCreditsLoader(() => new Promise(resolve => { resolveLoad = resolve; }));
+    const staleRefresh = wallet.refreshServerCredits();
+    await wallet.reconcileCredits(7, db.currentBinding());
+    resolveLoad(2);
+    await staleRefresh;
+    assert.equal(wallet.getState()?.credits, 7);
+  } finally { f.close(); }
+});

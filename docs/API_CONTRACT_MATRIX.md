@@ -65,18 +65,19 @@ development/test memory store still accepts its arbitrary legacy keys.
 
 | PRD | Route | Mobile client | Status / compatibility |
 | --- | --- | --- | --- |
-| `POST /api/sync/events` → `{synced_ids, ignored_duplicates}` | `POST /api/sync/events` (canonical) | `sendSyncBatch` | **Resolved.** The response includes PRD `synced_ids` (every unique event ID that is durably stored after this call, including duplicates already present) and `ignored_duplicates`. Legacy `accepted_count`, `ignored_duplicates_count` and `processed_at` remain. Batches are capped at 100 events. An invalid or foreign reference rejects the whole batch, and nothing is acknowledged. |
+| `POST /api/sync/events` → `{synced_ids, ignored_duplicates, credits_balance}` | `POST /api/sync/events` (canonical) | `sendSyncBatch` | **Resolved.** The response includes PRD `synced_ids` (every unique event ID that is durably stored after this call, including duplicates already present), `ignored_duplicates`, and the user's authoritative server `credits_balance`. Legacy `accepted_count`, `ignored_duplicates_count` and `processed_at` remain. Batches are capped at 100 events; `correct` events require an owned `study_item_id` and award one credit only when newly inserted. An invalid or foreign reference rejects the whole batch, and nothing is acknowledged. |
 | none | `POST /api/sync` | older clients | **Alias**, marked `deprecated` in OpenAPI; same handler and semantics. Remove it only after older builds are retired. |
 | `result` ∈ correct/incorrect/review_again/skipped | also accepts `mastered`, `review_later` | client sends the PRD four | **Compatibility superset** for older learning events; both extras are covered by the DB check constraint. |
 
-Idempotency scope is `(user_id, event_id)`. Sync does **not** credit XP or hearts
-yet; see Economy below for the reason.
+Idempotency scope is `(user_id, event_id)`. Newly accepted `correct` events credit
+one Momo Coin through the server ledger; correctness is client-attested under the
+approved MVP policy. Sync does not credit XP or hearts; see Economy below.
 
 ## 8.6 Folders & Organization
 
 | PRD | Route | Mobile client | Status / compatibility |
 | --- | --- | --- | --- |
-| `GET/POST/GET{id}/PATCH/DELETE /api/folders` | same (`routes/folders.py`) | `listFolders`, `createFolder`, `updateFolder`, `deleteFolder` | CRUD aligned. `POST` atomically applies the PRD progressive price and records owner-scoped replay in `internal.folder_requests`; folders 1–3 are free, then 50, 75, +25 credits. Legacy queued requests replay without a second charge; changed requests/deleted tombstones remain conflicts. The mobile sync path sends a stable `Idempotency-Key`; omission remains compatible with older clients. A wallet starts with 0 credits, and no earning path is approved, so users cannot create paid folders until a credit source is separately approved. Heart regeneration/refill remains pending. |
+| `GET/POST/GET{id}/PATCH/DELETE /api/folders` | same (`routes/folders.py`) | `listFolders`, `createFolder`, `updateFolder`, `deleteFolder` | CRUD aligned. `POST` atomically applies the PRD progressive price and records owner-scoped replay in `internal.folder_requests`; folders 1–3 are free, then 50, 75, +25 credits. Legacy queued requests replay without a second charge; changed requests/deleted tombstones remain conflicts. The mobile sync path sends a stable `Idempotency-Key`; omission remains compatible with older clients. Newly accepted correct-answer sync events earn one client-attested credit each; a modified client can farm them. Heart regeneration/refill remains pending. |
 
 ## 8.7-8.10
 
@@ -91,14 +92,13 @@ yet; see Economy below for the reason.
 ## Economy (PRD 6.6/6.7): new server contract
 
 The router lives in `routes/economy.py` and is registered in `main.py`. Wallet and
-heart routes are available, with unapproved rewards/refill policy failing closed.
-All amounts are computed on the server. Clients
+heart routes are available; unapproved refill policy fails closed. Clients
 send only intent plus an `idempotency_key` (8-128 characters from `[A-Za-z0-9_.:-]`,
 scoped per user). Extra fields such as `hearts_delta` or `user_id` are rejected.
 
 | Route | Behavior |
 | --- | --- |
-| `GET /api/economy/wallet` | `hearts` (max **5**, per PRD), `credits`, `xp`, `version`, `folder_count`, `next_folder_cost`, `next_heart_at`, and `policy` (pending values are `null`). A wallet is created on first use with 5 hearts and 0 credits/XP. |
+| `GET /api/economy/wallet` | `hearts` (max **5**, per PRD), `credits`, `xp`, `version`, `folder_count`, `next_folder_cost`, `next_heart_at`, and `policy` (pending values are `null`). A wallet is created on first use with 5 hearts and 0 credits/XP. Mobile account wallet loads the server credits balance on account load. |
 | `POST /api/economy/hearts/consume` `{idempotency_key, study_item_id?}` | PRD: an incorrect quiz answer costs 1 heart. Replays return the original entry (`replayed: true`). Reusing a key for a different request returns `409 IDEMPOTENCY_KEY_REUSED`. At 0 hearts it returns `409 INSUFFICIENT_HEARTS`. A foreign item returns 404. |
 | `POST /api/economy/hearts/refill` `{idempotency_key, hearts}` | Returns `503 ECONOMY_POLICY_PENDING` until a coin price is approved. With a price: `409 HEARTS_FULL` / `INSUFFICIENT_CREDITS`. |
 
@@ -117,10 +117,13 @@ service-only and use a fixed `search_path`. They lock the wallet row, so
 concurrent spends serialize and cannot overdraft.
 
 Pending product inputs (not invented): the heart regeneration interval, the coin
-price for heart refills, XP amounts per difficulty/format, how coins are earned,
-XP→credit/heart conversion rates, cosmetic prices, and how quiz reveals and
-flashcard results map to rewards. Until these are approved, regeneration is off
-and the refill/reward paths fail closed.
+price for heart refills, XP amounts per difficulty/format, XP→credit/heart
+conversion rates, cosmetic prices, and how quiz reveals and flashcard results map
+to rewards. Correct-answer events award one client-attested Momo Coin through a
+database trigger in migration 017; only newly inserted events with an owned study
+item receive it. A modified client can falsify correctness, so server-side answer
+adjudication remains open. Until remaining policy is approved, regeneration is
+off and refill paths fail closed.
 
 ## October 8 request replay contracts (local evidence)
 

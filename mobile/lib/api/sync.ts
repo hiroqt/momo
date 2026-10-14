@@ -7,6 +7,7 @@ export interface SyncResponse {
   processed_at: string;
   synced_ids: string[];
   ignored_duplicates: number;
+  credits_balance?: number;
 }
 
 export async function sendSyncBatch(events: SyncEvent[]): Promise<SyncResponse> {

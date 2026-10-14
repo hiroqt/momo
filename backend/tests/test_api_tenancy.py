@@ -104,7 +104,12 @@ async def test_sync_retries_do_not_duplicate_learning_side_effects(tenant_client
     from app.db.repositories.learning_repo import learning_repo
     record = AsyncMock()
     monkeypatch.setattr(learning_repo, "record_study_event", record)
-    event = {"event_id": str(uuid4()), "result": "correct", "occurred_at": "2026-10-06T00:00:00Z"}
+    deck = await study_repo.create_study_set({"user_id": alice, "title": "Sync rewards"})
+    item = await study_repo.save_study_items(deck["id"], [
+        {"type": "flashcard", "question": "Q", "answer": "A", "source_metadata": {}}
+    ])
+    event = {"event_id": str(uuid4()), "study_item_id": item[0]["id"],
+             "result": "correct", "occurred_at": "2026-10-06T00:00:00Z"}
     body = {"events": [event, event]}
     first = await client.post("/api/sync", headers={"x-test-user": alice}, json=body)
     assert first.status_code == 200
@@ -113,7 +118,12 @@ async def test_sync_retries_do_not_duplicate_learning_side_effects(tenant_client
     replay = await client.post("/api/sync", headers={"x-test-user": alice}, json=body)
     assert replay.status_code == 200 and replay.json()["accepted_count"] == 0
     assert record.await_count == 1
-    other = await client.post("/api/sync", headers={"x-test-user": bob}, json={"events": [event]})
+    bob_deck = await study_repo.create_study_set({"user_id": bob, "title": "Other sync rewards"})
+    bob_item = await study_repo.save_study_items(bob_deck["id"], [
+        {"type": "flashcard", "question": "Q", "answer": "A", "source_metadata": {}}
+    ])
+    other_event = {**event, "event_id": str(uuid4()), "study_item_id": bob_item[0]["id"]}
+    other = await client.post("/api/sync", headers={"x-test-user": bob}, json={"events": [other_event]})
     assert other.status_code == 200 and other.json()["accepted_count"] == 1
     assert record.await_count == 2
 
@@ -124,7 +134,7 @@ async def test_sync_invalid_batch_never_partially_commits(tenant_client):
     saved = await study_repo.save_study_items(deck["id"], [
         {"type": "flashcard", "question": "Q", "answer": "A", "source_metadata": {}}
     ])
-    event = {"event_id": str(uuid4()), "result": "correct", "occurred_at": "2026-10-06T00:00:00Z"}
+    event = {"event_id": str(uuid4()), "result": "incorrect", "occurred_at": "2026-10-06T00:00:00Z"}
     invalid = {**event, "event_id": str(uuid4()), "study_item_id": saved[0]["id"]}
     response = await client.post("/api/sync", headers={"x-test-user": bob},
                                  json={"events": [event, invalid]})

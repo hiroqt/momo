@@ -172,7 +172,8 @@ async def test_http_journey_upload_to_sync_economy_and_expiry(client):
         app.dependency_overrides.pop(get_economy_policy, None)
     assert bought.status_code == 200, bought.text
     assert bought.json()["wallet"] == rebought.json()["wallet"]
-    assert bought.json()["wallet"]["credits"] == 15 and bought.json()["wallet"]["hearts"] == 5
+    # 67 accepted correct sync answers add 67 to the 25-credit reward before refill.
+    assert bought.json()["wallet"]["credits"] == 82 and bought.json()["wallet"]["hearts"] == 5
     pending = await client.post("/api/economy/hearts/refill", headers=headers,
                                 json={"idempotency_key": f"refill:{uuid4()}", "hearts": 1})
     assert pending.status_code == 503 and pending.json()["error"]["code"] == "ECONOMY_POLICY_PENDING"
@@ -295,9 +296,9 @@ def test_pg_journey_register_job_generate_sync_economy_expire(database, users):
                              "NULL,NULL,NULL);")
     assert entry("spend-1", "heart_loss", hearts=-1)["wallet"]["hearts"] == 4
     assert entry("spend-1", "heart_loss", hearts=-1)["replayed"] is True
-    assert entry("reward-1", "credit_reward", credits=40)["wallet"]["credits"] == 40
-    assert entry("reward-1", "credit_reward", credits=40)["wallet"]["credits"] == 40
-    assert database(f"SELECT count(*) FROM economy_ledger WHERE user_id='{alice}';") == "2"
+    assert entry("reward-1", "credit_reward", credits=40)["wallet"]["credits"] == 141
+    assert entry("reward-1", "credit_reward", credits=40)["wallet"]["credits"] == 141
+    assert database(f"SELECT count(*) FROM economy_ledger WHERE user_id='{alice}';") == "103"
 
     # Expiry cleanup: original marked EXPIRED then the document row removed; the set persists.
     database(f"BEGIN; UPDATE documents SET uploaded_at=now()-interval '72 hours 1 minute',"

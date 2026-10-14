@@ -14,8 +14,8 @@
 | Task/module | Delivered | Still open |
 | --- | --- | --- |
 | AUTH-01 backend identity | `backend/app/dependencies.py` validates the Supabase token signature, algorithm, pinned issuer/audience, expiry, role and UUID subject, then requires signed Google provider and OAuth method claims. Password, anonymous, non-Google and unsupported methods are rejected. | Google OAuth is reported configured, but an actual staging sign-in, refresh/revocation and native redirect journey were not run. Disabling a Google account after token issuance does not trigger an immediate per-request Google recheck; the chosen policy relies on Supabase JWT expiry/revocation. |
-| ENV-02 schema and security | Staging now records migrations 001–016. The 20 `public`/`internal` application tables have forced RLS; anon has no app-table SELECT, authenticated has no direct write grants, and internal tables have no anon/authenticated table grants. `documents` is private, limited to 15 MiB and PDF/DOCX/TXT/PPTX MIME types. Core app and queue tables had zero rows at inspection. | No managed PostgREST two-user/anonymous/RPC journey or migration rollback exercise. The 5 internal no-policy security notices are intentional deny-by-default and have no client grants. The performance advisor reports 14 composite-FK coverage notices and 44 unused-index notices; catalog review found a valid leading-column index for each reported FK, and fresh empty staging usage is not a basis for dropping indexes. |
-| ECON-01 folder purchases | The folder API now uses the atomic wallet charge. Migration 016 integrates the existing owner-scoped offline request table and keeps legacy queued creates free on replay. PRD pricing is 1–3 free, then 50, 75, +25 credits. The old RPC delegates to the same transaction for rolling API compatibility. | Staging has catalog evidence only; no API is deployed or hosted RPC journey run. New wallets have 0 credits and no credit-earning path is approved, so fourth-and-later folder creation cannot succeed until an earning source is decided. Heart regeneration/refill remains disabled pending policy. |
+| ENV-02 schema and security | Staging now records migrations 001–017. The 20 `public`/`internal` application tables have forced RLS; anon has no app-table SELECT, authenticated has no direct write grants, and internal tables have no anon/authenticated table grants. `documents` is private, limited to 15 MiB and PDF/DOCX/TXT/PPTX MIME types. Core app and queue tables had zero rows at inspection. | No managed PostgREST two-user/anonymous/RPC journey or migration rollback exercise. The 5 internal no-policy security notices are intentional deny-by-default and have no client grants. The performance advisor reports 14 composite-FK coverage notices and 44 unused-index notices; catalog review found a valid leading-column index for each reported FK, and fresh empty staging usage is not a basis for dropping indexes. |
+| ECON-01 economy | Folder charge/replay follows PRD pricing. Migration 017 adds +1 credit for each newly accepted client-attested correct event with an owned study item, in the same transaction. Sync returns server credits; mobile loads/reconciles the balance. | Staging schema only; no API deployed or hosted sync journey. Modified clients can fake correctness and farm credits under the approved MVP trust rule. Heart regeneration/refill and XP policy remain pending. |
 | Database indexes | Migration 013 adds `chat_messages(user_id)`, `study_items(user_id)` and partial `internal.upload_tickets(auth_ref)` indexes for Auth deletion/retirement paths. Local unforced plans selected all three for 1,000-row owner lookups. | Local synthetic query plans establish index selection, not production capacity. Do not remove indexes from the empty staging advisor output. |
 | RET-01 storage and retention | Durable upload-ticket lifecycle from migration 012 is now applied to staging; no app rows were present. | Supabase path-only deletion is not generation-safe, so automatic physical expiry remains fail-closed. Legacy/unregistered object inventory and hosted 72-hour deletion proof are incomplete. Generated sets must remain independent of original-file deletion. |
 | WORK-02/API-01 jobs and replay | Durable job, generation/folder replay, bounded recovery and upload-ticket modules are locally covered by the complete backend suite; staging has migrations 006–012. | No hosted worker/API has run these contracts. Native process-death/restart, provider generation and managed storage journeys remain open. |
@@ -41,6 +41,7 @@ Public signing metadata at the project's Auth JWKS endpoint reports one ES256/EC
 | 014 Google profile sync | `20261013234934` | applied; trigger-first backfill |
 | 015 verified legacy storage destination | `20261013234939` | applied; zero legacy tickets required mapping |
 | 016 charged folder request replay | `20261014001721` | applied after local verification; both folder RPCs retain fixed search paths, deny anon/authenticated EXECUTE, and grant service-role EXECUTE; `internal.folder_requests` remains forced-RLS with no anon/authenticated SELECT |
+| 017 correct-answer credit rewards | `20261014003950` | applied after full local verification; catalog confirms `SECURITY DEFINER`, fixed `search_path=pg_catalog, public`, anon/authenticated denied, service_role granted |
 
 ## API-01 generated media boundary
 
@@ -91,7 +92,7 @@ The initial attempt to record migration 008 hit a duplicate migration version be
 3. Resolve generation-safe physical object deletion for Supabase Storage, inventory old/unregistered objects and observe actual `uploaded_at + 72h` deletion. Keep automatic cleanup fail-closed until it cannot delete a replacement object.
 4. Verify current OpenRouter/Nemotron generation and embedding model/dimension configuration against real controlled staging calls; prove source-only grounding, schema/evidence validation, safe provider failures and every advertised format.
 5. Verify managed GoTrue profile synchronization after migrations 014/015. Complete logout/account switching and account deletion including stored objects; qualify native Android/iOS flows and offline/reconnect sync.
-6. Decide an approved way for users to earn credits before expecting paid folders to work; keep heart regeneration/refill disabled pending values. Then close clean remote CI, managed backup/restore and migration/app rollback, release-device/accessibility/performance QA, privacy/support/store details and an explicit release decision.
+6. Correct-answer rewards trust the client-attested result under the approved MVP rule and can be farmed by modified clients; server adjudication remains open. Keep heart regeneration/refill and XP policy pending. Then close clean remote CI, managed backup/restore and migration/app rollback, release-device/accessibility/performance QA, privacy/support/store details and an explicit release decision.
 
 The canonical tracker is [Production Readiness Checklist](PRODUCTION_READINESS_CHECKLIST.md). Obsidian links are in `docs/knowledge/Momo Backend Completion 2026-10-14.md` and `docs/knowledge/Momo Readiness Map.canvas`.
 
@@ -148,6 +149,27 @@ transaction during API rollout. Local memory/API and PostgreSQL concurrency,
 wallet, and replay checks passed as part of the 832-test, zero-skip run. It is
 applied to `momo-staging` as `20261014001721`; catalog checks confirmed both RPCs
 remain service-role-only and the request table denies client reads. No staging
-rows were created and no API is deployed. Wallets start with 0 credits, so
-paid-folder creation remains blocked until a credit earning source is approved;
-heart settings remain unset.
+rows were created. Migration 017 now provides one credit for each newly accepted
+client-attested correct-answer sync event; see the following section. Heart
+settings remain unset.
+
+## ECON-01 correct-answer reward follow-up
+
+The user approved +1 Momo Coin for each newly accepted correct-answer sync event
+and explicitly chose the MVP policy of trusting the client's `correct` result.
+Each such event must reference an owned study item. Migration 017 attaches an
+`AFTER INSERT` trigger to `sync_events`; it calls the existing transactional
+wallet ledger with `sync_correct:<event_id>`, so event insertion and credit
+application commit or roll back together. Duplicate event IDs and non-correct
+results do not award coins. No historical events were backfilled.
+
+The sync response includes `credits_balance`; the signed-in mobile wallet fetches
+server credits on account load and reconciles after successful sync responses,
+checking the active account and epoch before persistence. Local validation:
+Postgres/PostgREST suite **839 passed, zero skips/errors/failures**, no-skip gate
+passed; Ruff 138 files, mypy 75 files; mobile lint and 186 tests passed, including
+the stale wallet GET race regression. Migration
+`20261014003950` is applied to staging and the security catalog check passes. A
+modified mobile client can lie about correctness and farm credits, a known risk
+of the approved MVP rule. Render deployment and a hosted sync journey await the
+API URL the user is configuring.

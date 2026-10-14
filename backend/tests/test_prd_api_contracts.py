@@ -74,7 +74,7 @@ async def test_sync_exact_acknowledgments_and_legacy_replay(client_identity):
     client, owner, _ = client_identity
     headers = {"x-test-user": owner}
     ids = [str(uuid4()), str(uuid4())]
-    events = [{"event_id": event_id, "result": "correct", "occurred_at": "2026-10-06T00:00:00Z"} for event_id in ids]
+    events = [{"event_id": event_id, "result": "incorrect", "occurred_at": "2026-10-06T00:00:00Z"} for event_id in ids]
     response = await client.post("/api/sync/events", headers=headers, json={"events": events + events[:1]})
     assert response.status_code == 200
     result = response.json()
@@ -92,7 +92,7 @@ async def test_sync_exact_acknowledgments_and_legacy_replay(client_identity):
 async def test_sync_invalid_reference_never_acknowledges_partial_batch(client_identity):
     client, owner, _ = client_identity
     event_id = str(uuid4())
-    event = {"event_id": event_id, "result": "correct", "occurred_at": "2026-10-06T00:00:00Z"}
+    event = {"event_id": event_id, "result": "incorrect", "occurred_at": "2026-10-06T00:00:00Z"}
     response = await client.post("/api/sync/events", headers={"x-test-user": owner},
                                  json={"events": [event, {**event, "event_id": str(uuid4()), "study_item_id": str(uuid4())}]})
     assert response.status_code == 404

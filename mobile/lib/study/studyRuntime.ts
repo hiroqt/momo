@@ -4,11 +4,14 @@ import { localDb } from '../storage/localDb';
 import { AppState } from 'react-native';
 import { syncEngine } from '../sync/syncEngine';
 import { mutationQueue } from '../sync/mutationQueue';
+import { getEconomyWallet } from '../api/economy';
 import { StudySessionService } from './studySessionService';
 import { WalletService } from './walletService';
 
 /** App-wide composition of the wallet and durable study sessions. */
 export const walletService = new WalletService(localDb, AsyncStorage);
+walletService.setServerCreditsLoader(async () => (await getEconomyWallet()).credits);
+syncEngine.setCreditsReconciler((credits, binding) => walletService.reconcileCredits(credits, binding));
 export const studySessions = new StudySessionService({
   db: localDb,
   wallet: walletService,

@@ -34,10 +34,15 @@ export function backoffMs(failures: number): number {
 export class SyncEngine {
   private running: Promise<void> | undefined;
   private listeners = new Set<() => void>();
+  private reconcileCredits?: (credits: number, binding: AccountBinding) => Promise<void>;
   constructor(private readonly database: LocalDatabase = localDb,
     private readonly send: Sender = async events => (await import('../api/sync')).sendSyncBatch(events),
     private readonly uuid: () => Promise<string> = async () => (await import('expo-crypto')).randomUUID(),
     private readonly now: () => number = Date.now) {}
+
+  setCreditsReconciler(reconcile: (credits: number, binding: AccountBinding) => Promise<void>): void {
+    this.reconcileCredits = reconcile;
+  }
 
   async recordStudyAnswer(studyItemId: string, result: 'correct' | 'incorrect' | 'review_again', userAnswer?: string): Promise<void> {
     const owner = this.database.getActiveAccountId(), epoch = this.database.getAccountEpoch();
@@ -138,6 +143,10 @@ export class SyncEngine {
     if (!Array.isArray(response?.synced_ids)) throw new Error('Sync response is missing acknowledgments.');
     const sent = new Set(batch.map(event=>event.event_id));
     if (response.synced_ids.some(id=>!sent.has(id))) throw new Error('Sync response acknowledged an unknown event.');
+    if (Number.isSafeInteger(response.credits_balance) && response.credits_balance! >= 0) {
+      this.assertBinding(binding);
+      await this.reconcileCredits?.(response.credits_balance!, binding);
+    }
     await this.database.removeSyncEvents([...new Set(response.synced_ids)],binding.owner,binding.epoch);
   }
 

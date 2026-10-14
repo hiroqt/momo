@@ -41,6 +41,23 @@ test('a server-rejected reference is isolated and held while every valid event i
   } finally { f.close(); }
 });
 
+test('sync reconciles the verified credit balance before acknowledging local events', async () => {
+  const f = sqliteFixture();
+  try {
+    const { db } = f.restart(), owner = randomUUID(); db.bindVerifiedAccount(owner);
+    const queued = event(); await db.enqueueSyncEvent(queued);
+    let balance = -1;
+    const engine = new SyncEngine(db, async batch => ({ ...ack(batch), credits_balance: 7 }));
+    engine.setCreditsReconciler(async (credits, binding) => {
+      assert.equal(binding.owner, owner);
+      balance = credits;
+    });
+    await engine.flushSyncQueue();
+    assert.equal(balance, 7);
+    assert.deepEqual(await db.getPendingSyncEvents(), []);
+  } finally { f.close(); }
+});
+
 for (const [status, code] of [[403, 'FORBIDDEN'], [404, 'NOT_FOUND'], [404, 'HTTP_404'], [413, 'PAYLOAD_TOO_LARGE'], [400, 'BAD_REQUEST']] as const) {
   test(`an endpoint-level ${status} ${code} keeps the whole queue pending with backoff instead of bisecting`, async () => {
     const f = sqliteFixture();

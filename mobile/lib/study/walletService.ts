@@ -31,14 +31,39 @@ export class WalletService {
   private state: WalletState | null = null;
   private binding: AccountBinding | null = null;
   private loadToken = 0;
+  private creditsRefreshToken = 0;
   private chain: Promise<void> = Promise.resolve();
   private listeners = new Set<(state: WalletState | null) => void>();
+  private loadServerCredits?: () => Promise<number>;
 
   constructor(private readonly db: LocalDatabase, private readonly kv: KeyValue, private readonly now: () => number = Date.now) {
     db.onAccountChange(() => { void this.load().catch(() => {}); });
   }
 
   getState(): WalletState | null { return this.state; }
+  setServerCreditsLoader(load: () => Promise<number>): void { this.loadServerCredits = load; }
+
+  async refreshServerCredits(): Promise<void> {
+    const binding = this.db.currentBinding();
+    if (!binding || !this.loadServerCredits) return;
+    const token = ++this.creditsRefreshToken;
+    const credits = await this.loadServerCredits();
+    if (token !== this.creditsRefreshToken) return;
+    await this.reconcileCredits(credits, binding);
+  }
+
+  async reconcileCredits(credits: number, expected: AccountBinding): Promise<void> {
+    if (!Number.isSafeInteger(credits) || credits < 0) throw new Error('Invalid server credit balance.');
+    if (this.db.getActiveAccountId() !== expected.owner || this.db.getAccountEpoch() !== expected.epoch ||
+      this.binding?.owner !== expected.owner || this.binding.epoch !== expected.epoch || !this.state) {
+      throw new Error('Account changed during wallet reconciliation.');
+    }
+    this.creditsRefreshToken++;
+    if (this.state.credits === credits) return;
+    const next = { ...this.state, credits };
+    this.publish(next);
+    await this.persist(next, [], this.binding);
+  }
   subscribe(listener: (state: WalletState | null) => void): () => void {
     this.listeners.add(listener);
     return () => { this.listeners.delete(listener); };
@@ -70,6 +95,7 @@ export class WalletService {
     const regenerated = regenerateHearts(loaded, this.now());
     this.publish(regenerated);
     if (regenerated !== loaded) this.persist(regenerated, [], binding).catch(() => {});
+    if (binding && this.loadServerCredits) void this.refreshServerCredits().catch(() => {});
     return regenerated;
   }
 

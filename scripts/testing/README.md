@@ -219,10 +219,12 @@ docker run --rm -i --network none --read-only --tmpfs /tmp --cap-drop ALL --secu
 
 This constructs the actual synchronous SDK and verifies denied I/O fails closed;
 it does not connect to a database. The gateway process tests provide actual HTTP
-proof separately. `container_ocr_smoke.py` creates a two-page raster-only PDF and
-checks page order, OCR flags and page-specific text through actual Tesseract and
-Poppler. Repeat the scanned-PDF smoke for the final image as above. This is a
-synthetic runtime check, not representative OCR accuracy evidence.
+proof separately. `container_ocr_smoke.py` creates a four-page raster-only PDF
+(clear text, sparse text, low-contrast text and a blank page) and checks page
+order, OCR flags, page-specific extraction and blank-page output through actual
+Tesseract and Poppler. Repeat the scanned-PDF smoke for the final image as above.
+This is a small synthetic runtime corpus, not representative real-world OCR
+accuracy evidence.
 
 ### Local database recovery regression
 

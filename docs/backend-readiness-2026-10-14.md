@@ -568,3 +568,15 @@ PostgREST run passed 937 tests before the storage regression was added. A rerun
 could not be verified because Docker was unavailable. This is a source and local
 test audit; hosted log sinks, HTTPS/CORS, tenant isolation, dependency and
 retention release evidence remain open.
+
+## DOC-02 synthetic OCR corpus extension
+
+Expanded `scripts/testing/container_ocr_smoke.py` from one clean layout to a
+four-page raster-only PDF containing clear text, a sparse page, lower-contrast
+text and a blank page. The local pinned backend image built successfully. The
+constrained runtime command (`--network none --read-only --cap-drop ALL
+--security-opt no-new-privileges`) passed as UID 10001 with actual Tesseract and
+Poppler. Assertions verify there is no embedded PDF text, page order is retained,
+every page is marked OCR, expected page-specific text is recovered, and the
+blank page remains empty. This improves synthetic coverage only; accuracy on
+representative real scans remains unmeasured and DOC-02 remains partial.

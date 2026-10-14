@@ -37,4 +37,6 @@ API-01 contract reconciliation (October 14): `GET /api/documents/{id}/status` al
 
 Generated media contract (October 14): the API accepts validated PNG/JPEG/WebP output up to 15 MiB decoded and 16 megapixels. Both deterministic diagrams and provider images use the same validation; OpenRouter response streaming stops at the encoded-body cap. The user approved these limits. Local verification: 63 API/image/request-bound tests, Ruff and mypy passed. Hosted provider configuration and native image viewing remain release gates.
 
+After these changes, the complete local Postgres/PostgREST backend suite passed **837 tests, zero skipped/errors/failures**; Ruff 138 files, mypy 75 source files, mobile TypeScript and 182 mobile tests passed. The synthetic loopback services were stopped after the run. Render deployment and hosted/provider/device checks remain unverified.
+
 API-01 contract reconciliation (October 14): `GET /api/documents/{id}/status` already returns nullable `page_count`; the mobile response type now exposes it. The API matrix now reflects that fact, the registered economy router, and stable folder replay keys. Focused verification: 38 API contract/request-bound tests and mobile TypeScript passed. API-01 remains open for generated image response sizing and native/hosted release journeys.

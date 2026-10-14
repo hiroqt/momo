@@ -52,6 +52,12 @@ Focused validation: 63 image/API/request-body tests, Ruff on changed files,
 mypy across 75 source files, and `git diff --check` passed. No live provider or
 hosted image request was made.
 
+Final local regression after this change: the required PostgreSQL/PostgREST suite
+passed **837 tests with zero skips/errors/failures** in 65.78 seconds; the no-skip
+gate passed. Full static checks passed (Ruff 138 files, mypy 75 files), and mobile
+lint plus **182 tests** passed. The stack bound only to loopback and was removed
+afterward. JUnit evidence: `/tmp/momo-local-gateway-after-image.xml`.
+
 Post-apply catalog checks found the `auth_user_google_profile_sync` trigger and
 `upload_tickets_legacy_cleanup_idx`; the migration ledger records 001–016 in
 order. No fixture rows were created. The security advisor remains at five INFO

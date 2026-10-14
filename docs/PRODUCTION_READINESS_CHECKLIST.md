@@ -54,8 +54,8 @@ October 14 work includes user-authorized staging schema changes and local backen
 
 | Task ID | Owner/chat | Branch | Status | Last update | Blocker or next action |
 | --- | --- | --- | --- | --- | --- |
-| API-01 chat source identifier bound | October 14 root + API contract audit | main | DONE_LOCAL | 2026-10-14 | `ChatMessageCreate.document_id` is limited to 128 characters; both chat-send routes reject oversized IDs (2 parameterized API cases pass). Existing non-UUID identifiers remain accepted for compatibility. API-01 stays partial for remaining PRD/client contract reconciliation and image limits. |
-| API-01 PRD/client contract reconciliation | October 14 root | main | DONE_LOCAL | 2026-10-14 | Refreshed the matrix against current routes/schemas/mobile callers, added `page_count` to the mobile status type, and fixed stale economy-router/folder-replay claims. Focused API/bounds tests (38) and mobile TypeScript pass. API-01 remains partial for image output sizing and native/hosted journeys. |
+| API-01 chat source identifier bound | October 14 root + API contract audit | main | DONE_LOCAL | 2026-10-14 | `ChatMessageCreate.document_id` is limited to 128 characters; both chat-send routes reject oversized IDs (2 parameterized API cases pass). Existing non-UUID identifiers remain accepted for compatibility. API-01 remains partial for native/hosted release journeys. |
+| API-01 PRD/client contract reconciliation | October 14 root | main | DONE_LOCAL | 2026-10-14 | Refreshed the matrix against current routes/schemas/mobile callers, added `page_count` to the mobile status type, and fixed stale economy-router/folder-replay claims. Focused API/bounds tests (38) and mobile TypeScript pass. Native/hosted journeys remain open. |
 | API-01 generated media bounds | October 14 root | main | DONE_LOCAL | 2026-10-14 | Enforced 15 MiB decoded image cap, PNG/JPEG/WebP validation, 16 MP ceiling, and bounded provider response streaming. 63 focused API/image/body-limit tests, Ruff, mypy 75 files, and diff check pass. Staging provider/native journeys remain open. |
 | ECON-01 folder pricing activation | October 14 root + economy reviewer | main | PARTIAL | 2026-10-14 | User-approved pricing now runs through the atomic wallet RPC; migration 016 records charged creates and preserves existing offline replay/tombstone semantics. Full local suite: 832 passed, zero skips; Ruff 138/mypy 75 pass. Migration `20261014001721` is applied to staging and catalog-verified service-only. API is not deployed; wallet starts at 0 and no credit-earning path is approved, so paid folders remain inaccessible until an earning source is decided and deployed. Heart regeneration/refill remains pending. |
 | DOC-02 real OCR multi-page smoke | October 14 root + extraction/OCR audit | main | DONE_LOCAL | 2026-10-14 | Actual Tesseract/Poppler processed two raster-only synthetic pages in the non-root, network-isolated image; ordered page numbers, OCR flags and distinct recognized text passed. Representative scanned-document corpus and real-world OCR accuracy remain open. |
@@ -775,7 +775,10 @@ anonymous, password and unsupported-auth-method rejection. This does not verify
 a real Google account or revoke an already-issued Supabase session immediately
 if Google later disables that account.
 
-Render preparation defines a Singapore API and separate database-backed worker,
+Latest full local regression after the generated-media changes: backend **837
+passed, zero skipped/errors/failures** on loopback PostgreSQL/PostgREST; the no-skip
+gate passed, Ruff 138 files and mypy 75 source files passed, and mobile lint plus
+**182 tests** passed. Render preparation defines a Singapore API and separate database-backed worker,
 with staged secrets injected by Render, `/ready`, disabled auto-deploy and 60-second
 shutdown. Local verification: backend **819 passed, zero skipped** (real local PG
 and gateway required), Ruff 138 files, mypy 75 source files, mobile lint plus

@@ -13,7 +13,7 @@
 
 | Task/module | Delivered | Still open |
 | --- | --- | --- |
-| AI-02 grounding | Deterministic same-sentence checks cover short answers and quiz items; managed generation/import paths then invoke the bounded, fail-closed Jev verifier. The approved runtime client smoke sent two synthetic candidates in one request and accepted only the directly supported answer. | The 0.8 gate remains uncalibrated: human-reviewed representative labels, managed Render key/provider journey, vendor processing/retention review and user disclosure remain open. Lexical prechecks can reject paraphrases; Jev quality evidence is synthetic only. |
+| AI-02 grounding | Deterministic same-sentence checks cover short answers and quiz items; managed generation/import paths then invoke the bounded, fail-closed Jev verifier. A worker regression demonstrates a long-answer relation false positive reaching the actual verifier client via mocked HTTP; a high-confidence `says_nothing` result fails the job before persistence. Focused grounding/source/format/verifier suites: 232 passed; full loopback PostgreSQL/PostgREST suite: 936 passed, zero skips/errors/failures; Ruff 142, mypy 76, no-skip and diff checks passed. | The 0.8 gate remains uncalibrated: human-reviewed representative labels, managed Render key/provider journey, vendor processing/retention review and user disclosure remain open. Lexical prechecks can reject paraphrases; Jev quality evidence is synthetic only. |
 | AI-03 embeddings | User approved `nvidia/nemotron-3-embed-1b:free` at 2048 dimensions. Migration 019 adds nullable `embedding_v2`, version marker, and service-only v2 publish/reindex/finalize/search RPCs; old 1536 vectors and RPCs remain available. New API code uses v2. | Staging migration applied with no documents/chunks. No live provider or relevance/latency test. The v2 RPC uses exact scan without ANN; pgvector 0.8 supports ANN for halfvec up to 4000 dimensions, but conversion/indexing is pending a representative quality and latency decision. Before deploy to any populated project, preflight READY/unexpired v1 rows and reindex them; no production inventory or reindex was run. Rollback to old API after new v2 writes requires reindexing those new documents to an available v1-compatible model. |
 | DOC-02 / CI-01 OCR runtime | `.github/workflows/ci.yml` now builds the production backend image and runs `container_ocr_smoke.py` as non-root with networking disabled and a read-only filesystem/tmpfs. | Local Docker build and exact runtime smoke pass; Ruby YAML parsing passes. A clean remote Actions run still needs a push; this is runtime coverage, not representative OCR accuracy evidence. |
 | AUTH-01 backend identity | `backend/app/dependencies.py` validates the Supabase token signature, algorithm, pinned issuer/audience, expiry, role and UUID subject, then requires signed Google provider and OAuth method claims. Password, anonymous, non-Google and unsupported methods are rejected. | Google OAuth is reported configured, but an actual staging sign-in, refresh/revocation and native redirect journey were not run. Disabling a Google account after token issuance does not trigger an immediate per-request Google recheck; the chosen policy relies on Supabase JWT expiry/revocation. |
@@ -536,3 +536,16 @@ failures. Ruff (142 files), mypy (76 files), and `git diff --check` passed. An
 independent review found no remaining issue in this scoped change. This is local
 application evidence only; hosted log sinks and the wider backend log inventory
 remain unverified, so SEC-02 and public launch remain partial.
+
+## AI-02 long-answer relation boundary
+
+A worker-level regression demonstrates that an answer with aggregate lexical
+coverage but a false subject-relation reaches the actual Jev verifier client with
+its cited chunk. A mocked high-confidence `says_nothing` judgment fails the job
+before study-set persistence. Focused grounding/source/format/verifier suites
+passed **232 tests**; the full loopback PostgreSQL/PostgREST suite passed **936
+tests with zero skips/errors/failures**; no-skip, Ruff, mypy and diff checks
+passed. Independent review found no blocking issue. This proves local sequencing
+and fail-closed behavior only. The 0.8 gate remains uncalibrated pending
+representative human-reviewed labels; managed provider behavior, data-retention
+review and user disclosure remain open.

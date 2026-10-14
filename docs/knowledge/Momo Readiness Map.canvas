@@ -80,6 +80,15 @@
       "y": 0,
       "width": 650,
       "height": 460
+    },
+    {
+      "id": "9",
+      "type": "file",
+      "file": "docs/knowledge/Momo AI Grounding.md",
+      "x": 2150,
+      "y": 500,
+      "width": 620,
+      "height": 430
     }
   ],
   "edges": [
@@ -236,6 +245,22 @@
       "toNode": "0",
       "toSide": "right",
       "label": "Folder price + accepted correct-answer credit; modified clients can farm"
+    },
+    {
+      "id": "completion-grounding",
+      "fromNode": "8",
+      "fromSide": "right",
+      "toNode": "9",
+      "toSide": "left",
+      "label": "AI-02 local verifier boundary; calibration open"
+    },
+    {
+      "id": "grounding-public",
+      "fromNode": "9",
+      "fromSide": "left",
+      "toNode": "0",
+      "toSide": "right",
+      "label": "Source-grounded content and release gates"
     }
   ]
 }

@@ -323,6 +323,78 @@ async def test_worker_verifier_outage_fails_closed_before_persisting(monkeypatch
     finalize.assert_not_awaited()
 
 
+async def test_worker_jev_rejects_long_answer_relation_false_positive(monkeypatch):
+    from app.db.repositories.chunks_repo import chunks_repo
+    from app.db.repositories.documents_repo import documents_repo
+    from app.db.repositories.generation_repo import generation_repo
+    from app.domain.documents.models import DocumentChunk
+    from app.workers import generation_worker as module
+
+    user, doc_id, job_id = "long-answer-verifier-user", f"long-answer-doc-{uuid4()}", str(uuid4())
+    evidence_text = (
+        "Ribosomes produce proteins. Mitochondria produce ATP. "
+        "Glycolysis occurs during glucose breakdown in the cytoplasm. "
+    ) * 4
+    await documents_repo.create({"id": doc_id, "user_id": user, "processing_status": "READY",
+                                 "original_filename": "cell-biology.txt",
+                                 "expires_at": "2099-01-01T00:00:00Z"})
+    chunk = DocumentChunk(
+        chunk_id="long-answer-chunk", document_id=doc_id, chunk_index=0, page_start=1, page_end=1,
+        content=evidence_text, section="Energy", source_type="txt", embedding=[0.1] * 2048,
+    )
+    await chunks_repo.save_chunks(doc_id, user, [chunk])
+    await generation_repo.create_job({"id": job_id, "user_id": user, "document_id": doc_id,
+                                      "status": "PENDING", "stage": "Queued", "progress": 0, "message": ""})
+
+    candidate = {
+        "type": "flashcard",
+        "question": "Which organelle produces ATP?",
+        "answer": "Ribosomes produce ATP during glycolysis.",
+    }
+
+    async def generate(**kwargs):
+        return [{**candidate, "source_metadata": kwargs["sources_metadata"][0]}]
+
+    monkeypatch.setattr(module.ai_provider, "generate_study_material", generate)
+    monkeypatch.setattr(settings, "TYPESAFE_API_KEY", "test-only-key")
+    request_payloads = []
+
+    def reject_relation(request: httpx.Request) -> httpx.Response:
+        request_payloads.append(json.loads(request.content))
+        return httpx.Response(200, json={
+            "model": "jev-test",
+            "answers": {
+                "item_0": {
+                    "type": "choice", "choice": "says_nothing", "confidence": 0.96,
+                    "probabilities": {"supports": 0.02, "contradicts": 0.02, "says_nothing": 0.96},
+                }
+            },
+            "usage": {"input_tokens": 20, "output_tokens": 3},
+        })
+
+    verifier = module.typesafe_grounding_verifier
+    if verifier._client is not None:
+        await verifier.close()
+    verifier._client = httpx.AsyncClient(transport=httpx.MockTransport(reject_relation))
+    finalize = AsyncMock()
+    monkeypatch.setattr(generation_repo, "complete_with_study_set", finalize)
+    try:
+        await module.generation_worker.process_generation(
+            job_id, user, doc_id, {"topic": "Cellular energy", "count": 1, "generation_mode": "quiz",
+                                  "question_types": ["flashcard"]},
+        )
+    finally:
+        await verifier.close()
+
+    job = await generation_repo.get_job(job_id, user)
+    assert len(request_payloads) == 1
+    sent = request_payloads[0]["questions"]["item_0"]["instructions"]
+    assert sent["candidate"] == {key: value for key, value in candidate.items() if key != "type"}
+    assert sent["evidence"] == evidence_text.strip()
+    assert job["status"] == "FAILED" and job["error"] == "VALIDATION_FAILED"
+    finalize.assert_not_awaited()
+
+
 # --- CHAT-01: atomic, idempotent, owner-bound chat decks ------------------------------------
 
 @pytest.fixture

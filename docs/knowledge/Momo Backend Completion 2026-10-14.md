@@ -84,6 +84,7 @@ Final local verification for this follow-up: 869 backend tests passed with loopb
 - Latest integrated run after upload-size contract alignment: **912 passed, zero skipped/errors/failures**; no-skip gate, Ruff 142 and mypy 76 passed. The 33 existing Starlette 422 deprecation warnings remain. Disposable loopback PostgreSQL/PostgREST containers were removed after the run.
 - Latest integrated run after TXT/PPTX page preflight: **914 passed, zero skipped/errors/failures**; no-skip gate, Ruff 142 and mypy 76 passed. The 33 existing Starlette 422 deprecation warnings remain. Disposable loopback PostgreSQL/PostgREST containers were removed after the run.
 - Latest after SEC-02 backend identifier-log redaction: focused worker/chat/image/extraction/TypeSafe suites **118 passed**; full loopback PostgreSQL/PostgREST suite **935 passed, zero skips/errors/failures**; the no-skip checker passed. Ruff 142 files, mypy 76 files and `git diff --check` passed. The run emitted 33 existing Starlette 422 deprecation warnings. Disposable local containers were stopped after completion.
+- Latest AI-02 long-answer worker boundary: focused grounding/source/format/verifier suites **232 passed**; full loopback PostgreSQL/PostgREST suite **936 passed, zero skips/errors/failures**; no-skip checker, Ruff 142, mypy 76 and diff check passed. A mocked Jev `says_nothing` judgment rejects an aggregate-lexical false positive before persistence. Independent review found no blocking issue. Existing Starlette 422 deprecation warnings remain; disposable loopback containers were stopped.
 - After adding OCR runtime to CI: local Docker image build and the exact no-network OCR smoke passed; Ruby parsed the workflow YAML. No remote Actions run was triggered.
 - Latest after AI-04 image configuration: backend/API/database/gateway **867 passed, zero skipped/errors/failures** in `/tmp/momo-ai04-image-config.xml`; no-skip checker passed. Ruff 138 files, mypy 75 files and diff check passed. The 34 existing Starlette 422 deprecation warnings remain.
 - Mobile lint passed and 186 tests passed. Canvas JSON and `git diff --check` passed.
@@ -110,3 +111,16 @@ Jev grounding checks now share a hard total timeout across all provider batches 
 ## CHAT-01 import source preflight
 
 Card imports now require a READY, unexpired source before loading chunk text or sending it to Jev. Missing, malformed, expired and non-READY expiry metadata fail closed; persistence keeps its independent owner/expiry check. Chat generation shares the same source predicate. Full loopback PostgreSQL/PostgREST verification passed **919 tests, zero skipped**, with Ruff, mypy, no-skip and diff checks passing. Hosted and native import journeys remain open. See [[docs/backend-readiness-2026-10-14|dated verification]].
+
+## AI-02 long-answer relation boundary
+
+A worker-level regression demonstrates that an answer with aggregate lexical
+coverage but a false subject-relation reaches the actual Jev verifier client with
+its cited chunk. A mocked high-confidence `says_nothing` judgment fails the job
+before study-set persistence. Focused grounding/source/format/verifier suites
+passed **232 tests**; the full loopback PostgreSQL/PostgREST suite passed **936
+tests with zero skips/errors/failures**; no-skip, Ruff, mypy and diff checks
+passed. Independent review found no blocking issue. This proves local sequencing
+and fail-closed behavior only. The 0.8 gate remains uncalibrated pending
+representative human-reviewed labels; managed provider behavior, data-retention
+review and user disclosure remain open.

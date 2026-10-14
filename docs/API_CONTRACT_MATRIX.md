@@ -86,7 +86,7 @@ yet; see Economy below for the reason.
 | `GET /api/stats/streak` | same | `getStreak` | Routed. |
 | `GET/POST /api/chat/sessions`, `GET /api/chat/sessions/{id}`, `POST .../messages`, `POST /api/chat/import-card` | same | `listChatSessions`, `createChatSession`, `getChatSession`, `sendChatMessage`, `importCardToLibrary` | Routed. Body bounds and grounding belong to CHAT-01/AI-01. `generate_study_card` rejects expired/malformed-expiry sources before retrieval. |
 | none | `DELETE /api/chat/sessions/{id}`, `POST /api/chat` | `deleteChatSession`, `quickChat` | **Extensions.** |
-| `POST /api/images/generate` | same | `generateImage`, `generateStudyImage` | Routed; IMAGE-01. |
+| `POST /api/images/generate` | same | `generateImage`, `generateStudyImage` | Routed; validates strict base64, PNG/JPEG/WebP MIME/signature, ≤15 MiB decoded bytes and ≤16 megapixels. OpenRouter response is streamed with a bounded encoded-body limit before JSON parsing. Provider/native staging proof remains IMAGE-01. |
 
 ## Economy (PRD 6.6/6.7): new server contract
 

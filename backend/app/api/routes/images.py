@@ -5,7 +5,11 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 
 from app.dependencies import AuthenticatedUser, get_current_user
-from app.services.ai.image_service import ImageProviderUnavailableError, image_service
+from app.services.ai.image_service import (
+    MAX_IMAGE_BASE64_CHARS,
+    ImageProviderUnavailableError,
+    image_service,
+)
 from app.services.security.guardrails_service import guardrails_service
 from app.services.security.rate_limiter import require_rate_limit
 
@@ -22,10 +26,10 @@ class ImageGenerateRequest(BaseModel):
     aspect_ratio: Literal["1:1", "16:9", "9:16", "4:3", "3:4"] = "1:1"
 
 class ImageGenerateResponse(BaseModel):
-    image_base64: str
+    image_base64: str = Field(max_length=MAX_IMAGE_BASE64_CHARS)
     provider: str
     prompt: str
-    mime_type: str = "image/png"
+    mime_type: Literal["image/png", "image/jpeg", "image/webp"] = "image/png"
     mode: Literal["image", "diagram"]
 
 @router.post(

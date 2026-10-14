@@ -42,6 +42,16 @@ Public signing metadata at the project's Auth JWKS endpoint reports one ES256/EC
 | 015 verified legacy storage destination | `20261013234939` | applied; zero legacy tickets required mapping |
 | 016 charged folder request replay | `20261014001721` | applied after local verification; both folder RPCs retain fixed search paths, deny anon/authenticated EXECUTE, and grant service-role EXECUTE; `internal.folder_requests` remains forced-RLS with no anon/authenticated SELECT |
 
+## API-01 generated media boundary
+
+The user approved a maximum decoded image size of 15 MiB, PNG/JPEG/WebP formats,
+and 16 megapixels. The image service validates provider and renderer base64,
+MIME/signature, decoded size, and dimensions before returning output. OpenRouter
+responses are streamed under a bounded encoded-body cap before JSON parsing.
+Focused validation: 63 image/API/request-body tests, Ruff on changed files,
+mypy across 75 source files, and `git diff --check` passed. No live provider or
+hosted image request was made.
+
 Post-apply catalog checks found the `auth_user_google_profile_sync` trigger and
 `upload_tickets_legacy_cleanup_idx`; the migration ledger records 001–016 in
 order. No fixture rows were created. The security advisor remains at five INFO

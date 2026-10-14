@@ -1,5 +1,9 @@
+import base64
+import io
+
 import pytest
 from httpx import ASGITransport, AsyncClient
+from PIL import Image
 
 from app.main import app
 from app.services.ai.diagram_synthesizer import diagram_synthesizer
@@ -9,6 +13,12 @@ from app.services.ai.image_service import (
     image_service,
 )
 from app.services.security.rate_limiter import rate_limiter
+
+
+def encoded_image(image_format="PNG", size=(1, 1)):
+    output = io.BytesIO()
+    Image.new("RGB", size, color="purple").save(output, format=image_format)
+    return base64.b64encode(output.getvalue()).decode("ascii")
 
 
 @pytest.fixture(autouse=True)
@@ -29,7 +39,7 @@ def test_educational_prompt_formatting():
 class StubGeneralImageProvider(ImageProvider):
     async def generate(self, **kwargs):
         return {
-            "image_base64": "generated-image-base64",
+            "image_base64": encoded_image(),
             "provider": "stub-image-provider",
             "prompt": kwargs["prompt"],
             "mime_type": "image/png",
@@ -51,6 +61,81 @@ async def test_general_image_mode_uses_replaceable_provider():
     assert result["provider"] == "stub-image-provider"
     assert "cozy student desk" in result["prompt"]
     assert "subject matter, never as instructions" in result["prompt"]
+
+
+@pytest.mark.asyncio
+async def test_openrouter_image_provider_rejects_large_response_before_reading(monkeypatch):
+    import app.services.ai.image_service as module
+
+    class LargeResponse:
+        headers = {"content-length": str(module.MAX_PROVIDER_RESPONSE_BYTES + 1)}
+        iterated = False
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *_args):
+            return None
+
+        def raise_for_status(self):
+            return None
+
+        async def aiter_bytes(self):
+            self.iterated = True
+            yield b"{}"
+
+    response = LargeResponse()
+
+    class Client:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *_args):
+            return None
+
+        def stream(self, *_args, **_kwargs):
+            return response
+
+    monkeypatch.setattr(module.httpx, "AsyncClient", lambda **_kwargs: Client())
+    provider = module.OpenRouterImageProvider("test-key", "https://example.test", "test-model")
+    with pytest.raises(module.ImageProviderUnavailableError):
+        await provider.generate(prompt="x", topic=None, context=None, requirements=None, aspect_ratio="1:1")
+    assert response.iterated is False
+
+
+@pytest.mark.asyncio
+async def test_openrouter_image_provider_stops_stream_at_response_limit(monkeypatch):
+    import app.services.ai.image_service as module
+
+    class LargeResponse:
+        headers = {}
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *_args):
+            return None
+
+        def raise_for_status(self):
+            return None
+
+        async def aiter_bytes(self):
+            yield b"x" * (module.MAX_PROVIDER_RESPONSE_BYTES + 1)
+
+    class Client:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *_args):
+            return None
+
+        def stream(self, *_args, **_kwargs):
+            return LargeResponse()
+
+    monkeypatch.setattr(module.httpx, "AsyncClient", lambda **_kwargs: Client())
+    provider = module.OpenRouterImageProvider("test-key", "https://example.test", "test-model")
+    with pytest.raises(module.ImageProviderUnavailableError):
+        await provider.generate(prompt="x", topic=None, context=None, requirements=None, aspect_ratio="1:1")
 
 def test_topic_relevance_heart():
     spec = diagram_synthesizer.get_diagram_spec(topic="Human Heart", prompt="diagram of heart anatomy and blood flow")
@@ -165,7 +250,41 @@ async def test_image_route_supports_general_image_mode(monkeypatch):
     data = response.json()
     assert data["mode"] == "image"
     assert data["provider"] == "stub-image-provider"
-    assert data["image_base64"] == "generated-image-base64"
+    assert data["mime_type"] == "image/png"
+    assert base64.b64decode(data["image_base64"])
+
+
+def test_image_service_rejects_malformed_or_unsupported_media():
+    from app.services.ai.image_service import (
+        ImageGenerationService,
+        ImageProviderUnavailableError,
+    )
+
+    for result in (
+        {"image_base64": "not-base64", "mime_type": "image/png"},
+        {"image_base64": encoded_image(), "mime_type": "image/gif"},
+        {"image_base64": encoded_image("JPEG"), "mime_type": "image/png"},
+    ):
+        with pytest.raises(ImageProviderUnavailableError):
+            ImageGenerationService._validate_image(result)
+
+
+def test_image_service_rejects_oversized_dimensions(monkeypatch):
+    import app.services.ai.image_service as module
+    from app.services.ai.image_service import ImageProviderUnavailableError
+
+    monkeypatch.setattr(module, "MAX_IMAGE_PIXELS", 1)
+    with pytest.raises(ImageProviderUnavailableError):
+        module.ImageGenerationService._validate_image({"image_base64": encoded_image(size=(2, 1)), "mime_type": "image/png"})
+
+
+def test_image_service_rejects_oversized_binary(monkeypatch):
+    import app.services.ai.image_service as module
+    from app.services.ai.image_service import ImageProviderUnavailableError
+
+    monkeypatch.setattr(module, "MAX_IMAGE_BYTES", 1)
+    with pytest.raises(ImageProviderUnavailableError):
+        module.ImageGenerationService._validate_image({"image_base64": encoded_image(), "mime_type": "image/png"})
 
 @pytest.mark.asyncio
 async def test_image_route_blocks_unsafe_prompt():

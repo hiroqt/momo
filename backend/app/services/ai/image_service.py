@@ -1,11 +1,15 @@
 from __future__ import annotations
 
+import base64
+import binascii
+import io
 import logging
 import re
 from abc import ABC, abstractmethod
 from typing import Any, Literal
 
 import httpx
+from PIL import Image, UnidentifiedImageError
 
 from app.config import settings
 from app.services.ai.diagram_renderer import diagram_renderer
@@ -13,6 +17,11 @@ from app.services.ai.diagram_renderer import diagram_renderer
 logger = logging.getLogger(__name__)
 
 ImageMode = Literal["image", "diagram"]
+MAX_IMAGE_BYTES = 15 * 1024 * 1024
+MAX_IMAGE_PIXELS = 16_000_000
+MAX_IMAGE_BASE64_CHARS = ((MAX_IMAGE_BYTES + 2) // 3) * 4
+MAX_PROVIDER_RESPONSE_BYTES = MAX_IMAGE_BASE64_CHARS + 64 * 1024
+ALLOWED_IMAGE_MIME_TYPES = {"image/png", "image/jpeg", "image/webp"}
 
 
 class ImageProviderUnavailableError(RuntimeError):
@@ -99,17 +108,34 @@ class OpenRouterImageProvider(ImageProvider):
 
         try:
             async with httpx.AsyncClient(timeout=90.0) as client:
-                response = await client.post(self.url, headers=headers, json=payload)
-                response.raise_for_status()
+                async with client.stream("POST", self.url, headers=headers, json=payload) as response:
+                    response.raise_for_status()
+                    content_length = response.headers.get("content-length")
+                    if content_length and content_length.isdigit():
+                        normalized_length = content_length.lstrip("0") or "0"
+                        max_length = str(MAX_PROVIDER_RESPONSE_BYTES)
+                        if (len(normalized_length) > len(max_length)
+                                or (len(normalized_length) == len(max_length) and normalized_length > max_length)):
+                            raise ImageProviderUnavailableError("The image provider response exceeded the allowed size.")
+                    body = bytearray()
+                    async for chunk in response.aiter_bytes():
+                        if len(body) + len(chunk) > MAX_PROVIDER_RESPONSE_BYTES:
+                            raise ImageProviderUnavailableError("The image provider response exceeded the allowed size.")
+                        body.extend(chunk)
         except httpx.HTTPError as exc:
             logger.warning("OpenRouter image provider request failed: %s", type(exc).__name__)
             raise ImageProviderUnavailableError(
                 "The image provider is temporarily unavailable."
             ) from exc
 
-        body = response.json()
-        images = body.get("data") or []
-        if not images or not images[0].get("b64_json"):
+        try:
+            provider_result = httpx.Response(200, content=body).json()
+        except (ValueError, TypeError):
+            raise ImageProviderUnavailableError("The image provider returned an invalid response.") from None
+        if not isinstance(provider_result, dict):
+            raise ImageProviderUnavailableError("The image provider returned an invalid response.")
+        images = provider_result.get("data") or []
+        if not isinstance(images, list) or not images or not isinstance(images[0], dict) or not images[0].get("b64_json"):
             raise ImageProviderUnavailableError("The image provider returned no image.")
 
         item = images[0]
@@ -203,13 +229,36 @@ class ImageGenerationService:
                 if clean_requirements.lower() not in final_prompt.lower():
                     final_prompt += f" Explicit focus and requirements: {clean_requirements}."
 
-        return await provider.generate(
+        result = await provider.generate(
             prompt=final_prompt,
             topic=topic,
             context=context,
             requirements=requirements,
             aspect_ratio=aspect_ratio,
         )
+        self._validate_image(result)
+        return result
+
+    @staticmethod
+    def _validate_image(result: dict[str, Any]) -> None:
+        if not isinstance(result, dict):
+            raise ImageProviderUnavailableError("The image provider returned unsupported media.")
+        encoded = result.get("image_base64")
+        mime_type = result.get("mime_type")
+        if (not isinstance(encoded, str) or len(encoded) > MAX_IMAGE_BASE64_CHARS
+                or not isinstance(mime_type, str) or mime_type not in ALLOWED_IMAGE_MIME_TYPES):
+            raise ImageProviderUnavailableError("The image provider returned unsupported media.")
+        try:
+            image_bytes = base64.b64decode(encoded, validate=True)
+            if len(image_bytes) > MAX_IMAGE_BYTES:
+                raise ImageProviderUnavailableError("The image provider response exceeded the allowed size.")
+            with Image.open(io.BytesIO(image_bytes)) as image:
+                expected_format = {"image/png": "PNG", "image/jpeg": "JPEG", "image/webp": "WEBP"}[mime_type]
+                if image.format != expected_format or image.width * image.height > MAX_IMAGE_PIXELS:
+                    raise ImageProviderUnavailableError("The image provider returned unsupported media.")
+                image.verify()
+        except (binascii.Error, Image.DecompressionBombError, UnidentifiedImageError, OSError, ValueError):
+            raise ImageProviderUnavailableError("The image provider returned invalid image data.") from None
 
 
 image_service = ImageGenerationService()

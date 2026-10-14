@@ -22,7 +22,7 @@
 | Database indexes | Migration 013 adds `chat_messages(user_id)`, `study_items(user_id)` and partial `internal.upload_tickets(auth_ref)` indexes for Auth deletion/retirement paths. Local unforced plans selected all three for 1,000-row owner lookups. | Local synthetic query plans establish index selection, not production capacity. Do not remove indexes from the empty staging advisor output. Migration 019 has no ANN index; measure tenant-filtered exact scans and retrieval quality before selecting halfvec/HNSW. |
 | RET-01 storage and retention | Migration 018 is applied to staging. User/account retirement defers path deletion until `signed_until + 15 minutes`, revokes prior cleanup leases, and retains a 15-minute tombstone retry. This is eventual cleanup for unique, non-reissued paths. A fresh SDK check found the latest published Python `storage3` 2.32.0 still exposes only path-string deletion; the repository remains pinned to 2.31.0. | Supabase gives no documented maximum for an upload already in flight at URL expiry; hosted purge timing is unverified. Ordinary 72-hour expiry remains fail-closed because neither inspected Python SDK version exposes generation-conditional delete. Legacy/unregistered inventory and scheduler capacity remain open. Generated sets remain independent of original-file deletion. |
 | AI-04 image provider configuration | Managed startup rejects blank/placeholder `OPENROUTER_IMAGE_MODEL`; request boundary rejects placeholder key/model before network. | No live provider contract/request or math-photo fallback verification. AI-04 remains partial. |
-| SEC-02 backend logging | Reviewed all logger calls under `backend/app`; dynamic fields are bounded counts/statuses, exception class names, fixed categories, or the generated worker startup identifier (hostname/PID/UUID). No request/document content, user/document/job/study-set IDs, credentials, signed URLs, raw provider/database errors, or request-derived newline injection were found. Removed configured model and storage-provider values from logs; behavior is unchanged. New newline-sentinel regressions cover both. Focused provider/storage suites: 224 passed; Ruff 142, mypy 76 and diff checks pass. The 937-test full loopback run predates the storage regression; rerun could not be verified because Docker was unavailable. | Source inspection and local tests do not verify managed log sinks or deployed HTTPS/CORS, account isolation, dependency and retention controls. SEC-02 remains partial. |
+| SEC-02 backend logging | Reviewed all logger calls under `backend/app`; dynamic fields are bounded counts/statuses, exception class names, fixed categories, or the generated worker startup identifier (hostname/PID/UUID). No request/document content, user/document/job/study-set IDs, credentials, signed URLs, raw provider/database errors, or request-derived newline injection were found. Removed configured model and storage-provider values from logs; behavior is unchanged. New newline-sentinel regressions cover both. Focused provider/storage suites: 224 passed; full loopback PostgreSQL/PostgREST suite: 938 passed with zero skips/errors/failures; no-skip, Ruff 142, mypy 76 and diff checks pass. | Source inspection and local tests do not verify managed log sinks or deployed HTTPS/CORS, account isolation, dependency and retention controls. SEC-02 remains partial. |
 | WORK-02/API-01 jobs and replay | Durable job, generation/folder replay, bounded recovery and upload-ticket modules are locally covered by the complete backend suite; staging has migrations 006–012. | No hosted worker/API has run these contracts. Native process-death/restart, provider generation and managed storage journeys remain open. |
 | OPS-01 Render | `render.yaml` defines a Singapore API and separate worker, `/ready`, disabled auto-deploy, platform-injected secrets and bounded shutdown. The Docker image accepts Render `PORT`. | No service is deployed. Enter the real HTTPS CORS origin and secret values in Render; choose an instance size; qualify readiness, worker drain, monitoring, alerts, provider/model configuration and operating cost. |
 
@@ -562,12 +562,13 @@ configured Nemotron model from an empty-response warning and the configured
 unchanged. Newline-bearing configuration regressions verify these values do not
 reach logs.
 
-The focused provider/storage suites passed **224 tests**; Ruff (142 files), mypy
-(76 files), and `git diff --check` passed. The prior full loopback PostgreSQL/
-PostgREST run passed 937 tests before the storage regression was added. A rerun
-could not be verified because Docker was unavailable. This is a source and local
-test audit; hosted log sinks, HTTPS/CORS, tenant isolation, dependency and
-retention release evidence remain open.
+The focused provider/storage suites passed **224 tests**. The final full
+loopback PostgreSQL/PostgREST suite passed **938 tests with zero skips/errors/
+failures**; the no-skip checker confirmed 938/0. Ruff (142 files), mypy (76
+files), and `git diff --check` passed. The run emitted 33 existing Starlette
+422 deprecation warnings. This is a source and local test audit; hosted log
+sinks, HTTPS/CORS, tenant isolation, dependency and retention release evidence
+remain open.
 
 ## DOC-02 synthetic OCR corpus extension
 

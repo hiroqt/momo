@@ -528,6 +528,33 @@ async def test_scanned_pdf_uses_ocr_pages_with_metadata(monkeypatch):
     assert [p.page_number for p in result] == [1, 2] and all(p.is_ocr for p in result)
 
 
+@pytest.mark.parametrize("pages", [[1], [2, 1], [1, 1], [1, 2, 3]])
+async def test_scanned_pdf_rejects_inconsistent_ocr_page_metadata(monkeypatch, pages):
+    from app.domain.documents.models import DocumentPage
+    from app.services.extraction import pdf_extractor as module
+
+    result = [
+        DocumentPage(page_number=n, text=f"Scanned page {n} text", is_ocr=True)
+        for n in pages
+    ]
+    monkeypatch.setattr(module.ocr_service, "extract_ocr", AsyncMock(return_value=result))
+    with pytest.raises(ValueError):
+        await module.pdf_extractor.extract(pdf_bytes(pages=2))
+
+
+async def test_scanned_pdf_rejects_pages_not_marked_as_ocr(monkeypatch):
+    from app.domain.documents.models import DocumentPage
+    from app.services.extraction import pdf_extractor as module
+
+    pages = [
+        DocumentPage(page_number=n, text=f"Scanned page {n} text", is_ocr=n == 1)
+        for n in (1, 2)
+    ]
+    monkeypatch.setattr(module.ocr_service, "extract_ocr", AsyncMock(return_value=pages))
+    with pytest.raises(ValueError):
+        await module.pdf_extractor.extract(pdf_bytes(pages=2))
+
+
 def office_bytes(kind):
     import docx
     from pptx import Presentation

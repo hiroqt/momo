@@ -137,6 +137,11 @@ class PDFExtractor:
                 ocr_pages = await ocr_service.extract_ocr(file_bytes)
                 if not ocr_pages or not any(page.text.strip() for page in ocr_pages):
                     raise ValueError("No readable text")
+                expected_pages = list(range(1, len(raw_pages_lines) + 1))
+                if [page.page_number for page in ocr_pages] != expected_pages or any(
+                    not page.is_ocr for page in ocr_pages
+                ):
+                    raise ValueError("OCR page metadata is inconsistent")
                 return ocr_pages
 
             return pages

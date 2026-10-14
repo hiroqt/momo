@@ -175,6 +175,19 @@ filesystem. Both pages returned in order with `is_ocr=true` and their distinct
 expected text. This proves the runtime path for this synthetic sample, not
 general OCR accuracy or support for a representative scan corpus.
 
+## DOC-02 OCR page provenance boundary
+
+The PDF extractor now checks OCR-provider output against the source PDF's
+parsed page count and exact 1-based page order, and requires every returned page
+to carry `is_ocr=true`. Missing, reordered, duplicate, extra and non-OCR page
+metadata fail closed before chunking can persist a misleading citation. The
+focused scanned-PDF cases passed (7); the full local PostgreSQL/PostgREST suite
+passed **908 tests with zero skips/errors/failures** and the no-skip gate passed.
+Ruff passed across 142 files and mypy across 76 files. This verifies metadata
+integrity for the replaceable OCR boundary, not OCR accuracy across a
+representative real-document corpus. Disposable integration containers were
+stopped after the run.
+
 ## ECON-01 folder pricing follow-up
 
 The user approved PRD 6.6 folder pricing and asked that heart regeneration/refill

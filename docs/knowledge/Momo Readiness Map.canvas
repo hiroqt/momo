@@ -219,7 +219,7 @@
       "fromSide": "bottom",
       "toNode": "4",
       "toSide": "right",
-      "label": "Render prepared"
+      "label": "Render prepared; CI OCR runtime smoke; clean remote run pending"
     },
     {
       "id": "completion-retention",

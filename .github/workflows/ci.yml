@@ -69,6 +69,14 @@ jobs:
       - name: Fail if any test (including PostgreSQL integration) skipped
         if: always()
         run: uv run python ../scripts/testing/assert_no_skips.py ../backend-junit.xml 300
+      - name: Build backend image and run isolated OCR runtime smoke
+        working-directory: .
+        run: |
+          docker build -t momo-backend:ci backend
+          docker run --rm -i --network none --read-only --tmpfs /tmp \
+            --cap-drop ALL --security-opt no-new-privileges \
+            -e APP_ENV=local -e DATABASE_BACKEND=memory momo-backend:ci \
+            python - < scripts/testing/container_ocr_smoke.py
       - name: Stop disposable backend stack
         if: always()
         working-directory: .

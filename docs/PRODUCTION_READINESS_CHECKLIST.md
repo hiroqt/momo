@@ -62,6 +62,7 @@ October 14 work includes user-authorized staging schema changes and local backen
 | API-01 generated media bounds | October 14 root | main | DONE_LOCAL | 2026-10-14 | Enforced 15 MiB decoded image cap, PNG/JPEG/WebP validation, 16 MP ceiling, and bounded provider response streaming. 63 focused API/image/body-limit tests, Ruff, mypy 75 files, and diff check pass. Staging provider/native journeys remain open. |
 | ECON-01 folder pricing activation | October 14 root + economy reviewer | main | PARTIAL | 2026-10-14 | User-approved pricing now runs through the atomic wallet RPC; migration 016 records charged creates and preserves existing offline replay/tombstone semantics. Full local suite: 832 passed, zero skips; Ruff 138/mypy 75 pass. Migration `20261014001721` is applied to staging and catalog-verified service-only. Wallets start at 0; the user has since approved +1 credit for each newly accepted client-attested correct-answer sync event (ECON-01 reward row below), but the API is not deployed and hosted earning/purchase is unverified. A modified client can farm the approved MVP reward. Heart regeneration/refill remains pending. |
 | ECON-01 correct-answer credit rewards | October 14 root + sync reward reviewer | main | DONE_LOCAL | 2026-10-14 | User approved +1 Momo Coin per newly accepted client-attested correct-answer event, requiring an owned study item. Migration 017 awards within sync transaction; duplicate IDs/non-correct outcomes do not pay. Mobile fetches/reconciles server balance on account load and sync, ignoring stale same-account reads. Some mobile spends/exchanges remain local-only and need full server reconciliation. Full gateway suite: 839 passed, zero skips; Ruff 138/mypy 75 and mobile lint/186 tests pass. Staging migration `20261014003950` applied; trigger catalog confirms fixed search_path and service_role-only execute. Client can still falsify correctness; hosted API journey is open. No historical backfill. |
+| DOC-02 container OCR smoke in CI | October 14 root | main | DONE_LOCAL | 2026-10-14 | Backend CI now builds the production image and runs the existing network-isolated, non-root scanned-PDF smoke. The same local Docker build and smoke passed; Ruby YAML parsing and diff checks pass. A clean remote Actions run still requires a push; representative OCR accuracy corpus remains open. |
 | DOC-02 real OCR multi-page smoke | October 14 root + extraction/OCR audit | main | DONE_LOCAL | 2026-10-14 | Actual Tesseract/Poppler processed two raster-only synthetic pages in the non-root, network-isolated image; ordered page numbers, OCR flags and distinct recognized text passed. Representative scanned-document corpus and real-world OCR accuracy remain open. |
 | CHAT-01 expired source guard | October 14 root + API-01 read-only audit | main | DONE_LOCAL | 2026-10-14 | `generate_study_card` now uses the existing READY-and-unexpired predicate. Focused tests prove expired READY sources skip retrieval/embedding and model generation. Other CHAT-01 provenance and native import gates remain open. |
 | AUTH-02 account deletion | October 14 root + auth lifecycle audit + independent review | main | DONE_LOCAL | 2026-10-14 | `DELETE /api/me` deletes only the verified subject, treats Auth Admin `user_not_found` as a safe retry after a lost response, and the mobile clears that account's SQLite partition. Migration 015 assigns confirmed pre-ticket uploads to Supabase `documents`; staging application and local PostgreSQL cleanup-claim checks pass. Full hosted object purge and untracked-object inventory remain release blockers. |
@@ -224,6 +225,12 @@ detail items are reconciled (API-01 PARTIAL). `/api/me` no longer invents facts 
 
 ## What To Work On Next
 
+**Next local safety priority: complete AI-02 evidence support.** The validator
+still accepts some relation errors despite same-sentence lexical overlap, and
+MCQ/identification retain a compatibility path. The user approved a bounded Jev
+calibration with a labeled synthetic corpus; keep uncertain outputs fail-closed
+and leave AI-02 partial unless measured cases support a defensible policy.
+
 **Next RET-01 gate: prove hosted timing and inventory for eventual retirement purge,
 then qualify a generation-safe deletion contract for ordinary 72-hour expiry.**
 Migrations 012 and 018 implement signing tickets, actual upload clocks,
@@ -236,7 +243,7 @@ for selected boundaries; managed storage/provider/native/deployed gates remain o
 
 **Hosted application setup remains ENV-01/ENV-02/AUTH-01/OPS-01.** The user
 authorized database work only on `momo-staging` and selected Render for host
-preparation. Migrations 001–016 and database metadata/security checks now pass
+preparation. Migrations 001–019 and database metadata/security checks now pass
 there; no API, worker, Google-account, Storage-byte or provider smoke was run.
 `momo-prod` was not queried or changed. The Render Blueprint is prepared but not
 deployed; CORS origins and host-managed secrets still need to be entered. The
@@ -344,6 +351,7 @@ is listed under Acceptance. Add dates, commits and reports after actual completi
 - Evidence: fixture corpus for all formats, scans, empty material, hostile archives and extraction failures. No invented OCR text can reach generation.
 - Evidence 2026-10-06 (local only): encrypted/corrupt/spoofed PDF and corrupt DOCX/PPTX fail with safe messages end to end (5 e2e cases); archive guard bounds members/expansion; mock OCR refused outside dev/test.
 - Evidence 2026-10-14 (local only): actual Tesseract/Poppler OCR ran on a two-page raster-only synthetic PDF inside the non-root backend image with networking disabled. Both ordered page numbers, `is_ocr` flags and distinct text assertions passed. This is a runtime smoke, not a representative OCR quality corpus.
+- Evidence 2026-10-14 (local only): `.github/workflows/ci.yml` now builds the pinned backend image and runs the same network-isolated OCR smoke in CI. Local `docker build` and the exact `docker run` smoke passed; remote Actions execution remains unverified until the release owner pushes.
 
 ### WORK-01: Durable Job Dispatch And Separate Workers
 
@@ -474,6 +482,7 @@ is listed under Acceptance. Add dates, commits and reports after actual completi
 - Acceptance: run backend unit/API/real-DB checks, lint/type checks, mobile tests/type checks and web checks on clean environments. Ensure native flows/fixtures needed by reports are reproducible and tracked safely. Block secrets/caches/generated artifacts; hosted traffic is prohibited in normal tests. Fail if required integration silently skips.
 - Evidence: clean CI run with named commands, counts, artifacts and environment versions. Broaden typing coverage deliberately; prior scoped mypy is not full-app strict typing.
 - Evidence 2026-10-06 (local only): `.github/workflows/ci.yml` (actionlint-clean) with pgvector service, no-skip junit gate, secret/artifact scan. Integration pinned `ruff==0.16.10`/`mypy==2.4.0` as a uv dev group and cleared the legacy ratchet: whole backend ruff and mypy (72 files) pass.
+- Evidence 2026-10-14 (local only): backend CI also builds the production container and runs the non-root, network-disabled Tesseract/Poppler smoke. Local image build/runtime passed and workflow YAML parsed. CI-01 remains partial pending a clean GitHub Actions run and any runner-specific fixes.
 
 ### OPS-01: Deploy Services With Observability And Readiness
 

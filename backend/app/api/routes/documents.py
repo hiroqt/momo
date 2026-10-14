@@ -271,13 +271,11 @@ async def delete_document(
     ticket = await upload_ticket_repo.get(document_id, user.id)
     if not ticket or ticket.get("provider") != storage_service.provider or ticket.get("bucket") != storage_service.bucket:
         raise HTTPException(409, detail={"code": "UPLOAD_UNAVAILABLE", "message": "The document storage destination requires verification."})
-    if not await upload_ticket_repo.retire(document_id, user.id):
-        raise HTTPException(409, detail={"code": "UPLOAD_UNAVAILABLE", "message": "The document is unavailable."})
     expected_key = storage_service.build_object_key(user.id, document_id, doc["file_type"])
     if doc.get("s3_object_key") != expected_key:
         raise HTTPException(409, detail={"code": "UPLOAD_UNAVAILABLE", "message": "The document is unavailable."})
-    if not await asyncio.to_thread(storage_service.delete_object, expected_key):
-        raise HTTPException(503, detail={"code": "STORAGE_UNAVAILABLE", "message": "Document removal will be retried. Please try again later."})
+    if not await upload_ticket_repo.retire(document_id, user.id):
+        raise HTTPException(409, detail={"code": "UPLOAD_UNAVAILABLE", "message": "The document is unavailable."})
     await chunks_repo.delete_by_document_id(document_id, user.id)
     await documents_repo.delete(document_id, user.id)
     return {"deleted": True, "document_id": document_id}

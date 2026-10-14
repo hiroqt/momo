@@ -1,6 +1,6 @@
 # Momo backend readiness — October 14, 2026
 
-**Status: not ready for public launch.** This pass completed local backend hardening and deployment preparation, then applied and inspected the ordered schema on the user-selected `momo-staging` Supabase project. It did not deploy the API or worker, run real Google sign-in, upload hosted bytes, call an AI provider, query `momo-prod`, or run hosted load tests.
+**Status: not ready for public launch.** This pass completed local backend hardening and deployment preparation, then applied and inspected the ordered schema on the user-selected `momo-staging` Supabase project, including migration 018 for safe deferred purging of retired uploads. It did not deploy the API or worker, run real Google sign-in, upload hosted bytes, call an AI provider, query `momo-prod`, or run hosted load tests.
 
 ## Decisions and boundaries
 
@@ -17,7 +17,7 @@
 | ENV-02 schema and security | Staging now records migrations 001–017. The 20 `public`/`internal` application tables have forced RLS; anon has no app-table SELECT, authenticated has no direct write grants, and internal tables have no anon/authenticated table grants. `documents` is private, limited to 15 MiB and PDF/DOCX/TXT/PPTX MIME types. Core app and queue tables had zero rows at inspection. | No managed PostgREST two-user/anonymous/RPC journey or migration rollback exercise. The 5 internal no-policy security notices are intentional deny-by-default and have no client grants. The performance advisor reports 14 composite-FK coverage notices and 44 unused-index notices; catalog review found a valid leading-column index for each reported FK, and fresh empty staging usage is not a basis for dropping indexes. |
 | ECON-01 economy | Folder charge/replay follows PRD pricing. Migration 017 adds +1 credit for each newly accepted client-attested correct event with an owned study item, in the same transaction. Sync returns server credits; mobile loads/reconciles the balance. | Staging schema only; no API deployed or hosted sync journey. Modified clients can fake correctness and farm credits under the approved MVP trust rule. Heart regeneration/refill and XP policy remain pending. |
 | Database indexes | Migration 013 adds `chat_messages(user_id)`, `study_items(user_id)` and partial `internal.upload_tickets(auth_ref)` indexes for Auth deletion/retirement paths. Local unforced plans selected all three for 1,000-row owner lookups. | Local synthetic query plans establish index selection, not production capacity. Do not remove indexes from the empty staging advisor output. |
-| RET-01 storage and retention | Durable upload-ticket lifecycle from migration 012 is now applied to staging; no app rows were present. Current JS reference documents exact-version removal, but the pinned Python SDK has no version argument and hosted bucket behavior is unverified. | Automatic physical expiry remains fail-closed. Legacy/unregistered object inventory and hosted 72-hour deletion proof are incomplete. Generated sets must remain independent of original-file deletion. |
+| RET-01 storage and retention | Migration 018 is applied to staging. User/account retirement defers physical cleanup until `signed_until + 15 minutes`, revokes prior cleanup leases and rechecks the deadline before purge. The document API hides the source immediately and leaves a durable tombstone for worker cleanup. | Supabase generation-safe object deletion remains fail-closed; legacy/unregistered inventory, actual 72-hour purge timing, scheduler capacity and hosted Storage proof remain incomplete. Generated sets remain independent of original-file deletion. |
 | AI-04 image provider configuration | Managed startup rejects blank/placeholder `OPENROUTER_IMAGE_MODEL`; request boundary rejects placeholder key/model before network. | No live provider contract/request or math-photo fallback verification. AI-04 remains partial. |
 | WORK-02/API-01 jobs and replay | Durable job, generation/folder replay, bounded recovery and upload-ticket modules are locally covered by the complete backend suite; staging has migrations 006–012. | No hosted worker/API has run these contracts. Native process-death/restart, provider generation and managed storage journeys remain open. |
 | OPS-01 Render | `render.yaml` defines a Singapore API and separate worker, `/ready`, disabled auto-deploy, platform-injected secrets and bounded shutdown. The Docker image accepts Render `PORT`. | No service is deployed. Enter the real HTTPS CORS origin and secret values in Render; choose an instance size; qualify readiness, worker drain, monitoring, alerts, provider/model configuration and operating cost. |
@@ -43,6 +43,7 @@ Public signing metadata at the project's Auth JWKS endpoint reports one ES256/EC
 | 015 verified legacy storage destination | `20261013234939` | applied; zero legacy tickets required mapping |
 | 016 charged folder request replay | `20261014001721` | applied after local verification; both folder RPCs retain fixed search paths, deny anon/authenticated EXECUTE, and grant service-role EXECUTE; `internal.folder_requests` remains forced-RLS with no anon/authenticated SELECT |
 | 017 correct-answer credit rewards | `20261014003950` | applied after full local verification; catalog confirms `SECURITY DEFINER`, fixed `search_path=pg_catalog, public`, anon/authenticated denied, service_role granted |
+| 018 safe retired upload purge | `20261014015410` | applied after local verification; catalog confirms the signed-expiry gate in claim/prepare/retire/account-deletion functions and anon/authenticated EXECUTE denied |
 
 ## API-01 generated media boundary
 
@@ -274,3 +275,26 @@ review found no actionable issues.
 This closes only A2-1 locally. AI-02 remains partial: support checks are lexical
 with provisional thresholds, labeled calibration/TypeSafe evaluation is still
 open, and relation-blind short-answer/reviewer-rejection cases remain.
+
+## RET-01 retired upload URL race follow-up
+
+Migration 018 implements the approved purge delay: retired user-deletion and
+Auth account-deletion tickets cannot be claimed until the recorded signed-upload
+deadline plus 15 minutes. Retirement revokes any earlier cleanup lease, and the
+cleanup preparation RPC checks the deadline again before authorizing provider
+deletion. The document DELETE endpoint removes the source record/chunks from the
+library immediately while retaining the ticket for the worker; generated sets
+stay detached through the existing foreign key. The library confirmation now
+describes the delayed storage purge.
+
+Local PostgreSQL ticket/cleanup and API tests passed **36 tests**. The final
+loopback PostgreSQL/PostgREST suite passed **869 tests, zero skips/errors/failures**;
+Ruff checked 138 files, mypy checked 75 files, mobile lint and all 186 mobile
+tests passed, and `git diff --check` passed. Staging migration `20261014015410` is applied;
+catalog checks confirm all four affected functions contain the expiry gate and
+anon/authenticated cannot execute the service RPCs. This addresses the signed
+upload URL resurrection window only. Generation-safe Supabase deletion,
+unregistered-object inventory and physical 72-hour deletion remain open.
+The deadline timestamp is recorded immediately before the provider signing call;
+the configured Storage client timeout is 15 seconds, below the 15-minute grace.
+This bounds but does not directly observe the token's exact issuance/expiry time.

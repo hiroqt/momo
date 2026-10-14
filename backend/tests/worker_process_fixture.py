@@ -224,10 +224,7 @@ if stage == "ticket-gateway":
         assert (await upload_ticket_repo.get(identity, owner))["version"] == "version-one"
         assert await upload_ticket_repo.retire(identity, owner)
         claimed = await upload_ticket_repo.claim_cleanup(provider="s3", bucket=data["bucket"])
-        assert len(claimed) == 1
-        assert await upload_ticket_repo.prepare_cleanup(identity, claimed[0]["lease_token"], None)
-        assert await upload_ticket_repo.finish_cleanup(identity, claimed[0]["lease_token"])
-        assert not await upload_ticket_repo.finish_cleanup(identity, claimed[0]["lease_token"])
+        assert not claimed
         supabase_session.close()
 
     asyncio.run(ticket_smoke())

@@ -205,6 +205,8 @@ async def test_error_response_structure():
 
 @pytest.mark.asyncio
 async def test_delete_document_and_study_set():
+    from app.db.repositories.upload_ticket_repo import upload_ticket_repo
+
     user_id = str(uuid4())
     headers = {"Authorization": f"Bearer test-token-{user_id}"}
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
@@ -236,6 +238,8 @@ async def test_delete_document_and_study_set():
         del_res = await ac.delete(f"/api/documents/{doc_id}", headers=headers)
         assert del_res.status_code == 200
         assert del_res.json()["deleted"] is True
+        assert storage_service.get_object_metadata(key) is not None
+        assert (await upload_ticket_repo.get(doc_id, user_id))["status"] == "retired"
 
         # Verify document no longer in list
         docs_res2 = await ac.get("/api/documents", headers=headers)

@@ -95,9 +95,12 @@ async def test_memory_concurrent_claims_and_retire_do_not_delete_early_or_resurr
     assert sum(len(rows) for rows in claims) == 1
     claim = next(rows[0] for rows in claims if rows)
     metadata = ObjectMetadata(12, datetime.now(UTC), identity="initial")
-    assert not await repo.prepare_cleanup(ticket["id"], claim["lease_token"], metadata)
     assert not await repo.retire(ticket["id"], str(uuid4()))
     assert await repo.retire(ticket["id"], ticket["user_id"])
+    assert not await repo.prepare_cleanup(ticket["id"], claim["lease_token"], metadata)
+    assert not await repo.claim_cleanup()
+    repo._tickets[ticket["id"]]["signed_until"] = (datetime.now(UTC)-timedelta(minutes=16)).isoformat()
+    repo._tickets[ticket["id"]]["next_check_at"] = datetime.now(UTC).isoformat()
     retired = (await repo.claim_cleanup())[0]
     assert await repo.prepare_cleanup(ticket["id"], retired["lease_token"], metadata)
     assert not await repo.finish_cleanup(ticket["id"], str(uuid4()))
@@ -183,6 +186,7 @@ def test_pg_retire_expires_source_keeps_material_and_acknowledges_only_deletion(
     set_id = str(uuid4())
     database(f"INSERT INTO study_sets(id,user_id,title,document_id) VALUES('{set_id}','{owner}','Persistent study','{ticket['id']}');")
     assert database(f"SELECT retire_upload_ticket('{ticket['id']}','{other}');", role="service_role") == "f"
+    database(f"UPDATE internal.upload_tickets SET signed_until=now()-interval '16 minutes' WHERE id='{ticket['id']}';")
     assert database(f"SELECT retire_upload_ticket('{ticket['id']}','{owner}');", role="service_role") == "t"
     assert database(f"SELECT processing_status FROM documents WHERE id='{ticket['id']}';") == "EXPIRED"
     database(f"SELECT register_document({sql_json(payload)},10);", role="service_role", success=False)
@@ -202,6 +206,9 @@ def test_pg_auth_deletion_retains_origin_and_manual_outbox(database, users):
     ticket = issue_pg(database, owner)
     database(f"DELETE FROM auth.users WHERE id='{owner}';")
     assert database(f"SELECT user_id::text||':'||status||':'||(auth_ref IS NULL)::text FROM internal.upload_tickets WHERE id='{ticket['id']}';") == f"{owner}:retired:true"
+    assert database(f"SELECT count(*) FROM claim_upload_cleanup(100,'supabase','documents') AS t WHERE t->>'id'='{ticket['id']}';", role="service_role") == "0"
+    database(f"UPDATE internal.upload_tickets SET signed_until=now()-interval '16 minutes',next_check_at=now() WHERE id='{ticket['id']}';")
+    assert database(f"SELECT count(*) FROM claim_upload_cleanup(100,'supabase','documents') AS t WHERE t->>'id'='{ticket['id']}';", role="service_role") == "1"
     assert database(f"SELECT get_upload_ticket('{ticket['id']}','{owner}');", role="service_role") == ""
 
 
@@ -253,6 +260,18 @@ def test_pg_live_cleanup_lease_retired_replay_and_null_tokens_are_fenced(databas
     database(f"SELECT register_document({sql_json(minimal)},10);", role="service_role", success=False)
 
 
+def test_pg_retirement_revokes_live_cleanup_lease_until_signed_url_deadline(database, users):
+    owner, _ = users
+    ticket = issue_pg(database, owner)
+    claim = next(json.loads(line) for line in database("SELECT claim_upload_cleanup(100,'supabase','documents');", role="service_role").splitlines() if json.loads(line)["id"] == ticket["id"])
+    assert database(f"SELECT retire_upload_ticket('{ticket['id']}','{owner}');", role="service_role") == "t"
+    assert database(f"SELECT lease_token IS NULL AND next_check_at>now() FROM internal.upload_tickets WHERE id='{ticket['id']}';") == "t"
+    assert database(f"SELECT prepare_upload_cleanup('{ticket['id']}','{claim['lease_token']}',NULL);", role="service_role") == "f"
+    assert database(f"SELECT count(*) FROM claim_upload_cleanup(100,'supabase','documents') AS t WHERE t->>'id'='{ticket['id']}';", role="service_role") == "0"
+    database(f"UPDATE internal.upload_tickets SET signed_until=now()-interval '16 minutes',next_check_at=now() WHERE id='{ticket['id']}';")
+    assert database(f"SELECT count(*) FROM claim_upload_cleanup(100,'supabase','documents') AS t WHERE t->>'id'='{ticket['id']}';", role="service_role") == "1"
+
+
 def test_pg_registration_cleanup_compete_without_accepting_claimed_upload(database, users):
     owner, _ = users
     ticket = issue_pg(database, owner)
@@ -287,6 +306,9 @@ async def test_memory_retired_missing_head_requires_provider_cleanup_before_ack(
     repo = UploadTicketRepository()
     ticket = await repo.issue(issued())
     assert await repo.retire(ticket["id"], ticket["user_id"])
+    assert not await repo.claim_cleanup()
+    repo._tickets[ticket["id"]]["signed_until"] = (datetime.now(UTC)-timedelta(minutes=16)).isoformat()
+    repo._tickets[ticket["id"]]["next_check_at"] = datetime.now(UTC).isoformat()
     claim = (await repo.claim_cleanup())[0]
     assert await repo.prepare_cleanup(ticket["id"], claim["lease_token"], None)
     stored = repo._tickets[ticket["id"]]
@@ -312,6 +334,7 @@ def test_pg_empty_oversized_orphan_can_be_deleted_without_accepting_upload(datab
 def test_pg_retired_absent_current_object_does_not_ack_hidden_versions(database, users):
     owner, _ = users
     ticket = issue_pg(database, owner)
+    database(f"UPDATE internal.upload_tickets SET signed_until=now()-interval '16 minutes' WHERE id='{ticket['id']}';")
     database(f"SELECT retire_upload_ticket('{ticket['id']}','{owner}');", role="service_role")
     claim = next(json.loads(line) for line in database("SELECT claim_upload_cleanup(100,'supabase','documents');", role="service_role").splitlines() if json.loads(line)["id"] == ticket["id"])
     assert database(f"SELECT prepare_upload_cleanup('{ticket['id']}','{claim['lease_token']}',NULL);", role="service_role") == "t"

@@ -1157,7 +1157,7 @@ export default function LibraryScreen() {
         message={
           deleteTarget?.type === 'set'
             ? `Are you sure you want to delete "${deleteTarget.set.title}"? All generated flashcards and questions will be permanently deleted.`
-            : `Are you sure you want to delete "${deleteTarget?.doc.original_filename}"? This will remove the uploaded document from storage.`
+            : `Are you sure you want to delete "${deleteTarget?.doc.original_filename}"? The source will be removed from your library now and purged from storage after its upload link expires.`
         }
         confirmText={deleteTarget?.type === 'set' ? 'Delete Reviewer' : 'Delete Document'}
         isDestructive={true}

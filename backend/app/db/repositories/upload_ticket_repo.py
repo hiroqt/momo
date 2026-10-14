@@ -97,6 +97,8 @@ class UploadTicketRepository:
             return await self._rpc("claim_upload_cleanup", {"p_limit": limit, "p_provider": provider, "p_bucket": bucket})
         now = datetime.now(UTC)
         rows = [ticket for ticket in self._tickets.values() if (not ticket["legacy"] or ticket["status"] == "retired")
+                and (ticket["auth_ref"] is not None and ticket["status"] != "retired"
+                     or timestamp(ticket["signed_until"])+timedelta(minutes=15) <= now)
                 and timestamp(ticket["next_check_at"]) <= now
                 and (ticket["lease_until"] is None or timestamp(ticket["lease_until"]) <= now)
                 and (provider is None or ticket["provider"] == provider) and (bucket is None or ticket["bucket"] == bucket)]
@@ -137,9 +139,13 @@ class UploadTicketRepository:
         ticket, now = self._tickets.get(ticket_id), datetime.now(UTC)
         if not ticket or (ticket["legacy"] and ticket["status"] != "retired") or not token or ticket["lease_token"] != token or ticket["lease_until"] is None or timestamp(ticket["lease_until"]) <= now:
             return False
+        purge_after = max(now, timestamp(ticket["signed_until"])+timedelta(minutes=15))
+        if (ticket["status"] == "retired" or ticket["auth_ref"] is None) and timestamp(ticket["signed_until"])+timedelta(minutes=15) > now:
+            ticket.update(next_check_at=purge_after.isoformat(), lease_token=None, lease_until=None, delete_required=False)
+            return False
         if metadata is None:
             if ticket["status"] == "retired" or ticket["auth_ref"] is None:
-                ticket.update(delete_required=True, physical_expires_at=now.isoformat(), last_deleted_at=None)
+                ticket.update(delete_required=True, physical_expires_at=purge_after.isoformat(), last_deleted_at=None)
                 self._expire_document(ticket)
                 return True
             ticket.update(next_check_at=(now+timedelta(minutes=15)).isoformat(), lease_token=None, lease_until=None, delete_required=False, last_deleted_at=now.isoformat())
@@ -149,7 +155,7 @@ class UploadTicketRepository:
                 self._expire_document(ticket)
             return False
         self._validate(ticket, metadata)
-        cutoff = now if ticket["auth_ref"] is None or ticket["status"] == "retired" else metadata.uploaded_at+timedelta(hours=72)
+        cutoff = purge_after if ticket["auth_ref"] is None or ticket["status"] == "retired" else metadata.uploaded_at+timedelta(hours=72)
         ticket.update(physical_expires_at=cutoff.isoformat(), last_deleted_at=None)
         if ticket["uploaded_at"] is None:
             ticket.update(uploaded_at=metadata.uploaded_at.isoformat(), expires_at=(metadata.uploaded_at+timedelta(hours=72)).isoformat(),
@@ -180,9 +186,10 @@ class UploadTicketRepository:
         ticket = self._tickets.get(ticket_id)
         if not ticket or ticket["user_id"] != user_id or ticket["auth_ref"] != user_id:
             return False
-        ticket.update(status="retired", next_check_at=datetime.now(UTC).isoformat())
+        purge_after = max(datetime.now(UTC), timestamp(ticket["signed_until"])+timedelta(minutes=15))
+        ticket.update(status="retired", next_check_at=purge_after.isoformat(), lease_token=None, lease_until=None, delete_required=False)
         if ticket["uploaded_at"] is not None:
-            ticket["physical_expires_at"] = datetime.now(UTC).isoformat()
+            ticket["physical_expires_at"] = purge_after.isoformat()
         self._expire_document(ticket)
         return True
 

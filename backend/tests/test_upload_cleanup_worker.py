@@ -81,8 +81,10 @@ async def test_missing_upload_is_reprobed_but_storage_outage_is_not_absence(issu
 async def test_failed_delete_keeps_outbox_retryable(issued_ticket, monkeypatch, caplog):
     ticket, claim = issued_ticket
     stored = upload_ticket_repo._tickets[ticket["id"]]
+    stored["signed_until"] = (datetime.now(UTC) - timedelta(minutes=16)).isoformat()
     await upload_ticket_repo.retire(ticket["id"], ticket["user_id"])
-    monkeypatch.setattr(upload_ticket_repo, "claim_cleanup", claim)
+    claims = await claim(100)
+    monkeypatch.setattr(upload_ticket_repo, "claim_cleanup", AsyncMock(return_value=claims))
     monkeypatch.setattr(module.storage_service, "get_object_metadata", lambda key, **kwargs: ObjectMetadata(10, datetime.now(UTC)))
     monkeypatch.setattr(module.storage_service, "delete_object", lambda key: False)
     assert await module.cleanup_upload_tickets() == 0

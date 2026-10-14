@@ -1,3 +1,5 @@
+import io
+
 import pytest
 
 from app.domain.documents.models import DocumentContent, DocumentPage, ExtractedSection
@@ -67,3 +69,65 @@ async def test_suggested_topics_extraction():
     assert "Entire Document (Human Cardiovascular System)" in topics[0]
     assert any("Cardiac Muscle Physiology" in t for t in topics)
     assert any("Coronary Circulation" in t for t in topics)
+
+
+def make_docx(paragraphs=(), tables=()):
+    import docx
+
+    document = docx.Document()
+    for style, text in paragraphs:
+        if style:
+            document.add_heading(text, level=1)
+        else:
+            document.add_paragraph(text)
+    for cells in tables:
+        table = document.add_table(rows=1, cols=1)
+        table.cell(0, 0).text = cells
+    buffer = io.BytesIO()
+    document.save(buffer)
+    return buffer.getvalue()
+
+
+async def test_docx_pseudo_pages_preserve_heading_and_split_section():
+    from app.services.extraction.docx_extractor import docx_extractor
+
+    text = " ".join(["mitochondria"] * 501)
+    pages = await docx_extractor.extract(make_docx([(True, "Cell Biology"), (False, text)]))
+
+    assert [page.page_number for page in pages] == [1, 2]
+    assert all(page.sections[0].title == "Cell Biology" for page in pages)
+    assert sum(len(section.content.split()) for page in pages for section in page.sections) == 503
+    assert "Cell Biology" in pages[0].text and "Cell Biology" not in pages[1].text
+    assert "mitochondria" in pages[1].text
+
+
+@pytest.mark.parametrize("word_count, expected_pages", [(25_000, 50), (25_001, None)])
+async def test_docx_enforces_fifty_pseudo_page_limit(word_count, expected_pages):
+    from app.services.extraction.docx_extractor import docx_extractor
+
+    data = make_docx([(False, " ".join(["biology"] * word_count))])
+    if expected_pages is None:
+        with pytest.raises(ValueError, match="maximum page count"):
+            await docx_extractor.extract(data)
+    else:
+        pages = await docx_extractor.extract(data)
+        assert len(pages) == expected_pages
+
+
+async def test_docx_table_text_counts_toward_page_limit_and_keeps_table_provenance():
+    from app.services.extraction.docx_extractor import docx_extractor
+
+    table_text = " ".join(["enzyme"] * 501)
+    pages = await docx_extractor.extract(make_docx([(True, "Enzyme Review")], [table_text]))
+    assert len(pages) == 2
+    assert pages[0].tables and pages[1].tables == pages[0].tables
+    assert all(section.title in {"Enzyme Review", "Table"} for page in pages for section in page.sections)
+    assert "enzyme" in pages[1].text
+    chunks = chunking_service.chunk_document(
+        DocumentContent(document_id="doc-table", title="review.docx", source_type="docx", pages=pages)
+    )
+    assert any("enzyme" in chunk.content and chunk.page_start == 2 for chunk in chunks)
+
+    over_limit = make_docx([(False, " ".join(["biology"] * 25_000))], ["extra"])
+    with pytest.raises(ValueError, match="maximum page count"):
+        await docx_extractor.extract(over_limit)

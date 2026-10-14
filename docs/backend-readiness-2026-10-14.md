@@ -188,6 +188,18 @@ integrity for the replaceable OCR boundary, not OCR accuracy across a
 representative real-document corpus. Disposable integration containers were
 stopped after the run.
 
+## DOC-02 DOCX pseudo-page bound
+
+DOCX extraction now groups paragraph and table text into ordered units of about
+500 words, carries section metadata into each page/chunk fragment, and rejects
+more than 50 units. Tests cover exactly 25,000 words, 25,001 words, a section
+split across pages, table text spanning pages and table text crossing the limit.
+Focused extraction/source-safety suites passed **72 tests**. The full disposable
+PostgreSQL/PostgREST suite passed **912 tests with zero skips/errors/failures**;
+the no-skip gate, Ruff (142 files), mypy (76 files), and diff check passed. An
+independent reviewer found no remaining issue. DOCX pseudo-pages are a stable
+word-based approximation, not Microsoft Word's rendered layout pagination.
+
 ## ECON-01 folder pricing follow-up
 
 The user approved PRD 6.6 folder pricing and asked that heart regeneration/refill

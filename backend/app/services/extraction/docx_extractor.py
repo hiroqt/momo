@@ -4,6 +4,7 @@ import logging
 
 import docx
 
+from app.config import settings
 from app.domain.documents.models import DocumentPage, ExtractedSection, ExtractedTable
 from app.services.extraction.archive_guard import validate_office_archive
 
@@ -41,6 +42,7 @@ class DocxExtractor:
                     )
                     current_content = []
                 current_heading = text
+                current_content.append(text)
             else:
                 current_content.append(text)
             full_text_blocks.append(text)
@@ -70,13 +72,52 @@ class DocxExtractor:
                 combined_text += f"\n\n[Table]\n{md}"
 
         # Group into pseudo-pages (approx 500 words/page)
-        return [
-            DocumentPage(
-                page_number=1,
-                text=combined_text,
-                sections=sections,
-                tables=tables
-            )
+        items: list[tuple[ExtractedSection, ExtractedTable | None]] = [
+            (section, None) for section in sections
         ]
+        items.extend(
+            (ExtractedSection(title="Table", content=f"[Table]\n{table.to_markdown()}"), table)
+            for table in tables
+            if table.to_markdown()
+        )
+        pages: list[DocumentPage] = []
+        page_sections: list[ExtractedSection] = []
+        page_tables: list[ExtractedTable] = []
+        page_text: list[str] = []
+        page_word_count = 0
+
+        def finish_page() -> None:
+            if page_sections:
+                pages.append(
+                    DocumentPage(
+                        page_number=len(pages) + 1,
+                        text="\n\n".join(page_text),
+                        sections=page_sections.copy(),
+                        tables=page_tables.copy(),
+                    )
+                )
+                page_sections.clear()
+                page_tables.clear()
+                page_text.clear()
+
+        for section, table in items:
+            words = section.content.split()
+            while words:
+                if page_word_count == 500:
+                    finish_page()
+                    page_word_count = 0
+                if not page_sections and len(pages) >= settings.MAX_PAGE_COUNT:
+                    raise ValueError("Document exceeds maximum page count")
+                take = min(500 - page_word_count, len(words))
+                content = " ".join(words[:take])
+                page_sections.append(ExtractedSection(title=section.title, content=content))
+                page_text.append(content)
+                if table and all(existing is not table for existing in page_tables):
+                    page_tables.append(table)
+                page_word_count += take
+                words = words[take:]
+
+        finish_page()
+        return pages or [DocumentPage(page_number=1, text=combined_text)]
 
 docx_extractor = DocxExtractor()

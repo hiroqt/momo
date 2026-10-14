@@ -10,9 +10,10 @@ import io
 import os
 import shutil
 
-from app.services.extraction.pdf_extractor import pdf_extractor
 from PIL import Image, ImageDraw, ImageFont
 from pypdf import PdfReader
+
+from app.services.extraction.pdf_extractor import pdf_extractor
 
 
 async def main():

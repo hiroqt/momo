@@ -7,6 +7,16 @@ from app.db.session import page_range, supabase_session
 
 logger = logging.getLogger(__name__)
 
+def is_usable_document(document: dict[str, Any]) -> bool:
+    """A source can only be used for new study work while ready and retained."""
+    if document.get("processing_status") != "READY":
+        return False
+    try:
+        expires = datetime.fromisoformat(str(document.get("expires_at") or "").replace("Z", "+00:00"))
+    except ValueError:
+        return False
+    return expires.tzinfo is not None and expires > datetime.now(UTC)
+
 class DocumentsRepository:
     def __init__(self) -> None:
         self._store: dict[str, dict[str, Any]] = {}

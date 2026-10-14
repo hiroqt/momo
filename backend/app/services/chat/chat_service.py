@@ -2,7 +2,6 @@ import json
 import logging
 import re
 import uuid
-from datetime import UTC, datetime
 from typing import Any
 
 from fastapi import HTTPException
@@ -10,7 +9,7 @@ from pydantic import ValidationError
 
 from app.db.repositories.chat_import_repo import chat_import_repo
 from app.db.repositories.chat_repo import chat_repo
-from app.db.repositories.documents_repo import documents_repo
+from app.db.repositories.documents_repo import documents_repo, is_usable_document
 from app.db.repositories.learning_repo import learning_repo
 from app.db.repositories.study_repo import study_repo
 from app.schemas.chat import (
@@ -52,17 +51,6 @@ DECK_SAVE_UNAVAILABLE_RESULT = {
     "status": "provider_unavailable",
     "message": "Momo could not save the study deck right now. Please try again in a moment.",
 }
-
-
-def _usable_source(document: dict[str, Any]) -> bool:
-    """READY and unexpired: deck persistence rejects anything else, so skip it before spending generation."""
-    if document.get("processing_status") != "READY":
-        return False
-    try:
-        expires = datetime.fromisoformat(str(document.get("expires_at") or "").replace("Z", "+00:00"))
-    except ValueError:
-        return False
-    return expires.tzinfo is not None and expires > datetime.now(UTC)
 
 
 async def _persist_deck_or_status(**kwargs: Any) -> dict[str, Any]:
@@ -379,7 +367,7 @@ class ChatService:
         elif tool_name == "create_study_deck":
             doc_id = arguments.get("document_id") or context_document_id
             user_docs = await documents_repo.list_by_user(user_id)
-            ready_docs = [d for d in user_docs if _usable_source(d)]
+            ready_docs = [d for d in user_docs if is_usable_document(d)]
             allow_ai_gen = bool(arguments.get("allow_ai_generation", False))
 
             topic = arguments.get("topic") or "Core Study Review"
@@ -521,7 +509,7 @@ class ChatService:
 
         elif tool_name == "generate_study_card":
             docs = await documents_repo.list_by_user(user_id)
-            ready_docs = [d for d in docs if _usable_source(d)]
+            ready_docs = [d for d in docs if is_usable_document(d)]
             doc_id = arguments.get("document_id") or context_document_id
             target = next((d for d in ready_docs if not doc_id or d["id"] == doc_id), None)
             if not target:
@@ -622,7 +610,7 @@ class ChatService:
 
             # Check if user has uploaded notes covering this topic
             user_docs = await documents_repo.list_by_user(user_id)
-            ready_docs = [d for d in user_docs if _usable_source(d)]
+            ready_docs = [d for d in user_docs if is_usable_document(d)]
 
             if not ready_docs:
                 return {"status": "insufficient_source", "message": "Upload relevant course materials before creating a weakness review."}

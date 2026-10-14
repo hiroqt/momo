@@ -93,3 +93,7 @@ No production capacity, physical deletion, hosted OAuth, AI quality or public la
 ## AI-02 runtime verifier deadline
 
 Jev grounding checks now share a hard total timeout across all provider batches and retry. A timed-out or slow streaming request is cancelled and fails closed. The no-network regression passed, and the full loopback PostgreSQL/PostgREST suite passed **915 tests with zero skips**; Ruff, mypy, no-skip and diff checks passed. Hosted latency, representative human-reviewed grounding quality and the vendor privacy disclosure review remain release gates. See [[docs/backend-readiness-2026-10-14|dated verification]].
+
+## CHAT-01 import source preflight
+
+Card imports now require a READY, unexpired source before loading chunk text or sending it to Jev. Missing, malformed, expired and non-READY expiry metadata fail closed; persistence keeps its independent owner/expiry check. Chat generation shares the same source predicate. Full loopback PostgreSQL/PostgREST verification passed **919 tests, zero skipped**, with Ruff, mypy, no-skip and diff checks passing. Hosted and native import journeys remain open. See [[docs/backend-readiness-2026-10-14|dated verification]].

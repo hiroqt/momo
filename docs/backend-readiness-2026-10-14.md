@@ -443,3 +443,18 @@ files, and `git diff --check` passed. The only test warnings are existing
 Starlette 422 deprecations. The local gateway was stopped after the run. This
 bounds verifier latency locally; managed provider latency and user-facing privacy
 disclosure remain open release gates.
+
+## CHAT-01 expired import source preflight
+
+Card import now rejects documents that are not READY and unexpired before it
+loads chunk text or sends the candidate and cited evidence to Jev. The shared
+source predicate is also used by chat generation, while the persistence layer
+keeps its independent expiry and ownership enforcement. No content is sent for
+expired, malformed-expiry, missing-expiry, or non-READY sources.
+
+Focused source-safety and import persistence suites passed **79 tests**. The full
+loopback PostgreSQL/PostgREST gateway suite passed **919 tests, zero skips/errors/
+failures**; the no-skip gate, Ruff (142 files), mypy (76 files), and
+`git diff --check` passed. The local gateway was stopped afterward. Independent
+review found no actionable issue. Native two-device and hosted import journeys
+remain unverified.

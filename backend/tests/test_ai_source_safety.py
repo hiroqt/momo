@@ -1,6 +1,7 @@
 """Adversarial local-only grounding, provider, and OCR boundary regressions."""
 
 import io
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from unittest.mock import AsyncMock
 
@@ -34,6 +35,10 @@ ITEM = {
     "question": "What do mitochondria produce?",
     "answer": "ATP",
     "source_metadata": SOURCE,
+}
+USABLE_DOCUMENT = {
+    "processing_status": "READY",
+    "expires_at": (datetime.now(UTC) + timedelta(days=1)).isoformat(),
 }
 
 
@@ -180,7 +185,7 @@ async def test_import_owned_extractive_card_and_reject_forgery(monkeypatch):
         "get_by_id",
         AsyncMock(
             side_effect=lambda doc, user: (
-                {"id": doc}
+                {**USABLE_DOCUMENT, "id": doc}
                 if user == "owner" and doc == SOURCE["document_id"]
                 else None
             )
@@ -231,6 +236,44 @@ async def test_import_owned_extractive_card_and_reject_forgery(monkeypatch):
     )
     assert result["status"] == "imported"
     assert persist.await_count == 1
+
+
+@pytest.mark.parametrize(
+    "document",
+    [
+        {**USABLE_DOCUMENT, "processing_status": "INDEXING"},
+        {**USABLE_DOCUMENT, "expires_at": "2000-01-01T00:00:00+00:00"},
+        {**USABLE_DOCUMENT, "expires_at": "invalid"},
+        {"processing_status": "READY"},
+    ],
+)
+async def test_import_rejects_unusable_source_before_fetching_evidence_or_verifying(
+    monkeypatch, document
+):
+    from app.api.routes.chat import import_card_to_library
+    from app.db.repositories.chunks_repo import chunks_repo
+    from app.db.repositories.documents_repo import documents_repo
+    from app.services.validation.typesafe_grounding import typesafe_grounding_verifier
+
+    monkeypatch.setattr(
+        documents_repo, "get_by_id", AsyncMock(return_value={"id": SOURCE["document_id"], **document})
+    )
+    get_chunks = AsyncMock(return_value=[])
+    verify = AsyncMock(return_value=[])
+    monkeypatch.setattr(chunks_repo, "get_by_document_id", get_chunks)
+    monkeypatch.setattr(typesafe_grounding_verifier, "verify", verify)
+
+    with pytest.raises(HTTPException) as error:
+        await import_card_to_library(
+            ImportCardRequest(
+                question=ITEM["question"], answer="ATP", source_metadata=SOURCE
+            ),
+            AuthenticatedUser("owner"),
+        )
+
+    assert error.value.status_code == 422
+    get_chunks.assert_not_awaited()
+    verify.assert_not_awaited()
 
 
 async def test_production_chat_failure_does_not_mock_or_leak(monkeypatch, caplog):
@@ -510,7 +553,7 @@ async def test_import_api_rejects_false_question_answer_relation(monkeypatch):
     monkeypatch.setattr(
         documents_repo,
         "get_by_id",
-        AsyncMock(return_value={"id": source["document_id"]}),
+        AsyncMock(return_value={**USABLE_DOCUMENT, "id": source["document_id"]}),
     )
     monkeypatch.setattr(
         chunks_repo,
@@ -642,7 +685,7 @@ async def test_import_rejects_truncated_answer_or_explanation(
     monkeypatch.setattr(
         documents_repo,
         "get_by_id",
-        AsyncMock(return_value={"id": SOURCE["document_id"]}),
+        AsyncMock(return_value={**USABLE_DOCUMENT, "id": SOURCE["document_id"]}),
     )
     monkeypatch.setattr(
         chunks_repo,
@@ -684,7 +727,7 @@ async def test_import_api_topic_title_boundary(monkeypatch):
     monkeypatch.setattr(
         documents_repo,
         "get_by_id",
-        AsyncMock(return_value={"id": SOURCE["document_id"]}),
+        AsyncMock(return_value={**USABLE_DOCUMENT, "id": SOURCE["document_id"]}),
     )
     monkeypatch.setattr(
         chunks_repo,

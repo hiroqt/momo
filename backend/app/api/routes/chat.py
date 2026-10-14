@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from app.db.repositories.chat_import_repo import chat_import_repo
 from app.db.repositories.chat_repo import chat_repo
 from app.db.repositories.chunks_repo import chunks_repo
-from app.db.repositories.documents_repo import documents_repo
+from app.db.repositories.documents_repo import documents_repo, is_usable_document
 from app.dependencies import AuthenticatedUser, get_current_user
 from app.schemas.chat import (
     ChatMessageCreate,
@@ -35,7 +35,7 @@ async def import_card_to_library(
     metadata = req.source_metadata or {}
     document_id = metadata.get("document_id")
     document = await documents_repo.get_by_id(document_id, user.id) if isinstance(document_id, str) else None
-    if not isinstance(document_id, str) or not document:
+    if not isinstance(document_id, str) or not document or not is_usable_document(document):
         raise HTTPException(422, detail={"code": "UNVERIFIED_SOURCE", "message": "This card requires verified source material."})
     chunks = await chunks_repo.get_by_document_id(document_id, user.id)
     chunk = next((c for c in chunks if metadata.get("chunk_id") and (c.get("id") or c.get("chunk_id")) == metadata["chunk_id"]), None)

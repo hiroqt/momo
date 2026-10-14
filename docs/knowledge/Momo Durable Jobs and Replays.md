@@ -55,9 +55,13 @@ providers and native/deployed operation remain separate gates. Reproduce via
 
 ## October 14 backend completion
 
-The ordered schema through migrations 001–016 is applied to `momo-staging`.
-The latest full backend/API/database/gateway suite passes 832 tests with zero skips;
-the local Render image and mobile checks are recorded in the
-[[docs/backend-readiness-2026-10-14|October 14 report]]. Hosted API/worker
-execution, native process recovery, provider calls and real-account replay remain
-unverified. [[Momo Database Recovery]] records the local restore boundary.
+The ordered schema through migrations 001–017 is applied to `momo-staging`.
+Current generation replay, bounded orphan recovery, folder replay, atomic chunk
+publication and generation finalization paths have local SQL/API/process tests;
+the mobile generation flow persists and reuses its action key. The backend still
+allows unkeyed generation requests for older-client compatibility, so those
+requests create independent jobs. The latest full local PostgreSQL/PostgREST
+gateway suite passes 868 tests with zero skips. Hosted API/worker execution,
+native process/navigation recovery, provider calls and real-account replay remain
+unverified. [[Momo Database Recovery]] records the local restore boundary; the
+October 14 tracker records current ownership and exact gates.

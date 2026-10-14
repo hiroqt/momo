@@ -458,3 +458,18 @@ failures**; the no-skip gate, Ruff (142 files), mypy (76 files), and
 `git diff --check` passed. The local gateway was stopped afterward. Independent
 review found no actionable issue. Native two-device and hosted import journeys
 remain unverified.
+
+## CHAT-01 generated card prose import
+
+The import endpoint no longer requires a generated question/answer pair to match
+an entire source chunk as literal text. It still resolves the caller-owned,
+READY, unexpired document and exact chunk, runs deterministic validation, and
+persists only after the approved Jev verifier accepts the candidate against the
+server-fetched evidence. This supports the PRD's one-tap import for grounded
+cards phrased from ordinary source prose.
+
+Focused source-safety/import persistence suites passed **80 tests**. The full
+loopback PostgreSQL/PostgREST gateway suite passed **920 tests, zero
+skips/errors/failures**; no-skip, Ruff (142 files), mypy (76 files), and
+`git diff --check` passed. Independent product-contract review found no issue.
+Native two-device and hosted import journeys remain unverified.

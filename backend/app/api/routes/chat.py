@@ -1,6 +1,4 @@
 
-import re
-
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from app.db.repositories.chat_import_repo import chat_import_repo
@@ -55,17 +53,7 @@ async def import_card_to_library(
         [item_data], 1, trusted_sources=[trusted],
         evidence={str(trusted["chunk_id"]): chunk.get("content", "")},
     )
-    # Imported cards must also be exact source Q&A pairs.
-    content = " ".join(chunk.get("content", "").split()).casefold()
-    question = " ".join(req.question.split()).casefold()
-    answer = " ".join(req.answer.split()).casefold()
-    # Match a complete single FAQ chunk; regex does not assess prose claim truth.
-    pair = r"(?:question:\s*)?" + re.escape(question) + r"\s+(?:answer:\s*)?" + re.escape(answer)
-    if req.explanation:
-        explanation = " ".join(req.explanation.split()).casefold()
-        pair += r"\s+(?:explanation:\s*)?" + re.escape(explanation)
-    pair += r"[.!?]?"
-    if req.image_base64 or not valid or not re.fullmatch(pair, content):
+    if req.image_base64 or not valid:
         raise HTTPException(422, detail={"code": "UNVERIFIED_SOURCE", "message": "The card could not be verified against its source."})
     try:
         valid = await typesafe_grounding_verifier.verify(

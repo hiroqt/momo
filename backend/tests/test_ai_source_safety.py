@@ -276,6 +276,53 @@ async def test_import_rejects_unusable_source_before_fetching_evidence_or_verify
     verify.assert_not_awaited()
 
 
+async def test_import_accepts_verified_generated_card_from_prose_evidence(monkeypatch):
+    from app.api.routes.chat import import_card_to_library
+    from app.db.repositories.chat_import_repo import chat_import_repo
+    from app.db.repositories.chunks_repo import chunks_repo
+    from app.db.repositories.documents_repo import documents_repo
+    from app.services.validation.typesafe_grounding import typesafe_grounding_verifier
+
+    chunk = {
+        "id": SOURCE["chunk_id"],
+        "content": "Mitochondria produce ATP during cellular respiration, supplying energy for cellular processes.",
+        "page_start": 1,
+        "section": "Biology",
+    }
+    document = {**USABLE_DOCUMENT, "id": SOURCE["document_id"]}
+    metadata = {**SOURCE, "snippet": chunk["content"][:200]}
+    item = {
+        "type": "flashcard",
+        "question": "What do mitochondria produce during cellular respiration?",
+        "answer": "ATP",
+        "difficulty": "medium",
+        "source_metadata": metadata,
+    }
+    monkeypatch.setattr(documents_repo, "get_by_id", AsyncMock(return_value=document))
+    monkeypatch.setattr(chunks_repo, "get_by_document_id", AsyncMock(return_value=[chunk]))
+    verify = AsyncMock(return_value=[item])
+    monkeypatch.setattr(typesafe_grounding_verifier, "verify", verify)
+    persist = AsyncMock(return_value={"id": "set", "title": "Biology (Momo Study Set)", "item_count": 1})
+    monkeypatch.setattr(chat_import_repo, "persist_card", persist)
+
+    result = await import_card_to_library(
+        ImportCardRequest(
+            question=item["question"],
+            answer=item["answer"],
+            source_metadata=metadata,
+            topic="Biology",
+        ),
+        AuthenticatedUser("owner"),
+    )
+
+    assert result["status"] == "imported"
+    verify.assert_awaited_once()
+    verified_items, evidence = verify.await_args.args
+    assert verified_items[0]["question"] == item["question"]
+    assert evidence == {SOURCE["chunk_id"]: chunk["content"]}
+    persist.assert_awaited_once()
+
+
 async def test_production_chat_failure_does_not_mock_or_leak(monkeypatch, caplog):
     provider = OpenRouterNemotronProvider("test-only", "configured-model")
     monkeypatch.setattr(settings, "ENVIRONMENT", "production")
@@ -639,47 +686,53 @@ async def test_real_office_fixture_extraction_preserves_metadata():
 
 
 @pytest.mark.parametrize(
-    "question,answer,explanation,content",
+    "question,answer,explanation,content,needs_semantic_rejection",
     [
         (
             "What produces ATP?",
             "Mitochondria",
             None,
             "What produces ATP? Answer: Mitochondria do not produce ATP.",
+            False,
         ),
         (
             "What do mitochondria produce?",
             "ATP",
             "They produce ATP",
             "What do mitochondria produce? Answer: ATP Explanation: They produce ATP only under the described conditions.",
+            True,
         ),
         (
             "What do mitochondria produce?",
             "ATP",
             None,
             "What do mitochondria produce? Answer: ATPase enzymes rather than ATP.",
+            True,
         ),
         (
             "What produces ATP?",
             "Mitochondria",
             None,
             "What produces ATP? Answer: Mitochondria; they do not produce ATP.",
+            True,
         ),
         (
             "What produces ATP?",
             "Mitochondria",
             None,
             "What produces ATP? Answer: Mitochondria. They do not produce ATP.",
+            True,
         ),
     ],
 )
 async def test_import_rejects_truncated_answer_or_explanation(
-    monkeypatch, question, answer, explanation, content
+    monkeypatch, question, answer, explanation, content, needs_semantic_rejection
 ):
     from app.api.routes.chat import import_card_to_library
     from app.db.repositories.chat_import_repo import chat_import_repo
     from app.db.repositories.chunks_repo import chunks_repo
     from app.db.repositories.documents_repo import documents_repo
+    from app.services.validation.typesafe_grounding import typesafe_grounding_verifier
 
     metadata = {**SOURCE, "snippet": content[:200]}
     monkeypatch.setattr(
@@ -703,6 +756,8 @@ async def test_import_rejects_truncated_answer_or_explanation(
     )
     persist = AsyncMock()
     monkeypatch.setattr(chat_import_repo, "persist_card", persist)
+    verify = AsyncMock(side_effect=lambda items, _evidence: [])
+    monkeypatch.setattr(typesafe_grounding_verifier, "verify", verify)
     with pytest.raises(HTTPException) as result:
         await import_card_to_library(
             ImportCardRequest(
@@ -715,6 +770,10 @@ async def test_import_rejects_truncated_answer_or_explanation(
         )
     assert result.value.status_code == 422
     persist.assert_not_awaited()
+    if needs_semantic_rejection:
+        verify.assert_awaited_once()
+    else:
+        verify.assert_not_awaited()
 
 
 async def test_import_api_topic_title_boundary(monkeypatch):

@@ -27,7 +27,8 @@ test('config accepts only public keys and forbids development identity in hosted
   assert.throws(() => resolvePublicAuthConfig({ appEnv: 'production', devAuthToken: 'dev-token' }), /not allowed in hosted/);
   assert.throws(() => resolvePublicAuthConfig({ appEnv: 'staging', supabaseUrl: 'http://example.supabase.co', supabaseKey: ANON }), /HTTPS/);
   assert.throws(() => resolvePublicAuthConfig({ appEnv: 'development', supabaseUrl: 'https://abc.supabase.co', supabaseKey: ANON }), /Hosted tests are disabled/);
-  assert.equal(resolvePublicAuthConfig({ appEnv: 'production' }), null);
+  assert.throws(() => resolvePublicAuthConfig({ appEnv: 'production' }), /require Supabase Google sign-in/);
+  assert.throws(() => resolvePublicAuthConfig({ appEnv: 'staging', supabaseUrl: SUPABASE }), /require Supabase Google sign-in/);
   const config = resolvePublicAuthConfig({ appEnv: 'staging', supabaseUrl: 'https://abc.supabase.co', supabaseKey: 'sb_publishable_x' });
   assert.deepEqual([config?.supabaseUrl, config?.redirectUrl, config?.developmentToken], ['https://abc.supabase.co', REDIRECT, null]);
 });

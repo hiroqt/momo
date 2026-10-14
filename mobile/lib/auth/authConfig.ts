@@ -51,6 +51,7 @@ export function resolvePublicAuthConfig(env: PublicEnv): PublicAuthConfig | null
   const key = env.supabaseKey?.trim() ?? '';
   if (key && isElevatedSupabaseKey(key)) throw new Error('Mobile builds may only contain the public Supabase key.');
   if (!env.supabaseUrl || !key) {
+    if (HOSTED.has(environment)) throw new Error('Hosted builds require Supabase Google sign-in configuration.');
     return devToken ? { environment, supabaseUrl: '', publishableKey: '', redirectUrl: '', developmentToken: devToken } : null;
   }
   const supabaseUrl = validateApiDestination(env.supabaseUrl, environment);

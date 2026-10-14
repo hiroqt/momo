@@ -610,14 +610,15 @@ def test_validator_output_is_whitelisted_and_difficulty_checked():
             "source_metadata": evidence.sources[0]}
     raw = [
         {**base, "id": str(uuid4()), "image_base64": "AAAA", "source_ref_id": 1, "user_id": "attacker",
-         "hint": "Starts with P", "difficulty": "hard"},
+         "hint": "Ribosomes synthesize proteins from amino acids.", "difficulty": "hard"},
         {**base, "question": "Which organelle output is ATP?", "answer": "Mitochondria", "difficulty": "impossible"},
     ]
     valid = grounding_validator.validate_and_deduplicate(
         raw, 5, ["flashcard"], trusted_sources=evidence.sources, evidence=evidence.evidence_texts)
     assert len(valid) == 1
     assert set(valid[0]) == {"type", "question", "answer", "difficulty", "source_metadata", "hint"}
-    assert valid[0]["difficulty"] == "hard" and valid[0]["hint"] == "Starts with P"
+    assert valid[0]["difficulty"] == "hard"
+    assert valid[0]["hint"] == "Ribosomes synthesize proteins from amino acids."
 
 
 @pytest.mark.parametrize("tool", ["create_study_deck", "generate_weakness_review", "generate_study_card"])

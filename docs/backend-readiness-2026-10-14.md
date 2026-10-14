@@ -226,3 +226,21 @@ provider traffic was sent.
 After the independent review strengthened the worker-log assertions, the final
 focused provider/worker/storage test run passed **45 tests**; Ruff, mypy and
 `git diff --check` passed again.
+
+## AI-02 A2-1 generated hint grounding follow-up
+
+Generated study hints now pass the same cited-chunk support and polarity check
+used for claims before persistence. Unsupported, malformed, overlength, and
+other-retrieved-chunk-only hints are omitted; a valid answer and study item remain
+eligible. Regression tests cover a source-supported hint, unsupported hint
+preserving the answer, and evidence found only in a different retrieved chunk.
+
+Focused grounding/hardening tests passed **129 tests**. The full local
+PostgreSQL/PostgREST suite passed **858 tests, zero skips/errors/failures**; the
+no-skip gate passed, Ruff checked 138 files, mypy checked 75 files, and
+`git diff --check` passed. The local gateway was stopped afterward. Independent
+review found no actionable issues.
+
+This closes only A2-1 locally. AI-02 remains partial: support checks are lexical
+with provisional thresholds, labeled calibration/TypeSafe evaluation is still
+open, and relation-blind short-answer/reviewer-rejection cases remain.

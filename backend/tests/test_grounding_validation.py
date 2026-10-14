@@ -210,6 +210,50 @@ def test_support_uses_cited_chunk_not_other_retrieved_chunks():
     assert result == []
 
 
+def test_supported_hint_is_kept():
+    candidate = item(
+        "What do ribosomes synthesize?",
+        "proteins",
+        hint="Ribosomes synthesize proteins.",
+    )
+    result = validate([candidate], 1)
+    assert result[0]["hint"] == "Ribosomes synthesize proteins."
+
+
+def test_unsupported_hint_is_dropped_without_rejecting_supported_item():
+    candidate = item(
+        "What do ribosomes synthesize?",
+        "proteins",
+        hint="The genetic code is universal.",
+    )
+    result = validate([candidate], 1)
+    assert len(result) == 1
+    assert result[0]["answer"] == "proteins"
+    assert "hint" not in result[0]
+
+
+def test_hint_must_be_supported_by_its_own_cited_chunk():
+    other = {
+        **SOURCE,
+        "chunk_id": "chunk-2",
+        "source_id": 2,
+        "snippet": "The genetic code is universal.",
+    }
+    candidate = item(
+        "What do ribosomes synthesize?",
+        "proteins",
+        hint="The genetic code is universal.",
+    )
+    result = grounding_validator.validate_and_deduplicate(
+        [candidate],
+        1,
+        trusted_sources=[SOURCE, other],
+        evidence={"chunk-1": EVIDENCE, "chunk-2": "The genetic code is universal."},
+    )
+    assert len(result) == 1
+    assert "hint" not in result[0]
+
+
 def test_persisted_provenance_is_trusted_copy():
     candidate = item("What do ribosomes synthesize?", "proteins", source_ref_id=1)
     result = validate([candidate], 1)

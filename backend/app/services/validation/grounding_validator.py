@@ -204,6 +204,13 @@ class GroundingValidator:
             return False
         return True
 
+    def _supported_hint(self, hint: str, evidence: str) -> bool:
+        evidence_terms = content_terms(evidence)
+        sentences = [s for s in _SENTENCE.split(evidence) if s.strip()]
+        return bool(evidence_terms and sentences) and self._supported_claim(
+            hint, sentences, evidence_terms, self.EXPLANATION_MIN_COVERAGE
+        )
+
     def validate_and_deduplicate(
         self,
         raw_items: list[dict[str, Any]],
@@ -267,7 +274,12 @@ class GroundingValidator:
             if item.options is not None:
                 output["options"] = list(item.options)
             hint = raw.get("hint")
-            if isinstance(hint, str) and hint.strip() and len(hint) <= self.HINT_MAX_CHARS:
+            if (
+                isinstance(hint, str)
+                and hint.strip()
+                and len(hint) <= self.HINT_MAX_CHARS
+                and self._supported_hint(hint.strip(), chunk_text)
+            ):
                 output["hint"] = hint.strip()
             valid.append(output)
             if len(valid) >= target_count:

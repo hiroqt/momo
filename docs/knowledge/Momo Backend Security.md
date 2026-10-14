@@ -44,3 +44,10 @@ Upload retention uses durable tickets and preserves actual upload time/identity,
 - Expo dependency check, iOS/Android exports, web build and known-pattern scan of 106 built files passed. The pattern scan found no matches but does not prove arbitrary secrets absent.
 - SEC-02 is still a public-release blocker: hosted HTTPS/CORS, two-account isolation, object-retention/deletion, and mobile dependency remediation remain unverified/open. No hosted provider traffic was sent.
 - Evidence: `docs/backend-readiness-2026-10-14.md`, `docs/PRODUCTION_READINESS_CHECKLIST.md` SEC-02 rows.
+
+## 2026-10-14 AI-02 hint grounding
+
+- Optional generated hints now need support in the exact trusted chunk cited by the study item. Unsupported or other-chunk-only hints are omitted without rejecting an otherwise supported item.
+- Regression coverage: supported hint retained, fabricated hint omitted while answer survives, and evidence found only in a different retrieved chunk is rejected for that hint.
+- Focused grounding/hardening suite: 129 passed. Full local PostgreSQL/PostgREST suite: 858 passed, zero skips. No-skip gate, Ruff 138 files, mypy 75 files and diff check passed; independent review found no issue.
+- This closes A2-1 locally only. AI-02 remains partial pending labeled calibration/TypeSafe evaluation and remaining answer-support/rejection gaps. See [[docs/PRODUCTION_READINESS_CHECKLIST]] and [[docs/backend-readiness-2026-10-14]].

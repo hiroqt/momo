@@ -158,6 +158,41 @@ async def test_chat_tool_search_documents_grounding():
         assert any(t["tool_name"] == "search_documents" for t in (res.get("tool_calls") or []))
 
 @pytest.mark.asyncio
+async def test_unknown_provider_tool_name_is_not_logged_or_returned(monkeypatch, caplog):
+    from unittest.mock import AsyncMock
+
+    from app.services.ai.ai_provider import ai_provider
+
+    secret = "PRIVATE_SOURCE_SENTINEL"
+    monkeypatch.setattr(
+        ai_provider,
+        "chat_agent",
+        AsyncMock(side_effect=[
+            {"content": "", "tool_calls": [{
+                "id": "call-unknown",
+                "type": "function",
+                "function": {"name": secret, "arguments": "{}"},
+            }]},
+            {"content": "I could not complete that request.", "tool_calls": None},
+        ]),
+    )
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as ac:
+        headers = {"Authorization": "Bearer test-token-chat-user-1"}
+        session = (await ac.post("/api/chat/sessions", json={}, headers=headers)).json()
+        response = await ac.post(
+            f"/api/chat/sessions/{session['id']}/messages",
+            json={"content": "Help me study"},
+            headers=headers,
+        )
+
+    assert response.status_code == 200
+    tool_record = response.json()["tool_calls"][0]
+    assert tool_record["tool_name"] == "unsupported_tool"
+    assert secret not in str(tool_record)
+    assert secret not in caplog.text
+
+@pytest.mark.asyncio
 async def test_chat_tool_create_study_deck():
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:

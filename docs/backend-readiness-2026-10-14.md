@@ -258,6 +258,37 @@ After the independent review strengthened the worker-log assertions, the final
 focused provider/worker/storage test run passed **45 tests**; Ruff, mypy and
 `git diff --check` passed again.
 
+## SEC-02 final local audit
+
+An adversarial model response could name an arbitrary chat tool. The backend
+logged that value, echoed it in the unknown-tool error, persisted it in
+`ToolCallRecord`, and replayed it in the next provider turn. Tool names are now
+bounded by the existing `CHAT_TOOLS` allowlist; unsupported names become the
+constant `unsupported_tool`, and unknown-tool responses contain no model value.
+A sentinel API regression verifies the value is absent from logs and returned
+metadata.
+
+The landing site now sends baseline content-security directives (`base-uri`,
+`object-src`, `frame-ancestors`), HSTS, `nosniff`, a referrer policy and a frame
+denial header. Local configuration and build checks do not prove the deployed
+host sends these headers. The site still needs response-header verification
+after its hosting URL is available.
+
+Independent mobile review found no defect in the inspected token paths: native
+tokens use device-only SecureStore, web tokens remain memory-only, OAuth uses
+PKCE, and hosted API origins require HTTPS. Remaining release risks are the 31
+recorded mobile dependency advisories, preview-chat's reliance on trusted proxy
+handling and a shared/edge rate limiter, partial known-pattern secret scanning,
+and unverified Render HTTPS/CORS, two-account isolation and hosted retention
+and deletion. These are explicit deployment gates, not completed checks.
+
+The chat-agent and source-safety suites passed **83 tests** (4 existing
+Starlette deprecation warnings); Ruff passed for the changed Python files. Web
+typecheck passed, all **25** web tests passed, and the production build passed.
+The built local server returned all five configured headers on HTTP 200. This
+does not verify the deployed HTTPS endpoint. No hosted traffic or secret values
+were used.
+
 ## AI-02 A2-1 generated hint grounding follow-up
 
 Generated study hints now pass the same cited-chunk support and polarity check

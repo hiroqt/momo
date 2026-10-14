@@ -112,7 +112,7 @@ CORE REASONING & INTERACTION RULES:
    - Keep the learning journey proactive and frictionless!
 """
 
-CHAT_TOOLS = [
+CHAT_TOOLS: list[dict[str, Any]] = [
     {
         "type": "function",
         "function": {
@@ -310,6 +310,7 @@ CHAT_TOOLS = [
         }
     }
 ]
+CHAT_TOOL_NAMES = {tool["function"]["name"] for tool in CHAT_TOOLS}
 
 class ChatService:
     async def execute_tool(
@@ -335,7 +336,7 @@ class ChatService:
             if arguments.get("allow_ai_generation") or arguments.get("source_only", True) is not True:
                 return {"status": "insufficient_source", "message": "Study material requires uploaded source evidence."}
 
-        logger.info("Executing chat tool: %s", tool_name)
+        logger.info("Executing chat tool")
 
         if tool_name == "list_user_documents":
             docs = await documents_repo.list_by_user(user_id)
@@ -682,7 +683,7 @@ class ChatService:
                 "is_weakness_review": True
             }
 
-        return {"error": "UNKNOWN_TOOL", "message": f"Tool '{tool_name}' is not supported."}
+        return {"error": "UNKNOWN_TOOL", "message": "The requested tool is not supported."}
 
     def _extract_diagram_topic(self, user_text: str, messages: list[dict[str, Any]]) -> str:
         u_lower = user_text.lower()
@@ -923,6 +924,9 @@ class ChatService:
             for tc in tool_calls:
                 fn = tc.get("function", {})
                 tool_name = fn.get("name", "")
+                if not isinstance(tool_name, str) or tool_name not in CHAT_TOOL_NAMES:
+                    tool_name = "unsupported_tool"
+                    fn["name"] = tool_name
                 raw_args = fn.get("arguments", "{}")
                 try:
                     args = json.loads(raw_args) if isinstance(raw_args, str) else raw_args

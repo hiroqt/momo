@@ -92,6 +92,33 @@ async def test_failed_delete_keeps_outbox_retryable(issued_ticket, monkeypatch, 
     assert "Upload cleanup failed (RuntimeError)" in caplog.text
 
 
+async def test_retired_ticket_deletes_only_after_deadline_and_keeps_reprobing(issued_ticket, monkeypatch):
+    ticket, claim = issued_ticket
+    stored = upload_ticket_repo._tickets[ticket["id"]]
+    stored["signed_until"] = (datetime.now(UTC) - timedelta(minutes=16)).isoformat()
+    assert await upload_ticket_repo.retire(ticket["id"], ticket["user_id"])
+    monkeypatch.setattr(upload_ticket_repo, "claim_cleanup", claim)
+    metadata_calls = []
+    deletes = []
+
+    def unexpected_metadata(key, **kwargs):
+        metadata_calls.append(key)
+        raise AssertionError("retired ticket deletion should not use an observed generation")
+
+    monkeypatch.setattr(module.storage_service, "get_object_metadata", unexpected_metadata)
+    monkeypatch.setattr(module.storage_service, "delete_object", lambda key: deletes.append(key) or True)
+    monkeypatch.setattr(module.storage_service, "delete_observed_object", lambda key, metadata: pytest.fail("unexpected generation delete"))
+
+    assert await module.cleanup_upload_tickets() == 1
+    assert deletes == [ticket["object_key"]]
+    assert not metadata_calls
+    assert stored["last_deleted_at"] and datetime.fromisoformat(stored["next_check_at"]) > datetime.now(UTC)
+
+    stored["next_check_at"] = datetime.now(UTC).isoformat()
+    assert await module.cleanup_upload_tickets() == 1
+    assert deletes == [ticket["object_key"], ticket["object_key"]]
+
+
 async def test_mismatched_destination_is_never_inspected_or_deleted(monkeypatch):
     ticket = {"id": str(uuid4()), "user_id": str(uuid4()), "file_type": "txt", "object_key": "wrong-path",
               "provider": module.storage_service.provider, "bucket": module.storage_service.bucket, "lease_token": str(uuid4())}

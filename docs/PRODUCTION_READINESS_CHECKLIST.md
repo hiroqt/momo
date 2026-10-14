@@ -215,12 +215,13 @@ detail items are reconciled (API-01 PARTIAL). `/api/me` no longer invents facts 
 
 ## What To Work On Next
 
-**Next RET-01 gate: verify an exact-version deletion contract supported by the
-locked Python client and selected bucket, then approve a concrete inventory/rollout.**
-Migration012 implements signing tickets,
-actual upload clocks, registration/cleanup fencing and deletion/account outboxes
-locally. Hosted Supabase automatic expiry fails closed; S3 requires versioning and
-bounded version inventory. Unknown legacy origins require explicit verification.
+**Next RET-01 gate: prove hosted timing and inventory for eventual retirement purge,
+then qualify a generation-safe deletion contract for ordinary 72-hour expiry.**
+Migrations 012 and 018 implement signing tickets, actual upload clocks,
+registration/cleanup fencing and deletion/account outboxes. Supabase retired
+tickets use delayed path deletion with a retained 15-minute retry tombstone;
+ordinary expiry stays fail-closed. S3 requires versioning and bounded version
+inventory. Unknown legacy origins require explicit verification.
 WORK-02 generation/TXT crash recovery through actual local SDK/PostgREST is verified
 for selected boundaries; managed storage/provider/native/deployed gates remain open.
 
@@ -358,7 +359,7 @@ is listed under Acceptance. Add dates, commits and reports after actual completi
 - Acceptance: enforce 72-hour original retention, monitor overdue expirations and cleanup failure, handle orphan signed uploads that were never registered, and retry deletion safely. Bound batch capacity to volume. Remove bytes through the storage provider, not only metadata; verify sources disappearing cannot remove generated sets/items.
 - Evidence: aged synthetic objects, unregistered objects, failed deletion/retry, scheduler execution and oldest-overdue alert report. Record scheduling granularity and observed deletion timing.
 - Evidence 2026-10-08 (local only): migration012 persists issued tickets, atomic actual-upload+72h registration/quota, fenced cleanup and source/account outboxes;802 backend/181 mobile tests pass with no skips. Automatic mocks/S3version deletion are generation-safe; hosted Supabase automatic deletion fails closed. Legacy/unregistered inventory, selected-provider rollout, capacity/index measurements and hosted timing remain open. See [retention rollout](UPLOAD_RETENTION_DESIGN.md) and [report](backend-readiness-2026-10-08.md).
-- Evidence 2026-10-14 (local + staging schema): migration018 waits until `signed_until + 15 minutes` before retired user/account-deletion tickets can be claimed, revokes any earlier lease, and rechecks the deadline when preparing a purge. `DELETE /api/documents/{id}` now removes the source record/chunks immediately while the worker retains the ticket tombstone for later physical cleanup; generated sets remain detached by the existing FK. Full local PostgreSQL/PostgREST suite: 869 passed, zero skips; Ruff 138, mypy 75, mobile lint/186 tests pass. Staging migration `20261014015410` and function/privilege catalog checks pass. `signed_until` is captured before the provider signing call; the configured Storage timeout is 15 seconds, below the 15-minute grace, but exact token expiry is not observed. Supabase generation-safe object deletion, legacy/unregistered inventory, actual 72-hour purge timing, scheduler capacity and hosted storage proof remain open.
+- Evidence 2026-10-14 (local + staging schema): migration018 waits until `signed_until + 15 minutes` before retired user/account-deletion tickets can be claimed, revokes any earlier lease, and rechecks the deadline when preparing a purge. The worker uses path deletion for retired ticket paths and retains a 15-minute retry tombstone; a new regression test verifies repeated path deletion and no metadata-generation delete (cleanup-worker suite: 5 passed). Generated sets remain detached by the existing FK. This is eventual cleanup: Supabase provides no documented maximum for an upload already in flight at token expiry, and `signed_until` is captured before signing returns. Full local PostgreSQL/PostgREST suite: 869 passed, zero skips; Ruff 138, mypy 75, mobile lint/186 tests pass. Staging migration `20261014015410` and function/privilege catalog checks pass. Ordinary 72-hour Supabase expiry still fails closed because Python `storage3` has no generation-conditional delete. Legacy/unregistered inventory, actual purge timing, scheduler capacity and hosted Storage proof remain open.
 - Evidence 2026-10-06 (local only): worker schedules cleanup every 900 s (batch 100) plus `RETENTION_OVERDUE` alert; e2e proves expiry keeps generated sets in memory and PG paths. Historical gaps: unregistered orphan uploads, hosted deletion proof, measured timing. Migration012 now covers issued orphans locally; provider/runtime gates remain.
 
 ### OFF-01: SQLite Persistence For Ordinary Study Data

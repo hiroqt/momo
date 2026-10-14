@@ -53,6 +53,18 @@ class TypeSafeGroundingVerifier:
         self, items: list[dict[str, Any]], evidence: dict[str, str]
     ) -> list[dict[str, Any]]:
         """Keep only high-confidence support judgments against the exact cited chunk."""
+        try:
+            async with asyncio.timeout(settings.TYPESAFE_TIMEOUT_SECONDS):
+                return await self._verify(items, evidence)
+        except TimeoutError:
+            logger.warning("TypeSafe grounding request exceeded its total deadline")
+            raise GroundingVerificationUnavailable(
+                "Semantic grounding verification timed out"
+            ) from None
+
+    async def _verify(
+        self, items: list[dict[str, Any]], evidence: dict[str, str]
+    ) -> list[dict[str, Any]]:
         if not items:
             return []
         api_key = settings.TYPESAFE_API_KEY

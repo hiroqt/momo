@@ -89,3 +89,7 @@ Final local verification for this follow-up: 869 backend tests passed with loopb
 5. Verify managed Auth profile sync and deletion cleanup after staging migrations 014–017. Correct-answer rewards trust the client-attested result under the approved MVP rule and can be farmed by a modified client; server adjudication remains open. Keep heart regen/refill and XP policy pending. Finish native Android/iOS and offline/reconnect journeys, recovery/rollback, remote CI, release QA, privacy/support/store setup and launch approval.
 
 No production capacity, physical deletion, hosted OAuth, AI quality or public launch claim follows from these local and metadata-only checks.
+
+## AI-02 runtime verifier deadline
+
+Jev grounding checks now share a hard total timeout across all provider batches and retry. A timed-out or slow streaming request is cancelled and fails closed. The no-network regression passed, and the full loopback PostgreSQL/PostgREST suite passed **915 tests with zero skips**; Ruff, mypy, no-skip and diff checks passed. Hosted latency, representative human-reviewed grounding quality and the vendor privacy disclosure review remain release gates. See [[docs/backend-readiness-2026-10-14|dated verification]].

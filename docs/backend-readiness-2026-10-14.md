@@ -426,3 +426,20 @@ passed; Ruff 142 files, mypy 76 files, and `git diff --check` passed. The full
 899-test loopback integration suite belongs to the immediately preceding Jev runtime
 commit; the evaluator changed no application runtime code. No user material or
 database data was sent.
+
+## AI-02 Jev total request deadline
+
+Runtime Jev grounding verification now applies the configured timeout as one hard
+wall-clock deadline across every sequential batch and the bounded retry. Timeout
+cancels provider work and fails closed with a sanitized
+`GroundingVerificationUnavailable` result, so a slow streaming response cannot
+hold a generation or chat request indefinitely. A no-network regression simulates
+a stalled provider call.
+
+Focused verifier and AI grounding hardening suites passed **109 tests**. The full
+loopback PostgreSQL/PostgREST gateway suite passed **915 tests, zero skips/errors/
+failures**; the no-skip gate, Ruff across `app` and `tests`, mypy across 76 source
+files, and `git diff --check` passed. The only test warnings are existing
+Starlette 422 deprecations. The local gateway was stopped after the run. This
+bounds verifier latency locally; managed provider latency and user-facing privacy
+disclosure remain open release gates.

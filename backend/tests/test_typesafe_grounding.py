@@ -1,3 +1,4 @@
+import asyncio
 import json
 
 import httpx
@@ -153,6 +154,20 @@ async def test_no_exact_evidence_is_never_sent_to_typesafe(monkeypatch):
     monkeypatch.setattr(settings, "TYPESAFE_API_KEY", "test-only-key")
     verifier = TypeSafeGroundingVerifier()
     assert await verifier.verify([item(0)], {}) == []
+
+
+@pytest.mark.asyncio
+async def test_verifier_enforces_total_deadline_across_provider_work(monkeypatch):
+    monkeypatch.setattr(settings, "TYPESAFE_API_KEY", "test-only-key")
+    monkeypatch.setattr(settings, "TYPESAFE_TIMEOUT_SECONDS", 0.01)
+    verifier = TypeSafeGroundingVerifier()
+
+    async def slow_evaluate(*_):
+        await asyncio.sleep(1)
+
+    monkeypatch.setattr(verifier, "_evaluate", slow_evaluate)
+    with pytest.raises(GroundingVerificationUnavailable, match="timed out"):
+        await verifier.verify([item(0)], {"chunk-0": "Ribosomes synthesize proteins."})
 
 
 def test_support_answer_requires_distribution_and_both_confidence_gates():

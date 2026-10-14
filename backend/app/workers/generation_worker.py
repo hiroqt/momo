@@ -7,6 +7,10 @@ from app.services.ai.ai_provider import ProviderUnavailableError, ai_provider
 from app.services.retrieval.retrieval_service import retrieval_service
 from app.services.synthesis.synthesis_service import synthesis_service
 from app.services.validation.grounding_validator import grounding_validator
+from app.services.validation.typesafe_grounding import (
+    GroundingVerificationUnavailable,
+    typesafe_grounding_verifier,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -174,6 +178,18 @@ class GenerationWorker:
                 trusted_sources=synthesized.sources,
                 evidence=synthesized.evidence_texts,
             )
+            try:
+                valid_items = await typesafe_grounding_verifier.verify(valid_items, synthesized.evidence_texts)
+            except GroundingVerificationUnavailable:
+                await generation_repo.update_job(
+                    job_id=job_id,
+                    status="FAILED",
+                    stage="Verification Unavailable",
+                    progress=100,
+                    message="Momo could not verify the generated material. Please retry in a moment.",
+                    error="GROUNDING_VERIFIER_UNAVAILABLE",
+                )
+                return
 
             if not valid_items:
                 await generation_repo.update_job(

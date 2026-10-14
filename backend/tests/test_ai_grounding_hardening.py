@@ -285,6 +285,44 @@ async def test_worker_provider_outage_fails_job_without_study_set(monkeypatch):
     finalize.assert_not_awaited()
 
 
+async def test_worker_verifier_outage_fails_closed_before_persisting(monkeypatch):
+    from app.db.repositories.chunks_repo import chunks_repo
+    from app.db.repositories.documents_repo import documents_repo
+    from app.db.repositories.generation_repo import generation_repo
+    from app.domain.documents.models import DocumentChunk
+    from app.services.validation.typesafe_grounding import (
+        GroundingVerificationUnavailable,
+    )
+    from app.workers import generation_worker as module
+
+    user, doc_id, job_id = "verifier-outage-user", f"verifier-outage-doc-{uuid4()}", str(uuid4())
+    await documents_repo.create({"id": doc_id, "user_id": user, "processing_status": "READY",
+                                 "original_filename": "notes.pdf", "expires_at": "2099-01-01T00:00:00Z"})
+    chunk = DocumentChunk(
+        chunk_id="verifier-outage-chunk", document_id=doc_id, chunk_index=0, page_start=1, page_end=1,
+        content="Ribosomes synthesize proteins from amino acids in every living cell.", section="Cells",
+        source_type="pdf", embedding=[0.1] * 2048)
+    await chunks_repo.save_chunks(doc_id, user, [chunk])
+    await generation_repo.create_job({"id": job_id, "user_id": user, "document_id": doc_id,
+                                      "status": "PENDING", "stage": "Queued", "progress": 0, "message": ""})
+    metadata = {"document_id": doc_id, "chunk_id": chunk.chunk_id, "source_id": 1,
+                "page": 1, "section": "Cells", "snippet": chunk.content[:200]}
+    monkeypatch.setattr(module.ai_provider, "generate_study_material", AsyncMock(return_value=[{
+        "type": "flashcard", "question": "What do ribosomes synthesize?", "answer": "proteins",
+        "source_metadata": metadata,
+    }]))
+    monkeypatch.setattr(module.typesafe_grounding_verifier, "verify",
+                        AsyncMock(side_effect=GroundingVerificationUnavailable("private provider error")))
+    finalize = AsyncMock()
+    monkeypatch.setattr(generation_repo, "complete_with_study_set", finalize)
+
+    await module.generation_worker.process_generation(job_id, user, doc_id, {"topic": "Cells", "count": 1})
+    job = await generation_repo.get_job(job_id, user)
+    assert job["status"] == "FAILED" and job["error"] == "GROUNDING_VERIFIER_UNAVAILABLE"
+    assert job["message"] == "Momo could not verify the generated material. Please retry in a moment."
+    finalize.assert_not_awaited()
+
+
 # --- CHAT-01: atomic, idempotent, owner-bound chat decks ------------------------------------
 
 @pytest.fixture
@@ -400,6 +438,30 @@ async def test_chat_tools_provider_outage_is_controlled(monkeypatch, owned_sourc
     monkeypatch.setattr(chat_import_repo, "persist_deck", persist)
     result = await module.chat_service.execute_tool(tool, {"topic": "Cells"}, owner)
     assert result["status"] == "provider_unavailable"
+    persist.assert_not_awaited()
+
+
+@pytest.mark.parametrize("tool", ["create_study_deck", "generate_weakness_review", "generate_study_card"])
+async def test_chat_tools_do_not_persist_when_semantic_verifier_is_unavailable(monkeypatch, owned_source, tool):
+    import app.services.chat.chat_service as module
+    from app.db.repositories.chat_import_repo import chat_import_repo
+    from app.services.validation.typesafe_grounding import (
+        GroundingVerificationUnavailable,
+    )
+
+    owner, document_id, chunks = owned_source
+    monkeypatch.setattr(module.retrieval_service, "retrieve_evidence",
+                        AsyncMock(return_value=[{**c, "document_id": document_id} for c in chunks]))
+    _, items = deck_items(chunks, document_id)
+    monkeypatch.setattr(module.ai_provider, "generate_study_material", AsyncMock(return_value=items))
+    monkeypatch.setattr(module.typesafe_grounding_verifier, "verify",
+                        AsyncMock(side_effect=GroundingVerificationUnavailable("private provider error")))
+    persist = AsyncMock()
+    monkeypatch.setattr(chat_import_repo, "persist_deck", persist)
+
+    result = await module.chat_service.execute_tool(tool, {"topic": "Cells"}, owner)
+    assert result["status"] == "provider_unavailable"
+    assert "private provider error" not in result["message"]
     persist.assert_not_awaited()
 
 

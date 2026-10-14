@@ -1,5 +1,6 @@
 """Local ASGI transport exercises routing, validation, ownership and persistence."""
 
+from unittest.mock import AsyncMock
 from uuid import uuid4
 
 import httpx
@@ -141,3 +142,25 @@ async def test_sync_invalid_batch_never_partially_commits(tenant_client):
     assert response.status_code == 404
     retry = await client.post("/api/sync", headers={"x-test-user": bob}, json={"events": [event]})
     assert retry.status_code == 200 and retry.json()["accepted_count"] == 1
+
+
+async def test_import_card_rate_limit_runs_before_verification(tenant_client, monkeypatch):
+    from app.services.security.rate_limiter import rate_limiter
+    from app.services.validation.typesafe_grounding import typesafe_grounding_verifier
+
+    client, alice, _ = tenant_client
+    check = AsyncMock(return_value=(False, 60, 0, 30))
+    verify = AsyncMock()
+    monkeypatch.setattr(rate_limiter, "check_limit", check)
+    monkeypatch.setattr(typesafe_grounding_verifier, "verify", verify)
+
+    response = await client.post(
+        "/api/chat/import-card",
+        headers={"x-test-user": alice},
+        json={"question": "Q?", "answer": "A", "source_metadata": {}},
+    )
+
+    assert response.status_code == 429
+    assert response.json()["error"]["code"] == "RATE_LIMIT_EXCEEDED"
+    verify.assert_not_awaited()
+    check.assert_awaited_once()

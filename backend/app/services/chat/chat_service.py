@@ -32,6 +32,10 @@ from app.services.retrieval.retrieval_service import retrieval_service
 from app.services.security.guardrails_service import guardrails_service
 from app.services.synthesis.synthesis_service import synthesis_service
 from app.services.validation.grounding_validator import grounding_validator
+from app.services.validation.typesafe_grounding import (
+    GroundingVerificationUnavailable,
+    typesafe_grounding_verifier,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -475,6 +479,10 @@ class ChatService:
                 trusted_sources=sources_meta,
                 evidence=synthesized.evidence_texts,
             )
+            try:
+                valid_items = await typesafe_grounding_verifier.verify(valid_items, synthesized.evidence_texts)
+            except GroundingVerificationUnavailable:
+                return PROVIDER_UNAVAILABLE_RESULT
 
             if not valid_items:
                 return {"status": "insufficient_source", "message": "No study items could be verified against the source."}
@@ -535,6 +543,10 @@ class ChatService:
             valid = grounding_validator.validate_and_deduplicate(
                 raw, 1, ["flashcard"], trusted_sources=evidence.sources, evidence=evidence.evidence_texts
             )
+            try:
+                valid = await typesafe_grounding_verifier.verify(valid, evidence.evidence_texts)
+            except GroundingVerificationUnavailable:
+                return PROVIDER_UNAVAILABLE_RESULT
             if not valid:
                 return {"status": "insufficient_source", "message": "The study card could not be verified."}
             return {**valid[0], "question_type": valid[0]["type"], "topic": arguments.get("topic"), "status": "READY_TO_IMPORT"}
@@ -657,6 +669,10 @@ class ChatService:
                 trusted_sources=sources_meta,
                 evidence=synthesized.evidence_texts,
             )
+            try:
+                valid_items = await typesafe_grounding_verifier.verify(valid_items, synthesized.evidence_texts)
+            except GroundingVerificationUnavailable:
+                return PROVIDER_UNAVAILABLE_RESULT
             if not valid_items:
                 return {"status": "insufficient_source", "message": "No study items could be verified against the source."}
 

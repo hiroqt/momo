@@ -31,7 +31,7 @@ Request buffering is bounded per request, not a complete denial-of-service solut
 
 ## Verification
 
-Latest local suite: 832 backend/API/PG/PostgREST gateway tests passed, zero skipped; Ruff 138 files and mypy 75 files passed. Staging schema/security checks and the exact scope limits are recorded in [[docs/backend-readiness-2026-10-14|October 14 report]]. No hosted application traffic or production capacity proof. No claim of absolute security.
+Latest local loopback PostgreSQL/PostgREST suite after AI-02: 899 backend/API/database/gateway tests passed, zero skipped; Ruff 141 files and mypy 76 files passed. The 34 existing Starlette 422 deprecation warnings remain. Staging schema/security checks and the exact scope limits are recorded in [[docs/backend-readiness-2026-10-14|October 14 report]]. No hosted application traffic or production capacity proof. No claim of absolute security.
 
 Upload retention uses durable tickets and preserves actual upload time/identity, but generation-safe Supabase physical deletion and legacy/unregistered inventory remain open. Read [[docs/UPLOAD_RETENTION_DESIGN|retention design]] and [[Momo Upload Retention]]. Public launch remains blocked on managed auth/API/storage/provider journeys and operations.
 
@@ -51,3 +51,11 @@ Upload retention uses durable tickets and preserves actual upload time/identity,
 - Regression coverage: supported hint retained, fabricated hint omitted while answer survives, and evidence found only in a different retrieved chunk is rejected for that hint.
 - Focused grounding/hardening suite: 129 passed. Full local PostgreSQL/PostgREST suite: 858 passed, zero skips. No-skip gate, Ruff 138 files, mypy 75 files and diff check passed; independent review found no issue.
 - This closes A2-1 locally only. AI-02 remains partial pending labeled calibration/TypeSafe evaluation and remaining answer-support/rejection gaps. See [[docs/PRODUCTION_READINESS_CHECKLIST]] and [[docs/backend-readiness-2026-10-14]].
+
+## 2026-10-14 Jev runtime grounding boundary
+
+- After deterministic schema/provenance/support checks, managed API and worker paths send each accepted candidate's question, answer, optional explanation/options and exact cited chunk to TypeSafe System One. No user/document identifiers, filename, signed URL or full document is sent.
+- One HTTP request batches up to ten typed Choice judgments; at most 50 candidates are checked per call path, with an 8-second timeout, 128 KiB request cap, 1 MiB response cap and one short retry only for 429/529. Items persist only when `supports` is the selected class and both its probability and confidence are at least 0.8; malformed/provider-error results fail closed. Local/test remain network-isolated and use deterministic checks.
+- This is an initial conservative threshold informed by TypeSafe's citation-check cookbook, not a Momo-calibrated quality claim. The approved 13-case synthetic smoke used 3,176 input and 529 output tokens; ambiguous relation cases showed low-confidence/mixed output. Representative human-reviewed evaluation remains open.
+- `/api/chat/import-card` uses the shared per-user chat rate limit; a regression test proves throttling returns 429 before source lookup or Jev verification. Independent security review found no remaining actionable issue in this change.
+- Review current vendor retention/transfer terms and public-user disclosure before launch. TypeSafe's policy states no training on inputs, retention as reasonably necessary, and U.S. hosting. See [[Momo Public Readiness]] and [[docs/PRODUCTION_READINESS_CHECKLIST]].

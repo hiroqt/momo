@@ -20,10 +20,14 @@ from app.services.ai.ai_provider import ProviderUnavailableError
 from app.services.chat.chat_service import chat_service
 from app.services.security.rate_limiter import require_rate_limit
 from app.services.validation.grounding_validator import grounding_validator
+from app.services.validation.typesafe_grounding import (
+    GroundingVerificationUnavailable,
+    typesafe_grounding_verifier,
+)
 
 router = APIRouter(prefix="/api/chat", tags=["Chat"])
 
-@router.post("/import-card")
+@router.post("/import-card", dependencies=[Depends(require_rate_limit(category="chat"))])
 async def import_card_to_library(
     req: ImportCardRequest,
     user: AuthenticatedUser = Depends(get_current_user)
@@ -51,7 +55,7 @@ async def import_card_to_library(
         [item_data], 1, trusted_sources=[trusted],
         evidence={str(trusted["chunk_id"]): chunk.get("content", "")},
     )
-    # Without calibrated semantic verification, accept only explicit source Q&A pairs.
+    # Imported cards must also be exact source Q&A pairs.
     content = " ".join(chunk.get("content", "").split()).casefold()
     question = " ".join(req.question.split()).casefold()
     answer = " ".join(req.answer.split()).casefold()
@@ -62,6 +66,14 @@ async def import_card_to_library(
         pair += r"\s+(?:explanation:\s*)?" + re.escape(explanation)
     pair += r"[.!?]?"
     if req.image_base64 or not valid or not re.fullmatch(pair, content):
+        raise HTTPException(422, detail={"code": "UNVERIFIED_SOURCE", "message": "The card could not be verified against its source."})
+    try:
+        valid = await typesafe_grounding_verifier.verify(
+            valid, {str(trusted["chunk_id"]): chunk.get("content", "")}
+        )
+    except GroundingVerificationUnavailable:
+        raise HTTPException(503, detail={"code": "GROUNDING_VERIFIER_UNAVAILABLE", "message": "Study card verification is temporarily unavailable."}) from None
+    if not valid:
         raise HTTPException(422, detail={"code": "UNVERIFIED_SOURCE", "message": "The card could not be verified against its source."})
     item_data = valid[0]
     topic = (req.topic or "").strip()

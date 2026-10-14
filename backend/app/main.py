@@ -25,6 +25,7 @@ from app.api.routes import (
 from app.config import settings
 from app.db.session import supabase_session
 from app.services.security.request_limits import RequestBodyLimitMiddleware
+from app.services.validation.typesafe_grounding import typesafe_grounding_verifier
 
 
 @asynccontextmanager
@@ -33,6 +34,7 @@ async def lifespan(app: FastAPI):
     try:
         yield
     finally:
+        await typesafe_grounding_verifier.close()
         supabase_session.close()
 
 logging.basicConfig(

@@ -54,6 +54,7 @@ October 14 work includes user-authorized staging schema changes and local backen
 
 | Task ID | Owner/chat | Branch | Status | Last update | Blocker or next action |
 | --- | --- | --- | --- | --- | --- |
+| AI-02 Jev runtime semantic verifier | October 14 root + independent provider contract review | main | PARTIAL | 2026-10-14 | Deterministic validation now precedes a bounded TypeSafe Choice verifier on generation/chat/import paths. Test with mocked responses only; representative human-reviewed labels, live staging provider smoke and privacy/user disclosure review remain open. Add `TYPESAFE_API_KEY` to Render API/worker secrets before any deployment. |
 | AUTH-01 hosted auth config guard | October 14 root | main | DONE_LOCAL | 2026-10-14 | Staging/production auth composition now throws when Supabase URL or public key is missing; local/test preview remains available. 188 mobile tests pass. Real account and native redirect journey remain open. |
 | RET-01 defer retired upload purge | October 14 root + independent SQL and route reviews | main | DONE_LOCAL (deferred retirement only) | 2026-10-14 | User approved purge after signed URL expiry + 15 minutes. Migration 018 gates cleanup and fences older leases; document deletion hides the source immediately and leaves purge to the worker. Full local gateway suite: 869 passed, zero skips; Ruff 138, mypy 75 and mobile lint/186 tests pass. Staging migration `20261014015410` applied; function definitions/grants verified. The signed deadline is recorded just before provider signing (storage timeout 15s), with a 15m grace. Supabase generation-safe deletion, physical 72-hour purge, legacy inventory, hosted worker execution/capacity, and hosted Storage proof remain open. |
 | WORK-02 local replay/recovery contract audit | October 14 root + WORK-02 gap audit | main | DONE_LOCAL (local contracts only) | 2026-10-14 | Migration 008 generation replay, 009 bounded orphan recovery, 010 folder replay, 007 atomic chunk publication and 002 atomic generation finalization are covered by current SQL/API/process tests. Mobile generation persists and reuses action keys. Unkeyed backend requests intentionally remain independent-create compatible. Full gateway suite: 868 passed, zero skips; native process/navigation and deployed worker/provider journeys remain open. Earlier “next local task” statements below describe their October 8 snapshot and are superseded. |
@@ -226,11 +227,12 @@ detail items are reconciled (API-01 PARTIAL). `/api/me` no longer invents facts 
 
 ## What To Work On Next
 
-**Next local safety priority: complete AI-02 evidence support.** The validator
-still accepts some relation errors despite same-sentence lexical overlap, and
-MCQ/identification retain a compatibility path. The user approved a bounded Jev
-calibration with a labeled synthetic corpus; keep uncertain outputs fail-closed
-and leave AI-02 partial unless measured cases support a defensible policy.
+**Next local safety priority: evaluate AI-02's Jev verifier.** Managed generation,
+chat deck/card and import paths now call a bounded typed semantic check after
+deterministic validation; local/test remain offline. The 13-case synthetic smoke
+is not a quality calibration. Add a representative human-reviewed labeled set,
+measure false acceptance/rejection, then conduct only the explicitly bounded
+staging provider journey. Keep uncertainty and provider errors fail-closed.
 
 **Next RET-01 gate: prove hosted timing and inventory for eventual retirement purge,
 then qualify a generation-safe deletion contract for ordinary 72-hour expiry.**
@@ -246,6 +248,8 @@ for selected boundaries; managed storage/provider/native/deployed gates remain o
 authorized database work only on `momo-staging` and selected Render for host
 preparation. Migrations 001–019 and database metadata/security checks now pass
 there; no API, worker, Google-account, Storage-byte or provider smoke was run.
+`TYPESAFE_API_KEY` is required by both Render API and worker and must be added to
+host secrets before deployment.
 `momo-prod` was not queried or changed. The Render Blueprint is prepared but not
 deployed; CORS origins and host-managed secrets still need to be entered. The
 historical waves remain dependency guidance.
@@ -278,12 +282,14 @@ is listed under Acceptance. Add dates, commits and reports after actual completi
 
 ### AI-02: Validate Typed Items And Actual Evidence Support
 
-- [ ] **PARTIAL; release blocker. Owner: AI/backend. Dependencies: AI-01. BLOCKED_INPUT: TypeSafe/Jev calibration budget and labeled corpus.**
+- [ ] **PARTIAL; release blocker. Owner: AI/backend. Dependencies: AI-01.** Runtime Jev verification is approved and locally implemented; representative human-reviewed evaluation and managed staging provider verification remain open.
 - Scope: schemas, grounding validator, synthesis/retrieval contracts, worker/chat validation; PRD sections 3/6.2 and AGENTS rules 13-17.
 - Acceptance: schema-validate every item, bind citations to actual retrieved chunks owned by the user, reject missing/fabricated/contradictory/unsupported references, validate answer/explanation support, and retain provenance. Implement bounded TypeSafe judgments where required by the PRD; preserve Nemotron generation. Reject or review uncertain results, with thresholds evaluated on labeled fixtures rather than copied blindly.
 - Evidence: schema/type/fabricated citation/negation/partial-support/injection/duplicate and controlled-insufficiency cases. Use the [TypeSafe skill](../.agents/skills/typesafe-ai/SKILL.md) and current [citation-check documentation](https://docs.typesafe.ai/cookbooks/citation_check); typed output alone is not proof of truth. Ordinary tests mock providers.
 - Evidence 2026-10-06 (local only): deterministic chunk-support checks (answer/explanation coverage, polarity, MCQ exactly 4 options) in place; thresholds are provisional. Open: relation-blind short answers (A-5), reviewer over-rejection (A-6), and labeled TypeSafe/Jev calibration.
 - Evidence 2026-10-14 (local only): A2-1 no longer persists optional model hints unless deterministic support and polarity checks pass against the exact trusted chunk. Unsupported or other-chunk-only hints are dropped without discarding the supported study item. Focused tests (129) and the PostgreSQL/PostgREST suite (858, zero skips) pass; Ruff 138, mypy 75 and diff check pass. This does not replace semantic calibration or close AI-02.
+- Evidence 2026-10-14 (bounded synthetic Jev smoke): one request evaluated 13 hand-labeled synthetic support/contradiction/unsupported cases (3,176 input and 529 output tokens). Clear direct support/rejection cases were generally classified as expected; relation errors and unsupported claims were rejected, while ambiguous cross-sentence/relation cases returned low-confidence or mixed labels. This is a smoke only, not threshold calibration or quality evidence.
+- Evidence 2026-10-14 (local implementation): a typed System One Choice verifier now runs after deterministic validation and before generated items are persisted or returned as ready to import across worker generation, chat decks/cards and card import. It sends only question, answer, optional explanation/options and the full cited chunk; no user/document identifiers or full documents. Each call path is capped at 50 items, batches ten judgments per HTTP request, caps evidence/request/response sizes, has an 8-second timeout and one 250ms retry for HTTP 429/529. Only the `supports` class with both confidence and support probability >=0.8 survives; malformed/provider errors fail closed. The threshold is an initial setting from TypeSafe's cookbook, not calibrated Momo quality. Local/test remain network-isolated. Focused Jev/rate-limit verification: 110 passed. Full local PostgreSQL/PostgREST suite: 899 passed, 0 skipped; Ruff 141 files, mypy 76 files and `git diff --check` pass. A second independent security review confirms the import-card limiter runs before verification. No live TypeSafe or staging API call was made. Managed provider smoke, privacy/user disclosure review and representative human-reviewed labels remain open.
 
 ### AI-03: Wire And Evaluate Real Semantic Embeddings
 

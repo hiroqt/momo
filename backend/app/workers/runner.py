@@ -203,6 +203,7 @@ job_runner = JobRunner(job_queue, HANDLERS)
 
 async def main() -> None:
     from app.db.session import supabase_session
+    from app.services.validation.typesafe_grounding import typesafe_grounding_verifier
     logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
     if supabase_session.use_memory:
         raise RuntimeError("Separate workers require a database-backed queue")
@@ -214,6 +215,7 @@ async def main() -> None:
     try:
         await job_runner.serve(stop)
     finally:
+        await typesafe_grounding_verifier.close()
         supabase_session.close()
 
 

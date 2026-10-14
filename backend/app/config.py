@@ -54,6 +54,11 @@ class Settings(BaseSettings):
     NEMOTRON_MODEL: str = "nvidia/nemotron-4-340b-instruct"
     OPENROUTER_IMAGE_MODEL: str = "google/gemini-3.1-flash-image"
 
+    # TypeSafe semantic grounding (managed environments only; tests stay offline).
+    TYPESAFE_API_KEY: str = ""
+    TYPESAFE_MODEL: str = Field(default="jev-1.13.0", min_length=1, max_length=80)
+    TYPESAFE_TIMEOUT_SECONDS: int = Field(default=8, ge=1, le=20)
+
     # Embedding Provider ('local', 'openrouter', 'supabase')
     EMBEDDING_PROVIDER: Literal["local", "openrouter"] = "local"
     EMBEDDING_MODEL: str = "nvidia/nemotron-3-embed-1b:free"
@@ -138,11 +143,13 @@ class Settings(BaseSettings):
                 raise ValueError("Development authentication/storage are prohibited outside development/test")
             if self.INLINE_JOB_EXECUTION:
                 raise ValueError("Managed environments require separate durable workers")
-            for name in ("SUPABASE_ANON_KEY", "SUPABASE_SERVICE_ROLE_KEY", "OPENROUTER_API_KEY"):
+            for name in ("SUPABASE_ANON_KEY", "SUPABASE_SERVICE_ROLE_KEY", "OPENROUTER_API_KEY", "TYPESAFE_API_KEY"):
                 if is_placeholder(getattr(self, name)):
                     raise ValueError(f"{name} must be supplied by server secret configuration")
             if is_placeholder(self.OPENROUTER_IMAGE_MODEL):
                 raise ValueError("OPENROUTER_IMAGE_MODEL must be supplied by server configuration")
+            if is_placeholder(self.TYPESAFE_MODEL):
+                raise ValueError("TYPESAFE_MODEL must be supplied by server configuration")
             if self.SUPABASE_JWT_SECRET and is_placeholder(self.SUPABASE_JWT_SECRET):
                 raise ValueError("Remove placeholder JWT secret; managed asymmetric tokens use JWKS")
             if self.EMBEDDING_PROVIDER != "openrouter":
@@ -161,6 +168,8 @@ class Settings(BaseSettings):
                 raise ValueError("Managed S3 storage requires server-side configuration")
         elif self.LOCAL_ONLY and not is_placeholder(self.OPENROUTER_API_KEY):
             raise ValueError("Local-only execution cannot configure a hosted AI credential")
+        if self.LOCAL_ONLY and not is_placeholder(self.TYPESAFE_API_KEY):
+            raise ValueError("Local-only execution cannot configure a hosted TypeSafe credential")
         if self.LOCAL_ONLY and self.EMBEDDING_PROVIDER != "local":
             raise ValueError("Local-only execution requires local embeddings")
         if self.LOCAL_ONLY and self.STORAGE_PROVIDER != "supabase":

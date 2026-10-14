@@ -83,9 +83,12 @@ injected.
 - Never write real values into `.env*.example`, commits, CI logs or tickets.
   `.env` files are git-ignored; CI fails on tracked `.env` files or key material.
 - Hosted processes receive `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`,
-  `OPENROUTER_API_KEY` (and S3 keys if used) from the hosting platform's secret
+  `OPENROUTER_API_KEY`, and `TYPESAFE_API_KEY` (and S3 keys if used) from the hosting platform's secret
   store as environment variables. Staging and production use separate secrets
   scoped to their own project; never share a key across environments.
+- Jev grounding runs after deterministic validation and sends only the candidate
+  question/answer/optional explanation/options plus that exact cited chunk. Keep
+  `TYPESAFE_API_KEY` server-side; managed startup fails if it is absent.
 - Managed JWTs are verified through the project's JWKS; leave
   `SUPABASE_JWT_SECRET` empty unless a legacy HS256 secret is deliberately used.
 - Rotation: create the new key in the provider dashboard (Supabase API keys,

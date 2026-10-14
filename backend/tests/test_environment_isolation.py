@@ -21,6 +21,7 @@ def managed(**overrides):
         SUPABASE_URL=f"https://{STAGING}.supabase.co", SUPABASE_PROJECT_REF=STAGING,
         SUPABASE_ANON_KEY="test-public-configured", SUPABASE_SERVICE_ROLE_KEY="test-secret-configured",
         SUPABASE_JWT_SECRET=None, OPENROUTER_API_KEY="test-provider-configured",
+        TYPESAFE_API_KEY="test-typesafe-configured",
         EMBEDDING_PROVIDER="openrouter", CORS_ORIGINS=["https://staging.momo.example"],
     )
     values.update(overrides)
@@ -81,7 +82,7 @@ def test_conflicting_legacy_environment_is_rejected(environment):
     {"SUPABASE_URL": f"https://{STAGING}.supabase.co:8443"},
     {"SUPABASE_URL": "http://127.0.0.1:54321"},
     {"SUPABASE_SERVICE_ROLE_KEY": "mock-server-key"}, {"SUPABASE_ANON_KEY": ""},
-    {"OPENROUTER_API_KEY": "your-api-key"}, {"SUPABASE_JWT_SECRET": "mock-jwt-secret"},
+    {"OPENROUTER_API_KEY": "your-api-key"}, {"TYPESAFE_API_KEY": ""}, {"SUPABASE_JWT_SECRET": "mock-jwt-secret"},
     {"OPENROUTER_IMAGE_MODEL": ""}, {"OPENROUTER_IMAGE_MODEL": "placeholder-model"},
     {"EMBEDDING_PROVIDER": "local"}, {"EMBEDDING_PROVIDER": "supabase"},
     {"CORS_ORIGINS": ["*"]}, {"CORS_ORIGINS": ["http://localhost:3000"]},
@@ -101,7 +102,7 @@ def test_staging_rejects_cross_environment_or_mock_configuration(overrides):
     {"SUPABASE_URL": f"https://{STAGING}.supabase.co"},
     {"SUPABASE_PROJECT_REF": STAGING, "SUPABASE_URL": f"https://{STAGING}.supabase.co"},
     {"DATABASE_BACKEND": "memory"}, {"ENABLE_DEV_AUTH": True}, {"INLINE_JOB_EXECUTION": True},
-    {"EMBEDDING_PROVIDER": "local"}, {"OPENROUTER_API_KEY": "mock-openrouter-key"},
+    {"EMBEDDING_PROVIDER": "local"}, {"OPENROUTER_API_KEY": "mock-openrouter-key"}, {"TYPESAFE_API_KEY": ""},
     {"SUPABASE_SERVICE_ROLE_KEY": "replace-me"}, {"SUPABASE_ANON_KEY": "placeholder"},
     {"SUPABASE_JWT_SECRET": "changeme"},
     {"OPENROUTER_IMAGE_MODEL": "your-image-model"},
@@ -131,6 +132,7 @@ def test_local_config_cannot_select_a_hosted_project(ref):
 
 @pytest.mark.parametrize("overrides", [
     {"LOCAL_ONLY": False}, {"OPENROUTER_API_KEY": "live-configured-key"},
+    {"TYPESAFE_API_KEY": "live-typesafe-key"},
     {"EMBEDDING_PROVIDER": "openrouter"}, {"STORAGE_PROVIDER": "s3"},
 ])
 def test_local_config_rejects_external_provider_paths(overrides):
@@ -196,7 +198,8 @@ def test_hosted_templates_are_pinned_and_fail_closed_until_secret_injection(envi
         Settings(_env_file=None, **values)
     # The template becomes valid only once real secrets/origins are injected.
     injected = {**values, "SUPABASE_ANON_KEY": "test-injected-public", "SUPABASE_SERVICE_ROLE_KEY": "test-injected-secret",
-                "OPENROUTER_API_KEY": "test-injected-provider", "CORS_ORIGINS": [f"https://{environment}.momo.example"]}
+                "OPENROUTER_API_KEY": "test-injected-provider", "TYPESAFE_API_KEY": "test-injected-typesafe",
+                "CORS_ORIGINS": [f"https://{environment}.momo.example"]}
     assert Settings(_env_file=None, **injected).SUPABASE_PROJECT_REF == ref
 
 

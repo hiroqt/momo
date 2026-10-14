@@ -391,7 +391,7 @@ async def test_unsupported_concurrent_decks_never_persist(monkeypatch):
 
 
 @pytest.mark.parametrize(
-    "bad", [[0.0] * 10, [float("nan")] * 1536, [True] * 1536, ["0"] * 1536]
+    "bad", [[0.0] * 10, [0.0] * 1536, [float("nan")] * 2048, [True] * 2048, ["0"] * 2048]
 )
 def test_embedding_shapes_and_nonfinite_values_rejected(bad):
     from app.services.embeddings.embedding_service import validate_vectors
@@ -418,8 +418,8 @@ async def test_embedding_model_and_index_order(monkeypatch):
                 200,
                 json={
                     "data": [
-                        {"index": 1, "embedding": [1.0] * 1536},
-                        {"index": 0, "embedding": [0.0] * 1536},
+                        {"index": 1, "embedding": [1.0] * 2048},
+                        {"index": 0, "embedding": [0.0] * 2048},
                     ]
                 },
                 request=httpx.Request("POST", "http://test"),

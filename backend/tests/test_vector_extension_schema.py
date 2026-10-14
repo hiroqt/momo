@@ -20,6 +20,12 @@ def test_vector_is_private_and_dimension_preserved(database):
         )
         == "vector(1536)"
     )
+    assert database(
+        "SELECT format_type(atttypid,atttypmod) FROM pg_attribute WHERE attrelid='public.document_chunks'::regclass AND attname='embedding_v2';"
+    ) == "vector(2048)"
+    assert database(
+        "SELECT attnotnull FROM pg_attribute WHERE attrelid='public.documents'::regclass AND attname='embedding_version';"
+    ) == "t"
     assert database("SELECT to_regtype('public.vector') IS NULL;") == "t"
     assert (
         database(
@@ -108,3 +114,13 @@ def test_relocation_reapplication_preserves_existing_embeddings(database, users)
         )
         == "1"
     )
+
+
+def test_v2_retrieval_is_service_only_and_preserves_legacy_rpc(database):
+    signature = "public.match_document_chunks_v2(uuid,extensions.vector,uuid,integer,text[])"
+    for role in ("anon", "authenticated"):
+        assert database(f"SELECT has_function_privilege('{role}','{signature}','EXECUTE');") == "f"
+    assert database(f"SELECT has_function_privilege('service_role','{signature}','EXECUTE');") == "t"
+    assert database(
+        "SELECT to_regprocedure('public.match_document_chunks(uuid,extensions.vector,uuid,integer,text[])') IS NOT NULL;"
+    ) == "t"

@@ -271,7 +271,7 @@ async def test_worker_provider_outage_fails_job_without_study_set(monkeypatch):
     await chunks_repo.save_chunks(doc_id, user, [DocumentChunk(
         chunk_id="outage-chunk", document_id=doc_id, chunk_index=0, page_start=1, page_end=1,
         content="Ribosomes synthesize proteins from amino acids in every living cell.",
-        section="Cells", source_type="pdf", embedding=[0.1] * 1536)])
+        section="Cells", source_type="pdf", embedding=[0.1] * 2048)])
     await generation_repo.create_job({"id": job_id, "user_id": user, "document_id": doc_id,
                                       "status": "PENDING", "stage": "Queued", "progress": 0, "message": ""})
     monkeypatch.setattr(module.ai_provider, "generate_study_material",
@@ -518,7 +518,7 @@ async def test_embeddings_batch_and_preserve_order(monkeypatch):
     class Client(FakeClient):
         async def post(self, url, headers, json):
             batches.append((url, json["model"], len(json["input"])))
-            rows = [{"index": i, "embedding": [float(i)] * 1536} for i in range(len(json["input"]))]
+            rows = [{"index": i, "embedding": [float(i)] * 2048} for i in range(len(json["input"]))]
             return response(200, {"data": list(reversed(rows))})
 
     install(monkeypatch, Client([]))
@@ -549,8 +549,8 @@ async def test_embedding_failures_are_controlled(monkeypatch, caplog, step):
     "rows",
     [
         [{"index": 0, "embedding": [0.1] * 1024}],
-        [{"index": 0, "embedding": [0.1] * 1536}, {"index": 1, "embedding": [0.1] * 1536}],
-        [{"index": 3, "embedding": [0.1] * 1536}],
+        [{"index": 0, "embedding": [0.1] * 2048}, {"index": 1, "embedding": [0.1] * 2048}],
+        [{"index": 3, "embedding": [0.1] * 2048}],
     ],
 )
 async def test_embedding_shape_contract_rejected(monkeypatch, rows):
@@ -565,7 +565,7 @@ async def test_embedding_nonfinite_values_rejected(monkeypatch):
     from app.services.embeddings.embedding_service import OpenRouterEmbeddingProvider
 
     # 1e999 parses to infinity; the provider must reject it rather than index it.
-    body = '{"data": [{"index": 0, "embedding": [1e999' + ', 0.0' * 1535 + ']}]}'
+    body = '{"data": [{"index": 0, "embedding": [1e999' + ', 0.0' * 2047 + ']}]}'
     install(monkeypatch, FakeClient([response(200, text=body)]))
     with pytest.raises(ValueError):
         await OpenRouterEmbeddingProvider("test-only", "m").embed(["text"])

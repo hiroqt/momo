@@ -17,10 +17,10 @@ class EmbeddingProvider(ABC):
 
 class LocalDeterministicEmbeddingProvider(EmbeddingProvider):
     """
-    Generates fast 1536-dimensional normalized deterministic vectors
+    Generates fast 2048-dimensional normalized deterministic vectors
     based on word hashes for local development, offline runs, and unit tests.
     """
-    def __init__(self, dimension: int = 1536):
+    def __init__(self, dimension: int = 2048):
         self.dimension = dimension
 
     async def embed(self, texts: list[str]) -> list[list[float]]:
@@ -40,7 +40,7 @@ class LocalDeterministicEmbeddingProvider(EmbeddingProvider):
             results.append(vec.tolist())
         return results
 
-EMBEDDING_DIMENSION = 1536  # Must match document_chunks.embedding VECTOR(1536).
+EMBEDDING_DIMENSION = 2048  # Must match document_chunks.embedding_v2 VECTOR(2048).
 
 
 class EmbeddingUnavailableError(RuntimeError):

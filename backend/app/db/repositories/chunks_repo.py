@@ -50,7 +50,7 @@ class ChunksRepository:
                  "source_type": c.source_type, "embedding": c.embedding, "metadata": c.metadata}
                 for c in chunks]
         if supabase_session.is_configured and supabase_session.client:
-            resp = await supabase_session.execute(supabase_session.client.rpc("publish_document_index", {
+            resp = await supabase_session.execute(supabase_session.client.rpc("publish_document_index_v2", {
                 "p_document_id": document_id, "p_user_id": user_id, "p_chunks": rows,
                 "p_page_count": page_count, "p_topics": topics,
             }))
@@ -65,11 +65,12 @@ class ChunksRepository:
                 or not 1 <= len(rows) <= 5000
                 or len({r["chunk_index"] for r in rows}) != len(rows)
                 or any(not r["content"].strip() or r["chunk_index"] < 0
-                       or not r["embedding"] or len(r["embedding"]) != 1536 for r in rows)):
+                       or not r["embedding"] or len(r["embedding"]) != 2048 for r in rows)):
             raise ValueError("Invalid document index")
         self._store[document_id] = rows
         document.update({"processing_status": "READY", "processing_error": None,
                          "page_count": page_count, "suggested_topics": topics,
+                         "embedding_version": 2,
                          "updated_at": datetime.now(UTC).isoformat()})
         return True
 
@@ -87,6 +88,7 @@ class ChunksRepository:
 
         document = await documents_repo.get_by_id(document_id, user_id)
         return bool(document and document.get("processing_status") == "READY"
+                    and document.get("embedding_version", 2) == 2
                     and self._unexpired(document))
 
     async def get_by_document_id(self, document_id: str, user_id: str) -> list[dict[str, Any]]:
@@ -104,7 +106,7 @@ class ChunksRepository:
         section_filter: list[str] | None = None
     ) -> list[dict[str, Any]]:
         if supabase_session.is_configured and supabase_session.client:
-            resp = await supabase_session.execute(supabase_session.client.rpc("match_document_chunks", {
+            resp = await supabase_session.execute(supabase_session.client.rpc("match_document_chunks_v2", {
                 "p_user_id": user_id, "p_query_embedding": query_embedding,
                 "p_document_id": document_id, "p_match_count": min(max(top_k, 1), 50),
                 "p_sections": section_filter,
@@ -160,7 +162,7 @@ class ChunksRepository:
 
         all_chunks: list[dict[str, Any]] = []
         if supabase_session.is_configured and supabase_session.client:
-            resp = await supabase_session.execute(supabase_session.client.rpc("match_document_chunks", {
+            resp = await supabase_session.execute(supabase_session.client.rpc("match_document_chunks_v2", {
                 "p_user_id": user_id, "p_query_embedding": query_embedding,
                 "p_document_id": None, "p_match_count": min(max(top_k, 1), 50), "p_sections": None,
             }))
@@ -195,6 +197,61 @@ class ChunksRepository:
 
         scored.sort(key=lambda x: x[0], reverse=True)
         return [c for _, c in scored[:top_k]]
+
+    async def reindex_document_embeddings_v2(self, document_id: str, user_id: str) -> bool:
+        """Re-embed a legacy document; it stays hidden from v2 retrieval until finalize."""
+        from app.services.embeddings.embedding_service import embedding_service
+
+        if supabase_session.is_configured and supabase_session.client:
+            rows: list[dict[str, Any]] = []
+            for offset in range(0, 5100, 100):
+                response = await supabase_session.execute(
+                    supabase_session.client.table("document_chunks")
+                    .select("chunk_index,content")
+                    .eq("document_id", document_id)
+                    .eq("user_id", user_id)
+                    .order("chunk_index")
+                    .range(offset, offset + 99)
+                )
+                page = response.data or []
+                rows.extend(page)
+                if len(page) < 100:
+                    break
+            if len(rows) > 5000:
+                raise ValueError("Invalid document index")
+        else:
+            rows = await self.get_by_document_id(document_id, user_id)
+        if not rows:
+            return False
+        for start in range(0, len(rows), 64):
+            batch = rows[start:start + 64]
+            vectors = await embedding_service.embed_texts([row["content"] for row in batch])
+            payload = [{"chunk_index": row["chunk_index"], "embedding": vector}
+                       for row, vector in zip(batch, vectors, strict=True)]
+            if supabase_session.is_configured and supabase_session.client:
+                await supabase_session.execute(supabase_session.client.rpc(
+                    "reindex_document_chunk_embeddings_v2", {
+                        "p_document_id": document_id, "p_user_id": user_id, "p_chunks": payload,
+                    }))
+            else:
+                for row, vector in zip(batch, vectors, strict=True):
+                    row["embedding"] = vector
+                from app.db.repositories.documents_repo import documents_repo
+                document = documents_repo._store.get(document_id)
+                if not document or document.get("user_id") != user_id or not self._unexpired(document):
+                    raise ValueError("Document unavailable")
+        if supabase_session.is_configured and supabase_session.client:
+            result = await supabase_session.execute(supabase_session.client.rpc(
+                "finalize_document_embedding_v2", {
+                    "p_document_id": document_id, "p_user_id": user_id,
+                }))
+            return bool(result.data)
+        from app.db.repositories.documents_repo import documents_repo
+        document = documents_repo._store.get(document_id)
+        if not document or document.get("user_id") != user_id or not self._unexpired(document):
+            raise ValueError("Document unavailable")
+        document["embedding_version"] = 2
+        return True
 
     async def delete_by_document_id(self, document_id: str, user_id: str | None = None):
         if supabase_session.is_configured and supabase_session.client:

@@ -139,7 +139,7 @@ class Transport:
 
     def rpc(self, name, arguments):
         assert name in {"claim_background_jobs", "heartbeat_background_job", "complete_background_job",
-                        "fail_background_job", "persist_generated_study_set", "publish_document_index"}
+                        "fail_background_job", "persist_generated_study_set", "publish_document_index_v2"}
         values = []
         for key, value in arguments.items():
             assert key.startswith("p_") and key.replace("_", "").isalnum()

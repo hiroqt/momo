@@ -9,8 +9,8 @@ async def test_embedding_generation():
     texts = ["Biology notes about cells", "Computer architecture and memory"]
     embs = await embedding_service.embed_texts(texts)
     assert len(embs) == 2
-    assert len(embs[0]) == 1536
-    assert len(embs[1]) == 1536
+    assert len(embs[0]) == 2048
+    assert len(embs[1]) == 2048
 
 def test_synthesis_service_sufficiency():
     empty_chunks = []

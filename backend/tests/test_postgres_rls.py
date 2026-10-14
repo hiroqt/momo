@@ -480,7 +480,8 @@ def test_rpcs_have_fixed_search_paths_and_no_public_execution(database):
     violations = database("""
         SELECT p.proname FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
         WHERE n.nspname='public' AND p.proname IN (
-          'register_document','process_sync_batch','match_document_chunks',
+          'register_document','process_sync_batch','match_document_chunks','match_document_chunks_v2',
+          'publish_document_index_v2','reindex_document_chunk_embeddings_v2','finalize_document_embedding_v2',
           'list_folders_with_counts','learning_statistics','activity_dates','persist_generated_study_set')
         AND (p.proconfig IS NULL OR NOT 'search_path=pg_catalog, public'=ANY(p.proconfig)
           OR has_function_privilege('anon',p.oid,'EXECUTE')

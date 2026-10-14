@@ -37,7 +37,7 @@ async def test_end_to_end_generation_pipeline():
             page_end=12,
             section="Heart Anatomy",
             source_type="pdf",
-            embedding=[0.05] * 1536
+            embedding=[0.05] * 2048
         )
         chunk2 = DocumentChunk(
             chunk_id="chk-2",
@@ -48,7 +48,7 @@ async def test_end_to_end_generation_pipeline():
             page_end=14,
             section="Circulatory Circuits",
             source_type="pdf",
-            embedding=[0.05] * 1536
+            embedding=[0.05] * 2048
         )
         await chunks_repo.save_chunks(doc["id"], user_id, [chunk1, chunk2])
 

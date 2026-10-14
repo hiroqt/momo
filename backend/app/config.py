@@ -11,6 +11,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 STAGING_PROJECT_REF = "zkouryrzhsgaeqyiwwyb"
 PRODUCTION_PROJECT_REF = "liyuyfqkbknxorzoekkq"
 MANAGED_PROJECT_REFS = {"staging": STAGING_PROJECT_REF, "production": PRODUCTION_PROJECT_REF}
+EMBEDDING_MODEL_V2 = "nvidia/nemotron-3-embed-1b:free"
 # APP_ENV is the operator-facing selector; ENVIRONMENT is the derived internal
 # mode that existing modules use for development/test-only behavior.
 APP_ENV_TO_ENVIRONMENT = {"local": "development", "test": "test",
@@ -55,7 +56,7 @@ class Settings(BaseSettings):
 
     # Embedding Provider ('local', 'openrouter', 'supabase')
     EMBEDDING_PROVIDER: Literal["local", "openrouter"] = "local"
-    EMBEDDING_MODEL: str = "nvidia/embeddings-nv-embed-qa-4"
+    EMBEDDING_MODEL: str = "nvidia/nemotron-3-embed-1b:free"
 
     # Product Constraints
     MONTHLY_DOCUMENT_LIMIT: int = Field(default=10, ge=1, le=10)
@@ -146,6 +147,8 @@ class Settings(BaseSettings):
                 raise ValueError("Remove placeholder JWT secret; managed asymmetric tokens use JWKS")
             if self.EMBEDDING_PROVIDER != "openrouter":
                 raise ValueError("Managed environments require a supported semantic embedding provider")
+            if self.EMBEDDING_MODEL != EMBEDDING_MODEL_V2:
+                raise ValueError("Managed environments require the versioned 2048-dimensional embedding model")
             if not self.CORS_ORIGINS:
                 raise ValueError("Managed environments require explicit HTTPS origins")
             for origin in self.CORS_ORIGINS:

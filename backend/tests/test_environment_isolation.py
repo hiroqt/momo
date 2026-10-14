@@ -87,6 +87,7 @@ def test_conflicting_legacy_environment_is_rejected(environment):
     {"CORS_ORIGINS": ["*"]}, {"CORS_ORIGINS": ["http://localhost:3000"]},
     {"CORS_ORIGINS": ["https://staging.example/path"]}, {"CORS_ORIGINS": []},
     {"OPENROUTER_BASE_URL": "https://attacker.test/api/v1"},
+    {"EMBEDDING_MODEL": "nvidia/embeddings-nv-embed-qa-4"},
     {"STORAGE_PROVIDER": "s3"},
 ])
 def test_staging_rejects_cross_environment_or_mock_configuration(overrides):

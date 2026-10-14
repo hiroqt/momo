@@ -350,6 +350,38 @@ async def test_production_chat_failure_does_not_mock_or_leak(monkeypatch, caplog
     assert "PRIVATE_PROVIDER_PAYLOAD" not in caplog.text
 
 
+async def test_chat_empty_response_does_not_log_configured_model(monkeypatch, caplog):
+    secret = "private-model\nforged-log-entry"
+    provider = OpenRouterNemotronProvider("test-only", secret)
+    sent_models = []
+
+    class Client:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *args):
+            pass
+
+        async def post(self, *args, **kwargs):
+            sent_models.append(kwargs["json"]["model"])
+            return httpx.Response(
+                200,
+                json={"choices": [{"message": {"content": "", "tool_calls": None}}]},
+                request=httpx.Request("POST", "http://test"),
+            )
+
+    monkeypatch.setattr(httpx, "AsyncClient", lambda **kwargs: Client())
+    with caplog.at_level("WARNING", logger="app.services.ai.ai_provider"):
+        with pytest.raises(ProviderUnavailableError):
+            await provider.chat_agent("system", [{"role": "user", "content": "hello"}])
+
+    assert sent_models == [secret]
+    assert "Nemotron returned empty content with no tools" in caplog.text
+    assert secret not in caplog.text
+    assert "private-model" not in caplog.text
+    assert "forged-log-entry" not in caplog.text
+
+
 def blank_pdf(pages=1):
     writer = PdfWriter()
     for _ in range(pages):

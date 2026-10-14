@@ -16,7 +16,7 @@ def get_storage_service() -> BaseStorageService:
         logger.info("Initializing AWS S3 Storage provider.")
         return s3_service
     else:
-        logger.info(f"Using default Supabase Storage provider for provider '{provider}'.")
+        logger.info("Using default Supabase Storage provider.")
         return SupabaseStorageService()
 
 storage_service: BaseStorageService = get_storage_service()

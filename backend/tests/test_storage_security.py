@@ -8,6 +8,7 @@ import pytest
 
 from app.config import settings
 from app.db.session import supabase_session
+from app.services.storage import get_storage_service
 from app.services.storage.base import StorageUnavailableError
 from app.services.storage.s3_service import S3Service
 from app.services.storage.supabase_storage_service import SupabaseStorageService
@@ -40,6 +41,19 @@ def test_mock_storage_disabled_in_production(monkeypatch, provider):
     monkeypatch.setattr(settings, "ENVIRONMENT", "production")
     with pytest.raises(StorageUnavailableError):
         provider().save_mock_object("x", b"content")
+
+
+def test_unknown_storage_provider_config_is_not_logged(monkeypatch, caplog):
+    secret = "private-provider\nforged-log-entry"
+    monkeypatch.setattr(settings, "STORAGE_PROVIDER", secret)
+
+    with caplog.at_level("INFO", logger="app.services.storage"):
+        storage = get_storage_service()
+
+    assert isinstance(storage, SupabaseStorageService)
+    assert secret not in caplog.text
+    assert "private-provider" not in caplog.text
+    assert "forged-log-entry" not in caplog.text
 
 
 def test_live_storage_failure_does_not_return_mock_url(monkeypatch):

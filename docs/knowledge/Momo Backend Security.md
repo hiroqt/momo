@@ -38,7 +38,7 @@ Upload retention uses durable tickets and preserves actual upload time/identity,
 ## 2026-10-14 SEC-02 audit update
 
 - Provider/worker/storage source review and sentinel log tests now cover image-provider failures, document-processing failures, and upload-cleanup storage failures. These audited paths exclude request prompt, credential, content, signed URL, and raw provider/storage exception details from logs.
-- Some operational worker logs retain opaque document/job/study-set UUIDs for correlation; reviewed calls showed no user UUID, object key, filename, or content.
+- The October 14 source-wide `backend/app` logger inventory found no request/document content, user/document/job/study-set IDs, credentials, signed URLs, raw provider/database error messages, or request-derived newline injection. The generated operational worker ID (hostname/PID/UUID) remains in worker startup logs. Dynamic fields otherwise are bounded counts/statuses, exception class names, or fixed internal categories. Configured provider model and storage-provider values were removed from logs; request/storage behavior is unchanged.
 - Backend dependency audit: zero known advisories after safe PyJWT/multidict updates. Web dependency audit: zero known advisories after compatible fixes.
 - Mobile dependency audit remains open: a scoped query-string override and version-guarded Expo Router CommonJS patch remove its vulnerable parser chain; clean install, parser tests, and Android/iOS exports pass. Audit now reports 28 package nodes (19 high, 9 moderate), including `braces` and `node-forge` with no patched versions in the inspected registry state. Device deep-link validation remains open.
 - Expo dependency check, iOS/Android exports, web build and known-pattern scan of 106 built files passed. The pattern scan found no matches but does not prove arbitrary secrets absent.
@@ -65,3 +65,9 @@ Upload retention uses durable tickets and preserves actual upload time/identity,
 - Selected chat, image, extraction, generation and durable-worker events now log event names, counts or exception classes without raw user/document/job/study-set IDs. Jev's provider-returned model name is omitted because it is an untrusted log field.
 - Caplog regressions cover guardrail blocks, image provider failures, document/page-limit failures, generation completion and durable job failure. Focused suite: 118 passed; the full loopback PostgreSQL/PostgREST suite passed 935 tests with zero skips; Ruff 142 and mypy 76 passed. See [[docs/backend-readiness-2026-10-14]].
 - This does not establish privacy of hosted log sinks or every backend log call; the overall SEC-02 and public-launch gates remain open.
+
+## 2026-10-15 backend logger inventory
+
+- Reviewed every logger call under `backend/app`. No request/document content, user/document/job/study-set IDs, credentials, signed URLs, raw provider/database errors, or request-derived log injection were found. The generated operational worker ID remains in worker startup logs. Newline-bearing configured model and storage-provider regressions confirm these values stay out of logs.
+- Focused provider/storage suites passed 224 tests; Ruff 142, mypy 76 and diff checks passed. The prior full loopback PostgreSQL/PostgREST run passed 937 tests before the storage regression was added; the current full rerun could not be verified because Docker was unavailable. Independent review found no code blocker and flagged documentation precision, which this note corrects.
+- Hosted log sinks, HTTPS/CORS, account isolation, dependency and retention release evidence remain unverified; SEC-02 and public readiness remain partial.

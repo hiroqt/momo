@@ -1751,7 +1751,7 @@ class OpenRouterNemotronProvider(AIProvider):
 
                         # If tools were not requested or none returned, but content is empty, try fallback
                         if not tool_calls and not content.strip():
-                            logger.warning(f"Nemotron model {model_id} returned empty content with no tools. Trying next candidate.")
+                            logger.warning("Nemotron returned empty content with no tools")
                             continue
                         return {
                             "content": content,

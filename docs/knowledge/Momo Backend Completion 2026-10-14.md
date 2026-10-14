@@ -31,7 +31,7 @@ Parent: [[Momo Public Readiness]]. Map: [[Momo Readiness Map.canvas]]. Full evid
 
 ## Verification
 
-- Backend/API/database/gateway: 827 passed, zero skipped/errors/failures; Ruff 138 files and mypy 75 files passed; no-skip checker passed.
+- Backend/API/database/gateway: 830 passed, zero skipped/errors/failures; Ruff 138 files and mypy 75 files passed; no-skip checker passed. The run used disposable loopback PostgreSQL and PostgREST and reported 34 existing Starlette 422 deprecation warnings.
 - Mobile lint passed and 182 tests passed. Canvas JSON and `git diff --check` passed.
 - Non-root container passed network-isolated Supabase SDK fail-closed and scanned-PDF OCR checks; `/health` and `/ready` returned 200 through Render-style `PORT`.
 - Staging Postgres 17 is active. The security advisor reports five INFO no-policy findings on private internal tables with no client grants. The performance advisor reports 14 composite-FK notices; catalog inspection found each child table has a valid leading-column index for parent lookups. Its 44 unused-index notices come from the fresh empty workload; indexes were not dropped.

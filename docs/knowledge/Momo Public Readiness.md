@@ -31,4 +31,4 @@ The user authorized database changes on `momo-staging` and selected Render for p
 
 [[Momo Upload Retention]] maps the implemented transactional lifecycle and remaining provider/inventory/deployment gates.
 
-Latest integrated local verification: **819 backend tests passed, zero skipped**, Ruff 138 files and mypy 75 files passed; mobile lint and **181 tests** passed. The rebuilt non-root container passes SDK fail-closed, scanned-PDF OCR and Render-style port/readiness smokes. See [[docs/backend-readiness-2026-10-14|dated report]] for exact commands, staging migration versions and open public gates.
+Latest integrated local verification: **830 backend/API/PostgreSQL/PostgREST tests passed, zero skipped**, Ruff 138 files and mypy 75 files passed; mobile lint and **182 tests** passed. The non-root container passes SDK fail-closed and two-page scanned-PDF OCR checks; `/health` and `/ready` passed through Render-style `PORT`. See [[docs/backend-readiness-2026-10-14|dated report]] for exact commands, staging migration versions and open public gates.

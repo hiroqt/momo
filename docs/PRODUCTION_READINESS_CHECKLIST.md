@@ -801,6 +801,7 @@ not finish AUTH-02: managed Auth behavior, physical object deletion,
 untracked-object inventory, and logout/account-switch device proof remain release
 gates. Migrations 014/015 are applied to staging, but managed Auth behavior and
 physical Storage deletion remain unverified.
-Verification 2026-10-14: 827 backend/API/PostgreSQL/PostgREST tests passed with
-zero skips/errors/failures, Ruff 138 files, mypy 75 source files, no-skip check,
-mobile type/lint and 182 tests, Canvas JSON validation, and `git diff --check`.
+Verification 2026-10-14: final integrated backend/API/PostgreSQL/PostgREST run
+had 830 passed with zero skips/errors/failures, Ruff 138 files, mypy 75 source
+files, no-skip check, mobile type/lint and 182 tests, Canvas JSON validation,
+and `git diff --check`.

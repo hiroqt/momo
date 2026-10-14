@@ -58,6 +58,7 @@ The initial attempt to record migration 008 hit a duplicate migration version be
 ## Local verification
 
 - At the profile-provisioning milestone, the full backend/API/database/gateway suite with loopback-only disposable PostgreSQL and PostgREST had **823 passed, 0 skipped, 0 failed**, with 32 existing Starlette deprecation warnings (227.53s). That was an earlier checkpoint; the later account-deletion run below verified 827 tests. JUnit from the profile checkpoint: `/tmp/momo-auth02-final-2026-10-14.xml`.
+- Final integrated rerun after the chat-bound and folder-contract updates: **830 passed, 0 skipped, 0 errors, 0 failures** in 480.31s using disposable loopback PostgreSQL and local PostgREST, with 34 existing Starlette 422 deprecation warnings. `assert_no_skips.py` passed for `/tmp/momo-local-gateway-2026-10-14-final.xml`. Full static checks passed: Ruff 138 files, mypy 75 files. The non-root, network-isolated two-page OCR runtime smoke passed after an import-order fix.
 - Ruff and mypy: **138 Ruff files** and **75 Python source files** passed.
 - Mobile: lint passed; **181 tests passed**. No mobile code changed during the final index migration.
 - `docker build -t momo-backend:2026-10-14 backend` passed. Network-isolated non-root real-SDK construction failed closed on denied database I/O as expected. The non-root scanned-PDF OCR smoke preserved text/page metadata. `/health` and `/ready` both returned 200 through a `PORT`-bound container, which then stopped cleanly.
@@ -91,11 +92,11 @@ pre-ticket rows and indexes retired legacy cleanup; PostgreSQL verifies those
 objects become claimable after Auth deletion. It is applied to staging, where
 the legacy-ticket count was zero. Managed Auth cascade, physical object purge (including old
 versions), and files without database inventory remain unverified. Final local
-verification: 827 backend/API/PostgreSQL/PostgREST tests passed, zero skipped,
-errors, or failures; Ruff 138 files and mypy 75 source files passed; no-skip
-checker, mobile TypeScript lint, 182 mobile tests, Canvas JSON validation, and
-`git diff --check` passed. The suite used only loopback PostgreSQL/PostgREST;
-32 existing Starlette 422 deprecation warnings remain.
+verification: final integrated backend/API/PostgreSQL/PostgREST run had 830
+passed, zero skipped/errors/failures; Ruff 138 files and mypy 75 source files
+passed; no-skip checker, mobile TypeScript lint, 182 mobile tests, Canvas JSON
+validation, and `git diff --check` passed. The backend run used only loopback
+PostgreSQL/PostgREST and reported 34 existing Starlette 422 deprecation warnings.
 
 ## CHAT-01 expiry follow-up
 

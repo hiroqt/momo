@@ -173,3 +173,22 @@ the stale wallet GET race regression. Migration
 modified mobile client can lie about correctness and farm credits, a known risk
 of the approved MVP rule. Render deployment and a hosted sync journey await the
 API URL the user is configuring.
+
+## SEC-02 math parser and log privacy follow-up
+
+Restricted the SymPy parser to an allowlisted AST and namespace, with bounds on
+input length, AST nodes, numeric exponents, and estimated symbolic expansion
+(4,096 terms). Factorial function calls are rejected before parsing because
+large factorials can monopolize the synchronous API worker; inverse-trig aliases
+remain supported. Regression tests cover code-execution-shaped input, Python
+attribute/subscript/comprehension syntax, expensive powers, factorial abuse and
+the reviewed symbolic-expansion payload. Math, diagram and prompt-injection
+logging no longer includes raw solver exception text, user topics/requirements,
+or internal regex patterns.
+
+The local PostgreSQL/PostgREST gateway suite passed **854 tests, zero skips,
+errors or failures**; the no-skip gate passed. Ruff (138 files), mypy (75 files),
+and `git diff --check` passed. This completes only the local math-parser task.
+SEC-02 remains open for a full provider/worker log audit, release bundle and
+dependency scans, hosted HTTPS/CORS, and complete object-retention/deletion
+proof.

@@ -29,6 +29,15 @@ study content or replace encryption. Supabase Auth owns password handling; all
 provider secrets stay in server environment configuration. Validation errors
 exclude echoed input; client-visible failures use controlled messages.
 
+The public deterministic math fallback treats expressions as untrusted code:
+the generated SymPy expression is AST-checked against arithmetic and math
+symbols, parsed with a restricted namespace, and bounded by input/node/exponent
+limits and a 4,096-term symbolic expansion estimate. User factorial calls are
+rejected to prevent unbounded synchronous work; inverse-trig aliases remain
+supported. Local gateway-backed verification passed 854 tests with no skips,
+including execution and expansion abuse cases. This does not replace the
+remaining provider log, dependency, deployment, and data-lifecycle work in SEC-02.
+
 Original object access uses private buckets and UUID owner/document paths.
 Schedule `python -m app.workers.cleanup_worker` with monitoring to enforce
 physical deletion after expiry. RLS and expiry filtering alone cannot delete

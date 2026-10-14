@@ -1,6 +1,10 @@
+import ast
+import io
 import logging
 import math
 import re
+import tokenize
+from tokenize import TokenError
 from typing import Any
 
 import sympy as sp
@@ -9,11 +13,53 @@ from sympy.parsing.sympy_parser import (
     implicit_multiplication_application,
     parse_expr,
     standard_transformations,
+    stringify_expr,
 )
 
 logger = logging.getLogger(__name__)
 
 TRANSFORMATIONS = standard_transformations + (implicit_multiplication_application, convert_xor)
+_SAFE_FUNCTIONS = {
+    name: getattr(sp, name) for name in (
+        "Abs", "acos", "asin", "atan", "cos", "cosh", "cot", "csc", "exp",
+        "log", "sec", "sin", "sinh", "sqrt", "tan", "tanh",
+    )
+}
+_SAFE_FUNCTIONS.update({"arcsin": sp.asin, "arccos": sp.acos, "arctan": sp.atan})
+_SAFE_CONSTANTS = {"E": sp.E, "I": sp.I, "oo": sp.oo, "pi": sp.pi}
+_SAFE_PARSER_GLOBALS = {
+    "__builtins__": {}, "Float": sp.Float, "Function": sp.Function,
+    "Integer": sp.Integer, "Number": sp.Number, "Rational": sp.Rational, "Symbol": sp.Symbol,
+}
+_SAFE_PARSER_LOCALS = {**_SAFE_FUNCTIONS, **_SAFE_CONSTANTS}
+_SAFE_PARSER_NAMES = set(_SAFE_PARSER_GLOBALS) | set(_SAFE_PARSER_LOCALS)
+_SAFE_AST_NODES = (
+    ast.Expression, ast.BinOp, ast.UnaryOp, ast.Call, ast.Name, ast.Constant, ast.Load,
+    ast.Add, ast.Sub, ast.Mult, ast.Div, ast.FloorDiv, ast.Mod, ast.Pow, ast.USub, ast.UAdd,
+)
+_MAX_EXPANDED_TERMS = 4096
+
+
+def _expanded_term_bound(node: ast.AST) -> int:
+    if isinstance(node, ast.BinOp):
+        left = _expanded_term_bound(node.left)
+        right = _expanded_term_bound(node.right)
+        if isinstance(node.op, (ast.Add, ast.Sub)):
+            return min(_MAX_EXPANDED_TERMS + 1, left + right)
+        if isinstance(node.op, (ast.Mult, ast.Div, ast.FloorDiv, ast.Mod)):
+            return min(_MAX_EXPANDED_TERMS + 1, left * right)
+        if isinstance(node.op, ast.Pow):
+            exponent_node = node.right
+            if isinstance(exponent_node, ast.Call) and isinstance(exponent_node.func, ast.Name) and exponent_node.func.id == "Integer":
+                exponent_node = exponent_node.args[0] if len(exponent_node.args) == 1 else exponent_node
+            exponent = exponent_node.value if isinstance(exponent_node, ast.Constant) else None
+            if isinstance(exponent, int) and exponent >= 0:
+                return min(_MAX_EXPANDED_TERMS + 1, left ** min(exponent, 13))
+    if isinstance(node, ast.UnaryOp):
+        return _expanded_term_bound(node.operand)
+    if isinstance(node, ast.Call):
+        return min(_MAX_EXPANDED_TERMS + 1, sum(_expanded_term_bound(arg) for arg in node.args))
+    return 1
 
 def normalize_math_text(text: str) -> str:
     """
@@ -77,8 +123,60 @@ def normalize_math_text(text: str) -> str:
     return s
 
 def _safe_parse(expr_str: str) -> sp.Expr:
+    if not expr_str or len(expr_str) > 2000:
+        raise ValueError("Mathematical expression is empty or too long.")
     cleaned = expr_str.replace('^', '**').strip()
-    return parse_expr(cleaned, transformations=TRANSFORMATIONS)
+    if re.search(r"\bfactorial\s*\(", cleaned):
+        raise ValueError("Factorial calls are unsupported in mathematical expressions.")
+    try:
+        tokens = tokenize.generate_tokens(io.StringIO(cleaned).readline)
+        exponent_pending = False
+        for token in tokens:
+            if token.type == tokenize.OP and token.string == "**":
+                exponent_pending = True
+            elif exponent_pending and token.type == tokenize.OP and token.string in {"(", "+", "-"}:
+                continue
+            elif exponent_pending and token.type == tokenize.NUMBER:
+                if abs(float(token.string)) > 1000:
+                    raise ValueError("Mathematical exponent is too large.")
+                exponent_pending = False
+            elif exponent_pending and token.type == tokenize.NAME:
+                exponent_pending = False
+            elif token.type not in {tokenize.NL, tokenize.NEWLINE}:
+                exponent_pending = False
+        generated = stringify_expr(cleaned, _SAFE_PARSER_LOCALS, _SAFE_PARSER_GLOBALS, TRANSFORMATIONS)
+        tree = ast.parse(generated, mode="eval")
+    except (SyntaxError, TokenError):
+        raise ValueError("Mathematical expression contains unsupported syntax.") from None
+    nodes = list(ast.walk(tree))
+    if len(nodes) > 256 or any(not isinstance(node, _SAFE_AST_NODES) for node in nodes):
+        raise ValueError("Mathematical expression contains unsupported syntax.")
+    if _expanded_term_bound(tree.body) > _MAX_EXPANDED_TERMS:
+        raise ValueError("Mathematical expression is too complex to evaluate safely.")
+    for node in nodes:
+        if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Pow) and any(
+            isinstance(child, ast.BinOp) and isinstance(child.op, ast.Pow)
+            for child in ast.walk(node.right)
+        ):
+            raise ValueError("Nested mathematical exponents are unsupported.")
+        if isinstance(node, ast.Name) and node.id not in _SAFE_PARSER_NAMES:
+            raise ValueError("Mathematical expression contains an unsupported name.")
+        if isinstance(node, ast.Call) and (
+            not isinstance(node.func, ast.Name)
+            or node.func.id not in _SAFE_PARSER_NAMES
+            or node.keywords
+        ):
+            raise ValueError("Mathematical expression contains an unsupported function call.")
+        if isinstance(node, ast.Constant):
+            if isinstance(node.value, str):
+                if len(node.value) > 64 or not re.fullmatch(r"[A-Za-z][A-Za-z0-9_]*", node.value):
+                    raise ValueError("Mathematical expression contains an invalid symbol.")
+            elif not isinstance(node.value, (int, float)) or isinstance(node.value, bool):
+                raise ValueError("Mathematical expression contains an invalid value.")
+            elif isinstance(node.value, int) and len(str(abs(node.value))) > 100:
+                raise ValueError("Mathematical number is too large.")
+    return parse_expr(cleaned, local_dict=_SAFE_PARSER_LOCALS, global_dict=_SAFE_PARSER_GLOBALS,
+                      transformations=TRANSFORMATIONS)
 
 class UniversalMathEngine:
     def solve(self, raw_text: str) -> dict[str, Any]:
@@ -108,7 +206,7 @@ class UniversalMathEngine:
                 if res and res.get('final_answer'):
                     return res
             except Exception as e:  # noqa: BLE001 - Solver boundary: sympy may raise arbitrary errors.
-                logger.debug(f'Solver {solver.__name__} passed with error: {e}')
+                logger.debug("Solver %s did not match (%s)", solver.__name__, type(e).__name__)
 
         first_line = norm_text.splitlines()[0] if norm_text.splitlines() else norm_text
         return {
@@ -271,7 +369,7 @@ class UniversalMathEngine:
             if m:
                 var_name, target_str, expr_str = m.groups()
                 var = sp.symbols(var_name)
-                target = sp.sympify(target_str.replace('oo', 'oo').replace('inf', 'oo'))
+                target = _safe_parse(target_str.replace('inf', 'oo'))
                 expr = _safe_parse(expr_str)
                 lim_val = sp.limit(expr, var, target)
                 return {
@@ -342,7 +440,12 @@ class UniversalMathEngine:
         m = re.search(r'(?:det(?:erminant)?\s*[:(]?\s*)?(\[\[.+?\]\])', text, re.IGNORECASE)
         if m:
             mat_str = m.group(1)
-            matrix = sp.Matrix(sp.sympify(mat_str))
+            rows = [row.split(",") for row in re.findall(r"\[([^\[\]]*)\]", mat_str)]
+            if not rows or len(rows) > 10 or not rows[0] or len(rows[0]) > 10 or any(
+                len(row) != len(rows[0]) for row in rows
+            ):
+                raise ValueError("Matrix dimensions are invalid or too large.")
+            matrix = sp.Matrix([[_safe_parse(cell.strip()) for cell in row] for row in rows])
             det_val = matrix.det()
             steps = [
                 f'1. Problem Statement: Compute the determinant of matrix M = {mat_str}.',

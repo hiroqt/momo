@@ -522,7 +522,8 @@ class EducationalDiagramRenderer:
         img.save(buf, format="PNG", optimize=True)
         buf.seek(0)
         b64_str = base64.b64encode(buf.getvalue()).decode("utf-8")
-        logger.info(f"Rendered dynamic 2D educational diagram for topic='{spec.topic}' category='{cat}' canvas={self.width}x{self.height} ({len(b64_str)} bytes)")
+        logger.info("Rendered dynamic educational diagram (category=%s, canvas=%sx%s, bytes=%s)",
+                    cat, self.width, self.height, len(b64_str))
         return b64_str
 
     def render_educational_diagram(

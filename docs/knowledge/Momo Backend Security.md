@@ -10,6 +10,12 @@ Parent: [[Momo Public Readiness]]. Related: [[Momo Authentication]], [[Momo Data
 
 Verified JWT identity, owner-filtered repositories, forced RLS and same-owner foreign keys already exist. Upload registration/quota, answer sync and generation finalization use transactions. Managed configuration rejects memory persistence, development identity, mock embeddings, inline workers and cross-environment database URLs. Rate limits use shared PostgreSQL state and fail closed.
 
+## October 14 local SEC-02 slice
+
+The public math fallback previously passed user text to SymPy `parse_expr`, which evaluates generated Python. Parsing now validates the generated expression AST against an arithmetic/function allowlist, passes a restricted symbol environment, bounds input length, AST nodes, numeric exponents and possible symbolic expansion to 4,096 terms, and rejects factorial calls that can consume unbounded synchronous CPU. Inverse-trig aliases remain supported. Tests reject attribute access, subscripts, comprehensions, an exploit-shaped `__import__` expression, oversized/nested powers, factorial denial of service, and large symbolic expansion while preserving implicit multiplication and standard math functions.
+
+Math solver errors no longer log exception text; diagram topics/requirements and rendered topics are omitted from logs; prompt-injection logs no longer disclose the internal matching regex. The local PostgreSQL/PostgREST gateway suite passed 854 tests with zero skips; Ruff (138 files), mypy (75 files), and the no-skip gate passed. The full SEC-02 audit remains open: these local tests do not verify all provider/worker logs, release bundles or dependency state, actual hosted HTTPS/CORS, or complete retention/deletion behavior. See [[docs/backend-readiness-2026-10-14|October 14 report]] for bounded evidence.
+
 ## October 8 changes
 
 - All HTTP bodies are capped at 10 MiB before application parsing/work. Actual streamed bytes are counted, so a short or absent Content-Length cannot bypass the cap. Oversized bodies return safe `413 REQUEST_TOO_LARGE`.

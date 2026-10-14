@@ -601,10 +601,10 @@ class DiagramSynthesizer:
 
         curated = self.find_curated_spec(clean_topic, prompt, requirements)
         if curated:
-            logger.info(f"Found curated DiagramSpec for topic='{clean_topic}' (category={curated.category})")
+            logger.info("Found curated DiagramSpec (category=%s)", curated.category)
             return curated
 
-        logger.info(f"Synthesizing dynamic DiagramSpec for topic='{clean_topic}' with requirements='{requirements}'")
+        logger.info("Synthesizing dynamic DiagramSpec (requirements_present=%s)", bool(requirements))
         return self.synthesize_spec_dynamically(clean_topic, prompt, requirements, context)
 
 diagram_synthesizer = DiagramSynthesizer()

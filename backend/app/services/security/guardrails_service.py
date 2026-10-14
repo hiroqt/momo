@@ -95,7 +95,7 @@ class AIGuardrailsService:
         # Check prompt injection attempts
         for pat in self._injection_patterns:
             if pat.search(cleaned):
-                logger.warning(f"Guardrail triggered: prompt injection detected matching '{pat.pattern}'")
+                logger.warning("Guardrail triggered: prompt injection detected")
                 return GuardrailResult(
                     passed=False,
                     flagged_category="prompt_injection",

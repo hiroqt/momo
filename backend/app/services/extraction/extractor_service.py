@@ -32,7 +32,7 @@ class ExtractorService:
 
         # Check page count limit
         if len(pages) > settings.MAX_PAGE_COUNT:
-            logger.warning(f"Document {document_id} exceeded max pages ({len(pages)} > {settings.MAX_PAGE_COUNT})")
+            logger.warning("Document exceeded max pages (%d > %d)", len(pages), settings.MAX_PAGE_COUNT)
             raise ValueError("Document exceeds maximum page count")
 
         # Extract suggested study topics from content

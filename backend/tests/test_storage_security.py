@@ -107,5 +107,7 @@ async def test_worker_records_actual_sha256_and_hides_failures(local_storage, mo
     )
     repo.set_content_hash.assert_awaited_once_with(doc, owner, hashlib.sha256(payload).hexdigest())
     assert repo.update_status.call_args.kwargs["error"] == "The uploaded document could not be processed."
-    assert f"Document processing failed for {doc}" in caplog.text
+    assert "Document processing failed" in caplog.text
+    assert doc not in caplog.text
+    assert owner not in caplog.text
     assert "secret-provider-credentials" not in caplog.text

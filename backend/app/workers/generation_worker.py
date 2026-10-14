@@ -26,7 +26,7 @@ class GenerationWorker:
         if not job or job.get("status") == "COMPLETED" or job.get("study_set_id"):
             return
         try:
-            logger.info(f"Starting generation job: {job_id}")
+            logger.info("Starting generation job")
 
             # 1. Indexing & Evidence Retrieval
             await generation_repo.update_job(
@@ -140,7 +140,7 @@ class GenerationWorker:
                 )
             except ProviderUnavailableError:
                 # Timeout/quota/malformed output: controlled, retryable failure; never a mock.
-                logger.warning("Generation provider unavailable for job %s", job_id)
+                logger.warning("Generation provider unavailable")
                 await generation_repo.update_job(
                     job_id=job_id,
                     status="FAILED",
@@ -214,7 +214,7 @@ class GenerationWorker:
             custom_title = generation_spec.get("title")
             set_title = custom_title.strip() if custom_title and custom_title.strip() else f"{topic} Reviewer"
 
-            study_set = await generation_repo.complete_with_study_set(job_id, user_id, {
+            await generation_repo.complete_with_study_set(job_id, user_id, {
                 "user_id": user_id,
                 "document_id": document_id,
                 "title": set_title,
@@ -223,7 +223,7 @@ class GenerationWorker:
                 "generation_status": "COMPLETED",
                 "item_count": len(valid_items)
             }, valid_items)
-            logger.info(f"Generation job {job_id} successfully created study set {study_set['id']}")
+            logger.info("Generation job successfully created study set")
 
         except Exception as e:  # noqa: BLE001 - worker boundary records a controlled failure.
             logger.error("Generation worker failed (%s)", type(e).__name__)

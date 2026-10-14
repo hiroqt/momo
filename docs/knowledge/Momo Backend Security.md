@@ -59,3 +59,9 @@ Upload retention uses durable tickets and preserves actual upload time/identity,
 - This is an initial conservative threshold informed by TypeSafe's citation-check cookbook, not a Momo-calibrated quality claim. The approved 13-case smoke used 3,176 input and 529 output tokens; ambiguous relation cases showed low-confidence/mixed output. A follow-up 18-case synthetic fixture produced zero false accepts/rejects on short, clear examples in two requests (4,530 input / 814 output tokens), but labels are authored, not human-reviewed or representative. The 0.8 threshold remains provisional.
 - `/api/chat/import-card` uses the shared per-user chat rate limit; a regression test proves throttling returns 429 before source lookup or Jev verification. Independent security review found no remaining actionable issue in this change.
 - Review current vendor retention/transfer terms and public-user disclosure before launch. TypeSafe's policy states no training on inputs, retention as reasonably necessary, and U.S. hosting. See [[Momo Public Readiness]] and [[docs/PRODUCTION_READINESS_CHECKLIST]].
+
+## 2026-10-14 backend log identifier minimization
+
+- Selected chat, image, extraction, generation and durable-worker events now log event names, counts or exception classes without raw user/document/job/study-set IDs. Jev's provider-returned model name is omitted because it is an untrusted log field.
+- Caplog regressions cover guardrail blocks, image provider failures, document/page-limit failures, generation completion and durable job failure. Focused suite: 118 passed; the full loopback PostgreSQL/PostgREST suite passed 935 tests with zero skips; Ruff 142 and mypy 76 passed. See [[docs/backend-readiness-2026-10-14]].
+- This does not establish privacy of hosted log sinks or every backend log call; the overall SEC-02 and public-launch gates remain open.

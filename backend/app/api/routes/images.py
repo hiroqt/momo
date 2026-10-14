@@ -54,7 +54,7 @@ async def generate_study_image(
             continue
         guardrail = guardrails_service.validate_user_input(value)
         if not guardrail.passed:
-            logger.warning("Image generation input blocked for user %s", user.id)
+            logger.warning("Image generation input blocked")
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail={
@@ -87,7 +87,7 @@ async def generate_study_image(
             detail={"code": "IMAGE_PROVIDER_UNAVAILABLE", "message": "Image generation is currently unavailable."},
         ) from None
     except Exception as e:  # noqa: BLE001 - expose only a safe provider failure
-        logger.error("Error generating study image for user %s: %s", user.id, type(e).__name__)
+        logger.error("Error generating study image (%s)", type(e).__name__)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail={"code": "IMAGE_GENERATION_FAILED", "message": "Failed to generate the requested image."},

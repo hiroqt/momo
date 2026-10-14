@@ -102,13 +102,11 @@ class TypeSafeGroundingVerifier:
 
         accepted: list[dict[str, Any]] = []
         usage = {"input_tokens": 0, "output_tokens": 0}
-        models: set[str] = set()
         try:
             for start in range(0, len(candidates), BATCH_SIZE):
                 batch = candidates[start : start + BATCH_SIZE]
                 payload = self._request_payload(batch)
-                answers, model, request_usage = await self._evaluate(api_key, payload)
-                models.add(model)
+                answers, _, request_usage = await self._evaluate(api_key, payload)
                 for name in usage:
                     usage[name] += request_usage[name]
                 for (item, _), answer_id in zip(batch, answers, strict=True):
@@ -123,10 +121,9 @@ class TypeSafeGroundingVerifier:
             ) from None
 
         logger.info(
-            "TypeSafe grounding checked=%d accepted=%d model=%s input_tokens=%d output_tokens=%d",
+            "TypeSafe grounding checked=%d accepted=%d input_tokens=%d output_tokens=%d",
             len(candidates),
             len(accepted),
-            ",".join(sorted(models)),
             usage["input_tokens"],
             usage["output_tokens"],
         )

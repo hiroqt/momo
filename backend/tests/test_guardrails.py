@@ -72,7 +72,7 @@ def test_guardrails_blocks_fake_citation_fabrication():
     assert "grounded" in result.refusal_response.lower()
 
 @pytest.mark.asyncio
-async def test_guardrail_intercepts_chat_injection():
+async def test_guardrail_intercepts_chat_injection_without_logging_user_id(caplog):
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
         headers = {"Authorization": "Bearer test-token-guardrail-user"}
@@ -93,6 +93,8 @@ async def test_guardrail_intercepts_chat_injection():
         # Must refuse safely without executing injection
         assert "Momo" in res["content"]
         assert "study" in res["content"].lower()
+        assert "test-token-guardrail-user" not in caplog.text
+        assert "guardrail-user" not in caplog.text
 
 @pytest.mark.asyncio
 async def test_guardrail_blocks_unsafe_generation_instruction():

@@ -61,7 +61,7 @@ class JobRunner:
             await work
         except asyncio.CancelledError:
             if lease_lost.is_set():
-                logger.warning("Job %s lease lost; handler cancelled", job["id"])
+                logger.warning("Job lease lost; handler cancelled")
                 return "lease_lost"
             raise
         except PermanentJobError as exc:
@@ -69,7 +69,7 @@ class JobRunner:
         except TransientJobError as exc:
             return await self._record_failure(job, exc.code)
         except Exception as exc:  # noqa: BLE001 - worker boundary records a sanitized failure
-            logger.error("Job %s handler failed (%s)", job["id"], type(exc).__name__)
+            logger.error("Job handler failed (%s)", type(exc).__name__)
             return await self._record_failure(job, "HANDLER_FAILED")
         finally:
             beat.cancel()
@@ -77,7 +77,7 @@ class JobRunner:
                 await beat
         if await self.queue.complete(job["id"], self.worker_id):
             return "succeeded"
-        logger.warning("Job %s completed after its lease moved", job["id"])
+        logger.warning("Job completed after its lease moved")
         return "lease_lost"
 
     async def _record_failure(self, job: dict[str, Any], code: str, *, permanent: bool = False) -> str:
@@ -91,7 +91,7 @@ class JobRunner:
             try:
                 renewed = await self.queue.heartbeat(job_id, self.worker_id, self.lease_seconds)
             except Exception as exc:  # noqa: BLE001 - keep working; lease expiry is the backstop
-                logger.warning("Job %s heartbeat failed (%s)", job_id, type(exc).__name__)
+                logger.warning("Job heartbeat failed (%s)", type(exc).__name__)
                 continue
             if not renewed:
                 lease_lost.set()

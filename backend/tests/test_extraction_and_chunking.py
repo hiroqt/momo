@@ -1,9 +1,10 @@
 import io
 from types import SimpleNamespace
-from unittest.mock import Mock
+from unittest.mock import AsyncMock, Mock
 
 import pytest
 
+from app.config import settings
 from app.domain.documents.models import DocumentContent, DocumentPage, ExtractedSection
 from app.services.extraction.chunking_service import chunking_service
 from app.services.extraction.txt_extractor import txt_extractor
@@ -145,6 +146,19 @@ async def test_txt_page_limit_checks_before_creating_page_objects(monkeypatch):
     with pytest.raises(ValueError, match="maximum page count"):
         await module.txt_extractor.extract(b"x" * (50 * 2500 + 1))
     page_constructor.assert_not_called()
+
+
+async def test_extractor_page_limit_log_omits_document_id(monkeypatch, caplog):
+    import app.services.extraction.extractor_service as module
+    from app.domain.documents.models import DocumentPage
+
+    document_id = "private-document-identifier"
+    monkeypatch.setattr(module.pdf_extractor, "extract", AsyncMock(return_value=[
+        DocumentPage(page_number=1, text="page") for _ in range(settings.MAX_PAGE_COUNT + 1)
+    ]))
+    with pytest.raises(ValueError, match="maximum page count"):
+        await module.extractor_service.extract_document(document_id, "lecture.pdf", "pdf", b"pdf")
+    assert document_id not in caplog.text
 
 
 def make_pptx(slide_count):

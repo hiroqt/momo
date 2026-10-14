@@ -386,7 +386,7 @@ def test_image_service_rejects_oversized_binary(monkeypatch):
         module.ImageGenerationService._validate_image({"image_base64": encoded_image(), "mime_type": "image/png"})
 
 @pytest.mark.asyncio
-async def test_image_route_blocks_unsafe_prompt():
+async def test_image_route_blocks_unsafe_prompt_without_logging_user_id(caplog):
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
         headers = {"Authorization": "Bearer test-token-img-user-2"}
@@ -398,6 +398,29 @@ async def test_image_route_blocks_unsafe_prompt():
         assert resp.status_code == 400
         data = resp.json()
         assert data["error"]["code"] == "UNSAFE_IMAGE_PROMPT"
+        assert "test-token-img-user-2" not in caplog.text
+        assert "img-user-2" not in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_image_route_provider_failure_does_not_log_user_id_or_error(monkeypatch, caplog):
+    secret = "private-provider-error-sentinel"
+
+    async def fail(**_kwargs):
+        raise RuntimeError(secret)
+
+    monkeypatch.setattr(image_service, "generate_image", fail)
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as ac:
+        response = await ac.post(
+            "/api/images/generate",
+            json={"prompt": "Draw a simple tree diagram"},
+            headers={"Authorization": "Bearer test-token-img-provider-failure"},
+        )
+    assert response.status_code == 500
+    assert "test-token-img-provider-failure" not in caplog.text
+    assert "img-provider-failure" not in caplog.text
+    assert secret not in caplog.text
 
 @pytest.mark.asyncio
 async def test_image_route_rate_limiting():

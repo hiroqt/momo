@@ -744,7 +744,7 @@ class ChatService:
         # 1. Guardrail input validation (Prompt injection & safety check)
         guardrail_check = guardrails_service.validate_user_input(user_content)
         if not guardrail_check.passed:
-            logger.warning(f"Guardrail intercepted input for user {user_id}. Category: {guardrail_check.flagged_category}")
+            logger.warning("Guardrail intercepted input. Category: %s", guardrail_check.flagged_category)
             # Record user message
             await chat_repo.add_message(
                 session_id=session_id,

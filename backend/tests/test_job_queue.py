@@ -126,7 +126,7 @@ async def test_runner_retries_transient_failures_until_success():
     assert outcomes == ["queued", "queued", "succeeded"] and calls == [1, 2, 3]
 
 
-async def test_runner_dead_letters_permanent_and_exhausted_failures():
+async def test_runner_dead_letters_permanent_and_exhausted_failures_without_logging_ids(caplog):
     queue = JobQueue()
 
     async def broken(job):
@@ -141,6 +141,10 @@ async def test_runner_dead_letters_permanent_and_exhausted_failures():
     assert await runner.run_now(permanent["id"]) == "dead"
     assert await runner.run_now(exhausted["id"]) == "dead"
     assert queue._jobs[exhausted["id"]]["last_error"] == "HANDLER_FAILED"
+    assert permanent["id"] not in caplog.text
+    assert permanent["user_id"] not in caplog.text
+    assert exhausted["id"] not in caplog.text
+    assert exhausted["user_id"] not in caplog.text
 
 
 async def test_runner_cancels_handler_when_lease_is_lost():

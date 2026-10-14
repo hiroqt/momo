@@ -9,7 +9,7 @@ from app.workers.generation_worker import generation_worker
 
 
 @pytest.mark.asyncio
-async def test_end_to_end_generation_pipeline():
+async def test_end_to_end_generation_pipeline(caplog):
     user_id = "e2e-student-01"
     headers = {"Authorization": f"Bearer test-token-{user_id}"}
 
@@ -73,6 +73,9 @@ async def test_end_to_end_generation_pipeline():
             document_id=doc["id"],
             generation_spec=gen_req
         )
+        assert job_id not in caplog.text
+        assert "e2e-doc-123" not in caplog.text
+        assert "e2e-student-01" not in caplog.text
 
         # 5. Check generation status
         status_res = await ac.get(f"/api/generations/{job_id}", headers=headers)
@@ -82,6 +85,7 @@ async def test_end_to_end_generation_pipeline():
         assert status_data["progress"] == 100
         assert status_data["study_set_id"] is not None
         study_set_id = status_data["study_set_id"]
+        assert study_set_id not in caplog.text
 
         # 6. Fetch generated study set items
         items_res = await ac.get(f"/api/study-sets/{study_set_id}/items", headers=headers)

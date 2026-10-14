@@ -40,7 +40,7 @@ class DocumentWorker:
         partial chunk indexes are replaced, and a transient failure on a
         non-final attempt is raised for the durable queue to retry."""
         try:
-            logger.info(f"Starting document processing: {document_id}")
+            logger.info("Starting document processing")
             current = await documents_repo.get_by_id(document_id, user_id)
             if current and current.get("processing_status") in FINISHED_STATES:
                 return
@@ -74,7 +74,7 @@ class DocumentWorker:
             # 4. Status: CHUNKING
             await documents_repo.update_status(document_id, "CHUNKING", page_count=doc_content.total_pages)
             chunks = chunking_service.chunk_document(doc_content)
-            logger.info(f"Document {document_id} chunked into {len(chunks)} chunks")
+            logger.info("Document chunked into %d chunks", len(chunks))
 
             # 5. Status: EMBEDDING
             await documents_repo.update_status(document_id, "EMBEDDING")
@@ -92,14 +92,14 @@ class DocumentWorker:
             await chunks_repo.publish_index(
                 document_id, user_id, chunks, doc_content.total_pages, topics
             )
-            logger.info(f"Document {document_id} successfully processed and indexed with {len(topics)} suggested topics.")
+            logger.info("Document successfully processed and indexed with %d suggested topics", len(topics))
 
         except Exception as exc:  # noqa: BLE001 - persist a safe terminal failure for any pipeline stage
             if not final_attempt and isinstance(exc, TRANSIENT_FAILURES):
-                logger.warning("Document processing interrupted for %s (%s); retry scheduled",
-                               document_id, type(exc).__name__)
+                logger.warning("Document processing interrupted (%s); retry scheduled",
+                               type(exc).__name__)
                 raise TransientJobError("Document processing will be retried") from None
-            logger.error("Document processing failed for %s", document_id)
+            logger.error("Document processing failed")
             latest = await documents_repo.get_by_id(document_id, user_id)
             # A duplicate/late attempt never downgrades a finished document
             # (also enforced by the migration 006 trigger).

@@ -1,6 +1,6 @@
 # Momo backend readiness — October 14, 2026
 
-**Status: not ready for public launch.** This pass completed local backend hardening and deployment preparation, then applied and inspected the ordered schema on the user-selected `momo-staging` Supabase project, including migration 019 for an additive 2048-dimensional embedding index. It did not deploy the API or worker, run real Google sign-in, upload hosted bytes, call an AI provider, query production data, or run hosted load tests.
+**Status: not ready for public launch.** This pass completed local backend hardening and deployment preparation, then applied and inspected the ordered schema on the user-selected `momo-staging` Supabase project, including migration 019 for an additive 2048-dimensional embedding index. It did not deploy the API or worker, run real Google sign-in, upload hosted bytes, call OpenRouter/Nemotron/OCR, query production data, or run hosted load tests. After approval, one bounded two-item synthetic request exercised the runtime Jev verifier client; no user or document content was sent.
 
 ## Decisions and boundaries
 
@@ -13,7 +13,7 @@
 
 | Task/module | Delivered | Still open |
 | --- | --- | --- |
-| AI-02 grounding | Short flashcard/QA/glossary answers now require same-sentence lexical support and explicit newline-labeled Q&A remains supported. Focused grounding/source-safety/format suites: 198 passed. | This is a limited lexical guard. Review reproduced same-sentence relation false accepts and the existing MCQ/identification compatibility path remains; labeled TypeSafe evaluation is still required. |
+| AI-02 grounding | Deterministic same-sentence checks cover short answers and quiz items; managed generation/import paths then invoke the bounded, fail-closed Jev verifier. The approved runtime client smoke sent two synthetic candidates in one request and accepted only the directly supported answer. | The 0.8 gate remains uncalibrated: human-reviewed representative labels, managed Render key/provider journey, vendor processing/retention review and user disclosure remain open. Lexical prechecks can reject paraphrases; Jev quality evidence is synthetic only. |
 | AI-03 embeddings | User approved `nvidia/nemotron-3-embed-1b:free` at 2048 dimensions. Migration 019 adds nullable `embedding_v2`, version marker, and service-only v2 publish/reindex/finalize/search RPCs; old 1536 vectors and RPCs remain available. New API code uses v2. | Staging migration applied with no documents/chunks. No live provider or relevance/latency test. The v2 RPC uses exact scan without ANN; pgvector 0.8 supports ANN for halfvec up to 4000 dimensions, but conversion/indexing is pending a representative quality and latency decision. Before deploy to any populated project, preflight READY/unexpired v1 rows and reindex them; no production inventory or reindex was run. Rollback to old API after new v2 writes requires reindexing those new documents to an available v1-compatible model. |
 | DOC-02 / CI-01 OCR runtime | `.github/workflows/ci.yml` now builds the production backend image and runs `container_ocr_smoke.py` as non-root with networking disabled and a read-only filesystem/tmpfs. | Local Docker build and exact runtime smoke pass; Ruby YAML parsing passes. A clean remote Actions run still needs a push; this is runtime coverage, not representative OCR accuracy evidence. |
 | AUTH-01 backend identity | `backend/app/dependencies.py` validates the Supabase token signature, algorithm, pinned issuer/audience, expiry, role and UUID subject, then requires signed Google provider and OAuth method claims. Password, anonymous, non-Google and unsupported methods are rejected. | Google OAuth is reported configured, but an actual staging sign-in, refresh/revocation and native redirect journey were not run. Disabling a Google account after token issuance does not trigger an immediate per-request Google recheck; the chosen policy relies on Supabase JWT expiry/revocation. |
@@ -22,6 +22,7 @@
 | Database indexes | Migration 013 adds `chat_messages(user_id)`, `study_items(user_id)` and partial `internal.upload_tickets(auth_ref)` indexes for Auth deletion/retirement paths. Local unforced plans selected all three for 1,000-row owner lookups. | Local synthetic query plans establish index selection, not production capacity. Do not remove indexes from the empty staging advisor output. Migration 019 has no ANN index; measure tenant-filtered exact scans and retrieval quality before selecting halfvec/HNSW. |
 | RET-01 storage and retention | Migration 018 is applied to staging. User/account retirement defers path deletion until `signed_until + 15 minutes`, revokes prior cleanup leases, and retains a 15-minute tombstone retry. This is eventual cleanup for unique, non-reissued paths. A fresh SDK check found the latest published Python `storage3` 2.32.0 still exposes only path-string deletion; the repository remains pinned to 2.31.0. | Supabase gives no documented maximum for an upload already in flight at URL expiry; hosted purge timing is unverified. Ordinary 72-hour expiry remains fail-closed because neither inspected Python SDK version exposes generation-conditional delete. Legacy/unregistered inventory and scheduler capacity remain open. Generated sets remain independent of original-file deletion. |
 | AI-04 image provider configuration | Managed startup rejects blank/placeholder `OPENROUTER_IMAGE_MODEL`; request boundary rejects placeholder key/model before network. | No live provider contract/request or math-photo fallback verification. AI-04 remains partial. |
+| SEC-02 backend identifier logging | Selected chat, image, extraction, generation and durable-worker log messages no longer emit user/document/job/study-set IDs. Jev provider-returned model labels are omitted from logs. Sentinel caplog regressions cover guardrail blocks, image provider errors, document/generation/queue failures and page limits. | This is a source-level local slice; hosted log sinks and full backend log inventory are unverified. SEC-02 remains partial. |
 | WORK-02/API-01 jobs and replay | Durable job, generation/folder replay, bounded recovery and upload-ticket modules are locally covered by the complete backend suite; staging has migrations 006–012. | No hosted worker/API has run these contracts. Native process-death/restart, provider generation and managed storage journeys remain open. |
 | OPS-01 Render | `render.yaml` defines a Singapore API and separate worker, `/ready`, disabled auto-deploy, platform-injected secrets and bounded shutdown. The Docker image accepts Render `PORT`. | No service is deployed. Enter the real HTTPS CORS origin and secret values in Render; choose an instance size; qualify readiness, worker drain, monitoring, alerts, provider/model configuration and operating cost. |
 
@@ -522,3 +523,16 @@ package-node findings. The remaining actionable advisories are unpatched
 `braces` and `node-forge` in Expo build tooling; this targeted override does not
 make the dependency audit clean. Native builds/device journeys and signed store
 artifact scans remain unverified.
+
+## SEC-02 backend log identifier minimization
+
+Selected chat, image, extraction, generation and durable-worker log messages no
+longer emit user, document, job or study-set identifiers. The Jev provider's
+returned model label is not included in logs. Caplog regressions cover chat and
+image guardrail blocks, image provider failure, document and page-limit failure,
+generation completion and durable job failure. Focused suites passed 118 tests;
+the full loopback PostgreSQL/PostgREST suite passed 935 tests with zero skips or
+failures. Ruff (142 files), mypy (76 files), and `git diff --check` passed. An
+independent review found no remaining issue in this scoped change. This is local
+application evidence only; hosted log sinks and the wider backend log inventory
+remain unverified, so SEC-02 and public launch remain partial.

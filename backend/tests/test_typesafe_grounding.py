@@ -184,7 +184,7 @@ async def test_verifier_fails_closed_on_provider_error_and_malformed_answers(
 
 
 @pytest.mark.asyncio
-async def test_verifier_retries_only_one_transient_overload(monkeypatch):
+async def test_verifier_retries_once_and_does_not_log_provider_model(monkeypatch, caplog):
     monkeypatch.setattr(settings, "TYPESAFE_API_KEY", "test-only-key")
     calls = 0
 
@@ -196,7 +196,7 @@ async def test_verifier_retries_only_one_transient_overload(monkeypatch):
         return httpx.Response(
             200,
             json={
-                "model": "jev-test",
+                "model": "jev-test\nAuthorization: Bearer synthetic-label",
                 "answers": {"item_0": answer("supports", 0.91)},
                 "usage": {"input_tokens": 10, "output_tokens": 2},
             },
@@ -211,6 +211,7 @@ async def test_verifier_retries_only_one_transient_overload(monkeypatch):
     finally:
         await verifier.close()
     assert calls == 2
+    assert "synthetic-label" not in caplog.text
 
 
 @pytest.mark.asyncio

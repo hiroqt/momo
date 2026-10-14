@@ -151,9 +151,11 @@ returns `409 FOLDER_REQUEST_DELETED`. Keys are owner-scoped and client access to
 request tables is denied. Omitted colors resolve to the schema's `#4F46E5` default.
 No key retains existing duplicate-name compatibility. This does not activate
 idempotent replay: no-key requests are still priced, but retries can conflict on
-the existing normalized-name constraint. The PRD folder price is active; a
-credit-earning path remains undecided, so paid folders require an already-funded
-server wallet.
+the existing normalized-name constraint. The PRD folder price is active. By user
+approval, each newly accepted client-attested correct-answer sync event earns one
+credit when it belongs to an owned study item; this remains vulnerable to modified
+clients and requires the API deployment and hosted sync journey before hosted
+availability is verified.
 
 Apply migrations 008–011 before deploying this API revision. Both request mappings
 are internal forced-RLS tables and service-only RPCs. Local SQL/API concurrency and

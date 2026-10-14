@@ -211,7 +211,7 @@
       "fromSide": "bottom",
       "toNode": "2",
       "toSide": "right",
-      "label": "Staging 001–016; folder pricing RPC active; managed Auth open"
+      "label": "Staging 001–019; v2 embeddings; managed Auth open"
     },
     {
       "id": "completion-deploy",
@@ -235,7 +235,7 @@
       "fromSide": "right",
       "toNode": "0",
       "toSide": "right",
-      "label": "Folder price active; approve credit earning before paid folders"
+      "label": "Folder price + accepted correct-answer credit; modified clients can farm"
     }
   ]
 }

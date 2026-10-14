@@ -489,3 +489,17 @@ requests validate the signed Supabase JWT as previously selected by the user.
 suite: **188 passed**. These checks cover the local contract only; a real active
 Google account, Supabase refresh/revocation behavior, and native redirect journey
 still require the configured staging API and device.
+
+## SEC-02 targeted mobile uuid advisory mitigation
+
+The mobile dependency audit identified `uuid@7.0.3` through Expo Sharing's
+`xcode@3.0.1` dependency. Its caller uses only `uuid.v4()`; the advisory affects
+v3/v5/v6 methods when callers pass output buffers. A scoped npm override moves
+that dependency to `uuid@11.1.1` without changing the app's direct dependency
+surface. Clean `npm ci`, xcode-scoped CommonJS `v4()` resolution, Expo public
+config, Expo dependency check, 188 mobile tests, TypeScript lint, and Android+iOS
+bundle exports passed. `npm audit --omit=dev` now reports 19 high and 0 moderate
+package-node findings. The remaining actionable advisories are unpatched
+`braces` and `node-forge` in Expo build tooling; this targeted override does not
+make the dependency audit clean. Native builds/device journeys and signed store
+artifact scans remain unverified.

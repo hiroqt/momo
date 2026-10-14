@@ -29,4 +29,9 @@ review, and user disclosure remain open release gates. Lexical prechecks can
 reject valid paraphrases; keep AI-02 partial until the quality and privacy gates
 are addressed.
 
+For the requested human review, use [[Momo AI-02 Human Grounding Review]]. Its
+separate authored-label key is [[Momo AI-02 Human Grounding Review Answer Key]];
+keep it closed until labels are recorded. Preparing the sheet made no Jev/API
+request and does not calibrate the threshold.
+
 See [[Momo Backend Completion 2026-10-14]] and [[docs/backend-readiness-2026-10-14|dated verification]].

@@ -137,6 +137,42 @@ async def test_openrouter_image_provider_stops_stream_at_response_limit(monkeypa
     with pytest.raises(module.ImageProviderUnavailableError):
         await provider.generate(prompt="x", topic=None, context=None, requirements=None, aspect_ratio="1:1")
 
+
+@pytest.mark.asyncio
+async def test_openrouter_image_provider_failure_log_redacts_request_details(monkeypatch, caplog):
+    import app.services.ai.image_service as module
+
+    secret = "PRIVATE_IMAGE_REQUEST_SENTINEL"
+
+    class FailedResponse:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *_args):
+            return None
+
+        def raise_for_status(self):
+            raise module.httpx.ReadTimeout(secret)
+
+    class Client:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *_args):
+            return None
+
+        def stream(self, *_args, **_kwargs):
+            return FailedResponse()
+
+    monkeypatch.setattr(module.httpx, "AsyncClient", lambda **_kwargs: Client())
+    provider = module.OpenRouterImageProvider("private-token", "https://example.test", "test-model")
+    with caplog.at_level("WARNING", logger="app.services.ai.image_service"):
+        with pytest.raises(module.ImageProviderUnavailableError):
+            await provider.generate(prompt=secret, topic=None, context=None, requirements=None, aspect_ratio="1:1")
+    assert "ReadTimeout" in caplog.text
+    assert secret not in caplog.text
+    assert "private-token" not in caplog.text
+
 def test_topic_relevance_heart():
     spec = diagram_synthesizer.get_diagram_spec(topic="Human Heart", prompt="diagram of heart anatomy and blood flow")
     assert spec.category == "anatomy_system"

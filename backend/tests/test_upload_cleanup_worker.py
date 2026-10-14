@@ -52,7 +52,7 @@ async def test_orphan_expiry_uses_observed_upload_time_and_retains_tombstone(iss
     assert stored["lease_token"] is None and stored["next_check_at"]
 
 
-async def test_missing_upload_is_reprobed_but_storage_outage_is_not_absence(issued_ticket, monkeypatch):
+async def test_missing_upload_is_reprobed_but_storage_outage_is_not_absence(issued_ticket, monkeypatch, caplog):
     ticket, claim = issued_ticket
     stored = upload_ticket_repo._tickets[ticket["id"]]
     monkeypatch.setattr(upload_ticket_repo, "claim_cleanup", claim)
@@ -74,6 +74,8 @@ async def test_missing_upload_is_reprobed_but_storage_outage_is_not_absence(issu
     monkeypatch.setattr(module.storage_service, "get_object_metadata", outage)
     assert await module.cleanup_upload_tickets() == 0
     assert stored["lease_token"] is not None and not deletes
+    assert "Upload cleanup failed (StorageUnavailableError)" in caplog.text
+    assert "private detail" not in caplog.text
 
 
 async def test_failed_delete_keeps_outbox_retryable(issued_ticket, monkeypatch, caplog):

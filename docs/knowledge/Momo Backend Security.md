@@ -34,3 +34,13 @@ Request buffering is bounded per request, not a complete denial-of-service solut
 Latest local suite: 832 backend/API/PG/PostgREST gateway tests passed, zero skipped; Ruff 138 files and mypy 75 files passed. Staging schema/security checks and the exact scope limits are recorded in [[docs/backend-readiness-2026-10-14|October 14 report]]. No hosted application traffic or production capacity proof. No claim of absolute security.
 
 Upload retention uses durable tickets and preserves actual upload time/identity, but generation-safe Supabase physical deletion and legacy/unregistered inventory remain open. Read [[docs/UPLOAD_RETENTION_DESIGN|retention design]] and [[Momo Upload Retention]]. Public launch remains blocked on managed auth/API/storage/provider journeys and operations.
+
+## 2026-10-14 SEC-02 audit update
+
+- Provider/worker/storage source review and sentinel log tests now cover image-provider failures, document-processing failures, and upload-cleanup storage failures. These audited paths exclude request prompt, credential, content, signed URL, and raw provider/storage exception details from logs.
+- Some operational worker logs retain opaque document/job/study-set UUIDs for correlation; reviewed calls showed no user UUID, object key, filename, or content.
+- Backend dependency audit: zero known advisories after safe PyJWT/multidict updates. Web dependency audit: zero known advisories after compatible fixes.
+- Mobile dependency audit remains open: 31 advisories (19 high, 12 moderate) in the Expo/React Native graph. Forced remediation was not used because it proposes a breaking SDK/downgrade.
+- Expo dependency check, iOS/Android exports, web build and known-pattern scan of 106 built files passed. The pattern scan found no matches but does not prove arbitrary secrets absent.
+- SEC-02 is still a public-release blocker: hosted HTTPS/CORS, two-account isolation, object-retention/deletion, and mobile dependency remediation remain unverified/open. No hosted provider traffic was sent.
+- Evidence: `docs/backend-readiness-2026-10-14.md`, `docs/PRODUCTION_READINESS_CHECKLIST.md` SEC-02 rows.

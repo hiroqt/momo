@@ -31,6 +31,10 @@ dev = [
     "ruff==0.16.10",
 ]
 
+[tool.uv]
+# Keep the vulnerable transitive multidict line patched without crossing its next major.
+constraint-dependencies = ["multidict>=6.9.1,<7"]
+
 [tool.pytest.ini_options]
 pythonpath = ["."]
 asyncio_mode = "auto"

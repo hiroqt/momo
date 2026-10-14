@@ -192,3 +192,37 @@ and `git diff --check` passed. This completes only the local math-parser task.
 SEC-02 remains open for a full provider/worker log audit, release bundle and
 dependency scans, hosted HTTPS/CORS, and complete object-retention/deletion
 proof.
+
+## SEC-02 provider logs and release artifact follow-up
+
+Source review with parallel audits covered provider, document-worker, storage and
+upload-cleanup logging. Sentinel regression tests verify that request prompts,
+provider credentials and provider/storage exception details do not reach logs in
+the reviewed image-provider, processing-worker and cleanup-worker failures.
+Exception classes/statuses and sanitized or static messages remain available for
+operations. This bounded audit does not prove every runtime log sink has been
+reviewed. Some worker logs retain opaque document/job/study-set UUIDs for
+operational correlation; the reviewed calls contain no user UUID, object key,
+filename or document content.
+
+`uv audit --locked` reports no known backend dependency vulnerabilities after
+updating PyJWT and keeping multidict on patched 6.x. `npm audit
+--audit-level=high` reports no known web dependency vulnerabilities. Mobile still
+reports 31 advisories (19 high, 12 moderate). Forced npm fixes were not applied
+because the suggested path includes a breaking Expo SDK/downgrade. Expo package
+compatibility check, iOS and Android exports, web build, and the selected-pattern
+scan of 106 generated bundle files passed; the scan found no credential-shaped
+matches. `braces` and `node-forge` are among the affected transitive packages and
+their current advisories list no patched releases. This is not a signed store
+artifact or a universal secret detector.
+
+The full local backend/PostgreSQL/PostgREST suite passed **855 tests, zero
+skips/errors/failures**; `assert_no_skips.py` passed, Ruff checked 138 files,
+mypy checked 75 files, and `git diff --check` passed. SEC-02 remains a release
+blocker until the mobile dependency path is resolved and Render HTTPS/CORS,
+two-account isolation, and hosted retention/deletion are verified. No hosted
+provider traffic was sent.
+
+After the independent review strengthened the worker-log assertions, the final
+focused provider/worker/storage test run passed **45 tests**; Ruff, mypy and
+`git diff --check` passed again.

@@ -89,7 +89,7 @@ def test_storage_key_rejects_path_injection(local_storage):
         storage.build_object_key(owner, doc, "../pdf")
 
 
-async def test_worker_records_actual_sha256_and_hides_failures(local_storage, monkeypatch):
+async def test_worker_records_actual_sha256_and_hides_failures(local_storage, monkeypatch, caplog):
     import app.workers.document_worker as module
     from app.workers.document_worker import DocumentWorker
     owner, doc = str(uuid4()), str(uuid4())
@@ -107,3 +107,5 @@ async def test_worker_records_actual_sha256_and_hides_failures(local_storage, mo
     )
     repo.set_content_hash.assert_awaited_once_with(doc, owner, hashlib.sha256(payload).hexdigest())
     assert repo.update_status.call_args.kwargs["error"] == "The uploaded document could not be processed."
+    assert f"Document processing failed for {doc}" in caplog.text
+    assert "secret-provider-credentials" not in caplog.text

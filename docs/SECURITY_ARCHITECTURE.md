@@ -144,3 +144,11 @@ With standard RFC compliance headers:
 - `X-RateLimit-Limit: 20`
 - `X-RateLimit-Remaining: 0`
 - `X-RateLimit-Reset: <epoch>`
+
+## 4. October 14 release security audit (local evidence)
+
+Provider, worker and storage log paths were reviewed with parallel source audits. The reviewed paths use exception classes, HTTP status codes and sanitized/static error messages; regression tests inject sentinel prompts, credentials and provider/storage details and assert they do not appear in captured logs. Opaque document/job/study-set UUIDs remain in some worker logs for operational correlation; no user UUID, object key, filename or content was found in the audited paths. The audit covers the OpenRouter image provider, document worker, and upload-cleanup worker, plus earlier math, diagram and prompt-construction redactions. It is a bounded source review, not proof that every runtime log sink or deployment configuration has been inspected.
+
+Backend dependencies pass `uv audit --locked` after updating PyJWT and constraining the patched multidict 6.x line. Web dependencies pass `npm audit --audit-level=high` after compatible fixes. The Expo mobile lockfile still reports 31 advisories (19 high, 12 moderate); automated forced remediation proposes a breaking SDK/downgrade path and was not applied. Release preparation passed the Expo dependency check, iOS and Android exports, web build, and a known-pattern scan of 106 generated bundle files with no matches. That scan checks selected credential formats only and is not a general secret-proof.
+
+SEC-02 remains open pending a mobile dependency remediation decision, hosted HTTPS/CORS verification, two-account isolation, and hosted retention/deletion evidence. No hosted load or provider traffic was sent during this audit.

@@ -24,6 +24,7 @@ _BUSINESS_ERRORS: dict[str, str] = {
     "INSUFFICIENT_CREDITS": "You do not have enough credits for this.",
     "INSUFFICIENT_XP": "You do not have enough XP for this.",
     "IDEMPOTENCY_KEY_REUSED": "This request key was already used for a different action.",
+    "FOLDER_REQUEST_DELETED": "The folder from this request has been deleted.",
 }
 _ENTRY_KINDS = {"heart_loss", "heart_refill", "xp_reward", "credit_reward",
                 "xp_conversion", "cosmetic_purchase", "adjustment"}
@@ -167,7 +168,7 @@ class EconomyRepository:
 
     async def create_folder_with_charge(self, user_id: str, idempotency_key: str, name: str,
                                         color: str | None, *, policy: EconomyPolicy) -> dict[str, Any]:
-        """Atomically create a folder and charge its PRD price (pending route wiring)."""
+        """Atomically create a folder and charge its PRD price."""
         if supabase_session.is_configured and supabase_session.client:
             try:
                 resp = await supabase_session.execute(supabase_session.client.rpc("create_folder_with_charge", {
@@ -181,16 +182,30 @@ class EconomyRepository:
             return resp.data
         from app.db.repositories.folder_repo import folder_repo
         clean = name.strip()
-        if not idempotency_key.strip() or len(idempotency_key) > 160 or not 1 <= len(clean) <= 100:
+        if not idempotency_key.strip() or len(idempotency_key) > 128 or not 1 <= len(clean) <= 50:
             raise _invalid()
         fingerprint = _fingerprint({"kind": "folder_purchase", "name": clean.lower(), "color": color})
+        payload = {"name": clean, "color": color}
         async with self._lock:
             wallet = self._memory_wallet(user_id, policy)
+            prior = folder_repo._requests.get((user_id, idempotency_key))
+            if prior:
+                if prior[0] != payload:
+                    raise economy_error("IDEMPOTENCY_KEY_REUSED")
+                folder = await folder_repo.get_folder(prior[1], user_id)
+                if folder is None:
+                    raise economy_error("FOLDER_REQUEST_DELETED")
+                # Old free creates remain free when their queued request is replayed.
+                return {"replayed": True, "legacy_replay": True, "entry": None, "folder": folder,
+                        "wallet": self._wallet_view(user_id, wallet)}
             existing = self._ledger.get((user_id, idempotency_key))
             if existing:
                 if existing["request_fingerprint"] != fingerprint:
                     raise economy_error("IDEMPOTENCY_KEY_REUSED")
                 folder = folder_repo._folders.get(existing["folder_id"] or "")
+                if folder is None:
+                    raise economy_error("FOLDER_REQUEST_DELETED")
+                folder_repo._requests[(user_id, idempotency_key)] = (payload, folder["id"])
                 return {"replayed": True, "entry": existing, "folder": folder,
                         "wallet": self._wallet_view(user_id, wallet)}
             count = sum(1 for row in folder_repo._folders.values() if row.get("user_id") == user_id)
@@ -202,6 +217,7 @@ class EconomyRepository:
             wallet["version"] += 1
             entry = self._record(user_id, idempotency_key, "folder_purchase", 0, -cost, 0, wallet, None,
                                  folder["id"], fingerprint)
+            folder_repo._requests[(user_id, idempotency_key)] = (payload, folder["id"])
             return {"replayed": False, "entry": entry, "folder": folder, "wallet": self._wallet_view(user_id, wallet)}
 
     @staticmethod

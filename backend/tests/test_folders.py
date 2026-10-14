@@ -78,9 +78,10 @@ async def test_folders_api_endpoints():
         assert folder["name"] == "Medical School"
         folder_id = folder["id"]
 
-        # 4. Duplicate name fails with 400
+        # 4. Duplicate name fails without leaking persistence details
         dup_res = await ac.post("/api/folders", json={"name": "medical school"}, headers=headers)
-        assert dup_res.status_code == 400
+        assert dup_res.status_code == 409
+        assert dup_res.json()["error"]["code"] == "FOLDER_NAME_EXISTS"
 
         # 5. Assign study set to folder via PATCH /api/study-sets/{id}
         patch_ss = await ac.patch(f"/api/study-sets/{study_set_id}", json={"folder_id": folder_id}, headers=headers)
@@ -106,3 +107,37 @@ async def test_folders_api_endpoints():
         del_res = await ac.delete(f"/api/folders/{folder_id}", headers=headers)
         assert del_res.status_code == 200
         assert del_res.json()["deleted"] is True
+
+
+@pytest.mark.asyncio
+async def test_folder_api_uses_prd_price_and_replays_without_double_charge():
+    from uuid import uuid4
+
+    from httpx import ASGITransport, AsyncClient
+
+    from app.db.repositories.economy_repo import economy_repo
+    from app.domain.economy import PENDING_POLICY
+    from app.main import app
+
+    user_id = str(uuid4())
+    headers = {"Authorization": f"Bearer test-token-{user_id}"}
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        for ordinal in range(1, 4):
+            response = await ac.post("/api/folders", headers={**headers, "Idempotency-Key": f"free-{ordinal:02d}-key"},
+                                     json={"name": f"Free {ordinal}"})
+            assert response.status_code == 201
+        denied = await ac.post("/api/folders", headers={**headers, "Idempotency-Key": "paid-folder-key"},
+                               json={"name": "Paid folder"})
+        assert denied.status_code == 409
+        assert denied.json()["error"]["code"] == "INSUFFICIENT_CREDITS"
+
+        await economy_repo.apply_entry(user_id, "approved-test-credit", "credit_reward", policy=PENDING_POLICY,
+                                       credits_delta=50)
+        purchased = await ac.post("/api/folders", headers={**headers, "Idempotency-Key": "paid-folder-key"},
+                                  json={"name": "Paid folder"})
+        replay = await ac.post("/api/folders", headers={**headers, "Idempotency-Key": "paid-folder-key"},
+                               json={"name": "Paid folder"})
+    assert purchased.status_code == replay.status_code == 201
+    assert replay.json()["id"] == purchased.json()["id"]
+    assert economy_repo._wallets[user_id]["credits"] == 0
+    assert economy_repo._ledger[(user_id, "paid-folder-key")]["credits_delta"] == -50

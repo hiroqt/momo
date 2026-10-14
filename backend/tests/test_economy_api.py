@@ -191,7 +191,7 @@ async def test_folder_purchase_charges_prd_price_atomically_and_replays():
         results.append(await economy_repo.create_folder_with_charge(user, f"folder-key-{index}", f"F{index}", None, policy=policy))
     assert [-r["entry"]["credits_delta"] for r in results] == [0, 0, 0, 50, 75]
     assert results[-1]["wallet"]["credits"] == 0
-    replay = await economy_repo.create_folder_with_charge(user, "folder-key-4", "f4", None, policy=policy)
+    replay = await economy_repo.create_folder_with_charge(user, "folder-key-4", "F4", None, policy=policy)
     assert replay["replayed"] is True and replay["folder"]["id"] == results[-1]["folder"]["id"]
     with pytest.raises(Exception) as denied:
         await economy_repo.create_folder_with_charge(user, "folder-key-5", "F5", None, policy=policy)

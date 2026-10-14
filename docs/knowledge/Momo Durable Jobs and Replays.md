@@ -10,7 +10,7 @@ Parent: [[Momo Public Readiness]]. Related: [[Momo Database]], [[Momo Backend Se
 A key identifies one user action. Persist it before sending and reuse the same key/details after a timeout or lost response. A new intentional action needs a new key. The backend scopes each key to the cryptographically verified owner; it never accepts a client user ID as authority.
 
 - Generation create: one key produces one job. Replays return its actual status; changed settings conflict. Failed generations require the explicit retry endpoint. Existing completed jobs can be replayed after original source expiry; a fresh job requires READY/unexpired evidence.
-- Folder create: one key produces one folder. A rename does not change that identity. A deletion leaves a request tombstone so an old offline request cannot recreate the folder. Changed payloads conflict. Folder economy activation remains separately gated.
+- Folder create: one key produces one folder. A rename does not change that identity. A deletion leaves a request tombstone so an old offline request cannot recreate the folder. Changed payloads conflict. Migration 016 atomically charges the approved PRD price and records the replay; old queued free creates replay free. New wallets have zero credits, and paid folders need an approved earning source.
 - Calls without keys retain independent-create compatibility. The mobile generation flow now persists validated intent/key/receipt before send/navigation, restores unfinished work and acknowledges after an owned status GET. Native journey verification remains open. Folder mutation sync already sends its stable key.
 
 ## Bounded recovery
@@ -55,8 +55,8 @@ providers and native/deployed operation remain separate gates. Reproduce via
 
 ## October 14 backend completion
 
-The ordered schema through migrations 001–015 is applied to `momo-staging`.
-The full backend/API/database/gateway suite passes 819 tests with zero skips;
+The ordered schema through migrations 001–016 is applied to `momo-staging`.
+The latest full backend/API/database/gateway suite passes 832 tests with zero skips;
 the local Render image and mobile checks are recorded in the
 [[docs/backend-readiness-2026-10-14|October 14 report]]. Hosted API/worker
 execution, native process recovery, provider calls and real-account replay remain

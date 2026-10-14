@@ -76,7 +76,7 @@ yet; see Economy below for the reason.
 
 | PRD | Route | Mobile client | Status / compatibility |
 | --- | --- | --- | --- |
-| `GET/POST/GET{id}/PATCH/DELETE /api/folders` | same (`routes/folders.py`) | `listFolders`, `createFolder`, `updateFolder`, `deleteFolder` | CRUD aligned. `POST` honors the owner-scoped `Idempotency-Key` through `create_folder_request` and returns the saved folder on replay. **Gap:** folder creation is not charged through `create_folder_with_charge`; activating the pending economy policy is BLOCKED_INPUT (see the report). |
+| `GET/POST/GET{id}/PATCH/DELETE /api/folders` | same (`routes/folders.py`) | `listFolders`, `createFolder`, `updateFolder`, `deleteFolder` | CRUD aligned. `POST` atomically applies the PRD progressive price and records owner-scoped replay in `internal.folder_requests`; folders 1–3 are free, then 50, 75, +25 credits. Legacy queued requests replay without a second charge; changed requests/deleted tombstones remain conflicts. No-key calls retain independent-create behavior but use the same charge transaction. A wallet starts with 0 credits, and no earning path is approved, so users cannot create paid folders until a credit source is separately approved. Heart regeneration/refill remains pending. |
 
 ## 8.7-8.10
 
@@ -146,7 +146,10 @@ renames/counts. Changed details return409; deletion retains a tombstone and repl
 returns `409 FOLDER_REQUEST_DELETED`. Keys are owner-scoped and client access to
 request tables is denied. Omitted colors resolve to the schema's `#4F46E5` default.
 No key retains existing duplicate-name compatibility. This does not activate
-pending folder economics; ECON-01 decisions still govern that activation.
+idempotent replay: no-key requests are still priced, but retries can conflict on
+the existing normalized-name constraint. The PRD folder price is active; a
+credit-earning path remains undecided, so paid folders require an already-funded
+server wallet.
 
 Apply migrations 008–011 before deploying this API revision. Both request mappings
 are internal forced-RLS tables and service-only RPCs. Local SQL/API concurrency and

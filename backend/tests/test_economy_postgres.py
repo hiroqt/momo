@@ -187,6 +187,21 @@ def test_concurrent_folder_purchases_charge_true_ordinal_prices(database, users)
     # Duplicate names roll back the whole purchase.
     database(folder_sql(alice, "dup-name", name), success=False, role="service_role")
     assert wallet(database, alice)["folder_count"] == 6
+    assert database(f"SELECT count(*) FROM internal.folder_requests WHERE user_id='{alice}';") == "6"
+
+
+def test_preexisting_free_folder_request_replay_is_not_charged(database, users):
+    alice, _ = users
+    legacy_id = database(f"INSERT INTO folders(user_id,name) VALUES ('{alice}','Legacy free') RETURNING id;")
+    database(f"INSERT INTO internal.folder_requests(user_id,request_key,request_payload,folder_id) "
+             f"VALUES ('{alice}','legacy-folder-key', '{{\"name\": \"Legacy free\", \"color\": null}}'::jsonb, '{legacy_id}');")
+    replay = json.loads(database(folder_sql(alice, "legacy-folder-key", "Legacy free"), role="service_role"))
+    assert replay["legacy_replay"] is True and replay["folder"]["id"] == legacy_id
+    assert wallet(database, alice)["credits"] == 0
+    assert database(f"SELECT count(*) FROM economy_ledger WHERE user_id='{alice}' AND idempotency_key='legacy-folder-key';") == "0"
+    database(f"DELETE FROM folders WHERE id='{legacy_id}';")
+    database(folder_sql(alice, "legacy-folder-key", "Legacy free"), success=False, role="service_role")
+    assert database(f"SELECT count(*) FROM folders WHERE user_id='{alice}';") == "0"
 
 
 def test_account_deletion_removes_only_that_users_economy(database, users):

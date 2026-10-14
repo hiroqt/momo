@@ -23,7 +23,9 @@ Parent: [[Momo Public Readiness]]. Map: [[Momo Readiness Map.canvas]]. Full evid
 
 **Scanned PDF OCR (DOC-02, local):** the actual Tesseract/Poppler runtime processed two synthetic raster-only pages in the non-root, network-isolated backend image. Ordered page numbers, OCR flags and distinct text were verified. This is a runtime smoke, not a representative corpus or OCR accuracy claim.
 
-**Database (ENV-02):** staging migration ledger contains 001–015. All 20 `public` and `internal` application tables have forced RLS. Anonymous has no app-table reads, authenticated has no direct writes, and internal tables have no client grants. The private `documents` bucket has a 15 MiB cap and PDF/DOCX/TXT/PPTX allow-list. No app or queue rows were present. Migration 013 adds auth-deletion/retirement lookup indexes for chat messages, study items and upload tickets; local unforced plans selected them on synthetic data. Migration 015 adds the legacy retired-cleanup index; staging catalog verification found it, with zero legacy tickets to map.
+**Database (ENV-02):** staging migration ledger contains 001–016. All 20 `public` and `internal` application tables have forced RLS. Anonymous has no app-table reads, authenticated has no direct writes, and internal tables have no client grants. The private `documents` bucket has a 15 MiB cap and PDF/DOCX/TXT/PPTX allow-list. No app or queue rows were present. Migration 013 adds auth-deletion/retirement lookup indexes for chat messages, study items and upload tickets; local unforced plans selected them on synthetic data. Migration 015 adds the legacy retired-cleanup index; staging catalog verification found it, with zero legacy tickets to map.
+
+**Economy (ECON-01, folder purchase):** the user approved PRD 6.6 pricing: folders 1–3 are free, followed by 50, 75, then +25 credits per folder. `POST /api/folders` now calls the existing atomic charge RPC. Migration 016 stores charged creates in the durable owner-scoped replay table and preserves pre-migration queued free requests on replay. The old RPC name delegates through the same charge path for API rollout compatibility. Local API, concurrent PostgreSQL, and legacy replay checks pass; migration `20261014001721` is applied to staging and the function/RLS grants are catalog-verified. No staging rows were created, and no API is deployed. Wallets start with zero credits; no credit-earning path is approved, so paid folder creation remains unavailable until a source is decided. Heart regeneration/refill stays pending.
 
 **Jobs/storage (WORK-02, RET-01):** durable jobs, request replay, bounded recovery and upload tickets are applied in staging and tested locally. Supabase automatic object deletion is still fail-closed because path removal is not tied to an object generation. Legacy/unregistered object inventory and physical 72-hour deletion proof remain release blockers.
 
@@ -31,7 +33,7 @@ Parent: [[Momo Public Readiness]]. Map: [[Momo Readiness Map.canvas]]. Full evid
 
 ## Verification
 
-- Backend/API/database/gateway: 830 passed, zero skipped/errors/failures; Ruff 138 files and mypy 75 files passed; no-skip checker passed. The run used disposable loopback PostgreSQL and PostgREST and reported 34 existing Starlette 422 deprecation warnings.
+- Latest after ECON-01: backend/API/database/gateway **832 passed, zero skipped/errors/failures**; Ruff 138 files and mypy 75 files passed; no-skip checker passed. The run used disposable loopback PostgreSQL and PostgREST and reported 34 existing Starlette 422 deprecation warnings.
 - Mobile lint passed and 182 tests passed. Canvas JSON and `git diff --check` passed.
 - Non-root container passed network-isolated Supabase SDK fail-closed and scanned-PDF OCR checks; `/health` and `/ready` returned 200 through Render-style `PORT`.
 - Staging Postgres 17 is active. The security advisor reports five INFO no-policy findings on private internal tables with no client grants. The performance advisor reports 14 composite-FK notices; catalog inspection found each child table has a valid leading-column index for parent lookups. Its 44 unused-index notices come from the fresh empty workload; indexes were not dropped.
@@ -43,6 +45,6 @@ Parent: [[Momo Public Readiness]]. Map: [[Momo Readiness Map.canvas]]. Full evid
 2. Exercise staging Google login and a bounded two-user API → signed private upload → worker → study-set journey; verify ownership, invalid/expired JWT denial and cleanup.
 3. Resolve generation-safe Supabase object deletion and inventory legacy/unregistered objects; prove physical deletion at actual upload time + 72 hours.
 4. Verify real Nemotron/embedding configuration, source-only grounded output, safe provider failures and advertised formats.
-5. Verify managed Auth profile sync and deletion cleanup after staging migrations 014/015. Finish native Android/iOS and offline/reconnect journeys, recovery/rollback, remote CI, economy policy, release QA, privacy/support/store setup and launch approval.
+5. Verify managed Auth profile sync and deletion cleanup after staging migrations 014–016. Approve a credit earning path before paid folders are needed; keep heart regen/refill, XP and other reward values pending. Finish native Android/iOS and offline/reconnect journeys, recovery/rollback, remote CI, release QA, privacy/support/store setup and launch approval.
 
 No production capacity, physical deletion, hosted OAuth, AI quality or public launch claim follows from these local and metadata-only checks.

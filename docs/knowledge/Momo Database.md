@@ -22,8 +22,11 @@ Parent: [[Momo Public Readiness]]. Related: [[Momo Authentication]], [[Momo Depl
 | 011 | Atomic explicit retry authorization and queue reset |
 | 012 | Durable upload tickets, actual-upload registration clock and cleanup outbox |
 | 013 | Auth-deletion and ticket-retirement lookup indexes |
+| 014 | Google-only Auth profile synchronization and backfill |
+| 015 | Verified legacy storage destination and cleanup lookup |
+| 016 | Atomic progressive folder charges integrated with durable request replay |
 
-Migrations 001–004 were already recorded in `momo-staging`; user-authorized migrations 005–013 are now applied there. Staging is schema/catalog evidence only: no API or worker was deployed. Migration 008 DDL was catalog-verified after a generated ledger timestamp collision, then its name was recorded with a no-op reconciliation to avoid replaying DDL. Before a future production rollout, review migration002 existing-data validation, source-to-ledger parity, backup/restore and the worker drain window; never delete/reassign inconsistent rows to force success.
+Migrations 001–004 were already recorded in `momo-staging`; user-authorized migrations 005–016 are now applied there. Staging is schema/catalog evidence only: no API or worker was deployed. Migration 008 DDL was catalog-verified after a generated ledger timestamp collision, then its name was recorded with a no-op reconciliation to avoid replaying DDL. Migration 016 (`20261014001721`) was applied after a full local zero-skip PostgreSQL/PostgREST run; catalog checks confirmed both folder RPCs have fixed search paths, service-role-only execution, and `internal.folder_requests` remains forced-RLS with no client SELECT. It preserves already queued free creates and atomically logs the new purchase and durable replay mapping. Before a future production rollout, review migration002 existing-data validation, source-to-ledger parity, backup/restore and the worker drain window; never delete/reassign inconsistent rows to force success.
 
 `publish_document_index` locks the owned document, validates chunks, and atomically replaces the index and marks READY. An invalid chunk rolls back the entire replacement. Duplicate publications keep the first READY index; expired sources cannot publish. Only the service role can call the function. Every application-facing call derives the owner from verified auth. RLS is an additional layer; service-role bypass means repository owner checks remain mandatory.
 

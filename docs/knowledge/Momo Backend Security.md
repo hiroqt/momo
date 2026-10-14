@@ -25,6 +25,6 @@ Request buffering is bounded per request, not a complete denial-of-service solut
 
 ## Verification
 
-Latest local suite: 830 backend/API/PG/PostgREST gateway tests passed, zero skipped; Ruff 138 files and mypy 75 files passed. Staging schema/security checks and the exact scope limits are recorded in [[docs/backend-readiness-2026-10-14|October 14 report]]. No hosted application traffic or production capacity proof. No claim of absolute security.
+Latest local suite: 832 backend/API/PG/PostgREST gateway tests passed, zero skipped; Ruff 138 files and mypy 75 files passed. Staging schema/security checks and the exact scope limits are recorded in [[docs/backend-readiness-2026-10-14|October 14 report]]. No hosted application traffic or production capacity proof. No claim of absolute security.
 
 Upload retention uses durable tickets and preserves actual upload time/identity, but generation-safe Supabase physical deletion and legacy/unregistered inventory remain open. Read [[docs/UPLOAD_RETENTION_DESIGN|retention design]] and [[Momo Upload Retention]]. Public launch remains blocked on managed auth/API/storage/provider journeys and operations.

@@ -1,8 +1,13 @@
 
+import uuid
+
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
 
+from app.api.routes.economy import get_economy_policy
+from app.db.repositories.economy_repo import economy_repo
 from app.db.repositories.folder_repo import folder_repo
 from app.dependencies import AuthenticatedUser, get_current_user
+from app.domain.economy import EconomyPolicy
 from app.schemas.folder import FolderCreateRequest, FolderResponse, FolderUpdateRequest
 
 router = APIRouter(prefix="/api/folders", tags=["Folders"])
@@ -15,6 +20,7 @@ async def list_folders(user: AuthenticatedUser = Depends(get_current_user), limi
 async def create_folder(
     req: FolderCreateRequest,
     user: AuthenticatedUser = Depends(get_current_user),
+    policy: EconomyPolicy = Depends(get_economy_policy),
     idempotency_key: str | None = Header(default=None, alias="Idempotency-Key", min_length=1, max_length=128, pattern=r"^[A-Za-z0-9._:-]+$")
 ):
     cleaned_name = req.name.strip()
@@ -24,25 +30,15 @@ async def create_folder(
             detail={"code": "INVALID_NAME", "message": "Folder name cannot be empty."}
         )
 
-    if idempotency_key is not None:
-        return await folder_repo.create_request(user.id, idempotency_key, cleaned_name, req.color)
-
-    # Check for duplicate folder name
-    existing_folders = await folder_repo.list_folders(user.id)
-    for f in existing_folders:
-        if f["name"].lower() == cleaned_name.lower():
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail={"code": "FOLDER_NAME_EXISTS", "message": "A folder with this name already exists."}
-            )
-
-    folder_data = {
-        "user_id": user.id,
-        "name": cleaned_name,
-        "color": req.color,
-    }
-    created = await folder_repo.create_folder(folder_data)
-    return created
+    # Preserve old no-key behavior while ensuring every create uses the same priced transaction.
+    request_key = idempotency_key or str(uuid.uuid4())
+    result = await economy_repo.create_folder_with_charge(
+        user.id, request_key, cleaned_name, req.color, policy=policy)
+    folder = result["folder"]
+    if folder is None:  # Defensive: the repository maps deleted replays to a conflict.
+        raise HTTPException(409, detail={"code": "FOLDER_REQUEST_DELETED",
+                                         "message": "The folder from this request has been deleted."})
+    return {**folder, "reviewer_count": folder.get("reviewer_count", 0)}
 
 @router.get("/{folder_id}", response_model=FolderResponse)
 async def get_folder(

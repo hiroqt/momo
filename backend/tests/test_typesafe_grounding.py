@@ -82,6 +82,70 @@ async def test_verifier_batches_minimal_item_and_exact_evidence_and_filters_unce
 
 
 @pytest.mark.asyncio
+async def test_semantic_verifier_rejects_unstated_quiz_qualifier(monkeypatch):
+    monkeypatch.setattr(settings, "TYPESAFE_API_KEY", "test-only-key")
+    captured = []
+    unsupported = {
+        "type": "multiple_choice",
+        "question": "Which enzyme breaks down starch in saliva?",
+        "answer": "Amylase",
+        "options": ["Amylase", "Lipase", "Pepsin", "Lactase"],
+        "source_metadata": {"chunk_id": "quiz-0"},
+    }
+    unsupported_relation = {
+        "type": "identification",
+        "question": "Which enzyme catalyzes oxidation?",
+        "answer": "ATP",
+        "source_metadata": {"chunk_id": "quiz-1"},
+    }
+    supported = {
+        "type": "identification",
+        "question": "What synthesizes proteins?",
+        "answer": "Ribosomes",
+        "source_metadata": {"chunk_id": "quiz-2"},
+    }
+
+    def respond(request: httpx.Request) -> httpx.Response:
+        captured.append(json.loads(request.content))
+        return httpx.Response(
+            200,
+            json={
+                "model": "jev-test",
+                "answers": {
+                    "item_0": answer("says_nothing", 0.95),
+                    "item_1": answer("says_nothing", 0.95),
+                    "item_2": answer("supports", 0.95),
+                },
+                "usage": {"input_tokens": 40, "output_tokens": 8},
+            },
+        )
+
+    verifier = TypeSafeGroundingVerifier()
+    verifier._client = httpx.AsyncClient(transport=httpx.MockTransport(respond))
+    try:
+        valid = await verifier.verify(
+            [unsupported, unsupported_relation, supported],
+            {
+                "quiz-0": "Amylase breaks down starch.",
+                "quiz-1": "ATP catalyzes oxidation.",
+                "quiz-2": "Ribosomes synthesize proteins.",
+            },
+        )
+    finally:
+        await verifier.close()
+
+    assert valid == [supported]
+    assert len(captured) == 1
+    request_item = captured[0]["questions"]["item_0"]["instructions"]
+    assert request_item["candidate"]["question"] == unsupported["question"]
+    assert request_item["candidate"]["options"] == unsupported["options"]
+    assert request_item["evidence"] == "Amylase breaks down starch."
+    relation_item = captured[0]["questions"]["item_1"]["instructions"]
+    assert relation_item["candidate"]["question"] == unsupported_relation["question"]
+    assert relation_item["evidence"] == "ATP catalyzes oxidation."
+
+
+@pytest.mark.asyncio
 async def test_verifier_fails_closed_on_provider_error_and_malformed_answers(
     monkeypatch,
 ):

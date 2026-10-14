@@ -2,7 +2,7 @@
 
 Support checks are conservative lexical heuristics: an item is kept only when its
     answer (and explanation, if any) is covered by the exact owned chunk it cites.
-    Short flashcard/QA answers must share a sentence with question terms and match
+    Short factual answers must share a sentence with question terms and match
     negation polarity. These heuristics reduce unsupported content but do not prove
     semantic truth; thresholds remain provisional until labeled evaluation (AI-02).
     Uncertain items are rejected where the lexical checks can detect uncertainty.
@@ -54,6 +54,8 @@ _TF_PREFIX = re.compile(r"^\s*true\s+or\s+false\s*[:\-–]?\s*", re.IGNORECASE)
 def _stem(token: str) -> str:
     if len(token) > 4 and token.endswith("ies"):
         return token[:-3] + "y"
+    if len(token) > 4 and token.endswith("zes"):
+        return token[:-1]
     if len(token) > 4 and token.endswith("es") and not token.endswith("ses"):
         return token[:-2]
     if len(token) > 3 and token.endswith("s") and not token.endswith("ss"):
@@ -99,6 +101,7 @@ class StudyItemCandidate(BaseModel):
 class GroundingValidator:
     # Provisional thresholds; evaluate on labeled fixtures before relaxing (AI-02).
     SHORT_CLAIM_TERMS = 3
+    QUIZ_QUESTION_MIN_COVERAGE = 1.0
     ANSWER_MIN_COVERAGE = 0.75
     EXPLANATION_MIN_COVERAGE = 0.5
     MCQ_OPTION_COUNT = 4
@@ -181,18 +184,25 @@ class GroundingValidator:
             if not answer_terms:
                 return False
             if len(answer_terms) <= self.SHORT_CLAIM_TERMS and item.type in {
-                "flashcard", "qa", "qa_study_sheet", "glossary",
+                "flashcard", "multiple_choice", "identification", "qa", "qa_study_sheet", "glossary",
             }:
                 # shortcut: lexical overlap cannot prove the predicate; upgrade after labeled AI-02 calibration.
                 if not answer_terms <= evidence_terms:
                     return False
                 question_terms = content_terms(question) - answer_terms
+                if item.type in {"multiple_choice", "identification"}:
+                    question_terms &= evidence_terms
                 supporting_sentences = [
                     sentence
                     for sentence in sentences
                     if answer_terms <= content_terms(sentence)
                     and question_terms
-                    and len(question_terms & content_terms(sentence)) / len(question_terms) >= 0.5
+                    and (
+                        len(question_terms & content_terms(sentence)) / len(question_terms)
+                        >= self.QUIZ_QUESTION_MIN_COVERAGE
+                        if item.type in {"multiple_choice", "identification"}
+                        else len(question_terms & content_terms(sentence)) / len(question_terms) >= 0.5
+                    )
                 ]
                 if not supporting_sentences:
                     return False

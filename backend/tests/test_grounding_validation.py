@@ -188,6 +188,94 @@ def test_short_answer_supported_in_same_evidence_sentence_is_kept():
 
 
 @pytest.mark.parametrize(
+    "item_type,answer,accepted",
+    [
+        ("multiple_choice", "Mitochondria", False),
+        ("multiple_choice", "Ribosomes", True),
+        ("identification", "Mitochondria", False),
+        ("identification", "Ribosomes", True),
+    ],
+)
+def test_short_quiz_answers_require_question_relation_in_same_sentence(
+    item_type, answer, accepted
+):
+    evidence = "Ribosomes synthesize proteins. Mitochondria generate ATP."
+    source = {**SOURCE, "snippet": evidence}
+    candidate = {
+        **item("Which organelle synthesizes proteins?", answer, item_type),
+        "source_metadata": source,
+    }
+    if item_type == "multiple_choice":
+        candidate["options"] = ["Ribosomes", "Mitochondria", "Golgi apparatus", "Nucleus"]
+    result = grounding_validator.validate_and_deduplicate(
+        [candidate], 1, trusted_sources=[source], evidence={"chunk-1": evidence}
+    )
+    assert bool(result) is accepted
+
+
+@pytest.mark.parametrize("item_type", ["multiple_choice", "identification"])
+def test_short_quiz_answer_cannot_match_only_a_different_question_relation(item_type):
+    evidence = "ATP catalyzes cellular reactions. Oxidation involves electron loss."
+    source = {**SOURCE, "snippet": evidence}
+    candidate = {
+        **item("What enzyme catalyzes oxidation?", "ATP", item_type),
+        "source_metadata": source,
+    }
+    if item_type == "multiple_choice":
+        candidate["options"] = ["ATP", "NADH", "Water", "Glucose"]
+    result = grounding_validator.validate_and_deduplicate(
+        [candidate], 1, trusted_sources=[source], evidence={"chunk-1": evidence}
+    )
+    assert result == []
+
+
+@pytest.mark.parametrize("item_type", ["multiple_choice", "identification"])
+def test_short_quiz_question_verb_inflection_keeps_relation_check(item_type):
+    evidence = "Mitochondria transport proteins. Ribosomes synthesize proteins."
+    source = {**SOURCE, "snippet": evidence}
+    candidate = {
+        **item("Which organelle synthesizes proteins?", "Mitochondria", item_type),
+        "source_metadata": source,
+    }
+    if item_type == "multiple_choice":
+        candidate["options"] = ["Mitochondria", "Ribosomes", "Golgi apparatus", "Nucleus"]
+    result = grounding_validator.validate_and_deduplicate(
+        [candidate], 1, trusted_sources=[source], evidence={"chunk-1": evidence}
+    )
+    assert result == []
+
+
+@pytest.mark.parametrize(
+    "question,answer,evidence",
+    [
+        (
+            "What molecule carries oxygen in the blood?",
+            "Hemoglobin",
+            "Hemoglobin carries oxygen. Red blood cells transport gas in the blood.",
+        ),
+        (
+            "Which enzyme breaks down starch in saliva?",
+            "Amylase",
+            "Amylase breaks down starch. Saliva is mostly water.",
+        ),
+    ],
+)
+@pytest.mark.parametrize("item_type", ["multiple_choice", "identification"])
+def test_short_quiz_answer_rejects_unsupported_context_relation(item_type, question, answer, evidence):
+    source = {**SOURCE, "snippet": evidence}
+    candidate = {
+        **item(question, answer, item_type),
+        "source_metadata": source,
+    }
+    if item_type == "multiple_choice":
+        candidate["options"] = [answer, "NADH", "Water", "Glucose"]
+    result = grounding_validator.validate_and_deduplicate(
+        [candidate], 1, trusted_sources=[source], evidence={"chunk-1": evidence}
+    )
+    assert result == []
+
+
+@pytest.mark.parametrize(
     "question,answer,evidence,accepted",
     [
         (

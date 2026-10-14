@@ -474,6 +474,25 @@ skips/errors/failures**; no-skip, Ruff (142 files), mypy (76 files), and
 `git diff --check` passed. Independent product-contract review found no issue.
 Native two-device and hosted import journeys remain unverified.
 
+## AI-02 short quiz relation guard
+
+The deterministic grounding validator now applies the short-answer relation
+check to multiple-choice and identification items. For those formats, every
+question term found in the exact cited chunk must occur in the same evidence
+sentence as the answer; a narrow `-zes` normalization keeps forms such as
+“synthesizes” and “synthesize” aligned. Tests cover cross-sentence answers,
+missing source qualifiers, verb inflection, supported controls, and TypeSafe
+rejection judgments for role/qualifier claims.
+
+Focused grounding/source/format/verifier suites passed **231 tests**. The full
+loopback PostgreSQL/PostgREST suite passed **933 tests, zero skips/errors/
+failures**; the no-skip gate, Ruff (142 files), mypy (76 files), and
+`git diff --check` passed. Independent review found the deterministic screen
+still cannot establish semantic roles and can reject paraphrases. Production
+paths retain the approved TypeSafe semantic gate; its representative quality,
+live provider behavior, privacy disclosure, and human-reviewed calibration
+remain open release gates. No hosted provider call was made.
+
 ## AUTH-01 Google-only session verification
 
 Rechecked the backend trust boundary: only signature-verified Supabase JWTs with

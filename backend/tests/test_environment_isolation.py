@@ -59,6 +59,7 @@ def test_app_env_must_be_explicit_and_known(monkeypatch, app_env):
 def test_local_app_env_maps_to_development_mode():
     assert Settings(_env_file=None, APP_ENV="local").ENVIRONMENT == "development"
     assert Settings(_env_file=None, APP_ENV="test").ENVIRONMENT == "test"
+    assert Settings(_env_file=None, APP_ENV="local").CLEANUP_INTERVAL_SECONDS == 300
 
 
 @pytest.mark.parametrize("environment", ["production", "staging", "development"])

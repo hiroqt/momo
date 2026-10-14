@@ -35,7 +35,7 @@ Apply migrations001–012 in order only on an explicitly selected target. The in
 
 Existing registered records are backfilled as legacy tickets without fabricating their provider/bucket or claiming registration-derived time is actual object upload time. Unknown-origin legacy records are withheld from automatic cleanup and reported as unresolved. Pre-migration unregistered objects require an owned storage inventory; SQL cannot reconstruct them. Prepare a reviewed inventory/backfill and compatibility window, or require re-upload of old unticketed destinations. Never silently delete/reassign inconsistent tenant data or keep an indefinite registration bypass.
 
-A scheduler must run bounded cleanup and backlog reporting with capacity measured against volume. The worker currently schedules maintenance every900seconds; choose and verify the operational granularity before launch. Tombstones are intentionally retained; a finite garbage-collection horizon requires evidence of upload-completion bounds.
+The persistent worker runs bounded cleanup and backlog reporting at startup and then every `CLEANUP_INTERVAL_SECONDS` (default 300 seconds). Cleanup claims at most 100 tickets per pass. The Render Blueprint starts this runner; the standalone cleanup command is available for an external scheduler when one is deliberately selected. Local tests verify the runner repeats maintenance at its configured interval. Hosted worker execution, backlog capacity, alert delivery and observed deletion timing still require deployment evidence. Tombstones are intentionally retained; a finite garbage-collection horizon requires evidence of upload-completion bounds.
 
 ## Local evidence and remaining proof
 

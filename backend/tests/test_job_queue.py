@@ -201,6 +201,33 @@ async def test_serve_drains_in_flight_jobs_on_shutdown(monkeypatch):
     assert len(finished) == 2
 
 
+async def test_serve_repeats_maintenance_at_configured_interval(monkeypatch):
+    queue = JobQueue()
+    runner = make_runner(queue, {})
+    stop = asyncio.Event()
+    second_maintenance = asyncio.Event()
+    calls = 0
+    maintenance_times = []
+
+    async def maintain():
+        nonlocal calls
+        calls += 1
+        maintenance_times.append(asyncio.get_running_loop().time())
+        if calls == 2:
+            second_maintenance.set()
+            stop.set()
+
+    interval = 0.05
+    monkeypatch.setattr(runner_module.settings, "CLEANUP_INTERVAL_SECONDS", interval)
+    monkeypatch.setattr(runner_module.settings, "WORKER_POLL_SECONDS", 0.001)
+    monkeypatch.setattr(runner, "maintain", maintain)
+    await asyncio.wait_for(runner.serve(stop), timeout=1)
+
+    assert second_maintenance.is_set()
+    assert calls == 2
+    assert maintenance_times[1] - maintenance_times[0] >= interval * 0.8
+
+
 async def test_requeue_only_restarts_finished_jobs():
     queue = JobQueue()
     job = await queue.enqueue("study_generation", str(uuid4()), str(uuid4()))

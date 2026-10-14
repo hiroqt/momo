@@ -104,9 +104,14 @@ contract remains a possible future improvement for very large active libraries.
    storage and backup/access procedures. Service-role keys bypass RLS; server
    ownership filters and key isolation remain necessary. Demo clients must use
    real Supabase Google sessions for a hosted rollout; dummy tokens are rejected.
-4. Schedule `python -m app.workers.cleanup_worker` at least every five minutes and
-   monitor overdue expirations. Migration012 claims at most100 tickets per invocation,
-   fences sources before deletion and acknowledges physical removal afterward.
+4. The persistent `python -m app.workers.runner` process runs cleanup and backlog
+   reporting at startup and every `CLEANUP_INTERVAL_SECONDS` (default 300 seconds).
+   Each pass claims at most100 tickets. Monitor overdue expirations and configure
+   the hosting platform to keep this worker running. The standalone
+   `python -m app.workers.cleanup_worker` is a one-shot alternative for an
+   intentionally configured external scheduler, not an additional required
+   service. Migration012 fences sources before deletion and acknowledges physical
+   removal afterward.
    Generation-safe deletion, legacy inventory and capacity/timing must be qualified;
    S3 lifecycle/version policy is an additional backstop. Generated material is retained.
 5. Existing document/generation jobs and rate limiting are process-local. Durable

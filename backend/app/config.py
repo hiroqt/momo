@@ -80,7 +80,7 @@ class Settings(BaseSettings):
     WORKER_POLL_SECONDS: float = Field(default=2.0, ge=0.1, le=60)
     WORKER_DRAIN_SECONDS: int = Field(default=30, ge=1, le=600)
     JOB_RECOVERY_GRACE_SECONDS: int = Field(default=300, ge=30, le=86400)
-    CLEANUP_INTERVAL_SECONDS: int = Field(default=900, ge=60, le=86400)
+    CLEANUP_INTERVAL_SECONDS: int = Field(default=300, ge=60, le=86400)
     CLEANUP_OVERDUE_ALERT_SECONDS: int = Field(default=3600, ge=60, le=86400)
 
     # Environment (derived from APP_ENV; never configure independently)

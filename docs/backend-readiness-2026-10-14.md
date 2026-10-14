@@ -289,6 +289,24 @@ The built local server returned all five configured headers on HTTP 200. This
 does not verify the deployed HTTPS endpoint. No hosted traffic or secret values
 were used.
 
+## RET-01 local scheduler cadence
+
+The persistent worker runs maintenance immediately after startup, then waits
+`CLEANUP_INTERVAL_SECONDS` before the next pass. The default is now 300 seconds,
+and each cleanup pass remains bounded to 100 tickets. The Render Blueprint
+starts `python -m app.workers.runner`; the standalone cleanup command is a
+one-shot option for an intentionally selected external scheduler. A local
+worker-loop regression verifies maintenance runs again on the configured
+interval. The worker-loop, cleanup-worker and environment/configuration suites
+passed **127 tests**. Ruff checked 138 files, mypy checked 75, and
+`git diff --check` passed.
+
+This verifies configuration and loop behavior only. The hosted worker has not
+been deployed, cleanup throughput has not been measured against production
+volume, alert delivery has not been wired or observed, and physical provider
+deletion timing remains unverified. Ordinary 72-hour Supabase deletion stays
+fail-closed pending generation-safe provider support.
+
 ## AI-02 A2-1 generated hint grounding follow-up
 
 Generated study hints now pass the same cited-chunk support and polarity check

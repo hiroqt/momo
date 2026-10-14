@@ -140,6 +140,8 @@ class Settings(BaseSettings):
             for name in ("SUPABASE_ANON_KEY", "SUPABASE_SERVICE_ROLE_KEY", "OPENROUTER_API_KEY"):
                 if is_placeholder(getattr(self, name)):
                     raise ValueError(f"{name} must be supplied by server secret configuration")
+            if is_placeholder(self.OPENROUTER_IMAGE_MODEL):
+                raise ValueError("OPENROUTER_IMAGE_MODEL must be supplied by server configuration")
             if self.SUPABASE_JWT_SECRET and is_placeholder(self.SUPABASE_JWT_SECRET):
                 raise ValueError("Remove placeholder JWT secret; managed asymmetric tokens use JWKS")
             if self.EMBEDDING_PROVIDER != "openrouter":

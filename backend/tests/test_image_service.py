@@ -36,6 +36,23 @@ def test_educational_prompt_formatting():
     assert "white background" in formatted
 
 
+@pytest.mark.asyncio
+@pytest.mark.parametrize("api_key,model", [
+    ("", "valid/model"), ("   ", "valid/model"), ("mock-key", "valid/model"),
+    ("your-api-key", "valid/model"), ("valid-key", ""), ("valid-key", "placeholder-model"),
+])
+async def test_openrouter_image_provider_rejects_placeholder_config_without_network(monkeypatch, api_key, model):
+    import app.services.ai.image_service as module
+
+    def unexpected_request(**_kwargs):
+        raise AssertionError("provider must fail before opening a network client")
+
+    monkeypatch.setattr(module.httpx, "AsyncClient", unexpected_request)
+    provider = module.OpenRouterImageProvider(api_key, "https://example.test", model)
+    with pytest.raises(module.ImageProviderUnavailableError):
+        await provider.generate(prompt="x", topic=None, context=None, requirements=None, aspect_ratio="1:1")
+
+
 class StubGeneralImageProvider(ImageProvider):
     async def generate(self, **kwargs):
         return {

@@ -81,6 +81,7 @@ def test_conflicting_legacy_environment_is_rejected(environment):
     {"SUPABASE_URL": "http://127.0.0.1:54321"},
     {"SUPABASE_SERVICE_ROLE_KEY": "mock-server-key"}, {"SUPABASE_ANON_KEY": ""},
     {"OPENROUTER_API_KEY": "your-api-key"}, {"SUPABASE_JWT_SECRET": "mock-jwt-secret"},
+    {"OPENROUTER_IMAGE_MODEL": ""}, {"OPENROUTER_IMAGE_MODEL": "placeholder-model"},
     {"EMBEDDING_PROVIDER": "local"}, {"EMBEDDING_PROVIDER": "supabase"},
     {"CORS_ORIGINS": ["*"]}, {"CORS_ORIGINS": ["http://localhost:3000"]},
     {"CORS_ORIGINS": ["https://staging.example/path"]}, {"CORS_ORIGINS": []},
@@ -101,6 +102,7 @@ def test_staging_rejects_cross_environment_or_mock_configuration(overrides):
     {"EMBEDDING_PROVIDER": "local"}, {"OPENROUTER_API_KEY": "mock-openrouter-key"},
     {"SUPABASE_SERVICE_ROLE_KEY": "replace-me"}, {"SUPABASE_ANON_KEY": "placeholder"},
     {"SUPABASE_JWT_SECRET": "changeme"},
+    {"OPENROUTER_IMAGE_MODEL": "your-image-model"},
 ])
 def test_production_rejects_staging_dev_memory_mock_and_placeholders(overrides):
     with pytest.raises(ValidationError):

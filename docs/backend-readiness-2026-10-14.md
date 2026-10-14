@@ -18,6 +18,7 @@
 | ECON-01 economy | Folder charge/replay follows PRD pricing. Migration 017 adds +1 credit for each newly accepted client-attested correct event with an owned study item, in the same transaction. Sync returns server credits; mobile loads/reconciles the balance. | Staging schema only; no API deployed or hosted sync journey. Modified clients can fake correctness and farm credits under the approved MVP trust rule. Heart regeneration/refill and XP policy remain pending. |
 | Database indexes | Migration 013 adds `chat_messages(user_id)`, `study_items(user_id)` and partial `internal.upload_tickets(auth_ref)` indexes for Auth deletion/retirement paths. Local unforced plans selected all three for 1,000-row owner lookups. | Local synthetic query plans establish index selection, not production capacity. Do not remove indexes from the empty staging advisor output. |
 | RET-01 storage and retention | Durable upload-ticket lifecycle from migration 012 is now applied to staging; no app rows were present. Current JS reference documents exact-version removal, but the pinned Python SDK has no version argument and hosted bucket behavior is unverified. | Automatic physical expiry remains fail-closed. Legacy/unregistered object inventory and hosted 72-hour deletion proof are incomplete. Generated sets must remain independent of original-file deletion. |
+| AI-04 image provider configuration | Managed startup rejects blank/placeholder `OPENROUTER_IMAGE_MODEL`; request boundary rejects placeholder key/model before network. | No live provider contract/request or math-photo fallback verification. AI-04 remains partial. |
 | WORK-02/API-01 jobs and replay | Durable job, generation/folder replay, bounded recovery and upload-ticket modules are locally covered by the complete backend suite; staging has migrations 006–012. | No hosted worker/API has run these contracts. Native process-death/restart, provider generation and managed storage journeys remain open. |
 | OPS-01 Render | `render.yaml` defines a Singapore API and separate worker, `/ready`, disabled auto-deploy, platform-injected secrets and bounded shutdown. The Docker image accepts Render `PORT`. | No service is deployed. Enter the real HTTPS CORS origin and secret values in Render; choose an instance size; qualify readiness, worker drain, monitoring, alerts, provider/model configuration and operating cost. |
 
@@ -52,6 +53,16 @@ responses are streamed under a bounded encoded-body cap before JSON parsing.
 Focused validation: 63 image/API/request-body tests, Ruff on changed files,
 mypy across 75 source files, and `git diff --check` passed. No live provider or
 hosted image request was made.
+
+## AI-04 image provider configuration boundary
+
+Managed configuration now requires a non-placeholder image model, and the
+OpenRouter image provider uses the shared placeholder detector for both the key
+and model before opening a network client. The model selection was not changed.
+Focused environment/image tests passed (119); the full local loopback
+PostgreSQL/PostgREST suite passed 867 tests with zero skips/errors/failures.
+The no-skip gate, Ruff (138 files), mypy (75 files), and `git diff --check`
+passed. No provider request was made; math-photo fallback policy remains blocked.
 
 Final local regression after this change: the required PostgreSQL/PostgREST suite
 passed **837 tests with zero skips/errors/failures** in 65.78 seconds; the no-skip

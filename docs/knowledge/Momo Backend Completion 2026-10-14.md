@@ -21,7 +21,7 @@ Parent: [[Momo Public Readiness]]. Map: [[Momo Readiness Map.canvas]]. Full evid
 
 **Chat source expiry (CHAT-01, local):** `generate_study_card` now shares the READY-and-unexpired source filter used by deck tools, so expired/malformed-expiry documents stop before retrieval/embedding. Three parameterized regression cases passed; this closes the recorded A2-2 local gap, not the remaining provenance, native or hosted chat gates.
 
-
+**Image provider configuration (AI-04, local):** managed startup requires a non-placeholder `OPENROUTER_IMAGE_MODEL`; the request boundary rejects placeholder OpenRouter keys/models before network. The selected model was not changed. Focused tests (119) and the full loopback PostgreSQL/PostgREST suite (867, zero skips) pass; Ruff 138, mypy 75 and diff check pass. No live provider call was made; AI-04 remains partial for the math-photo fallback policy and provider contract.
 **Scanned PDF OCR (DOC-02, local):** the actual Tesseract/Poppler runtime processed two synthetic raster-only pages in the non-root, network-isolated backend image. Ordered page numbers, OCR flags and distinct text were verified. This is a runtime smoke, not a representative corpus or OCR accuracy claim.
 
 **Database (ENV-02):** staging migration ledger contains 001–017. All 20 `public` and `internal` application tables have forced RLS. Anonymous has no app-table reads, authenticated has no direct writes, and internal tables have no client grants. The private `documents` bucket has a 15 MiB cap and PDF/DOCX/TXT/PPTX allow-list. No app or queue rows were present. Migration 013 adds auth-deletion/retirement lookup indexes for chat messages, study items and upload tickets; local unforced plans selected them on synthetic data. Migration 015 adds the legacy retired-cleanup index; staging catalog verification found it, with zero legacy tickets to map.
@@ -37,6 +37,7 @@ Parent: [[Momo Public Readiness]]. Map: [[Momo Readiness Map.canvas]]. Full evid
 ## Verification
 
 - Latest after ECON-01: backend/API/database/gateway **839 passed, zero skipped/errors/failures**; Ruff 138 files and mypy 75 files passed; no-skip checker passed. The run used disposable loopback PostgreSQL and PostgREST and reported 34 existing Starlette 422 deprecation warnings.
+- Latest after AI-04 image configuration: backend/API/database/gateway **867 passed, zero skipped/errors/failures** in `/tmp/momo-ai04-image-config.xml`; no-skip checker passed. Ruff 138 files, mypy 75 files and diff check passed. The 34 existing Starlette 422 deprecation warnings remain.
 - Mobile lint passed and 186 tests passed. Canvas JSON and `git diff --check` passed.
 - Non-root container passed network-isolated Supabase SDK fail-closed and scanned-PDF OCR checks; `/health` and `/ready` returned 200 through Render-style `PORT`.
 - Staging Postgres 17 is active. The security advisor reports five INFO no-policy findings on private internal tables with no client grants. The performance advisor reports 14 composite-FK notices; catalog inspection found each child table has a valid leading-column index for parent lookups. Its 44 unused-index notices come from the fresh empty workload; indexes were not dropped.

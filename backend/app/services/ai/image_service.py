@@ -11,7 +11,7 @@ from typing import Any, Literal
 import httpx
 from PIL import Image, UnidentifiedImageError
 
-from app.config import settings
+from app.config import is_placeholder, settings
 from app.services.ai.diagram_renderer import diagram_renderer
 
 logger = logging.getLogger(__name__)
@@ -87,7 +87,7 @@ class OpenRouterImageProvider(ImageProvider):
         aspect_ratio: str,
     ) -> dict[str, Any]:
         del topic, context, requirements  # Already synthesized into the safe prompt by the service.
-        if not self.api_key or self.api_key == "mock-openrouter-key":
+        if is_placeholder(self.api_key) or is_placeholder(self.model):
             raise ImageProviderUnavailableError(
                 "General image generation is not configured on this environment."
             )

@@ -360,3 +360,23 @@ unregistered-object inventory and physical 72-hour deletion remain open.
 The deadline timestamp is recorded immediately before the provider signing call;
 the configured Storage client timeout is 15 seconds, below the 15-minute grace.
 This bounds but does not directly observe the token's exact issuance/expiry time.
+
+
+## AI-02 bounded synthetic Jev evaluation
+
+Added `backend/tests/fixtures/jev_grounding_eval.json` and the offline-by-default
+`backend/scripts/jev_grounding_eval.py`. The 18 authored synthetic examples cover
+supported answers, direct contradictions, unsupported claims, and one instruction
+injection embedded in source text. The evaluator builds questions through the
+production Jev request builder (same prompt and 128 KiB bound), applies the same
+`_supports` decision at the existing 0.8 gate, and sends at most ten cases per
+request. The approved live run used model `jev-1.13.0` in two calls (4,530 input,
+814 output tokens): 6 true positives, 0 false positives, 12 true negatives, 0
+false negatives; false-accept and false-reject rates were 0 on this synthetic
+fixture. This is a smoke only: labels are authored, the cases are short and clear,
+and the result does not establish representative or human-reviewed accuracy. The
+threshold remains unchanged and provisional. Focused evaluator/verifier tests: 9
+passed; Ruff 142 files, mypy 76 files, and `git diff --check` passed. The full
+899-test loopback integration suite belongs to the immediately preceding Jev runtime
+commit; the evaluator changed no application runtime code. No user material or
+database data was sent.

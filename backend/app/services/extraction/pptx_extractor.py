@@ -4,6 +4,7 @@ import logging
 
 from pptx import Presentation
 
+from app.config import settings
 from app.domain.documents.models import DocumentPage, ExtractedSection, ExtractedTable
 from app.services.extraction.archive_guard import validate_office_archive
 
@@ -18,6 +19,8 @@ class PPTXExtractor:
         except Exception as exc:  # noqa: BLE001 - untrusted archive parser boundary
             logger.warning("Office extraction failed (%s)", type(exc).__name__)
             raise ValueError("The PPTX could not be extracted") from None
+        if len(prs.slides) > settings.MAX_PAGE_COUNT:
+            raise ValueError("Document exceeds maximum page count")
 
         pages: list[DocumentPage] = []
 

@@ -210,6 +210,17 @@ PostgreSQL/PostgREST suite: **912 passed, zero skips/errors/failures**; no-skip
 gate, Ruff 142, mypy 76 and diff check passed. This is local contract evidence;
 mobile and hosted journeys remain open.
 
+## DOC-02 TXT/PPTX preflight bounds
+
+TXT rejects inputs that would create more than 50 2,500-character pseudo-pages
+before building the page list, while preserving empty-file behavior. PPTX checks
+the parsed slide count before traversing slide shapes. Tests cover the 50-page
+boundary and rejection at 51; the PPTX case asserts shape iteration never starts
+for over-limit input. Focused extraction/source-safety suites passed **74
+tests**. Full disposable PostgreSQL/PostgREST suite: **914 passed, zero
+skips/errors/failures**; no-skip gate, Ruff 142, mypy 76 and diff check passed.
+An independent review found no remaining issue.
+
 ## ECON-01 folder pricing follow-up
 
 The user approved PRD 6.6 folder pricing and asked that heart regeneration/refill

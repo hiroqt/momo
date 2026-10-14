@@ -1,4 +1,5 @@
 
+from app.config import settings
 from app.domain.documents.models import DocumentPage, ExtractedSection
 
 
@@ -14,6 +15,8 @@ class TXTExtractor:
 
         # Split roughly every 2500 characters into pseudo pages
         chunk_size = 2500
+        if (len(text) + chunk_size - 1) // chunk_size > settings.MAX_PAGE_COUNT:
+            raise ValueError("Document exceeds maximum page count")
         pages: list[DocumentPage] = []
         for i in range(0, len(text), chunk_size):
             page_text = text[i:i + chunk_size]

@@ -1,4 +1,6 @@
 import io
+from types import SimpleNamespace
+from unittest.mock import Mock
 
 import pytest
 
@@ -131,3 +133,46 @@ async def test_docx_table_text_counts_toward_page_limit_and_keeps_table_provenan
     over_limit = make_docx([(False, " ".join(["biology"] * 25_000))], ["extra"])
     with pytest.raises(ValueError, match="maximum page count"):
         await docx_extractor.extract(over_limit)
+
+
+async def test_txt_page_limit_checks_before_creating_page_objects(monkeypatch):
+    import app.services.extraction.txt_extractor as module
+
+    pages = await module.txt_extractor.extract(b"x" * (50 * 2500))
+    assert len(pages) == 50
+    page_constructor = Mock(side_effect=AssertionError("over-limit page was constructed"))
+    monkeypatch.setattr(module, "DocumentPage", page_constructor)
+    with pytest.raises(ValueError, match="maximum page count"):
+        await module.txt_extractor.extract(b"x" * (50 * 2500 + 1))
+    page_constructor.assert_not_called()
+
+
+def make_pptx(slide_count):
+    from pptx import Presentation
+
+    presentation = Presentation()
+    for _ in range(slide_count):
+        presentation.slides.add_slide(presentation.slide_layouts[6])
+    buffer = io.BytesIO()
+    presentation.save(buffer)
+    return buffer.getvalue()
+
+
+async def test_pptx_page_limit_checks_slide_count_before_shape_traversal(monkeypatch):
+    import app.services.extraction.pptx_extractor as module
+    from app.services.extraction.pptx_extractor import pptx_extractor
+
+    pages = await pptx_extractor.extract(make_pptx(50))
+    assert [page.page_number for page in pages] == list(range(1, 51))
+
+    class OverLimitSlides:
+        def __len__(self):
+            return 51
+
+        def __iter__(self):
+            raise AssertionError("over-limit slides were traversed")
+
+    valid_archive = make_pptx(1)
+    monkeypatch.setattr(module, "Presentation", lambda _: SimpleNamespace(slides=OverLimitSlides()))
+    with pytest.raises(ValueError, match="maximum page count"):
+        await pptx_extractor.extract(valid_archive)

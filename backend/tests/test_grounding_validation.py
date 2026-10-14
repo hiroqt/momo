@@ -161,6 +161,60 @@ def test_unsupported_or_contradicted_content_rejected(candidate):
     assert validate([candidate], 1) == []
 
 
+def test_short_answer_must_share_evidence_sentence_with_question_terms():
+    evidence = "Ribosomes synthesize proteins. Mitochondria produce ATP."
+    source = {**SOURCE, "snippet": evidence}
+    candidate = {
+        **item("What do ribosomes synthesize?", "mitochondria"),
+        "source_metadata": source,
+    }
+    result = grounding_validator.validate_and_deduplicate(
+        [candidate], 1, trusted_sources=[source], evidence={"chunk-1": evidence}
+    )
+    assert result == []
+
+
+def test_short_answer_supported_in_same_evidence_sentence_is_kept():
+    evidence = "Ribosomes synthesize proteins. Mitochondria produce ATP."
+    source = {**SOURCE, "snippet": evidence}
+    candidate = {
+        **item("What do ribosomes synthesize?", "proteins"),
+        "source_metadata": source,
+    }
+    result = grounding_validator.validate_and_deduplicate(
+        [candidate], 1, trusted_sources=[source], evidence={"chunk-1": evidence}
+    )
+    assert [row["answer"] for row in result] == ["proteins"]
+
+
+@pytest.mark.parametrize(
+    "question,answer,evidence,accepted",
+    [
+        (
+            "Which organelles make ATP?",
+            "Mitochondria",
+            "Mitochondria are organelles. The nucleus makes ATP.",
+            False,
+        ),
+        (
+            "What do ribosomes synthesize?",
+            "proteins",
+            "Question: What do ribosomes synthesize?\nAnswer: proteins.",
+            True,
+        ),
+    ],
+)
+def test_short_answer_question_relation_and_labeled_qa_newline(
+    question, answer, evidence, accepted
+):
+    source = {**SOURCE, "snippet": evidence}
+    candidate = {**item(question, answer), "source_metadata": source}
+    result = grounding_validator.validate_and_deduplicate(
+        [candidate], 1, trusted_sources=[source], evidence={"chunk-1": evidence}
+    )
+    assert bool(result) is accepted
+
+
 @pytest.mark.parametrize(
     "statement,answer,accepted",
     [

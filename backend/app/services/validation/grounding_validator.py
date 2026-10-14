@@ -1,10 +1,11 @@
 """Schema, provenance and deterministic evidence-support checks for study items.
 
 Support checks are conservative lexical heuristics: an item is kept only when its
-answer (and explanation, if any) is covered by the text of the exact owned chunk it
-cites, with matching negation polarity. They reduce fabricated or contradicted
-content but do not prove semantic truth; thresholds are provisional until a
-labeled evaluation corpus is measured (AI-02). Uncertain items are rejected.
+    answer (and explanation, if any) is covered by the exact owned chunk it cites.
+    Short flashcard/QA answers must share a sentence with question terms and match
+    negation polarity. These heuristics reduce unsupported content but do not prove
+    semantic truth; thresholds remain provisional until labeled evaluation (AI-02).
+    Uncertain items are rejected where the lexical checks can detect uncertainty.
 """
 
 import re
@@ -44,7 +45,8 @@ _STOPWORDS = frozenset(
     don doesn didn isn aren wasn weren won couldn shouldn wouldn hasn haven hadn""".split()
 )
 _NEGATION = re.compile(r"\b(?:not|no|never|none|cannot|neither|nor|without)\b|n['’]t\b", re.IGNORECASE)
-_SENTENCE = re.compile(r"(?<=[.!?;])\s+|\n+")
+# Keep explicitly labeled Q&A evidence with its preceding question.
+_SENTENCE = re.compile(r"(?<=[.!?;])\s+(?!answer\s*:)|\n+(?!answer\s*:)", re.IGNORECASE)
 _BLANK = re.compile(r"_{3,}")
 _TF_PREFIX = re.compile(r"^\s*true\s+or\s+false\s*[:\-–]?\s*", re.IGNORECASE)
 
@@ -178,13 +180,27 @@ class GroundingValidator:
             answer_terms = content_terms(answer)
             if not answer_terms:
                 return False
-            if len(answer_terms) <= self.SHORT_CLAIM_TERMS:
-                # Short terms must appear verbatim (by term) in the cited evidence, and the
-                # question+answer relation must not contradict it.
+            if len(answer_terms) <= self.SHORT_CLAIM_TERMS and item.type in {
+                "flashcard", "qa", "qa_study_sheet", "glossary",
+            }:
+                # shortcut: lexical overlap cannot prove the predicate; upgrade after labeled AI-02 calibration.
                 if not answer_terms <= evidence_terms:
                     return False
+                question_terms = content_terms(question) - answer_terms
+                supporting_sentences = [
+                    sentence
+                    for sentence in sentences
+                    if answer_terms <= content_terms(sentence)
+                    and question_terms
+                    and len(question_terms & content_terms(sentence)) / len(question_terms) >= 0.5
+                ]
+                if not supporting_sentences:
+                    return False
                 claim_terms = content_terms(f"{question} {answer}")
-                best = max(sentences, key=lambda s: len(claim_terms & content_terms(s)))
+                best = max(
+                    supporting_sentences,
+                    key=lambda sentence: len(claim_terms & content_terms(sentence)),
+                )
                 if _negated(best) != _negated(f"{question} {answer}"):
                     return False
             else:

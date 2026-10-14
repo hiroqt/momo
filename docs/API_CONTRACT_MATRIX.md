@@ -1,6 +1,6 @@
 # API Contract Matrix (API-01)
 
-Verified locally on **October 6, 2026** against the working tree (base `896d534`).
+Verified locally on **October 14, 2026** against the working tree (`d736a26` plus this API-01 reconciliation).
 Requirements come from [ARD_PRD.md](../ARD_PRD.md) sections 8.1-8.10 and 6.6/6.7.
 This matrix records how routes and mobile client methods map to them. It does
 not change the PRD. Rows marked **Extension** are routes the PRD does not list.
@@ -30,7 +30,7 @@ from the verified token. Errors use `{"error": {"code", "message"}}`.
 | `POST /api/documents` with `id` | same | `registerDocument` sends `document_id` | **Alias.** `DocumentCreate` accepts canonical `id` and legacy `document_id`. If both are sent they must be the same UUID, otherwise 422. Values are canonicalized UUIDs. |
 | `GET /api/documents` | same (bounded `limit`/`offset`) | `listDocuments` (page collector) | Aligned. |
 | `GET /api/documents/{id}` | same | `getDocument` | Aligned. |
-| `GET /api/documents/{id}/status` returns status, page count, error | same | `getDocumentStatus` | **Gap.** `DocumentStatusResponse` has no `page_count`. The route belongs to another team; see the report's cross-team requests. |
+| `GET /api/documents/{id}/status` returns status, page count, error | same | `getDocumentStatus` | Aligned. The route returns nullable `page_count`; the mobile type includes it. |
 | `DELETE /api/documents/{id}` | same | `deleteDocument` | Aligned. Generated study sets are kept (`ON DELETE SET NULL`). |
 | none | `PUT /api/documents/mock-upload/{key}` | `uploadFileToS3` (local) | **Extension**, local mock storage only. |
 
@@ -76,7 +76,7 @@ yet; see Economy below for the reason.
 
 | PRD | Route | Mobile client | Status / compatibility |
 | --- | --- | --- | --- |
-| `GET/POST/GET{id}/PATCH/DELETE /api/folders` | same (`routes/folders.py`) | `listFolders`, `createFolder`, `updateFolder`, `deleteFolder` | CRUD aligned. `POST` atomically applies the PRD progressive price and records owner-scoped replay in `internal.folder_requests`; folders 1–3 are free, then 50, 75, +25 credits. Legacy queued requests replay without a second charge; changed requests/deleted tombstones remain conflicts. No-key calls retain independent-create behavior but use the same charge transaction. A wallet starts with 0 credits, and no earning path is approved, so users cannot create paid folders until a credit source is separately approved. Heart regeneration/refill remains pending. |
+| `GET/POST/GET{id}/PATCH/DELETE /api/folders` | same (`routes/folders.py`) | `listFolders`, `createFolder`, `updateFolder`, `deleteFolder` | CRUD aligned. `POST` atomically applies the PRD progressive price and records owner-scoped replay in `internal.folder_requests`; folders 1–3 are free, then 50, 75, +25 credits. Legacy queued requests replay without a second charge; changed requests/deleted tombstones remain conflicts. The mobile sync path sends a stable `Idempotency-Key`; omission remains compatible with older clients. A wallet starts with 0 credits, and no earning path is approved, so users cannot create paid folders until a credit source is separately approved. Heart regeneration/refill remains pending. |
 
 ## 8.7-8.10
 
@@ -90,8 +90,9 @@ yet; see Economy below for the reason.
 
 ## Economy (PRD 6.6/6.7): new server contract
 
-The router lives in `routes/economy.py`. It is **not registered in `main.py` yet**;
-final integration owns that file. All amounts are computed on the server. Clients
+The router lives in `routes/economy.py` and is registered in `main.py`. Wallet and
+heart routes are available, with unapproved rewards/refill policy failing closed.
+All amounts are computed on the server. Clients
 send only intent plus an `idempotency_key` (8-128 characters from `[A-Za-z0-9_.:-]`,
 scoped per user). Extra fields such as `hearts_delta` or `user_id` are rejected.
 

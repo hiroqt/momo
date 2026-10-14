@@ -99,6 +99,7 @@ export async function getDocumentStatus(documentId: string): Promise<{
   status: string;
   stage: string;
   progress: number;
+  page_count?: number | null;
   error?: string;
   suggested_topics?: string[];
 }> {

@@ -32,3 +32,7 @@ The user authorized database changes on `momo-staging` and selected Render for p
 [[Momo Upload Retention]] maps the implemented transactional lifecycle and remaining provider/inventory/deployment gates.
 
 Latest integrated local verification: **832 backend/API/PostgreSQL/PostgREST tests passed, zero skipped**, Ruff 138 files and mypy 75 files passed; mobile lint and **182 tests** passed. The non-root container passes SDK fail-closed and two-page scanned-PDF OCR checks; `/health` and `/ready` passed through Render-style `PORT`. See [[docs/backend-readiness-2026-10-14|dated report]] for exact commands, staging migration versions and open public gates.
+
+API-01 contract reconciliation (October 14): `GET /api/documents/{id}/status` already returns nullable `page_count`; the mobile response type now exposes it. The API matrix now reflects that fact, the registered economy router, and stable folder replay keys. Focused verification: 38 API contract/request-bound tests and mobile TypeScript passed. API-01 remains open for generated image response sizing and native/hosted release journeys.
+
+API-01 contract reconciliation (October 14): `GET /api/documents/{id}/status` already returns nullable `page_count`; the mobile response type now exposes it. The API matrix now reflects that fact, the registered economy router, and stable folder replay keys. Focused verification: 38 API contract/request-bound tests and mobile TypeScript passed. API-01 remains open for generated image response sizing and native/hosted release journeys.

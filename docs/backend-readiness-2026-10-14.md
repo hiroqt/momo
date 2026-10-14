@@ -43,7 +43,7 @@ Public signing metadata at the project's Auth JWKS endpoint reports one ES256/EC
 | 016 charged folder request replay | `20261014001721` | applied after local verification; both folder RPCs retain fixed search paths, deny anon/authenticated EXECUTE, and grant service-role EXECUTE; `internal.folder_requests` remains forced-RLS with no anon/authenticated SELECT |
 
 Post-apply catalog checks found the `auth_user_google_profile_sync` trigger and
-`upload_tickets_legacy_cleanup_idx`; the migration ledger records 001–015 in
+`upload_tickets_legacy_cleanup_idx`; the migration ledger records 001–016 in
 order. No fixture rows were created. The security advisor remains at five INFO
 no-policy findings on internal tables without client grants. The performance
 advisor reports 14 composite-FK notices and 44 unused indexes on the fresh

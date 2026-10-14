@@ -5,7 +5,7 @@ Last audited: **October 14, 2026 (Asia/Manila)**. This pass started from
 [October 14 evidence report](backend-readiness-2026-10-14.md). Historical October
 6 and October 8 results below are preserved with their original scope and dates.
 Overall status: **NOT PRODUCTION READY**. The staging database has migrations
-001–015 and metadata/security checks; the API, worker and real-account journey
+001–016 and metadata/security checks; the API, worker and real-account journey
 have not been deployed or verified.
 
 This is the canonical task and progress tracker. Requirements remain governed by
@@ -55,6 +55,7 @@ October 14 work includes user-authorized staging schema changes and local backen
 | Task ID | Owner/chat | Branch | Status | Last update | Blocker or next action |
 | --- | --- | --- | --- | --- | --- |
 | API-01 chat source identifier bound | October 14 root + API contract audit | main | DONE_LOCAL | 2026-10-14 | `ChatMessageCreate.document_id` is limited to 128 characters; both chat-send routes reject oversized IDs (2 parameterized API cases pass). Existing non-UUID identifiers remain accepted for compatibility. API-01 stays partial for remaining PRD/client contract reconciliation and image limits. |
+| API-01 PRD/client contract reconciliation | October 14 root | main | DONE_LOCAL | 2026-10-14 | Refreshed the matrix against current routes/schemas/mobile callers, added `page_count` to the mobile status type, and fixed stale economy-router/folder-replay claims. Focused API/bounds tests (38) and mobile TypeScript pass. API-01 remains partial for image output sizing and native/hosted journeys. |
 | ECON-01 folder pricing activation | October 14 root + economy reviewer | main | PARTIAL | 2026-10-14 | User-approved pricing now runs through the atomic wallet RPC; migration 016 records charged creates and preserves existing offline replay/tombstone semantics. Full local suite: 832 passed, zero skips; Ruff 138/mypy 75 pass. Migration `20261014001721` is applied to staging and catalog-verified service-only. API is not deployed; wallet starts at 0 and no credit-earning path is approved, so paid folders remain inaccessible until an earning source is decided and deployed. Heart regeneration/refill remains pending. |
 | DOC-02 real OCR multi-page smoke | October 14 root + extraction/OCR audit | main | DONE_LOCAL | 2026-10-14 | Actual Tesseract/Poppler processed two raster-only synthetic pages in the non-root, network-isolated image; ordered page numbers, OCR flags and distinct recognized text passed. Representative scanned-document corpus and real-world OCR accuracy remain open. |
 | CHAT-01 expired source guard | October 14 root + API-01 read-only audit | main | DONE_LOCAL | 2026-10-14 | `generate_study_card` now uses the existing READY-and-unexpired predicate. Focused tests prove expired READY sources skip retrieval/embedding and model generation. Other CHAT-01 provenance and native import gates remain open. |
@@ -71,7 +72,7 @@ October 14 work includes user-authorized staging schema changes and local backen
 | WORK-02 mobile generation intents | October 8 root + mobile builder; independent review | main | PARTIAL (client substeps verified locally) | 2026-10-08 | Durable intent/receipt, account-bound transport, serial polling/retry reconciliation; 178 mobile tests and real-JWT loopback replay passed. Native/process/hosted gates open. |
 | WORK-02 / API-01 continuation | October 8 root + backend/database specialists | main | PARTIAL (server substeps verified locally) | 2026-10-08 | Generation request replay, bounded orphan recovery and folder replay; no economy activation or hosted changes. |
 | WORK-02 / API-01 / AUTH-02 audit / OPS-01 prep | October 8 backend pass; root + backend/database specialists | main | PARTIAL (verified local substeps) | 2026-10-08 | Atomic index publication, READY-only retrieval, request bounds, auth regression coverage and OPS-01 deployment preparation. Hosted changes excluded by user. |
-| API-01 | Team B; integration | main | PARTIAL | 2026-10-14 | Contract matrix + tests done; chat source IDs now have a 128-character bound. `POST /api/folders` uses the owner-scoped replay table and atomic PRD charge; remaining image/PRD/client contract reconciliation stays open. Paid folders still require an approved credit earning source under ECON-01. |
+| API-01 | Team B; integration | main | PARTIAL | 2026-10-14 | Contract matrix + tests done; chat source IDs now have a 128-character bound. `POST /api/folders` uses the owner-scoped replay table and atomic PRD charge; remaining image/output-size and release/client reconciliation stays open. Paid folders still require an approved credit earning source under ECON-01. |
 | ECON-01 | Team B (server), Team C (client); integration | main | PARTIAL / BLOCKED_INPUT | 2026-10-14 | User approved activating the PRD folder price; implementation is tracked above. Heart regeneration/refill, XP table, credits/Momo Coins naming, and credit earning/reward path remain undecided. Wallet starts at 0 credits, so paid folders require a separately approved credit source. |
 | AI-01 / AI-02 / AI-04 / DOC-02 / CHAT-01 | Team A; integration | main | AI-01 DONE_LOCAL; others PARTIAL | 2026-10-06 | TypeSafe calibration, embedding model vs VECTOR(1536), math vision fallback policy (BLOCKED_INPUT). |
 | AUTH-01 / OFF-01 / OFF-02 / SYNC-01 | Team C; integration | main | OFF-01/OFF-02 DONE_LOCAL; AUTH-01/SYNC-01 PARTIAL | 2026-10-06 | Google OAuth client, redirect allow-list and staging anon key missing; native journeys in QA-01. |
@@ -213,7 +214,7 @@ for selected boundaries; managed storage/provider/native/deployed gates remain o
 
 **Hosted application setup remains ENV-01/ENV-02/AUTH-01/OPS-01.** The user
 authorized database work only on `momo-staging` and selected Render for host
-preparation. Migrations 001–015 and database metadata/security checks now pass
+preparation. Migrations 001–016 and database metadata/security checks now pass
 there; no API, worker, Google-account, Storage-byte or provider smoke was run.
 `momo-prod` was not queried or changed. The Render Blueprint is prepared but not
 deployed; CORS origins and host-managed secrets still need to be entered. The
@@ -284,7 +285,7 @@ is listed under Acceptance. Add dates, commits and reports after actual completi
 - Acceptance: audit any existing records, apply ordered migrations to the chosen environment, check advisors, verify two real users and anon cannot access/mutate foreign data, and verify service-only RPCs through managed PostgREST. Confirm metadata-only queries and migration rollback strategy.
 - Evidence: migration IDs, sanitized advisor findings/remediations, bounded synthetic smoke report and cleanup. No hosted stress/load tests or original-document downloads for general diagnostics.
 - Evidence 2026-10-06 (local only): ordered bundle 001-006 with hashes, advisors, metadata-only verification and a two-user synthetic smoke + cleanup prepared in the [staging rollout plan](../.agents/tasks/momo-readiness-2026-10-06/staging-rollout-plan.md).
-- Evidence 2026-10-14 (staging schema only): user-authorized migrations 005–015 applied to `momo-staging`; ledger now records 001–015. All 20 public/internal app tables have forced RLS; anon has no app-table SELECT; authenticated direct writes and client grants on internal tables are absent. The `documents` bucket is private with a 15 MiB limit and the four expected MIME types. The Google profile trigger and legacy cleanup index are catalog-verified; no legacy rows needed mapping. Security advisor reports five INFO no-policy notices on internal tables (intentional deny-by-default); performance advisor reports 14 composite-FK notices and 44 unused-index notices on a fresh empty staging workload. Core app tables and new request/ticket queues contained zero rows. Migration 008's DDL was catalog-verified after a migration-ledger timestamp collision and then recorded via a no-op ledger reconciliation. No managed PostgREST two-user smoke, OAuth login, API/worker deployment or storage-byte inventory was performed; `momo-prod` untouched. See [October 14 evidence](backend-readiness-2026-10-14.md) and the private [staging rollout record](../.agents/tasks/momo-readiness-2026-10-06/staging-rollout-plan.md).
+- Evidence 2026-10-14 (staging schema only): user-authorized migrations 005–016 applied to `momo-staging`; ledger now records 001–016. All 20 public/internal app tables have forced RLS; anon has no app-table SELECT; authenticated direct writes and client grants on internal tables are absent. The `documents` bucket is private with a 15 MiB limit and the four expected MIME types. The Google profile trigger, legacy cleanup index, and migration 016 service-only folder charge RPCs are catalog-verified; no legacy rows needed mapping. Security advisor reports five INFO no-policy notices on internal tables (intentional deny-by-default); performance advisor reports 14 composite-FK notices and 44 unused-index notices on a fresh empty staging workload. Core app tables and new request/ticket queues contained zero rows. Migration 008's DDL was catalog-verified after a migration-ledger timestamp collision and then recorded via a no-op ledger reconciliation. No managed PostgREST two-user smoke, OAuth login, API/worker deployment or storage-byte inventory was performed; `momo-prod` untouched. See [October 14 evidence](backend-readiness-2026-10-14.md) and the private [staging rollout record](../.agents/tasks/momo-readiness-2026-10-06/staging-rollout-plan.md).
 
 ### AUTH-01: Implement Real Supabase Google Sessions On Mobile
 
@@ -362,11 +363,12 @@ is listed under Acceptance. Add dates, commits and reports after actual completi
 
 ### SYNC-01: Durable Bounded Client Sync And Mutation Ledger
 
-- [ ] **PARTIAL; release blocker. Client DONE_LOCAL; server `Idempotency-Key` on `POST /api/folders` and a two-device journey remain.**
+- [ ] **PARTIAL; release blocker. Folder replay is implemented server-side and the mobile sends a stable key; a two-device journey remains.**
 - Scope: sync engine, mutation queue, session references and API acknowledgments.
 - Acceptance: stable UUID events survive restart; flush batches of at most 100; remove only exactly acknowledged events. Persist retry state, handle transient failures without silent discard, and resolve authorization/conflicts explicitly. Make folder creation and other offline mutations idempotent, not only answer events; preserve dependencies/client-to-server IDs.
 - Evidence: 101+ queued events, lost response/replay, reconnect/app kill, mixed invalid/valid references, two accounts/devices and duplicate folder-create tests. Backend atomic sync is already delivered.
 - Evidence 2026-10-06 (local only): client batches <=100, exact acknowledgments, durable held queue + attention sheet, persisted backoff. Integration fix: hosted `process_sync_batch` rejections now map to the per-event codes the client isolates (42501 -> 404 `STUDY_ITEM_NOT_FOUND`, 22023 -> 422 `VALIDATION_ERROR`). E2E: 101 events in 100+1 batches, replay ignored, >100 rejected, foreign reference 404 (memory and PG).
+- Evidence 2026-10-14 (local/staging schema only): folder requests use owner-scoped replay and an atomic charge RPC; the mobile persists and sends a mutation key. Migration 016 is applied to staging. No hosted API or two-device journey has run.
 
 ### API-01: Reconcile PRD, Clients And REST Contracts
 
@@ -374,7 +376,7 @@ is listed under Acceptance. Add dates, commits and reports after actual completi
 - Scope: OpenAPI, PRD sections 8.1-8.10, client methods, schemas and routes.
 - Acceptance: explicitly resolve sync/events versus sync, missing advertised study-set creation/full-detail behavior, upload field names, UUID paths and response fields. Preserve existing clients with documented compatibility where needed. Apply bounds to body/text/image inputs and consistent safe errors; never silently edit requirements to match prototypes.
 - Evidence: contract matrix, OpenAPI/API/client contract tests and approved documentation updates.
-- Evidence 2026-10-06 (local only): [contract matrix](API_CONTRACT_MATRIX.md) + OpenAPI tests (Team B); integration added `page_count` to `GET /api/documents/{id}/status` (PRD 8.2). Recorded deviations: `/api/me` exposes `id` (PRD says `user_id`; documented as aligned); oversized `upload-url` returns 422 `VALIDATION_ERROR` from the schema bound instead of `DOCUMENT_TOO_LARGE`.
+- Evidence 2026-10-14 (local only): [contract matrix](API_CONTRACT_MATRIX.md) reconciles current PRD routes with FastAPI schemas and mobile callers. `GET /api/documents/{id}/status` returns `page_count` and the mobile type now includes it; economy router is registered. Image/text fields and request bodies have documented bounds. Recorded deviations: `/api/me` exposes `id` (the verified subject); oversized `upload-url` returns 422 `VALIDATION_ERROR` from the schema bound instead of `DOCUMENT_TOO_LARGE`. API-01 remains partial for image response/output bounds and native/hosted journeys.
 
 ### CHAT-01: Grounded Atomic Chat Decks And Imports
 
@@ -741,10 +743,11 @@ pinned `momo-staging` project, reports its Google OAuth provider configured, and
 selected Render. No production operation was performed.
 
 Staging was `ACTIVE_HEALTHY` on Supabase PostgreSQL 17, Singapore. Migrations
-005–015 were applied after confirming the existing 001–004 ledger. The ordered
-ledger now contains 001–015. Migrations 014/015 install the Google profile
+005–016 were applied after confirming the existing 001–004 ledger. The ordered
+ledger now contains 001–016. Migrations 014/015 install the Google profile
 trigger and confirmed Supabase legacy-storage destination/index; catalog checks
-found both objects and zero legacy tickets to map. Migration 008's DDL had completed before a generated
+found both objects and zero legacy tickets to map. Migration 016 activates the
+approved folder charge and replay transaction. Migration 008's DDL had completed before a generated
 ledger timestamp collision; its objects were inspected, then the migration was
 recorded through a no-op reconciliation rather than replaying the DDL. Catalog
 checks report 20 public/internal app tables with forced RLS; no anonymous SELECT,

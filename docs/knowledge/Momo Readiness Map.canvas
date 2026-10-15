@@ -212,7 +212,7 @@
       "fromSide": "bottom",
       "toNode": "1",
       "toSide": "right",
-      "label": "Google-only JWT + local profile/deletion migrations 014–015"
+      "label": "Google-only JWT + account-scoped onboarding/profile/deletion; native proof open"
     },
     {
       "id": "completion-db",

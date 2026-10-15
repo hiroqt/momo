@@ -71,3 +71,8 @@ Upload retention uses durable tickets and preserves actual upload time/identity,
 - Reviewed every logger call under `backend/app`. No request/document content, user/document/job/study-set IDs, credentials, signed URLs, raw provider/database errors, or request-derived log injection were found. The generated operational worker ID remains in worker startup logs. Newline-bearing configured model and storage-provider regressions confirm these values stay out of logs.
 - Focused provider/storage suites passed 224 tests; final full loopback PostgreSQL/PostgREST suite passed 938 tests with zero skips/errors/failures; no-skip checker confirmed 938/0. Ruff 142, mypy 76 and diff checks passed. The run emitted 33 existing Starlette 422 deprecation warnings. Independent review found no code blocker and documentation claims now identify the generated operational worker ID.
 - Hosted log sinks, HTTPS/CORS, account isolation, dependency and retention release evidence remain unverified; SEC-02 and public readiness remain partial.
+
+## 2026-10-15 profile account-switch display guard
+
+- Settings binds fetched `/api/me` data to the verified account ID and hides it while auth is busy or the identity is not verified. It also rejects a response whose profile ID does not match the account. Signed-in display names use the matching profile; device-global onboarding names are guest-only.
+- Mobile tests: 190 passed; TypeScript lint and diff check passed. Independent review found no remaining cross-account render path. Offline mode may show the same account's last verified cached profile. The AUTH-02 parent remains partial pending hosted and native journeys.

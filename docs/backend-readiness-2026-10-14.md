@@ -581,3 +581,15 @@ Poppler. Assertions verify there is no embedded PDF text, page order is retained
 every page is marked OCR, expected page-specific text is recovered, and the
 blank page remains empty. This improves synthetic coverage only; accuracy on
 representative real scans remains unmeasured and DOC-02 remains partial.
+
+## AUTH-02 profile account-switch display guard
+
+Settings now tags each fetched `/api/me` profile with the verified account ID,
+requires the returned profile ID to match, and hides cached details while auth
+is busy or the account identity is not stable. Signed-in display names come
+from the matching server profile; local onboarding names are used only in guest
+preview. Mobile tests passed 190 cases, TypeScript lint and diff check passed,
+and an independent review found no remaining cross-account render path. Offline
+mode may display the cached profile for the same previously verified account.
+This local UI subtask does not complete AUTH-02's hosted deletion/isolation or
+native account-switch acceptance.

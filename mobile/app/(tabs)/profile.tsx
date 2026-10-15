@@ -15,6 +15,7 @@ import { localDb } from '@/lib/storage/localDb';
 import { formatStudyFormats, formatStudyTrack, getQuotaSummary } from '@/lib/screens/settings';
 import { useOnboarding } from '@/context/OnboardingContext';
 import { useAuth } from '@/context/AuthContext';
+import { getProfileDisplayName, getVisibleProfile, type AccountProfileSnapshot } from '@/lib/screens/profile';
 import type { UserProfile } from '@/types';
 
 export default function ProfileScreen() {
@@ -23,7 +24,7 @@ export default function ProfileScreen() {
   const preferences = useOnboarding();
   const auth = useAuth();
   const isGuest = auth.status !== 'signed_in';
-  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [profileSnapshot, setProfileSnapshot] = useState<AccountProfileSnapshot | null>(null);
   const [profileState, setProfileState] = useState<'loading' | 'ready' | 'unavailable'>('loading');
   const [retry, setRetry] = useState(0);
   const [showResetModal, setShowResetModal] = useState(false);
@@ -57,20 +58,31 @@ export default function ProfileScreen() {
 
   useEffect(() => {
     let active = true;
+    const accountId = auth.accountId;
     if (isGuest) {
-      setProfile(null);
+      setProfileSnapshot(null);
       setProfileState('ready');
+      return;
+    }
+    if (!accountId) {
+      setProfileSnapshot(null);
+      setProfileState('unavailable');
       return;
     }
     setProfileState('loading');
     apiFetch<UserProfile>('/api/me')
-      .then(value => { if (active) { setProfile(value); setProfileState('ready'); } })
-      .catch(() => { if (active) { setProfile(null); setProfileState('unavailable'); } });
+      .then(value => { if (active) { setProfileSnapshot({ accountId, profile: value }); setProfileState('ready'); } })
+      .catch(() => { if (active) { setProfileSnapshot(null); setProfileState('unavailable'); } });
     return () => { active = false; };
   }, [retry, isGuest, auth.accountId]);
 
+  const profile = getVisibleProfile(
+    profileSnapshot,
+    auth.accountId,
+    auth.status === 'signed_in' && !auth.busy,
+  );
   const quota = getQuotaSummary(profile);
-  const name = [preferences.firstName, preferences.lastName].filter(Boolean).join(' ') || profile?.full_name || 'Your study space';
+  const name = getProfileDisplayName(profile, isGuest, preferences.firstName, preferences.lastName);
   const studyTrack = formatStudyTrack(preferences.studyTrack, preferences.highSchoolGrade ?? '', preferences.collegeYear ?? '', preferences.collegeCourse ?? '');
   const formats = formatStudyFormats(preferences.preferredFormats ?? [], preferences.preferredFormat ?? '');
 

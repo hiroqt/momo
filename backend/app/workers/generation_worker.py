@@ -75,6 +75,21 @@ class GenerationWorker:
                 document_ids=document_ids
             )
 
+            # Keep the model input within the configured context before any
+            # evidence is handed to generation, validation, or grounding checks.
+            buffered_spec = dict(generation_spec)
+            buffered_spec["count"] = target_count + max(2, target_count // 5)
+            buffered_spec["effective_types"] = effective_types
+            is_reviewer = mode in ("reviewer", "both")
+            system_instruction = (
+                "You are an expert educational reviewer and study guide synthesizer."
+                if is_reviewer else
+                "You are an expert educational quiz generator."
+            )
+            evidence_budget_bytes = ai_provider.generation_evidence_budget_bytes(
+                system_instruction, buffered_spec
+            )
+
             # 2. Synthesize Grounded Context
             await generation_repo.update_job(
                 job_id=job_id,
@@ -84,7 +99,9 @@ class GenerationWorker:
                 message="Extracting key study concepts and facts from your document..."
             )
 
-            synthesized = synthesis_service.synthesize_context(evidence_chunks)
+            synthesized = synthesis_service.synthesize_context(
+                evidence_chunks, max_context_bytes=evidence_budget_bytes
+            )
 
             # Enrich sources with human-readable original document filename
             try:
@@ -98,18 +115,27 @@ class GenerationWorker:
             # Check source sufficiency (Strict grounding rule!)
             if not synthesized.is_sufficient:
                 logger.warning("Insufficient source evidence")
+                retrieved_chars = sum(
+                    len(chunk["content"].strip())
+                    for chunk in evidence_chunks
+                    if isinstance(chunk.get("content"), str)
+                )
+                context_limited = evidence_budget_bytes is not None and retrieved_chars >= 40
                 await generation_repo.update_job(
                     job_id=job_id,
                     status="FAILED",
-                    stage="Insufficient Source",
+                    stage="Context Limit" if context_limited else "Insufficient Source",
                     progress=100,
-                    message="The uploaded material does not contain enough information about the requested topic.",
-                    error="INSUFFICIENT_SOURCE"
+                    message=(
+                        "This request is too large for the study generator. Shorten the topic or instructions and retry."
+                        if context_limited else
+                        "The uploaded material does not contain enough information about the requested topic."
+                    ),
+                    error="GENERATION_CONTEXT_LIMIT" if context_limited else "INSUFFICIENT_SOURCE"
                 )
                 return
 
             # 3. Model Generation (Fast parallel batching)
-            is_reviewer = mode in ("reviewer", "both")
             stage_title = "Cooking your reviewer" if is_reviewer else "Crafting your quiz"
             gen_msg = "Momo is compiling your high-yield reviewer study guide..." if is_reviewer else "Momo is crafting your questions and flashcards..."
 
@@ -121,16 +147,6 @@ class GenerationWorker:
                 message=gen_msg
             )
 
-            # Pass generation buffer (+20%) so deduplication yields the maximum requested target count
-            buffered_spec = dict(generation_spec)
-            buffered_spec["count"] = target_count + max(2, target_count // 5)
-            buffered_spec["effective_types"] = effective_types
-
-            system_instruction = (
-                "You are an expert educational reviewer and study guide synthesizer strictly bound to the supplied study evidence."
-                if is_reviewer else
-                "You are an expert educational quiz generator strictly bound to the supplied study evidence."
-            )
             try:
                 raw_items = await ai_provider.generate_study_material(
                     system_instruction=system_instruction,

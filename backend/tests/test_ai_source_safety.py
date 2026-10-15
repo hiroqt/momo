@@ -463,6 +463,59 @@ def test_untrusted_requirements_never_enter_system_prompt():
     assert "untrusted data" in prompt
 
 
+def test_generation_evidence_budget_is_bounded_and_user_text_stays_out_of_system_prompt():
+    provider = OpenRouterNemotronProvider("test-only", "configured-model")
+    spec = {
+        "count": 35,
+        "topic": "Biology",
+        "question_types": ["flashcard"],
+        "custom_instruction": "x" * 4000,
+    }
+    budget = provider.generation_evidence_budget_bytes("Generate reviewer", spec)
+    assert budget == 0
+    system, user = provider._build_generation_prompts("Generate reviewer", spec, "evidence")
+    assert "x" * 100 in user
+    assert "x" * 100 not in system
+
+
+async def test_provider_prompt_guard_fails_before_network_when_context_is_oversized():
+    provider = OpenRouterNemotronProvider("test-only", "configured-model")
+    with pytest.raises(ProviderUnavailableError):
+        await provider._call_nemotron("s" * provider.MAX_PROMPT_BYTES, "u")
+
+
+async def test_provider_sends_explicit_completion_limit(monkeypatch):
+    import app.services.ai.ai_provider as ai_module
+
+    provider = OpenRouterNemotronProvider("test-only", "configured-model")
+    requests = []
+
+    class Response:
+        status_code = 200
+
+        @staticmethod
+        def json():
+            return {"choices": [{"message": {"content": '{"items": []}'}}]}
+
+    class Client:
+        def __init__(self, **kwargs):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *args):
+            return None
+
+        async def post(self, url, headers, json):
+            requests.append(json)
+            return Response()
+
+    monkeypatch.setattr(ai_module.httpx, "AsyncClient", Client)
+    assert await provider._call_nemotron("system", "user") == {"items": []}
+    assert requests[0]["max_tokens"] == provider.COMPLETION_TOKEN_LIMIT
+
+
 async def test_api_rejects_source_free_generation_and_unsigned_import():
     from app.dependencies import get_current_user
     from app.main import app

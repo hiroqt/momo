@@ -20,6 +20,6 @@ def test_generation_prompt_respects_level_and_source_only():
         "Generate only from evidence.", "medium", None,
         ["flashcard"], topic="Cell Biology", academic_level="Grade 12"
     )
-    assert "upper-high-school vocabulary" in prompt
-    assert "Never supplement with external knowledge" in prompt
-    assert "If GENERATION REQUIREMENTS include a learner_focus" in prompt
+    assert "Use upper-high-school vocabulary" in prompt
+    assert "Use only the supplied source evidence" in prompt
+    assert "Follow the requested topic and learner focus only when supported by evidence" in prompt

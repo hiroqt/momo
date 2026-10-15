@@ -152,12 +152,12 @@ async def test_openrouter_nemotron_payload_and_parallel_batching(monkeypatch):
         sources_metadata=sources
     )
 
-    # Verify that multiple batches were spawned in parallel for 16 items
+    # Verify that bounded output batches were spawned in parallel.
     assert len(recorded_payloads) >= 2
     # Untrusted instructions stay in requirements, never system-level authority.
     assert any("phosphofructokinase" in p["user"] for p in recorded_payloads)
     assert all("phosphofructokinase" not in p["system"] for p in recorded_payloads)
-    assert any("DIFFICULTY LEVEL - HARD" in p["system"] for p in recorded_payloads)
+    assert any("Difficulty: hard" in p["system"] for p in recorded_payloads)
     # Verify items returned
     assert len(items) >= 2
     assert items[0]["answer"] == "Glucose"
@@ -262,9 +262,9 @@ async def test_quiz_generation_topic_relevance_and_importance():
         question_types=["multiple_choice", "true_false", "identification"],
         topic="Photosynthesis"
     )
-    assert "Follow the requested topic only when supported by SOURCE EVIDENCE" in prompt
+    assert "Follow the requested topic and learner focus only when supported by evidence" in prompt
     assert "Photosynthesis" not in prompt
-    assert "QUIZ QUESTION STEMS & PLAUSIBLE DISTRACTORS (TOPIC-GROUNDED & HIGH-YIELD)" in prompt
+    assert "four plausible options" in prompt
 
     # 2. Verify MockNemotronProvider generates topic-anchored quiz questions
     mock = MockNemotronProvider()
@@ -358,7 +358,7 @@ async def test_generation_avoids_in_entire_document_text():
         topic="Entire Document (Lecture1.pdf)"
     )
     assert "The user selected the study topic: \"Entire Document" not in prompt
-    assert "CRITICAL MANDATE — PURE QUESTIONS ONLY" in prompt
+    assert "Questions must not reveal answers or mention page/section numbers" in prompt
 
 
 

@@ -15,7 +15,7 @@
 | Primary Database | Supabase PostgreSQL 15+ with `pgvector` extension |
 | Storage Architecture | Private AWS S3 or Supabase Storage with provider-specific signed direct uploads |
 | Primary AI Model | NVIDIA Nemotron Ultra (`nvidia/nemotron-4-340b-instruct`) via OpenRouter Gateway |
-| Embedding Engine | 1536-dimensional vector embeddings (`nvidia/embeddings-nv-embed-qa-4`) |
+| Embedding Engine | NVIDIA Nemotron 3 Embed 1B (`nvidia/nemotron-3-embed-1b:free` via OpenRouter), 2048 dimensions |
 | Semantic Validation | TypeSafe Jev for bounded semantic evaluation and grounding verification |
 | Local Mobile Storage | Expo SQLite for zero-latency offline decks, quiz states, and mutation ledger |
 | Offline Study Support | Full reading, flashcard flips, quiz execution, and progress tracking |
@@ -104,7 +104,7 @@ The platform uses a coordinated 4-tier monorepo architecture:
 |     Domain Services & Background Workers| |         Data & Storage Layer          |
 |  - DocumentWorker (Extract, Chunk, Embed| |  - Supabase PostgreSQL 15+            |
 |  - GenerationWorker (RAG, Nemotron, Val)| |    (Tables, RLS, Indexes)             |
-|  - StorageService (S3 / Supabase)       | |  - pgvector (1536-dim scoped search) |
+|  - StorageService (S3 / Supabase)       | |  - pgvector (2048-dim v2 scoped search) |
 |  - AIProvider (Nemotron Ultra, Tools)   | |  - Object Storage (AWS S3 / Supabase) |
 |  - MathEngine, DiagramSynthesizer       | |    (Private Bucket, 3-Day Retention)  |
 +--------------------+--------------------+ +---------------------------------------+
@@ -114,7 +114,7 @@ The platform uses a coordinated 4-tier monorepo architecture:
 +--------------------v--------------------------------------------------------------+
 |                          External AI & Validation Layer                           |
 |  - OpenRouter Gateway (NVIDIA Nemotron Ultra: nvidia/nemotron-4-340b-instruct)     |
-|  - Embedding Service (1536-dimensional vector generation)                         |
+|  - Embedding Service (Nemotron 3 Embed 1B, 2048-dimensional vector generation)     |
 |  - TypeSafe Jev (Semantic validation and grounding judgments)                     |
 +-----------------------------------------------------------------------------------+
 ```
@@ -135,8 +135,8 @@ The platform uses a coordinated 4-tier monorepo architecture:
    - Step 2: Backend verifies user quota (`usage_repo.can_upload_document`), validates size/type, constructs storage key (`documents/{user_id}/{document_id}/original.{ext}`), and returns a provider-specific signed direct upload URL.
    - Step 3: Client uploads file binary directly to object storage via HTTP PUT.
    - Step 4: Client registers metadata by calling `POST /api/documents`. Backend checks object size metadata, atomically consumes quota and creates a record with `processing_status = 'UPLOADED'`, and enqueues `DocumentWorker.process_document`.
-   - Step 5: `DocumentWorker` downloads bytes, executes structural extraction preserving page numbers and slide indexes, triggers OCR if extracted text is sparse, chunks text into semantic windows with overlap, generates 1536-dimensional embeddings, and inserts batch records into `document_chunks`.
-   - Step 6: Backend updates document record with `processing_status = 'READY'`, detected `page_count`, and `suggested_topics`.
+   - Step 5: `DocumentWorker` downloads bytes, executes structural extraction preserving page numbers and slide indexes, triggers OCR if extracted text is sparse, chunks text into semantic windows with overlap, generates 2048-dimensional Nemotron 3 Embed 1B vectors, and atomically publishes v2 chunks plus the document's `READY` state, page count, and topics.
+   - Step 6: The client polls document status and can retrieve the study-ready source after the v2 publication succeeds.
 
 ### 6.2 Grounded RAG Study Set Generation
 1. Study formats:
@@ -280,6 +280,7 @@ erDiagram
 - `uploaded_at` (TIMESTAMPTZ, Default: `NOW()`)
 - `expires_at` (TIMESTAMPTZ, Not Null: `uploaded_at + INTERVAL '3 days'`)
 - `processing_status` (TEXT, Default: `'UPLOADED'`, Values: `'UPLOADED'`, `'PROCESSING'`, `'READY'`, `'FAILED'`)
+- `embedding_version` (SMALLINT, Default: 1, allowed values 1 or 2; selects the complete embedding space used for retrieval)
 - `processing_error` (TEXT)
 - `created_at` (TIMESTAMPTZ, Default: `NOW()`)
 - `updated_at` (TIMESTAMPTZ, Default: `NOW()`)
@@ -294,7 +295,8 @@ erDiagram
 - `page_end` (INT)
 - `section` (TEXT)
 - `source_type` (TEXT)
-- `embedding` (VECTOR(1536))
+- `embedding` (VECTOR(1536), legacy v1; retained for compatibility during migration)
+- `embedding_v2` (VECTOR(2048), Nemotron 3 Embed 1B; nullable until reindex/publish succeeds)
 - `metadata` (JSONB, Default: `'{}'`)
 - `created_at` (TIMESTAMPTZ, Default: `NOW()`)
 
@@ -437,6 +439,20 @@ mobile API helpers fetch successive pages to preserve full-library access.
 Vector retrieval filters user/document/expiry in PostgreSQL, bounds results to 50,
 and excludes embedding arrays from the response. Exact scoped search is the
 baseline for 50-page inputs; add an approximate index only after benchmarking.
+
+**Embedding migration decision (October 14, 2026):** use
+`nvidia/nemotron-3-embed-1b:free` through OpenRouter and 2048-dimensional vectors.
+Migration 019 is additive: v1 vectors and retrieval remain available while v2
+vectors are generated and verified. New documents publish v2 atomically; legacy
+READY records retain v1 until a bounded reindex has populated every chunk and the
+document is finalized as v2; v2 retrieval excludes documents that are still on
+v1. Keep both model spaces separate. Before deploying v2 retrieval against a
+populated environment, inventory READY/unexpired v1 documents and reindex or
+explicitly handle each one. A rollback to an API that only queries
+v1 cannot retrieve documents published only to v2; after v2 publication, keep the
+v2-capable API or re-embed into a compatible space before routing back. Provider
+availability, retrieval relevance, latency/cost, and production inventory remain
+unverified release gates; this decision does not imply those checks passed.
 
 Original uploads use opaque UUID paths and private buckets. Registration checks
 object size metadata; workers validate actual bytes, archive expansion, page

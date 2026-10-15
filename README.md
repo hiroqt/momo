@@ -126,7 +126,7 @@ Governing specifications: [`ARD_PRD.md`](./ARD_PRD.md), [`ARCHITECTURE.md`](./AR
 +--------------------v--------------------+ +-------------v-------------------------+
 |     Domain Services & Background Workers| |         Data & Storage Tier           |
 |  - DocumentWorker (Ingest, Chunk, Embed)| |  - Supabase PostgreSQL 15+            |
-|  - GenerationWorker (RAG, Nemotron, Val)| |  - pgvector (1536-dim IVFFlat Index)  |
+|  - GenerationWorker (RAG, Nemotron, Val)| |  - pgvector (2048-dim v2 scoped search) |
 |  - Pluggable Storage (S3 / Supabase)    | |  - Ephemeral Object Storage           |
 |  - MathEngine, DiagramSynthesizer       | |    (AWS S3 / Supabase, 3-Day TTL)     |
 +--------------------+--------------------+ +---------------------------------------+
@@ -136,7 +136,7 @@ Governing specifications: [`ARD_PRD.md`](./ARD_PRD.md), [`ARCHITECTURE.md`](./AR
 +--------------------v--------------------------------------------------------------+
 |                          External AI & Validation Tier                            |
 |  - OpenRouter Gateway: NVIDIA Nemotron Ultra (nvidia/nemotron-4-340b-instruct)    |
-|  - 1536-dimensional Embedding Models (nvidia/embeddings-nv-embed-qa-4)            |
+|  - Nemotron 3 Embed 1B (nvidia/nemotron-3-embed-1b:free, 2048 dimensions)         |
 |  - TypeSafe Jev (Semantic validation & grounding judgments)                       |
 +-----------------------------------------------------------------------------------+
 ```
@@ -153,10 +153,10 @@ Governing specifications: [`ARD_PRD.md`](./ARD_PRD.md), [`ARCHITECTURE.md`](./AR
 | Web Showcase | Next.js 15 App Router | Server Components, React 19, Tailwind CSS, Motion |
 | Backend Services | Python 3.11+, FastAPI, Uvicorn | Asynchronous REST API, Pydantic v2 schemas |
 | Primary Database | Supabase PostgreSQL 15+ | Relational tables, Row-Level Security, parameterized queries |
-| Vector Index | `pgvector` extension | 1536-dimensional cosine similarity indexing (`<=>`) |
+| Vector Store | `pgvector` extension | 2048-dimensional v2 cosine retrieval (`<=>`); legacy 1536D v1 retained during migration |
 | Storage Abstraction | BaseStorageService | AWS S3 or Supabase Storage with presigned direct PUT URLs |
 | Large Language Model | NVIDIA Nemotron Ultra | `nvidia/nemotron-4-340b-instruct` via OpenRouter |
-| Embeddings | NVIDIA / Local Embeddings | 1536-dimensional vectors for semantic RAG retrieval |
+| Embeddings | NVIDIA Nemotron 3 Embed 1B via OpenRouter | 2048-dimensional vectors for semantic RAG retrieval; live quality/availability remain unverified |
 | Document Parsers | pypdf, python-docx, python-pptx | Structural parsing preserving page and slide metadata |
 
 ---
@@ -190,7 +190,7 @@ Governing specifications: [`ARD_PRD.md`](./ARD_PRD.md), [`ARCHITECTURE.md`](./AR
 |   |   |-- services/
 |   |   |   |-- ai/                   # Nemotron Ultra provider, math engine, diagram synthesizer
 |   |   |   |-- chat/                 # Momo conversational tutor service and tool executor
-|   |   |   |-- embeddings/           # 1536-dim vector embedding generator
+|   |   |   |-- embeddings/           # 2048-dim v2 vector embedding generator
 |   |   |   |-- extraction/           # Structural parsers (PDF, DOCX, TXT, PPTX) and chunkers
 |   |   |   |-- ocr/                  # Optical character recognition service
 |   |   |   |-- retrieval/            # RAG ranking, cosine similarity, and context assembler
@@ -269,9 +269,9 @@ OPENROUTER_API_KEY=your-openrouter-key
 OPENROUTER_BASE_URL=https://openrouter.ai/api/v1
 NEMOTRON_MODEL=nvidia/nemotron-4-340b-instruct
 
-# Embedding Engine Configuration ('local', 'openrouter', or 'supabase')
+# Embedding Engine Configuration ('local' for development/test; 'openrouter' for managed environments)
 EMBEDDING_PROVIDER=local
-EMBEDDING_MODEL=nvidia/embeddings-nv-embed-qa-4
+EMBEDDING_MODEL=nvidia/nemotron-3-embed-1b:free
 
 # Product Quotas and Constraints
 MONTHLY_DOCUMENT_LIMIT=10

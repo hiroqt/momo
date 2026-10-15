@@ -55,7 +55,7 @@ flowchart TD
 
     subgraph AI["AI & Intelligence Providers"]
         OpenRouter["OpenRouter Gateway\nNVIDIA Nemotron Ultra\nStructured JSON Outputs"]
-        Embeddings["Embedding Provider\n1536-dim Vector Embeddings"]
+        Embeddings["OpenRouter: Nemotron 3 Embed 1B\n2048-dim v2 vectors"]
         Jev["TypeSafe Jev\nSemantic Judgments & Validation"]
     end
 
@@ -93,12 +93,12 @@ flowchart TD
 3. **Backend Services (`backend/app/`)**
    - **Framework:** Python 3.11+, FastAPI, Pydantic v2.
    - **Security:** Supabase JWT validation (`app/dependencies.py`), sliding window rate limiter (`app/services/security/rate_limiter.py`), and regex/credential guardrails (`app/services/security/guardrails_service.py`).
-   - **Background Execution:** FastAPI `BackgroundTasks` driving `DocumentWorker` and `GenerationWorker`.
+   - **Background Execution:** API persists work to the durable PostgreSQL job queue; a separate `app.workers.runner` process claims and executes it. Inline FastAPI `BackgroundTasks` execution is an explicit local/test-only option.
    - **Database Access:** Dedicated repository layer (`app/db/repositories/`) executing parameterized SQL via connection pooling.
 
 4. **Primary Database (Supabase PostgreSQL + `pgvector`)**
    - **Relational Tables:** `users`, `documents`, `generation_jobs`, `study_sets`, `study_items`, `folders`, `study_events`.
-   - **Vector Store:** `document_chunks` holds 1536-dimension embeddings. Bounded PostgreSQL cosine search first filters by owner, document, and expiry. Benchmark an approximate index before introducing it.
+   - **Vector Store:** `document_chunks.embedding_v2` holds 2048-dimensional Nemotron 3 Embed 1B vectors; legacy `embedding` (1536D) remains during staged migration 019. Bounded PostgreSQL cosine search filters by owner, document, READY status, and expiry. V2 retrieval excludes documents still marked v1, so inventory and reindex/explicit handling must precede deploying v2 retrieval to a populated environment. Keep model spaces separate. A v1-only API rollback cannot retrieve v2-only documents. Exact search remains in use; add an approximate index only after representative quality and capacity evidence.
 
 5. **Ephemeral Object Storage (AWS S3)**
    - **Bucket Policy:** Private bucket with strict AWS Lifecycle Rule deleting objects older than 3 days.
@@ -107,7 +107,7 @@ flowchart TD
 
 6. **External AI & Validation Services**
    - **LLM Engine:** NVIDIA Nemotron Ultra via OpenRouter gateway for grounded generation and explanations.
-   - **Embeddings:** 1536-dimensional embedding models for RAG indexing.
+   - **Embeddings:** OpenRouter's configured NVIDIA Nemotron 3 Embed 1B (`nvidia/nemotron-3-embed-1b:free`) produces 2048-dimensional vectors for v2 RAG indexing. Provider availability, relevance, latency/cost, and production inventory remain unverified.
    - **Semantic Validation:** TypeSafe Jev for bounded semantic decisions and grounding verdicts.
 
 ---
@@ -191,7 +191,7 @@ Infrastructure Layer (Repositories / Database / S3 / External APIs)
     - May validate requests via Pydantic schemas (`backend/app/schemas/`).
     - May authenticate via dependency injection (`app.dependencies.get_current_user`).
     - May delegate work to Domain Services (`app.services`) or Repositories (`app.db.repositories`).
-    - May enqueue background tasks via `BackgroundTasks`.
+    - May persist a bounded job through the worker dispatch service; local/test inline execution is opt-in.
     - **MUST NEVER** execute raw SQL queries directly inside route handlers.
     - **MUST NEVER** construct AI prompts or invoke LLMs directly inside route handlers.
 
@@ -249,9 +249,8 @@ sequenceDiagram
         Worker->>S3: Fetch file bytes
         Worker->>Worker: Extract text & metadata (extractor_service)
         Worker->>Worker: Chunk text with page/section provenance (chunking_service)
-        Worker->>Worker: Generate 1536-dim embeddings (embedding_service)
-        Worker->>PG: Batch insert document_chunks with pgvector embeddings
-        Worker->>PG: Update documents (status: READY, page_count, suggested_topics)
+        Worker->>Worker: Generate Nemotron 3 Embed 1B 2048-dim embeddings (embedding_service)
+        Worker->>PG: Atomically publish embedding_v2 chunks and READY state
     end
 
     loop Polling Status

@@ -1,5 +1,7 @@
-import React, { createContext, useState, useEffect } from 'react';
+import React, { createContext, useState, useEffect, useRef } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useAuth } from './AuthContext';
+import { onboardingStorageKey } from '../lib/storage/onboardingKeys';
 
 export type StudyTrack = 'college' | 'med_nursing' | 'stem' | 'boards' | 'high_school' | 'general';
 export type PreferredFormat = 'flashcards' | 'quiz' | 'exam' | 'summary' | 'all';
@@ -107,11 +109,19 @@ const defaultState: OnboardingState = {
 const OnboardingContext = createContext<OnboardingContextType | null>(null);
 
 export const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const auth = useAuth();
+  const owner = auth.status === 'restoring' ? null : auth.status === 'signed_in' ? auth.accountId : 'guest';
   const [state, setState] = useState<OnboardingState>(defaultState);
+  const [loadedOwner, setLoadedOwner] = useState<string | null>(null);
+  const ownerRef = useRef(owner);
+  ownerRef.current = owner;
 
   useEffect(() => {
+    setLoadedOwner(null);
+    if (owner === null) return;
     const loadState = async () => {
       try {
+        const keys = Object.fromEntries(Object.entries(STORAGE_KEYS).map(([name, key]) => [name, onboardingStorageKey(key, owner === 'guest' ? null : owner)])) as typeof STORAGE_KEYS;
         const [
           completedWelcome,
           momoIntroSeen,
@@ -132,27 +142,9 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           tipQuiz,
           firstDone,
           celebrationSeen,
-        ] = await AsyncStorage.multiGet([
-          STORAGE_KEYS.COMPLETED_WELCOME,
-          STORAGE_KEYS.MOMO_INTRO_SEEN,
-          STORAGE_KEYS.IS_GUEST_MODE,
-          STORAGE_KEYS.STUDY_TRACK,
-          STORAGE_KEYS.PREFERRED_FORMAT,
-          STORAGE_KEYS.PREFERRED_FORMATS,
-          STORAGE_KEYS.DAILY_GOAL,
-          STORAGE_KEYS.FIRST_NAME,
-          STORAGE_KEYS.LAST_NAME,
-          STORAGE_KEYS.USER_AGE,
-          STORAGE_KEYS.HIGHSCHOOL_GRADE,
-          STORAGE_KEYS.COLLEGE_YEAR,
-          STORAGE_KEYS.COLLEGE_COURSE,
-          STORAGE_KEYS.STUDY_REMINDERS,
-          STORAGE_KEYS.TIP_FLASHCARD,
-          STORAGE_KEYS.TIP_PROVENANCE,
-          STORAGE_KEYS.TIP_QUIZ_XP,
-          STORAGE_KEYS.FIRST_SESSION_DONE,
-          STORAGE_KEYS.CELEBRATION_SEEN,
-        ]);
+        ] = await AsyncStorage.multiGet(Object.values(keys));
+
+        if (ownerRef.current !== owner) return;
 
         let parsedFormats: PreferredFormat[] = defaultState.preferredFormats;
         if (formatsRaw[1]) {
@@ -185,14 +177,19 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           hasCompletedFirstSession: firstDone[1] === 'true',
           hasSeenCelebrationModal: celebrationSeen[1] === 'true',
         });
+        setLoadedOwner(owner);
       } catch (err) {
+        if (ownerRef.current !== owner) return;
         console.warn('Failed to load onboarding state:', err);
-        setState((prev) => ({ ...prev, isLoaded: true }));
+        setState({ ...defaultState, isLoaded: true });
+        setLoadedOwner(owner);
       }
     };
 
-    loadState();
-  }, []);
+    void loadState();
+  }, [owner]);
+
+  const key = (storageKey: string) => onboardingStorageKey(storageKey, owner === 'guest' ? null : owner);
 
   const completeWelcome = async (
     track: StudyTrack,
@@ -216,25 +213,25 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       const sR = profile?.studyRemindersEnabled !== undefined ? profile.studyRemindersEnabled : state.studyRemindersEnabled;
 
       const pairs: [string, string][] = [
-        [STORAGE_KEYS.COMPLETED_WELCOME, 'true'],
-        [STORAGE_KEYS.MOMO_INTRO_SEEN, 'false'],
-        [STORAGE_KEYS.IS_GUEST_MODE, guest ? 'true' : 'false'],
-        [STORAGE_KEYS.STUDY_TRACK, track],
-        [STORAGE_KEYS.PREFERRED_FORMAT, primaryFormat],
-        [STORAGE_KEYS.PREFERRED_FORMATS, JSON.stringify(formatArray)],
-        [STORAGE_KEYS.DAILY_GOAL, goalMinutes.toString()],
-        [STORAGE_KEYS.FIRST_NAME, fName],
-        [STORAGE_KEYS.LAST_NAME, lName],
-        [STORAGE_KEYS.USER_AGE, uAge.toString()],
-        [STORAGE_KEYS.HIGHSCHOOL_GRADE, hsG || ''],
-        [STORAGE_KEYS.COLLEGE_YEAR, cY || ''],
-        [STORAGE_KEYS.COLLEGE_COURSE, cC || ''],
-        [STORAGE_KEYS.STUDY_REMINDERS, sR ? 'true' : 'false'],
+        [key(STORAGE_KEYS.COMPLETED_WELCOME), 'true'],
+        [key(STORAGE_KEYS.MOMO_INTRO_SEEN), 'false'],
+        [key(STORAGE_KEYS.IS_GUEST_MODE), guest ? 'true' : 'false'],
+        [key(STORAGE_KEYS.STUDY_TRACK), track],
+        [key(STORAGE_KEYS.PREFERRED_FORMAT), primaryFormat],
+        [key(STORAGE_KEYS.PREFERRED_FORMATS), JSON.stringify(formatArray)],
+        [key(STORAGE_KEYS.DAILY_GOAL), goalMinutes.toString()],
+        [key(STORAGE_KEYS.FIRST_NAME), fName],
+        [key(STORAGE_KEYS.LAST_NAME), lName],
+        [key(STORAGE_KEYS.USER_AGE), uAge.toString()],
+        [key(STORAGE_KEYS.HIGHSCHOOL_GRADE), hsG || ''],
+        [key(STORAGE_KEYS.COLLEGE_YEAR), cY || ''],
+        [key(STORAGE_KEYS.COLLEGE_COURSE), cC || ''],
+        [key(STORAGE_KEYS.STUDY_REMINDERS), sR ? 'true' : 'false'],
       ];
 
       await AsyncStorage.multiSet(pairs);
 
-      setState((prev) => ({
+      if (ownerRef.current === owner) setState((prev) => ({
         ...prev,
         hasCompletedWelcome: true,
         hasSeenMomoIntro: false,
@@ -270,8 +267,8 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         stateKey = 'hasSeenQuizXpTip';
       }
 
-      await AsyncStorage.setItem(key, 'true');
-      setState((prev) => ({ ...prev, [stateKey]: true }));
+      await AsyncStorage.setItem(onboardingStorageKey(key, owner === 'guest' ? null : owner), 'true');
+      if (ownerRef.current === owner) setState((prev) => ({ ...prev, [stateKey]: true }));
     } catch (err) {
       console.warn('Failed to mark tip seen:', err);
     }
@@ -279,8 +276,8 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
   const markSessionCompleted = async () => {
     try {
-      await AsyncStorage.setItem(STORAGE_KEYS.FIRST_SESSION_DONE, 'true');
-      setState((prev) => ({
+      await AsyncStorage.setItem(key(STORAGE_KEYS.FIRST_SESSION_DONE), 'true');
+      if (ownerRef.current === owner) setState((prev) => ({
         ...prev,
         hasCompletedFirstSession: true,
       }));
@@ -291,22 +288,22 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
   const dismissCelebration = async () => {
     try {
-      await AsyncStorage.setItem(STORAGE_KEYS.CELEBRATION_SEEN, 'true');
-      setState((prev) => ({ ...prev, hasSeenCelebrationModal: true }));
+      await AsyncStorage.setItem(key(STORAGE_KEYS.CELEBRATION_SEEN), 'true');
+      if (ownerRef.current === owner) setState((prev) => ({ ...prev, hasSeenCelebrationModal: true }));
     } catch (err) {
       console.warn('Failed to dismiss celebration:', err);
     }
   };
 
   const finishMomoIntro = async () => {
-    await AsyncStorage.setItem(STORAGE_KEYS.MOMO_INTRO_SEEN, 'true');
-    setState((prev) => ({ ...prev, hasSeenMomoIntro: true }));
+    await AsyncStorage.setItem(key(STORAGE_KEYS.MOMO_INTRO_SEEN), 'true');
+    if (ownerRef.current === owner) setState((prev) => ({ ...prev, hasSeenMomoIntro: true }));
   };
 
   const setDailyGoal = async (minutes: number) => {
     try {
-      await AsyncStorage.setItem(STORAGE_KEYS.DAILY_GOAL, minutes.toString());
-      setState((prev) => ({ ...prev, dailyGoalMinutes: minutes }));
+      await AsyncStorage.setItem(key(STORAGE_KEYS.DAILY_GOAL), minutes.toString());
+      if (ownerRef.current === owner) setState((prev) => ({ ...prev, dailyGoalMinutes: minutes }));
     } catch (err) {
       console.warn('Failed to update daily goal:', err);
     }
@@ -334,9 +331,9 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         STORAGE_KEYS.TIP_QUIZ_XP,
         STORAGE_KEYS.FIRST_SESSION_DONE,
         STORAGE_KEYS.CELEBRATION_SEEN,
-      ]);
+      ].map(key));
 
-      setState({
+      if (ownerRef.current === owner) setState({
         ...defaultState,
         isLoaded: true,
       });
@@ -348,7 +345,7 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   return (
     <OnboardingContext.Provider
       value={{
-        ...state,
+        ...(loadedOwner === owner ? state : { ...defaultState, isLoaded: false }),
         completeWelcome,
         markTipSeen,
         markSessionCompleted,

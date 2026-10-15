@@ -50,6 +50,8 @@ mobile/
 
 ## Setup and Development
 
+For the Google/Supabase login provider, redirect URL, and device verification steps, see the [Google sign-in setup guide](../docs/GOOGLE_AUTH_SETUP.md).
+
 ### Prerequisites
 
 - Node.js (version 18 or higher)

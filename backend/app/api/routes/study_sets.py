@@ -73,7 +73,12 @@ async def update_study_set(
 ):
     study_set_id = _set_id(study_set_id)
     updates: dict[str, str | None] = {}
-    if req.title is not None:
+    if "title" in req.model_fields_set:
+        if req.title is None:
+            raise HTTPException(
+                status_code=422,
+                detail={"code": "INVALID_TITLE", "message": "Quiz title cannot be empty."}
+            )
         cleaned_title = req.title.strip()
         if not cleaned_title:
             raise HTTPException(

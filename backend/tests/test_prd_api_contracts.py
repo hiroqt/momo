@@ -290,6 +290,10 @@ async def test_study_set_patch_distinguishes_omitted_fields_from_explicit_null(c
     assert unchanged.json()["description"] == "Keep until explicitly cleared"
     assert unchanged.json()["folder_id"] == folder["id"]
 
+    invalid_title = await client.patch(path, headers=headers, json={"title": None})
+    assert invalid_title.status_code == 422
+    assert invalid_title.json()["error"]["code"] == "INVALID_TITLE"
+
     denied = await client.patch(path, headers=headers, json={"folder_id": foreign_folder["id"]})
     assert denied.status_code == 404 and denied.json()["error"]["code"] == "FOLDER_NOT_FOUND"
 

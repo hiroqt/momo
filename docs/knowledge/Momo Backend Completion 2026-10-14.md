@@ -11,7 +11,7 @@ The PRD-selected `nvidia/nemotron-4-340b-instruct` model has a 4,096-token conte
 
 ## October 15 API contract follow-up
 
-`PATCH /api/study-sets/{id}` now preserves omitted nullable fields but clears description/folder assignment when explicit `null` is sent, while retaining the old folder sentinels and owner check. Route regression tests cover omitted, null and foreign-folder cases. The full loopback PostgreSQL/PostgREST suite passed 1,046 tests with zero skips; no-skip, Ruff 147, mypy 77 and diff checks passed. See [[docs/API_CONTRACT_MATRIX]] and [[docs/PRODUCTION_READINESS_CHECKLIST]].
+`PATCH /api/study-sets/{id}` now preserves omitted nullable fields but clears description/folder assignment when explicit `null` is sent, while retaining the old folder sentinels and owner check. Explicit `title: null` returns `422 INVALID_TITLE` because study-set titles cannot be cleared. Route regression tests cover omitted, clear, reject and foreign-folder cases. The full loopback PostgreSQL/PostgREST suite passed 1,046 tests with zero skips; no-skip, Ruff 147, mypy 77 and diff checks passed. See [[docs/API_CONTRACT_MATRIX]] and [[docs/PRODUCTION_READINESS_CHECKLIST]].
 
 ## October 15 staging auth template note
 

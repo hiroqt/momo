@@ -98,6 +98,15 @@
       "y": 500,
       "width": 620,
       "height": 430
+    },
+    {
+      "id": "11",
+      "type": "file",
+      "file": "docs/knowledge/Momo Document Extraction.md",
+      "x": 2850,
+      "y": 1050,
+      "width": 620,
+      "height": 430
     }
   ],
   "edges": [
@@ -278,6 +287,14 @@
       "toNode": "0",
       "toSide": "right",
       "label": "Source-grounded content and release gates"
+    },
+    {
+      "id": "extraction-public",
+      "fromNode": "0",
+      "fromSide": "right",
+      "toNode": "11",
+      "toSide": "left",
+      "label": "DOC-02 mixed-PDF recovery; real OCR corpus remains open"
     }
   ]
 }

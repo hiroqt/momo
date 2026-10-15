@@ -734,6 +734,26 @@ async def test_scanned_pdf_uses_ocr_pages_with_metadata(monkeypatch):
     assert [p.page_number for p in result] == [1, 2] and all(p.is_ocr for p in result)
 
 
+async def test_mixed_pdf_ocr_fills_sparse_pages_without_replacing_text_pages(monkeypatch):
+    from app.domain.documents.models import DocumentPage
+    from app.services.extraction import pdf_extractor as module
+
+    monkeypatch.setattr(module.pdf_extractor, "_read_lines", lambda _: [
+        ["This text page contains enough embedded lecture content to skip OCR alone."], []
+    ])
+    monkeypatch.setattr(module.ocr_service, "extract_ocr", AsyncMock(return_value=[
+        DocumentPage(page_number=1, text="OCR duplicate of embedded page", is_ocr=True),
+        DocumentPage(page_number=2, text="Raster-only page recovered by OCR.", is_ocr=True),
+    ]))
+
+    result = await module.pdf_extractor.extract(b"%PDF-mixed")
+
+    assert [(page.page_number, page.text, page.is_ocr) for page in result] == [
+        (1, "This text page contains enough embedded lecture content to skip OCR alone.", False),
+        (2, "Raster-only page recovered by OCR.", True),
+    ]
+
+
 @pytest.mark.parametrize("pages", [[1], [2, 1], [1, 1], [1, 2, 3]])
 async def test_scanned_pdf_rejects_inconsistent_ocr_page_metadata(monkeypatch, pages):
     from app.domain.documents.models import DocumentPage

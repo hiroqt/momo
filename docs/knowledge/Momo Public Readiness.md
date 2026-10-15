@@ -1,9 +1,13 @@
 ---
 tags: [momo, backend, release, knowledge-map]
-audited: 2026-10-15
+audited: 2026-10-16
 status: public-release-blocked
 ---
 # Momo Public Readiness
+
+## October 16 extraction checkpoint
+
+DOC-02 now detects sparse pages individually: mixed PDFs retain pages with embedded text while OCR fills sparse or raster-only pages, preventing text on an early page from hiding missing source content. A regression reproduced the omission before the fix. The focused extraction suite passed 119 tests; the full loopback PostgreSQL/PostgREST suite passed 1,047 tests with zero skips, errors, or failures; the no-skip gate, Ruff 147, mypy 77, diff check and independent review passed. This is local evidence only: representative real-scan accuracy and hosted OCR remain unverified. The provider currently rasterizes every page when any page needs OCR. See [[Momo Document Extraction]] and the [[Momo Readiness Map.canvas|visual dependency map]].
 
 Momo is **not ready for public launch**. This October 14 pass started at `07fa026`; its backend work is recorded in the task commits and dated evidence report. It applies and inspects migrations 001–019 on the user-selected `momo-staging`, hardens Google-only backend JWT checks, and prepares a Render API/worker Blueprint. It does not deploy hosted application services or run a real-account journey. This repository is the configured Obsidian vault.
 

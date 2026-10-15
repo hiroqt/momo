@@ -110,7 +110,6 @@ class PDFExtractor:
             running_headers, running_footers = self._detect_running_headers_footers(raw_pages_lines)
 
             pages: list[DocumentPage] = []
-            total_extracted_text = ""
 
             for idx, lines in enumerate(raw_pages_lines):
                 # Filter out repetitive running headers and footers from each page
@@ -128,21 +127,21 @@ class PDFExtractor:
                         is_ocr=False
                     )
                 )
-                total_extracted_text += cleaned_text
-
-            # Scanned/low-text PDF: run the configured OCR provider. If OCR is unavailable
-            # or reads nothing, extraction fails; no placeholder text reaches generation.
-            if len(total_extracted_text.strip()) < 50:
-                logger.info("PDF text insufficient (<50 chars), invoking OCR")
+            # OCR sparse pages individually so a text-rich page cannot hide scanned pages.
+            sparse_pages = {page.page_number for page in pages if len(page.text.strip()) < 50}
+            if sparse_pages:
+                logger.info("PDF contains sparse pages, invoking OCR")
                 ocr_pages = await ocr_service.extract_ocr(file_bytes)
-                if not ocr_pages or not any(page.text.strip() for page in ocr_pages):
-                    raise ValueError("No readable text")
                 expected_pages = list(range(1, len(raw_pages_lines) + 1))
                 if [page.page_number for page in ocr_pages] != expected_pages or any(
                     not page.is_ocr for page in ocr_pages
                 ):
                     raise ValueError("OCR page metadata is inconsistent")
-                return ocr_pages
+                pages = [ocr_page if page.page_number in sparse_pages else page
+                         for page, ocr_page in zip(pages, ocr_pages, strict=True)]
+
+            if not any(page.text.strip() for page in pages):
+                raise ValueError("No readable text")
 
             return pages
         except Exception as exc:  # noqa: BLE001 - untrusted parser/OCR boundary; log class only

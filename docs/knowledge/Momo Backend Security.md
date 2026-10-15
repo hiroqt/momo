@@ -1,6 +1,6 @@
 ---
 tags: [momo, security, backend]
-audited: 2026-10-14
+audited: 2026-10-15
 ---
 # Momo Backend Security
 
@@ -15,6 +15,23 @@ Verified JWT identity, owner-filtered repositories, forced RLS and same-owner fo
 The public math fallback previously passed user text to SymPy `parse_expr`, which evaluates generated Python. Parsing now validates the generated expression AST against an arithmetic/function allowlist, passes a restricted symbol environment, bounds input length, AST nodes, numeric exponents and possible symbolic expansion to 4,096 terms, and rejects factorial calls that can consume unbounded synchronous CPU. Inverse-trig aliases remain supported. Tests reject attribute access, subscripts, comprehensions, an exploit-shaped `__import__` expression, oversized/nested powers, factorial denial of service, and large symbolic expansion while preserving implicit multiplication and standard math functions.
 
 Math solver errors no longer log exception text; diagram topics/requirements and rendered topics are omitted from logs; prompt-injection logs no longer disclose the internal matching regex. The local PostgreSQL/PostgREST gateway suite passed 854 tests with zero skips; Ruff (138 files), mypy (75 files), and the no-skip gate passed. The full SEC-02 audit remains open: these local tests do not verify all provider/worker logs, release bundles or dependency state, actual hosted HTTPS/CORS, or complete retention/deletion behavior. See [[docs/backend-readiness-2026-10-14|October 14 report]] for bounded evidence.
+
+## October 15 dependency and mobile bundle recheck
+
+Current mobile `npm audit` reports 19 high vulnerable package nodes, all tracing
+to two root advisories: `braces@3.0.3` through Expo Metro and
+`node-forge@1.4.0` through Expo CLI/code-signing certificates. The current
+registry versions match the lockfile, and the [braces advisory](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm)
+and [node-forge advisory](https://github.com/advisories/GHSA-86w9-cpqp-85rv)
+list no patched release. The generic npm fix proposes an incompatible downgrade
+to Expo 44; no override or downgrade was applied.
+
+Android/iOS Expo exports with source maps passed. The maps contain 8,047 and
+7,962 source entries and no path matching either package name. A path scan does
+not prove transformed/copied code is absent from a bundle. Native/signed
+artifacts and code executed on untrusted build hosts remain unchecked. Web npm
+audit found zero vulnerabilities; `uv audit --locked` found zero in 69 backend
+packages. SEC-02 remains open for release security controls and owner disposition.
 
 ## October 8 changes
 

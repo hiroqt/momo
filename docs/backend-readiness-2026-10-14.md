@@ -664,3 +664,32 @@ This supersedes the October 6 historical note that D-2 duplicate retries, D-3
 uncapped orphan recovery and D-4 completion guards remained open. WORK-02 is
 still partial: no hosted API/worker deployment, managed worker restart journey,
 or native ingestion journey was exercised.
+
+## SEC-02 current dependency and mobile bundle audit
+
+On October 15, `npm audit --audit-level=high` in `mobile/` reported 19 high
+vulnerable package nodes and no moderate or critical findings. The transitive
+graph resolves to two root advisories: `braces@3.0.3` (Expo Metro) and
+`node-forge@1.4.0` (Expo CLI/code-signing certificates). npm's automatic fix
+proposal downgrades Expo to 44.0.6, which is incompatible with the current
+Expo SDK 57 / React Native 0.86 project. Registry latest versions equal the
+lockfile versions; the [braces advisory](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm)
+and [node-forge advisory](https://github.com/advisories/GHSA-86w9-cpqp-85rv)
+list no patched releases. No dependency or lockfile changes were made.
+
+Fresh Android and iOS `expo export` builds with source maps passed. The maps
+contain 8,047 Android and 7,962 iOS source entries, with no source paths matching
+`node-forge` or `braces`. That path scan does not prove transformed/copied code
+from either package is absent from the bundles. This does not cover native
+binaries, signed store artifacts, or untrusted code executed in CI/developer
+build hosts. The web audit found zero
+vulnerabilities; `uv audit --locked` found zero in 69 backend packages. SEC-02
+remains partial pending build-host review, native/signed artifact checks,
+hosted security controls and release-owner disposition of the unpatched
+toolchain advisories.
+
+Commands: in `mobile/`, `npm audit --audit-level=high`, then
+`npx expo export --platform android --source-maps true --output-dir /tmp/momo-mobile-sec02-export-map`
+and the corresponding `--platform ios` export. In `web/`,
+`npm audit --audit-level=high`; in `backend/`, `uv audit --locked`. Mobile
+Expo/RN versions are 57.0.28/0.86.3. No packages were installed or changed.

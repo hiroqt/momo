@@ -593,3 +593,13 @@ and an independent review found no remaining cross-account render path. Offline
 mode may display the cached profile for the same previously verified account.
 This local UI subtask does not complete AUTH-02's hosted deletion/isolation or
 native account-switch acceptance.
+
+## AI-04 second bounded math-vision smoke
+
+After the user's explicit approval, one synthetic PNG containing `2 + 2` was
+sent through the configured `nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free`
+vision path. The provider boundary returned the controlled unavailable result;
+no alternate model or retry ran. Together with the earlier separately approved
+smoke, both live attempts have returned unavailable. The sanitized boundary does
+not expose the upstream cause, so this verifies failure handling and routing only,
+not provider availability or answer quality. No user or document data was sent.

@@ -1,6 +1,6 @@
 ---
 tags: [momo, storage, retention, security]
-audited: 2026-10-14
+audited: 2026-10-15
 status: partial
 ---
 # Momo Upload Retention
@@ -13,6 +13,12 @@ Automatic physical deletion must target the observed generation. Local mocks com
 
 Legacy tickets have unverified provider/bucket and historical clocks; they remain visible for explicit inventory/backfill. Confirmed absence is recorded while tombstones retain15-minute probes for late/recreated bytes. Provider outages are never absence.
 
+## October 15 staging inventory snapshot
+
+The user confirmed historical originals are in Supabase's `documents` bucket. Read-only aggregate queries on active `momo-staging` compared exact `storage.objects.name` keys against upload ticket/document keys and counted legacy destinations: 0 storage metadata rows, 0 unregistered rows, 0 document/ticket keys without a matching storage metadata row, and 0 legacy tickets (including 0 with unresolved or other destinations). This is an empty staging metadata snapshot, not proof that production or an in-flight upload has no untracked object. No object bytes were fetched or changed, and no Storage API listing/deletion request was made. Legacy and unregistered inventory must be repeated against each intended environment when it contains data; physical deletion timing, Storage API pagination, and worker capacity remain unverified.
+
 Read [[docs/UPLOAD_RETENTION_DESIGN|lifecycle and rollout contract]], [[docs/backend-readiness-2026-10-08|October 8 evidence]] and [[docs/backend-readiness-2026-10-14|October 14 staging evidence]]. See [[Momo Database]], [[Momo Durable Jobs and Replays]], [[Momo Backend Security]], [[Momo Database Recovery]], [[Momo Backend Completion 2026-10-14]] and [[Momo Public Readiness]].
 
 Local verification for this follow-up: 36 focused API/ticket/worker/PostgreSQL/PostgREST tests and the full backend PostgreSQL/PostgREST suite (869, zero skips) passed; Ruff (138 files), mypy (75 files), mobile lint and all 186 mobile tests passed. Staging migration `20261014015410` and function privilege/definition checks passed. `signed_until` is captured just before the provider signing call; the configured 15-second Storage client timeout is below the 15-minute grace, but the exact signed-token expiry is not observed directly. No hosted upload or physical deletion was performed, and the change does not prove managed physical deletion timing.
+
+October 15 local adapter contract: with locked `storage3` 2.31.0 and `httpx.MockTransport`, a regression asserts retired cleanup sends one `DELETE /storage/v1/object/documents` request whose JSON `prefixes` contains only the exact object key. A second regression returns a synthetic provider error and confirms its body is absent from the safe exception and logs. Storage metadata tests: 46 passed; full loopback PostgreSQL/PostgREST suite: 952 passed, zero skips/errors/failures; no-skip gate, Ruff 142 and mypy 76 pass. An independent reviewer found no issue. No live Storage request or physical deletion was performed. Ordinary 72-hour Supabase expiry remains fail-closed because the provider operation has no generation predicate.

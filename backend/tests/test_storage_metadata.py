@@ -1,5 +1,6 @@
 """Provider creation timestamps and conditional upload contracts (no network)."""
 
+import json
 from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime, timedelta, timezone
 from types import SimpleNamespace
@@ -123,6 +124,43 @@ def test_locked_supabase_sdk_signs_no_upsert_and_info_uses_authoritative_created
         assert metadata.uploaded_at == datetime(2020, 10, 8, 2, tzinfo=UTC)
         assert metadata.identity == "object-id" and metadata.version == "version-id"
         assert service.get_upload_headers("text/plain") == {"Content-Type": "text/plain"}
+
+
+def test_locked_supabase_sdk_retired_delete_uses_exact_bucket_and_path(monkeypatch):
+    monkeypatch.setattr(settings, "DATABASE_BACKEND", "supabase")
+    requests = []
+
+    def respond(request):
+        requests.append(request)
+        return httpx.Response(200, json=[{"name": "original.pdf"}])
+
+    with httpx.Client(transport=httpx.MockTransport(respond)) as transport:
+        storage = SyncStorageClient("http://127.0.0.1:54321/storage/v1/", {}, http_client=transport)
+        monkeypatch.setattr(supabase_session, "client", SimpleNamespace(storage=storage))
+        assert SupabaseStorageService().delete_object("documents/opaque-user/opaque-document/original.pdf")
+
+    assert len(requests) == 1
+    assert requests[0].method == "DELETE"
+    assert requests[0].url.path == "/storage/v1/object/documents"
+    assert json.loads(requests[0].content) == {
+        "prefixes": ["documents/opaque-user/opaque-document/original.pdf"]
+    }
+
+
+def test_supabase_retired_delete_redacts_provider_error(monkeypatch, caplog):
+    monkeypatch.setattr(settings, "DATABASE_BACKEND", "supabase")
+
+    def respond(_request):
+        return httpx.Response(500, json={"message": "PRIVATE_STORAGE_RESPONSE"})
+
+    with httpx.Client(transport=httpx.MockTransport(respond)) as transport:
+        storage = SyncStorageClient("http://127.0.0.1:54321/storage/v1/", {}, http_client=transport)
+        monkeypatch.setattr(supabase_session, "client", SimpleNamespace(storage=storage))
+        with pytest.raises(StorageUnavailableError, match="^Uploaded document could not be deleted$") as failure:
+            SupabaseStorageService().delete_object("documents/opaque-user/opaque-document/original.pdf")
+
+    assert "PRIVATE_STORAGE_RESPONSE" not in str(failure.value)
+    assert "PRIVATE_STORAGE_RESPONSE" not in caplog.text
 
 
 def test_supabase_last_modified_alone_is_not_upload_creation_time(monkeypatch):

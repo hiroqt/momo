@@ -196,6 +196,13 @@ def test_openapi_documents_canonical_shapes():
     assert "email" not in me.get("required", [])
 
 
+def test_openapi_documents_math_photo_input_contract():
+    properties = app.openapi()["components"]["schemas"]["MathSolveRequest"]["properties"]
+    assert properties["base64_image"]["anyOf"][0]["maxLength"] == 8_000_000
+    assert "Raw Base64 or a data URI" in properties["base64_image"]["description"]
+    assert properties["equation_text"]["anyOf"][0]["maxLength"] == 2000
+
+
 async def test_profile_never_invents_account_facts(client_identity):
     from app.db.repositories.profile_repo import profile_repo
     client, owner, other = client_identity

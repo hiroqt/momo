@@ -1,6 +1,6 @@
 # API Contract Matrix (API-01)
 
-Verified locally on **October 15, 2026** against backend/client code at **`8bd3e8e`**.
+Verified locally on **October 15, 2026** against the checked-out backend and client source.
 Requirements come from [ARD_PRD.md](../ARD_PRD.md) sections 8.1-8.10 and 6.6/6.7.
 This matrix records how routes and mobile client methods map to them. It does
 not change the PRD. Rows marked **Extension** are routes the PRD does not list.
@@ -84,7 +84,7 @@ approved MVP policy. Sync does not credit XP or hearts; see Economy below.
 
 | PRD | Route | Mobile client | Status |
 | --- | --- | --- | --- |
-| `POST /api/math/solve` | same | `solveMathProblem` | Routed. Bounds and provider behavior belong to MATH-01/AI-04. |
+| `POST /api/math/solve` | same | `solveMathProblem` | Accepts raw Base64 (current mobile) or JPEG/PNG/WebP data URIs (PRD); URI media type must match decoded bytes. Input is limited to 6 MiB decoded/16 MP; typed text is ≤2,000 characters. Invalid images return 422 `INVALID_IMAGE` before provider egress. Availability and answer quality remain MATH-01/AI-04 gates. |
 | `GET /api/stats/streak` | same | `getStreak` | Routed. |
 | `GET/POST /api/chat/sessions`, `GET /api/chat/sessions/{id}`, `POST .../messages`, `POST /api/chat/import-card` | same | `listChatSessions`, `createChatSession`, `getChatSession`, `sendChatMessage`, `importCardToLibrary` | Routed. Body bounds and grounding belong to CHAT-01/AI-01. `generate_study_card` rejects expired/malformed-expiry sources before retrieval. Card import resolves an owned READY/unexpired document and exact server-fetched chunk, runs deterministic validation and Jev semantic verification, then persists; paraphrased cards grounded in prose are supported. Native and hosted journeys remain open. |
 | none | `DELETE /api/chat/sessions/{id}`, `POST /api/chat` | `deleteChatSession`, `quickChat` | **Extensions.** |

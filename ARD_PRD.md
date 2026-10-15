@@ -558,7 +558,8 @@ Uniform Error Response Structure:
 
 ### 8.7 Step-by-Step Math Solver
 - `POST /api/math/solve`
-  - Request: `{ "base64_image": "data:image/jpeg;base64,...", "equation_text": "\\int x^2 dx" }`
+  - Request: `base64_image` may be raw Base64 or a `data:image/jpeg;base64,...` data URI; `equation_text` is limited to 2,000 characters. When both are provided, the image takes precedence. Math photos must contain valid JPEG, PNG, or WebP data, at most 6 MiB decoded and 16 megapixels; malformed or unsupported image data returns a controlled 422 before provider egress.
+  - Example: `{ "base64_image": "data:image/jpeg;base64,...", "equation_text": "\\int x^2 dx" }`
   - Response:
     ```json
     {

@@ -16,8 +16,14 @@ MAX_MATH_IMAGE_BYTES = 6 * 1024 * 1024
 
 class MathSolveRequest(BaseModel):
     # Bounded untrusted inputs (~6 MB decoded image, typed problem text).
-    base64_image: str | None = Field(default=None, max_length=8_000_000)
-    equation_text: str | None = Field(default=None, max_length=2000)
+    base64_image: str | None = Field(
+        default=None,
+        max_length=8_000_000,
+        description="Raw Base64 or a data URI containing JPEG, PNG, or WebP; max 6 MiB decoded and 16 megapixels.",
+    )
+    equation_text: str | None = Field(
+        default=None, max_length=2000, description="Typed math problem (up to 2,000 characters)."
+    )
 
 class MathSolveResponse(BaseModel):
     problem: str
@@ -44,9 +50,22 @@ async def solve_math_problem(
         )
 
     image_mime_type = None
-    if req.base64_image:
+    image_base64 = req.base64_image
+    if image_base64:
         try:
-            image_mime_type = validate_base64_image(req.base64_image, max_bytes=MAX_MATH_IMAGE_BYTES)
+            declared_mime_type = None
+            if image_base64.startswith("data:"):
+                header, separator, image_base64 = image_base64.partition(",")
+                declared_mime_type = {
+                    "data:image/jpeg;base64": "image/jpeg",
+                    "data:image/png;base64": "image/png",
+                    "data:image/webp;base64": "image/webp",
+                }.get(header)
+                if not separator or declared_mime_type is None:
+                    raise ValueError("Unsupported image data URI")
+            image_mime_type = validate_base64_image(image_base64, max_bytes=MAX_MATH_IMAGE_BYTES)
+            if declared_mime_type and declared_mime_type != image_mime_type:
+                raise ValueError("Image data URI media type does not match its bytes")
         except ValueError as exc:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
@@ -55,7 +74,7 @@ async def solve_math_problem(
 
     try:
         result = await ai_provider.solve_math(
-            req.base64_image, equation_text=req.equation_text, image_mime_type=image_mime_type
+            image_base64, equation_text=req.equation_text, image_mime_type=image_mime_type
         )
         # Sanitize any output against credential leaks
         if isinstance(result, dict):

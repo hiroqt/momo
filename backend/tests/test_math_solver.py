@@ -23,18 +23,20 @@ def _encoded_image(image_format: str, size: tuple[int, int] = (2, 2)) -> str:
     ("image_format", "mime_type"),
     [("JPEG", "image/jpeg"), ("PNG", "image/png"), ("WEBP", "image/webp")],
 )
-async def test_math_photo_validates_and_preserves_actual_format(monkeypatch, image_format, mime_type):
+@pytest.mark.parametrize("data_uri", [False, True])
+async def test_math_photo_validates_and_preserves_actual_format(monkeypatch, image_format, mime_type, data_uri):
     solve = AsyncMock(return_value={
         "problem": "2 + 2", "steps": ["Add"], "final_answer": "4", "explanation": "Addition",
     })
     monkeypatch.setattr(math.ai_provider, "solve_math", solve)
     encoded = _encoded_image(image_format)
+    request_image = f"data:{mime_type};base64,{encoded}" if data_uri else encoded
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         response = await client.post(
             "/api/math/solve",
-            json={"base64_image": encoded, "equation_text": "ignored when image is supplied"},
-            headers={"Authorization": f"Bearer test-token-photo-{image_format.lower()}"},
+            json={"base64_image": request_image, "equation_text": "ignored when image is supplied"},
+            headers={"Authorization": f"Bearer test-token-photo-{image_format.lower()}-{data_uri}"},
         )
 
     assert response.status_code == 200
@@ -45,6 +47,7 @@ async def test_math_photo_validates_and_preserves_actual_format(monkeypatch, ima
 @pytest.mark.parametrize("encoded", [
     "%%%", base64.b64encode(b"not an image").decode("ascii"), _encoded_image("GIF"),
     base64.b64encode(base64.b64decode(_encoded_image("PNG"))[:-10]).decode("ascii"),
+    f"data:image/jpeg;base64,{_encoded_image('PNG')}",
 ])
 async def test_math_photo_rejects_invalid_or_unsupported_image_before_provider(monkeypatch, encoded):
     solve = AsyncMock()

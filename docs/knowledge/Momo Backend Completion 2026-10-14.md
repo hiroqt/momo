@@ -13,6 +13,10 @@ Parent: [[Momo Public Readiness]]. Map: [[Momo Readiness Map.canvas]]. Full evid
 - The user authorized resuming and applying database migrations to `momo-staging`, reported Google OAuth configured there, and selected Render for host preparation. The user also approved delaying retired-object purge until the two-hour upload URL expires plus a 15-minute grace period and selected NVIDIA Nemotron 3 Embed 1B at 2048 dimensions.
 - `momo-prod` was not queried or changed. No staging API/worker deployment, hosted Google sign-in, object upload, AI-provider call, or hosted load test was performed.
 
+## October 15 database optimization follow-up
+
+Migration 021 adds valid child-side indexes for the 14 composite owner foreign keys flagged by staging; the study-item index also serves the owner-filtered order query. The full loopback PostgreSQL/PostgREST suite passes 1,036 with zero skips, and the unforced query-plan checks select the new item/chunk indexes. Staging records this migration as `20261015012926`; all 14 indexes are catalog-valid/ready and the unindexed-FK advisory is clear. The 58 unused-index notices are from an empty staging workload and do not establish real usage or capacity. Production was not changed. See [[Momo Database]] and [[Momo Public Readiness]].
+
 ## Completed by module
 
 **Auth (AUTH-01):** `backend/app/dependencies.py` checks token signature/algorithm, configured issuer and audience, expiry, authenticated role and UUID subject. It accepts only signed Google provider and OAuth-method claims. Anonymous, password and non-Google identities fail. The API does not make an Auth service request on each call. Tests cover provider rejection. A real Google login, token refresh and device redirect remain unverified.

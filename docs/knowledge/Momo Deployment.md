@@ -13,7 +13,7 @@ Render was selected for host preparation. `render.yaml` defines a Singapore stag
 
 ## Deployment sequence to review with the release owner
 
-1. Complete CI-01, ENV-02 and provider/OAuth decisions. Staging migrations 001–020 are applied; review backup/restore, data inventory and production migration behavior separately.
+1. Complete CI-01, ENV-02 and provider/OAuth decisions. Staging migrations 001–021 are applied; review backup/restore, data inventory and production migration behavior separately.
 2. Keep deployed worker/API versions aligned with migrations and drain old workers during a transition. No worker was deployed in this pass.
 3. Deploy API and separate workers from the same immutable release image. Set `INLINE_JOB_EXECUTION=false`, pin APP_ENV/project, and inject scoped secrets including `TYPESAFE_API_KEY`. Set ingress HTTPS, request limits/timeouts and controlled access logs.
 4. Probe `/health` for liveness and `/ready` for database connectivity. The probe uses a metadata-only table request with a three-second deadline; failure returns safe503. It does not verify all RPCs, workers, storage, OCR or providers.

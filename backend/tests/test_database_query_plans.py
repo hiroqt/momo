@@ -66,8 +66,8 @@ def test_owner_query_uses_index_without_forcing_planner(database, representative
     owner, set_id, document = representative
     queries = {
         "library": (f"SELECT * FROM study_sets WHERE user_id='{owner}' ORDER BY created_at DESC,id LIMIT 50 OFFSET 0", 50, "study_sets_owner_created_idx"),
-        "items": (f"SELECT * FROM study_items WHERE study_set_id='{set_id}' AND user_id='{owner}' ORDER BY order_index", 5, "items_set_order_idx"),
-        "chunks": (f"SELECT * FROM document_chunks WHERE document_id='{document}' AND user_id='{owner}'", 100, "chunks_owner_document_idx"),
+        "items": (f"SELECT * FROM study_items WHERE study_set_id='{set_id}' AND user_id='{owner}' ORDER BY order_index", 5, "study_items_set_owner_fk_idx"),
+        "chunks": (f"SELECT * FROM document_chunks WHERE document_id='{document}' AND user_id='{owner}'", 100, "document_chunks_document_owner_fk_idx"),
     }
     query, expected_rows, expected_index = queries[shape]
     result = json.loads(database(f"EXPLAIN (ANALYZE,BUFFERS,FORMAT JSON) {query};"))[0]

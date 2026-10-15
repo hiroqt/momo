@@ -229,7 +229,7 @@
       "fromSide": "bottom",
       "toNode": "2",
       "toSide": "right",
-      "label": "Staging 001–020; 2048D embedding v2; internal RLS; managed PostgREST open"
+      "label": "Staging 001–021; composite FK indexes; 2048D embedding v2; managed PostgREST open"
     },
     {
       "id": "completion-deploy",

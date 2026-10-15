@@ -478,6 +478,52 @@ def test_all_application_grants_are_select_only_for_users_and_deny_anonymous(dat
     assert policies == "", f"Unexpected client policies: {policies}"
 
 
+def test_composite_foreign_keys_have_valid_covering_indexes(database):
+    expected = {
+        "generation_requests_job_owner_idx": ("internal", "generation_requests", ["job_id", "user_id"]),
+        "chat_messages_session_owner_fk_idx": ("public", "chat_messages", ["session_id", "user_id"]),
+        "document_chunks_document_owner_fk_idx": ("public", "document_chunks", ["document_id", "user_id"]),
+        "economy_ledger_folder_owner_fk_idx": ("public", "economy_ledger", ["folder_id", "user_id"]),
+        "economy_ledger_item_owner_fk_idx": ("public", "economy_ledger", ["study_item_id", "user_id"]),
+        "generation_jobs_document_owner_fk_idx": ("public", "generation_jobs", ["document_id", "user_id"]),
+        "generation_jobs_set_owner_fk_idx": ("public", "generation_jobs", ["study_set_id", "user_id"]),
+        "learning_events_item_owner_fk_idx": ("public", "learning_events", ["item_id", "user_id"]),
+        "study_items_set_owner_fk_idx": ("public", "study_items", ["study_set_id", "user_id"]),
+        "study_sessions_set_owner_fk_idx": ("public", "study_sessions", ["study_set_id", "user_id"]),
+        "study_sets_document_owner_fk_idx": ("public", "study_sets", ["document_id", "user_id"]),
+        "study_sets_folder_owner_fk_idx": ("public", "study_sets", ["folder_id", "user_id"]),
+        "sync_events_item_owner_fk_idx": ("public", "sync_events", ["study_item_id", "user_id"]),
+        "sync_events_session_owner_fk_idx": ("public", "sync_events", ["study_session_id", "user_id"]),
+    }
+    rows = database("""
+        SELECT ns.nspname, tbl.relname, idx.relname, i.indisvalid, i.indisready,
+            ARRAY(
+                SELECT a.attname
+                FROM unnest(i.indkey) WITH ORDINALITY k(attnum, ord)
+                JOIN pg_attribute a ON a.attrelid = tbl.oid AND a.attnum = k.attnum
+                WHERE k.ord <= i.indnkeyatts
+                ORDER BY k.ord
+            )
+        FROM pg_index i
+        JOIN pg_class idx ON idx.oid = i.indexrelid
+        JOIN pg_class tbl ON tbl.oid = i.indrelid
+        JOIN pg_namespace ns ON ns.oid = tbl.relnamespace
+        WHERE idx.relname LIKE '%owner%fk%idx'
+            OR idx.relname = 'generation_requests_job_owner_idx'
+        ORDER BY idx.relname;
+    """)
+    found = {}
+    for row in rows.splitlines():
+        schema, table, name, valid, ready, columns = row.split("|", 5)
+        found[name] = (schema, table, columns.strip("{}").split(","), valid == "t", ready == "t")
+    assert set(found) == set(expected)
+    for name, (schema, table, columns) in expected.items():
+        actual_schema, actual_table, actual_columns, valid, ready = found[name]
+        assert (actual_schema, actual_table) == (schema, table)
+        assert actual_columns[: len(columns)] == columns
+        assert valid and ready
+
+
 def test_storage_restrictive_boundaries_hold_despite_existing_broad_policies(database, users):
     alice, bob = users
     key = f"documents/{alice}/{uuid4()}/original.txt"

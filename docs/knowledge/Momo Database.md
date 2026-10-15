@@ -55,6 +55,10 @@ establish production capacity or vector quality.
 
 Local synthetic restore now checks persistent material, tenant security and preserved expiry. Read [[Momo Database Recovery]] for evidence limits and remaining recovery decisions.
 
+## Nemotron embedding provider smoke (2026-10-15)
+
+One user-approved OpenRouter request embedded 10 synthetic science passages and 5 pre-labeled paraphrase queries with `nvidia/nemotron-3-embed-1b:free`. All 15 vectors were returned in order, finite, and 2048D in 1.63 seconds. Cosine top-1 was 5/5 (MRR 1.000) on this tiny synthetic set. This confirms response parsing and a basic ranking path only; it is not representative relevance, staging indexing/retrieval, reliability, capacity, or cost evidence. No retry or fallback was used. AI-03 remains partial. See [[docs/backend-readiness-2026-10-14|dated report]] and [[Momo Public Readiness]].
+
 ## Internal-schema local RLS regression (2026-10-15)
 
 The local PostgreSQL suite now asserts all five internal tables (`background_jobs`, `folder_requests`, `generation_requests`, `rate_limit_events`, `upload_tickets`) exist with RLS enabled and forced. It verifies anon/authenticated cannot use the `internal` schema or access table privileges, `service_role` retains required CRUD, and direct client SELECT/INSERT are denied. Focused `test_postgres_rls.py`: 28 passed with zero skips; Ruff and `git diff --check` pass. This is local catalog/runtime regression evidence only; managed PostgREST two-user/RPC checks and rollback remain open. See [[Momo Public Readiness]] and [[Momo Readiness Map.canvas]].

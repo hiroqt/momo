@@ -1,6 +1,6 @@
 # Momo backend readiness — October 14, 2026
 
-**Status: not ready for public launch.** This pass completed local backend hardening and deployment preparation, then applied and inspected the ordered schema on the user-selected `momo-staging` Supabase project, including migration 019 for an additive 2048-dimensional embedding index. It did not deploy the API or worker, run real Google sign-in, upload hosted bytes, call OpenRouter/Nemotron/OCR, query production data, or run hosted load tests. After approval, one bounded two-item synthetic request exercised the runtime Jev verifier client; no user or document content was sent.
+**Status: not ready for public launch.** This pass completed local backend hardening and deployment preparation, then applied and inspected the ordered schema on the user-selected `momo-staging` Supabase project, including migration 019 for an additive 2048-dimensional embedding index. It did not deploy the API or worker, run real Google sign-in, upload hosted bytes, query production data, or run hosted load tests. One separately approved synthetic OpenRouter embedding smoke and one bounded two-item synthetic Jev verifier request were made; no user or document content was sent. The embedding smoke is recorded below and does not close AI-03.
 
 ## Decisions and boundaries
 
@@ -626,3 +626,25 @@ indexes, again without changing rows or foreign keys. The Compose stack was
 stopped after the rehearsal. This is local rollback evidence only; managed
 PostgREST/two-user authorization and hosted rollback remain unverified, so
 ENV-02 stays partial.
+
+## AI-03 one-request synthetic embedding smoke
+
+After explicit approval, one OpenRouter embeddings request sent 10 short,
+synthetic science passages and 5 pre-labeled paraphrase queries to
+`nvidia/nemotron-3-embed-1b:free`. The response contained all 15 vectors in
+input order; each vector was finite and 2048-dimensional. The batch completed
+in 1.63 seconds. Cosine similarity ranked the pre-labeled intended passage
+first for all five queries (top-1 5/5; mean reciprocal rank 1.000). An
+independent read-only review confirmed the provider's single-batch contract
+supports this measurement.
+
+This is a response-shape and tiny synthetic ranking smoke only. The fixture is
+not representative of user documents; it does not test staging indexing or
+retrieval, provider reliability, meaningful latency/capacity, or cost telemetry.
+The exact input fixture and raw response were not retained, so the metrics are
+not independently reproducible from this repository. No retry/fallback or
+additional provider request was made. AI-03 remains partial pending the
+approved staging relevance corpus and production v1-document inventory/reindex
+decision. OpenRouter's [model page](https://openrouter.ai/nvidia/nemotron-3-embed-1b/providers)
+is volatile and currently advertises free pricing; that does not provide
+per-request usage or cost evidence.

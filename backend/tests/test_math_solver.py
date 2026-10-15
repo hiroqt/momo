@@ -1,8 +1,100 @@
+import base64
+import io
+from unittest.mock import AsyncMock
+
 import pytest
 from httpx import ASGITransport, AsyncClient
+from PIL import Image
 
+from app.api.routes import math
 from app.main import app
 from app.services.ai.math_engine import _safe_parse, math_engine
+
+
+def _encoded_image(image_format: str, size: tuple[int, int] = (2, 2)) -> str:
+    image = Image.new("RGB", size, color="white")
+    buffer = io.BytesIO()
+    image.save(buffer, format=image_format)
+    return base64.b64encode(buffer.getvalue()).decode("ascii")
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("image_format", "mime_type"),
+    [("JPEG", "image/jpeg"), ("PNG", "image/png"), ("WEBP", "image/webp")],
+)
+async def test_math_photo_validates_and_preserves_actual_format(monkeypatch, image_format, mime_type):
+    solve = AsyncMock(return_value={
+        "problem": "2 + 2", "steps": ["Add"], "final_answer": "4", "explanation": "Addition",
+    })
+    monkeypatch.setattr(math.ai_provider, "solve_math", solve)
+    encoded = _encoded_image(image_format)
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        response = await client.post(
+            "/api/math/solve",
+            json={"base64_image": encoded, "equation_text": "ignored when image is supplied"},
+            headers={"Authorization": f"Bearer test-token-photo-{image_format.lower()}"},
+        )
+
+    assert response.status_code == 200
+    solve.assert_awaited_once_with(encoded, equation_text="ignored when image is supplied", image_mime_type=mime_type)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("encoded", [
+    "%%%", base64.b64encode(b"not an image").decode("ascii"), _encoded_image("GIF"),
+    base64.b64encode(base64.b64decode(_encoded_image("PNG"))[:-10]).decode("ascii"),
+])
+async def test_math_photo_rejects_invalid_or_unsupported_image_before_provider(monkeypatch, encoded):
+    solve = AsyncMock()
+    monkeypatch.setattr(math.ai_provider, "solve_math", solve)
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        response = await client.post(
+            "/api/math/solve", json={"base64_image": encoded},
+            headers={"Authorization": f"Bearer test-token-invalid-{hash(encoded)}"},
+        )
+
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "INVALID_IMAGE"
+    solve.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_math_photo_enforces_decoded_byte_limit_before_provider(monkeypatch):
+    solve = AsyncMock()
+    monkeypatch.setattr(math, "MAX_MATH_IMAGE_BYTES", 3)
+    monkeypatch.setattr(math.ai_provider, "solve_math", solve)
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        response = await client.post(
+            "/api/math/solve", json={"base64_image": _encoded_image("JPEG")},
+            headers={"Authorization": "Bearer test-token-byte-limit"},
+        )
+
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "INVALID_IMAGE"
+    solve.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_math_photo_enforces_decoded_pixel_limit_before_provider(monkeypatch):
+    from app.services.ai import image_validation
+
+    solve = AsyncMock()
+    monkeypatch.setattr(image_validation, "MAX_IMAGE_PIXELS", 3)
+    monkeypatch.setattr(math.ai_provider, "solve_math", solve)
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        response = await client.post(
+            "/api/math/solve", json={"base64_image": _encoded_image("PNG", size=(2, 2))},
+            headers={"Authorization": "Bearer test-token-pixel-limit"},
+        )
+
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "INVALID_IMAGE"
+    solve.assert_not_awaited()
 
 
 def test_math_parser_supports_implicit_multiplication_and_math_functions():

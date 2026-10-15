@@ -126,12 +126,15 @@ async def test_math_image_uses_only_configured_vision_model(monkeypatch, provide
     monkeypatch.setattr(settings, "OPENROUTER_MATH_VISION_MODEL", "operator-approved-vision")
     monkeypatch.setattr(module, "extract_text_from_base64_image", lambda _: pytest.fail("image OCR must not switch to text solving"))
 
-    result = await provider.solve_math(base64_image="cGhvdG8=", equation_text="must not switch to text models")
+    result = await provider.solve_math(
+        base64_image="cGhvdG8=", equation_text="must not switch to text models", image_mime_type="image/png"
+    )
 
     assert result["final_answer"] == "4"
     assert client.calls == 1
     assert client.requests[0]["json"]["model"] == "operator-approved-vision"
     assert "response_format" not in client.requests[0]["json"]
+    assert client.requests[0]["json"]["messages"][0]["content"][1]["image_url"]["url"] == "data:image/png;base64,cGhvdG8="
 
 
 async def test_math_image_without_configured_model_fails_before_network(monkeypatch, provider):

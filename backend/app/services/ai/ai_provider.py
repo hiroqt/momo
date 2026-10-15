@@ -41,7 +41,10 @@ class AIProvider(ABC):
         pass
 
     @abstractmethod
-    async def solve_math(self, base64_image: str | None = None, equation_text: str | None = None) -> dict[str, Any]:
+    async def solve_math(
+        self, base64_image: str | None = None, equation_text: str | None = None,
+        image_mime_type: str | None = None,
+    ) -> dict[str, Any]:
         pass
 
     @abstractmethod
@@ -468,8 +471,12 @@ class MockNemotronProvider(AIProvider):
             items.append(item)
 
         return items
-    async def solve_math(self, base64_image: str | None = None, equation_text: str | None = None) -> dict[str, Any]:
+    async def solve_math(
+        self, base64_image: str | None = None, equation_text: str | None = None,
+        image_mime_type: str | None = None,
+    ) -> dict[str, Any]:
         """Dynamic math solver that handles natural language expressions, multi-variable systems, and single equations."""
+        del image_mime_type
         await asyncio.sleep(0.1)
         target_text = (equation_text or "").strip()
         if not target_text and base64_image:
@@ -1558,7 +1565,10 @@ class OpenRouterNemotronProvider(AIProvider):
 
         return combined_items
 
-    async def solve_math(self, base64_image: str | None = None, equation_text: str | None = None) -> dict[str, Any]:
+    async def solve_math(
+        self, base64_image: str | None = None, equation_text: str | None = None,
+        image_mime_type: str | None = None,
+    ) -> dict[str, Any]:
         """
         Dynamically solves any math problem from an image or direct equation input:
         1. If equation_text is provided, uses Nemotron reasoning or UniversalMathEngine to solve it.
@@ -1652,7 +1662,7 @@ class OpenRouterNemotronProvider(AIProvider):
                 "model": vision_model,
                 "messages": [{"role": "user", "content": [
                     {"type": "text", "text": image_prompt},
-                    {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}},
+                    {"type": "image_url", "image_url": {"url": f"data:{image_mime_type or 'image/jpeg'};base64,{base64_image}"}},
                 ]}],
                 "temperature": 0.1,
             }

@@ -5,12 +5,14 @@ from pydantic import BaseModel, Field
 
 from app.dependencies import AuthenticatedUser, get_current_user
 from app.services.ai.ai_provider import ProviderUnavailableError, ai_provider
+from app.services.ai.image_validation import validate_base64_image
 from app.services.security.guardrails_service import guardrails_service
 from app.services.security.rate_limiter import require_rate_limit
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/math", tags=["math"])
+MAX_MATH_IMAGE_BYTES = 6 * 1024 * 1024
 
 class MathSolveRequest(BaseModel):
     # Bounded untrusted inputs (~6 MB decoded image, typed problem text).
@@ -41,8 +43,20 @@ async def solve_math_problem(
             detail={"code": "MISSING_INPUT", "message": "Either base64_image or equation_text must be provided."}
         )
 
+    image_mime_type = None
+    if req.base64_image:
+        try:
+            image_mime_type = validate_base64_image(req.base64_image, max_bytes=MAX_MATH_IMAGE_BYTES)
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail={"code": "INVALID_IMAGE", "message": "The photo must be a valid JPEG, PNG, or WebP image within the allowed limits."},
+            ) from exc
+
     try:
-        result = await ai_provider.solve_math(req.base64_image, equation_text=req.equation_text)
+        result = await ai_provider.solve_math(
+            req.base64_image, equation_text=req.equation_text, image_mime_type=image_mime_type
+        )
         # Sanitize any output against credential leaks
         if isinstance(result, dict):
             if "explanation" in result and isinstance(result["explanation"], str):

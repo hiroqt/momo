@@ -1,7 +1,8 @@
-import React, { createContext, useState, useEffect, useRef } from 'react';
+import React, { createContext, useState, useEffect, useRef, useMemo } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from './AuthContext';
 import { onboardingOwner, onboardingStorageKey } from '../lib/storage/onboardingKeys';
+import { enqueueOnboardingWrite } from '../lib/storage/onboardingWriteQueue';
 
 export type StudyTrack = 'college' | 'med_nursing' | 'stem' | 'boards' | 'high_school' | 'general';
 export type PreferredFormat = 'flashcards' | 'quiz' | 'exam' | 'summary' | 'all';
@@ -111,10 +112,11 @@ const OnboardingContext = createContext<OnboardingContextType | null>(null);
 export const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const auth = useAuth();
   const owner = onboardingOwner(auth.status, auth.busy, auth.accountId);
+  const scope = useMemo(() => ({ owner }), [owner]);
   const [state, setState] = useState<OnboardingState>(defaultState);
   const [loadedOwner, setLoadedOwner] = useState<string | null>(null);
-  const ownerRef = useRef(owner);
-  ownerRef.current = owner;
+  const scopeRef = useRef(scope);
+  scopeRef.current = scope;
 
   useEffect(() => {
     setLoadedOwner(null);
@@ -144,7 +146,7 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           celebrationSeen,
         ] = await AsyncStorage.multiGet(Object.values(keys));
 
-        if (ownerRef.current !== owner) return;
+        if (scopeRef.current !== scope) return;
 
         let parsedFormats: PreferredFormat[] = defaultState.preferredFormats;
         if (formatsRaw[1]) {
@@ -179,7 +181,7 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         });
         setLoadedOwner(owner);
       } catch (err) {
-        if (ownerRef.current !== owner) return;
+        if (scopeRef.current !== scope) return;
         console.warn('Failed to load onboarding state:', err);
         setState({ ...defaultState, isLoaded: true });
         setLoadedOwner(owner);
@@ -187,9 +189,9 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     };
 
     void loadState();
-  }, [owner]);
+  }, [scope]);
 
-  const key = (storageKey: string) => onboardingStorageKey(storageKey, owner === 'guest' ? null : owner);
+  const key = (storageKey: string) => onboardingStorageKey(storageKey, scope.owner === 'guest' ? null : scope.owner);
 
   const completeWelcome = async (
     track: StudyTrack,
@@ -198,6 +200,7 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     guest: boolean,
     profile?: UserOnboardingProfile
   ) => {
+    if (scope.owner === null) return;
     try {
       const formatArray: PreferredFormat[] = Array.isArray(format) ? format : [format];
       const primaryFormat: PreferredFormat = formatArray.includes('all')
@@ -229,9 +232,9 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         [key(STORAGE_KEYS.STUDY_REMINDERS), sR ? 'true' : 'false'],
       ];
 
-      await AsyncStorage.multiSet(pairs);
+      await enqueueOnboardingWrite(scope.owner, () => AsyncStorage.multiSet(pairs));
 
-      if (ownerRef.current === owner) setState((prev) => ({
+      if (scopeRef.current === scope) setState((prev) => ({
         ...prev,
         hasCompletedWelcome: true,
         hasSeenMomoIntro: false,
@@ -255,6 +258,7 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   };
 
   const markTipSeen = async (tip: 'flashcardGesture' | 'sourceProvenance' | 'quizXp') => {
+    if (scope.owner === null) return;
     try {
       let key = STORAGE_KEYS.TIP_FLASHCARD;
       let stateKey: keyof OnboardingState = 'hasSeenFlashcardGestureTip';
@@ -267,17 +271,18 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         stateKey = 'hasSeenQuizXpTip';
       }
 
-      await AsyncStorage.setItem(onboardingStorageKey(key, owner === 'guest' ? null : owner), 'true');
-      if (ownerRef.current === owner) setState((prev) => ({ ...prev, [stateKey]: true }));
+      await enqueueOnboardingWrite(scope.owner, () => AsyncStorage.setItem(onboardingStorageKey(key, scope.owner === 'guest' ? null : scope.owner), 'true'));
+      if (scopeRef.current === scope) setState((prev) => ({ ...prev, [stateKey]: true }));
     } catch (err) {
       console.warn('Failed to mark tip seen:', err);
     }
   };
 
   const markSessionCompleted = async () => {
+    if (scope.owner === null) return;
     try {
-      await AsyncStorage.setItem(key(STORAGE_KEYS.FIRST_SESSION_DONE), 'true');
-      if (ownerRef.current === owner) setState((prev) => ({
+      await enqueueOnboardingWrite(scope.owner, () => AsyncStorage.setItem(key(STORAGE_KEYS.FIRST_SESSION_DONE), 'true'));
+      if (scopeRef.current === scope) setState((prev) => ({
         ...prev,
         hasCompletedFirstSession: true,
       }));
@@ -287,31 +292,35 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   };
 
   const dismissCelebration = async () => {
+    if (scope.owner === null) return;
     try {
-      await AsyncStorage.setItem(key(STORAGE_KEYS.CELEBRATION_SEEN), 'true');
-      if (ownerRef.current === owner) setState((prev) => ({ ...prev, hasSeenCelebrationModal: true }));
+      await enqueueOnboardingWrite(scope.owner, () => AsyncStorage.setItem(key(STORAGE_KEYS.CELEBRATION_SEEN), 'true'));
+      if (scopeRef.current === scope) setState((prev) => ({ ...prev, hasSeenCelebrationModal: true }));
     } catch (err) {
       console.warn('Failed to dismiss celebration:', err);
     }
   };
 
   const finishMomoIntro = async () => {
-    await AsyncStorage.setItem(key(STORAGE_KEYS.MOMO_INTRO_SEEN), 'true');
-    if (ownerRef.current === owner) setState((prev) => ({ ...prev, hasSeenMomoIntro: true }));
+    if (scope.owner === null) return;
+    await enqueueOnboardingWrite(scope.owner, () => AsyncStorage.setItem(key(STORAGE_KEYS.MOMO_INTRO_SEEN), 'true'));
+    if (scopeRef.current === scope) setState((prev) => ({ ...prev, hasSeenMomoIntro: true }));
   };
 
   const setDailyGoal = async (minutes: number) => {
+    if (scope.owner === null) return;
     try {
-      await AsyncStorage.setItem(key(STORAGE_KEYS.DAILY_GOAL), minutes.toString());
-      if (ownerRef.current === owner) setState((prev) => ({ ...prev, dailyGoalMinutes: minutes }));
+      await enqueueOnboardingWrite(scope.owner, () => AsyncStorage.setItem(key(STORAGE_KEYS.DAILY_GOAL), minutes.toString()));
+      if (scopeRef.current === scope) setState((prev) => ({ ...prev, dailyGoalMinutes: minutes }));
     } catch (err) {
       console.warn('Failed to update daily goal:', err);
     }
   };
 
   const resetOnboarding = async () => {
+    if (scope.owner === null) return;
     try {
-      await AsyncStorage.multiRemove([
+      await enqueueOnboardingWrite(scope.owner, () => AsyncStorage.multiRemove([
         STORAGE_KEYS.COMPLETED_WELCOME,
         STORAGE_KEYS.MOMO_INTRO_SEEN,
         STORAGE_KEYS.IS_GUEST_MODE,
@@ -331,9 +340,9 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         STORAGE_KEYS.TIP_QUIZ_XP,
         STORAGE_KEYS.FIRST_SESSION_DONE,
         STORAGE_KEYS.CELEBRATION_SEEN,
-      ].map(key));
+      ].map(key)));
 
-      if (ownerRef.current === owner) setState({
+      if (scopeRef.current === scope) setState({
         ...defaultState,
         isLoaded: true,
       });

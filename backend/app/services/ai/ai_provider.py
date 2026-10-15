@@ -2,6 +2,7 @@ import asyncio
 import html
 import json
 import logging
+import math
 import random
 import re
 import uuid
@@ -1561,13 +1562,10 @@ class OpenRouterNemotronProvider(AIProvider):
         """
         Dynamically solves any math problem from an image or direct equation input:
         1. If equation_text is provided, uses Nemotron reasoning or UniversalMathEngine to solve it.
-        2. If base64_image is provided, uses multimodal vision models (or OCR) to inspect and solve the problem.
+        2. If base64_image is provided, uses the configured multimodal vision model to inspect and solve it.
         3. Returns structured JSON containing step-by-step logic, concepts, and answers.
         """
-        clean_text = (equation_text or "").strip()
-        if not clean_text and base64_image:
-            ocr_text = extract_text_from_base64_image(base64_image)
-            clean_text = ocr_text.replace("\n", " ").strip() if ocr_text else ""
+        clean_text = "" if base64_image else (equation_text or "").strip()
 
         headers = {
             "Authorization": f"Bearer {self.api_key}",
@@ -1634,6 +1632,9 @@ class OpenRouterNemotronProvider(AIProvider):
 
         # Case 2: We have an image (multimodal vision solving)
         if base64_image:
+            vision_model = settings.OPENROUTER_MATH_VISION_MODEL.strip()
+            if is_placeholder(vision_model):
+                raise ProviderUnavailableError("Math provider unavailable")
             image_prompt = (
                 "You are an expert mathematician and highly capable AI tutor.\n"
                 "A student has taken a photo of a math problem with their mobile camera.\n"
@@ -1647,48 +1648,51 @@ class OpenRouterNemotronProvider(AIProvider):
                 "7. 'explanation': Clear explanation of why this solution is correct.\n\n"
                 "Output strictly as a JSON object with these keys. Do not include markdown code ticks."
             )
-            vision_models = [
-                "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
-                "meta-llama/llama-3.2-11b-vision-instruct:free",
-                "google/gemini-2.0-flash-exp:free"
-            ]
-            for v_model in vision_models:
-                payload = {
-                    "model": v_model,
-                    "messages": [
-                        {
-                            "role": "user",
-                            "content": [
-                                {"type": "text", "text": image_prompt},
-                                {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}}
-                            ]
-                        }
-                    ],
-                    "response_format": {"type": "json_object"},
-                    "temperature": 0.1
-                }
-                try:
-                    async with httpx.AsyncClient(timeout=25.0) as client:
-                        resp = await client.post(self.url, headers=headers, json=payload)
-                        if resp.status_code == 200:
-                            res_json = resp.json()
-                            content_str = res_json.get("choices", [{}])[0].get("message", {}).get("content", "")
-                            if content_str:
-                                cleaned_str = content_str.strip()
-                                if cleaned_str.startswith("```"):
-                                    lines = cleaned_str.splitlines()
-                                    if lines[0].startswith("```"):
-                                        lines = lines[1:]
-                                    if lines and lines[-1].startswith("```"):
-                                        lines = lines[:-1]
-                                    cleaned_str = "\n".join(lines).strip()
-                                data = json.loads(cleaned_str)
-                                if "final_answer" in data:
-                                    data["final_answer"] = str(data["final_answer"])
-                                if data.get("problem") and data.get("final_answer"):
-                                    return data
-                except Exception as e:  # noqa: BLE001 - Provider boundary: any failure tries the next model, then fails closed.
-                    logger.warning("Vision request failed (%s)", type(e).__name__)
+            payload = {
+                "model": vision_model,
+                "messages": [{"role": "user", "content": [
+                    {"type": "text", "text": image_prompt},
+                    {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}},
+                ]}],
+                "temperature": 0.1,
+            }
+            try:
+                async with httpx.AsyncClient(timeout=25.0) as client:
+                    resp = await client.post(self.url, headers=headers, json=payload)
+                    if resp.status_code == 200:
+                        res_json = resp.json()
+                        content_str = res_json.get("choices", [{}])[0].get("message", {}).get("content", "")
+                        if content_str:
+                            cleaned_str = content_str.strip()
+                            if cleaned_str.startswith("```"):
+                                lines = cleaned_str.splitlines()
+                                if lines[0].startswith("```"):
+                                    lines = lines[1:]
+                                if lines and lines[-1].startswith("```"):
+                                    lines = lines[:-1]
+                                cleaned_str = "\n".join(lines).strip()
+                            data = json.loads(cleaned_str)
+                            if (
+                                isinstance(data, dict)
+                                and isinstance(data.get("problem"), str) and data["problem"].strip()
+                                and isinstance(data.get("final_answer"), (str, int, float))
+                                and not isinstance(data.get("final_answer"), bool)
+                                and (not isinstance(data["final_answer"], float) or math.isfinite(data["final_answer"]))
+                                and (not isinstance(data["final_answer"], str) or data["final_answer"].strip())
+                                and isinstance(data.get("steps"), list)
+                                and all(isinstance(step, str) for step in data["steps"])
+                                and isinstance(data.get("explanation"), str) and data["explanation"].strip()
+                                and (data.get("category") is None or isinstance(data.get("category"), str))
+                                and (data.get("difficulty") is None or isinstance(data.get("difficulty"), str))
+                                and (data.get("key_concepts") is None or (
+                                    isinstance(data.get("key_concepts"), list)
+                                    and all(isinstance(concept, str) for concept in data["key_concepts"])
+                                ))
+                            ):
+                                data["final_answer"] = str(data["final_answer"])
+                                return data
+            except Exception as e:  # noqa: BLE001 - Provider boundary; expose only the sanitized failure below.
+                logger.warning("Vision request failed (%s)", type(e).__name__)
 
         raise ProviderUnavailableError("Math provider unavailable")
 

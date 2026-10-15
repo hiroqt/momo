@@ -86,6 +86,9 @@ injected.
   `OPENROUTER_API_KEY`, and `TYPESAFE_API_KEY` (and S3 keys if used) from the hosting platform's secret
   store as environment variables. Staging and production use separate secrets
   scoped to their own project; never share a key across environments.
+- Math-photo solving uses the explicit `OPENROUTER_MATH_VISION_MODEL` setting;
+  managed startup fails when it is blank or a placeholder. The model ID is
+  configuration, while the OpenRouter key remains server-side secret material.
 - Jev grounding runs after deterministic validation and sends only the candidate
   question/answer/optional explanation/options plus that exact cited chunk. Keep
   `TYPESAFE_API_KEY` server-side; managed startup fails if it is absent.

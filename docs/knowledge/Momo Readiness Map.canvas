@@ -89,6 +89,15 @@
       "y": 500,
       "width": 620,
       "height": 430
+    },
+    {
+      "id": "10",
+      "type": "file",
+      "file": "docs/knowledge/Momo Math Photo Solver.md",
+      "x": 2850,
+      "y": 500,
+      "width": 620,
+      "height": 430
     }
   ],
   "edges": [
@@ -237,6 +246,14 @@
       "toNode": "7",
       "toSide": "right",
       "label": "Physical deletion gate"
+    },
+    {
+      "id": "math-vision-policy",
+      "fromNode": "0",
+      "fromSide": "right",
+      "toNode": "10",
+      "toSide": "left",
+      "label": "Single configured Nemotron vision model; live quality unverified"
     },
     {
       "id": "economy-credit-source",

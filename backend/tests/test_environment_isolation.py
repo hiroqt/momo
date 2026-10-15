@@ -21,6 +21,7 @@ def managed(**overrides):
         SUPABASE_URL=f"https://{STAGING}.supabase.co", SUPABASE_PROJECT_REF=STAGING,
         SUPABASE_ANON_KEY="test-public-configured", SUPABASE_SERVICE_ROLE_KEY="test-secret-configured",
         SUPABASE_JWT_SECRET=None, OPENROUTER_API_KEY="test-provider-configured",
+        OPENROUTER_MATH_VISION_MODEL="nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
         TYPESAFE_API_KEY="test-typesafe-configured",
         EMBEDDING_PROVIDER="openrouter", CORS_ORIGINS=["https://staging.momo.example"],
     )
@@ -84,6 +85,7 @@ def test_conflicting_legacy_environment_is_rejected(environment):
     {"SUPABASE_SERVICE_ROLE_KEY": "mock-server-key"}, {"SUPABASE_ANON_KEY": ""},
     {"OPENROUTER_API_KEY": "your-api-key"}, {"TYPESAFE_API_KEY": ""}, {"SUPABASE_JWT_SECRET": "mock-jwt-secret"},
     {"OPENROUTER_IMAGE_MODEL": ""}, {"OPENROUTER_IMAGE_MODEL": "placeholder-model"},
+    {"OPENROUTER_MATH_VISION_MODEL": ""}, {"OPENROUTER_MATH_VISION_MODEL": "your-vision-model"},
     {"EMBEDDING_PROVIDER": "local"}, {"EMBEDDING_PROVIDER": "supabase"},
     {"CORS_ORIGINS": ["*"]}, {"CORS_ORIGINS": ["http://localhost:3000"]},
     {"CORS_ORIGINS": ["https://staging.example/path"]}, {"CORS_ORIGINS": []},
@@ -199,6 +201,7 @@ def test_hosted_templates_are_pinned_and_fail_closed_until_secret_injection(envi
     # The template becomes valid only once real secrets/origins are injected.
     injected = {**values, "SUPABASE_ANON_KEY": "test-injected-public", "SUPABASE_SERVICE_ROLE_KEY": "test-injected-secret",
                 "OPENROUTER_API_KEY": "test-injected-provider", "TYPESAFE_API_KEY": "test-injected-typesafe",
+                "OPENROUTER_MATH_VISION_MODEL": "test-injected-vision-model",
                 "CORS_ORIGINS": [f"https://{environment}.momo.example"]}
     assert Settings(_env_file=None, **injected).SUPABASE_PROJECT_REF == ref
 

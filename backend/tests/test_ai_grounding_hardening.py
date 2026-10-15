@@ -34,6 +34,7 @@ class FakeClient:
     def __init__(self, script):
         self.script = list(script)
         self.calls = 0
+        self.requests = []
 
     async def __aenter__(self):
         return self
@@ -43,6 +44,7 @@ class FakeClient:
 
     async def post(self, *args, **kwargs):
         self.calls += 1
+        self.requests.append(kwargs)
         step = self.script.pop(0) if self.script else self.last
         self.last = step
         if isinstance(step, BaseException):
@@ -110,6 +112,60 @@ async def test_generation_never_falls_back_to_mock(monkeypatch, provider):
         with pytest.raises(ProviderUnavailableError):
             await provider.generate_study_material("sys", {"count": count}, "evidence", sources)
     mock.assert_not_awaited()
+
+
+async def test_math_image_uses_only_configured_vision_model(monkeypatch, provider):
+    from app.services.ai import ai_provider as module
+
+    client = FakeClient([completion(json.dumps({
+        "problem": "2+2", "category": "Arithmetic", "difficulty": "Beginner",
+        "key_concepts": ["addition"], "steps": ["Add 2 and 2."],
+        "final_answer": "4", "explanation": "Addition combines the two values.",
+    }))])
+    install(monkeypatch, client)
+    monkeypatch.setattr(settings, "OPENROUTER_MATH_VISION_MODEL", "operator-approved-vision")
+    monkeypatch.setattr(module, "extract_text_from_base64_image", lambda _: pytest.fail("image OCR must not switch to text solving"))
+
+    result = await provider.solve_math(base64_image="cGhvdG8=", equation_text="must not switch to text models")
+
+    assert result["final_answer"] == "4"
+    assert client.calls == 1
+    assert client.requests[0]["json"]["model"] == "operator-approved-vision"
+    assert "response_format" not in client.requests[0]["json"]
+
+
+async def test_math_image_without_configured_model_fails_before_network(monkeypatch, provider):
+    from app.services.ai import ai_provider as module
+
+    client = FakeClient([])
+    install(monkeypatch, client)
+    monkeypatch.setattr(settings, "OPENROUTER_MATH_VISION_MODEL", "")
+    monkeypatch.setattr(module, "extract_text_from_base64_image", lambda _: pytest.fail("image OCR must not switch to text solving"))
+
+    with pytest.raises(ProviderUnavailableError, match="^Math provider unavailable$"):
+        await provider.solve_math(base64_image="cGhvdG8=")
+
+    assert client.calls == 0
+
+
+@pytest.mark.parametrize("failure", [
+    response(503, text="private provider body"),
+    completion("not-json"),
+    completion('{"problem":"2+2","final_answer":"4"}'),
+    completion('{"problem":"2+2","steps":[],"final_answer":"4","explanation":"ok","category":[]}'),
+    completion('{"problem":"2+2","steps":[],"final_answer":" ","explanation":"ok"}'),
+    completion('{"problem":"2+2","steps":[],"final_answer":"4","explanation":" "}'),
+    completion('{"problem":"2+2","steps":[],"final_answer":NaN,"explanation":"ok"}'),
+])
+async def test_math_image_failure_does_not_try_another_model(monkeypatch, provider, failure):
+    client = FakeClient([failure])
+    install(monkeypatch, client)
+    monkeypatch.setattr(settings, "OPENROUTER_MATH_VISION_MODEL", "operator-approved-vision")
+
+    with pytest.raises(ProviderUnavailableError, match="^Math provider unavailable$"):
+        await provider.solve_math(base64_image="cGhvdG8=")
+
+    assert client.calls == 1
 
 
 async def test_partial_batch_failure_keeps_only_successful_batches(monkeypatch, provider):

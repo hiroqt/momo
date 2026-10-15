@@ -53,6 +53,7 @@ class Settings(BaseSettings):
     OPENROUTER_BASE_URL: str = "https://openrouter.ai/api/v1"
     NEMOTRON_MODEL: str = "nvidia/nemotron-4-340b-instruct"
     OPENROUTER_IMAGE_MODEL: str = "google/gemini-3.1-flash-image"
+    OPENROUTER_MATH_VISION_MODEL: str = ""
 
     # TypeSafe semantic grounding (managed environments only; tests stay offline).
     TYPESAFE_API_KEY: str = ""
@@ -148,6 +149,8 @@ class Settings(BaseSettings):
                     raise ValueError(f"{name} must be supplied by server secret configuration")
             if is_placeholder(self.OPENROUTER_IMAGE_MODEL):
                 raise ValueError("OPENROUTER_IMAGE_MODEL must be supplied by server configuration")
+            if is_placeholder(self.OPENROUTER_MATH_VISION_MODEL):
+                raise ValueError("OPENROUTER_MATH_VISION_MODEL must be supplied by server configuration")
             if is_placeholder(self.TYPESAFE_MODEL):
                 raise ValueError("TYPESAFE_MODEL must be supplied by server configuration")
             if self.SUPABASE_JWT_SECRET and is_placeholder(self.SUPABASE_JWT_SECRET):

@@ -1,6 +1,6 @@
 # API Contract Matrix (API-01)
 
-Verified locally on **October 14, 2026** against backend/client code at **`42a734e`**.
+Verified locally on **October 15, 2026** against backend/client code at **`8bd3e8e`**.
 Requirements come from [ARD_PRD.md](../ARD_PRD.md) sections 8.1-8.10 and 6.6/6.7.
 This matrix records how routes and mobile client methods map to them. It does
 not change the PRD. Rows marked **Extension** are routes the PRD does not list.
@@ -9,7 +9,8 @@ Rows marked **Alias** are kept for compatibility with existing clients.
 Contract tests: `backend/tests/test_prd_api_contracts.py` checks that every PRD
 endpoint below appears in the generated OpenAPI document. It also checks the
 canonical sync/detail/profile shapes, compatibility aliases, ownership, input
-bounds and malformed IDs. `backend/tests/test_economy_api.py` and
+bounds and malformed IDs. Rechecked against the current code on October 15:
+26 passed; Ruff passed. `backend/tests/test_economy_api.py` and
 `backend/tests/test_economy_postgres.py` cover the economy contract.
 
 Every route requires `Authorization: Bearer <supabase_jwt>`. Identity comes only

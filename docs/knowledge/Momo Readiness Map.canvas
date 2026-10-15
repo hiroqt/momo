@@ -229,7 +229,7 @@
       "fromSide": "bottom",
       "toNode": "2",
       "toSide": "right",
-      "label": "Staging 001–019; internal RLS regression; managed PostgREST open"
+      "label": "Staging 001–020; 2048D embedding v2; internal RLS; managed PostgREST open"
     },
     {
       "id": "completion-deploy",

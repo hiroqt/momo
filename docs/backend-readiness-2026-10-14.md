@@ -648,3 +648,19 @@ approved staging relevance corpus and production v1-document inventory/reindex
 decision. OpenRouter's [model page](https://openrouter.ai/nvidia/nemotron-3-embed-1b/providers)
 is volatile and currently advertises free pricing; that does not provide
 per-request usage or cost evidence.
+
+## WORK-02 local ingestion and recovery contract revalidation
+
+The current code and focused regressions cover idempotent generation create and
+retry dispatch, recovery after a lost response or enqueue failure, owner and
+request-fingerprint mismatch denial, bounded/fair orphan recovery, atomic
+document-index replacement and publication, protection against late worker
+downgrades, worker-process crash recovery, and controlled handling when a source
+is deleted during ingestion. The focused disposable loopback PostgreSQL/
+PostgREST suite passed 78 tests with zero skips; one existing Starlette 422
+deprecation warning was emitted. The Compose stack was stopped afterward.
+
+This supersedes the October 6 historical note that D-2 duplicate retries, D-3
+uncapped orphan recovery and D-4 completion guards remained open. WORK-02 is
+still partial: no hosted API/worker deployment, managed worker restart journey,
+or native ingestion journey was exercised.

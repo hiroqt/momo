@@ -15,6 +15,8 @@ The tracked CI workflow also passes locally: backend 1,036 PostgreSQL/PostgREST 
 
 AI-03 now has one user-approved synthetic OpenRouter embeddings smoke: 15 inputs returned ordered finite 2048D vectors in 1.63 seconds, with 5/5 expected top-1 matches (MRR 1.000). This tiny synthetic check confirms response parsing and basic ranking only; representative staging relevance, provider reliability/capacity and cost remain unverified. No additional request or fallback was made. See [[Momo Database]] and the [[docs/backend-readiness-2026-10-14|dated report]].
 
+WORK-02's local recovery contract was rechecked with 78 focused loopback PostgreSQL/PostgREST tests (zero skips): request replay/retry, bounded orphan recovery, atomic index publication, worker crash recovery, stale-worker guards, and source deletion during ingestion. The old October 6 D-2/D-3/D-4 gap note is historical; WORK-02 remains partial pending hosted worker and native journey evidence. See the [[docs/backend-readiness-2026-10-14|dated report]].
+
 ### October 15 backend follow-up
 
 MATH-01 now validates raw Base64 and PRD-style JPEG/PNG/WebP data URIs, verifies actual MIME/size/pixel bounds and returns controlled 422 errors before provider egress (`8d82eb4`, `99da5a3`). PRD, OpenAPI and the API matrix agree on both forms. The full loopback PostgreSQL/PostgREST suite passed 1,000 tests with zero skips after the API compatibility change; Ruff covered 147 files and mypy 77 source files. Two separately approved synthetic OpenRouter calls returned `AI_UNAVAILABLE`; no retries were made, so live availability and accuracy remain unverified. The latest synthetic `2 + 2` PNG used the approved configured vision model; no user or document content was sent.

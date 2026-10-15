@@ -153,6 +153,9 @@ async def test_math_image_without_configured_model_fails_before_network(monkeypa
 
 @pytest.mark.parametrize("failure", [
     response(503, text="private provider body"),
+    response(401, text="private provider credential details"),
+    response(429, text="private quota details"),
+    httpx.ReadTimeout("private provider timeout details", request=httpx.Request("POST", "http://test")),
     completion("not-json"),
     completion('{"problem":"2+2","final_answer":"4"}'),
     completion('{"problem":"2+2","steps":[],"final_answer":"4","explanation":"ok","category":[]}'),
@@ -160,7 +163,7 @@ async def test_math_image_without_configured_model_fails_before_network(monkeypa
     completion('{"problem":"2+2","steps":[],"final_answer":"4","explanation":" "}'),
     completion('{"problem":"2+2","steps":[],"final_answer":NaN,"explanation":"ok"}'),
 ])
-async def test_math_image_failure_does_not_try_another_model(monkeypatch, provider, failure):
+async def test_math_image_failure_does_not_try_another_model(monkeypatch, provider, failure, caplog):
     client = FakeClient([failure])
     install(monkeypatch, client)
     monkeypatch.setattr(settings, "OPENROUTER_MATH_VISION_MODEL", "operator-approved-vision")
@@ -169,6 +172,8 @@ async def test_math_image_failure_does_not_try_another_model(monkeypatch, provid
         await provider.solve_math(base64_image="cGhvdG8=")
 
     assert client.calls == 1
+    assert client.requests[0]["json"]["model"] == "operator-approved-vision"
+    assert "private" not in caplog.text
 
 
 async def test_partial_batch_failure_keeps_only_successful_batches(monkeypatch, provider):

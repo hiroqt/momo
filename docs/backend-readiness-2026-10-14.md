@@ -603,3 +603,14 @@ no alternate model or retry ran. Together with the earlier separately approved
 smoke, both live attempts have returned unavailable. The sanitized boundary does
 not expose the upstream cause, so this verifies failure handling and routing only,
 not provider availability or answer quality. No user or document data was sent.
+
+## CI-01 local full workflow parity
+
+On October 15, the tracked CI jobs passed locally: repository hygiene; backend
+static checks (Ruff 147 files, mypy 77 source files), real PostgreSQL/PostgREST
+integration (1,036 passed, zero skipped/errors/failures), the no-skip gate, and
+the non-root/network-isolated four-page OCR image smoke; mobile (194 tests and
+TypeScript); and web (25 tests and TypeScript), both in Node `v22.23.3`.
+`npm ci` reported 19 high mobile dependency advisories, which remain tracked under SEC-02. This used disposable
+loopback services and no hosted application/provider traffic. GitHub Actions is
+still unverified until the release owner pushes the branch.

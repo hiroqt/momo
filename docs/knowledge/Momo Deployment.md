@@ -43,4 +43,14 @@ initialize without pinned staging configuration. The user has not yet supplied
 the HTTPS Render API URL after entering secrets/CORS; do not claim deployment,
 provider, or real-account checks from these local results.
 
+## October 15 CI parity checkpoint
+
+All tracked CI jobs passed locally: backend 1,036 PostgreSQL/PostgREST tests with
+zero skips, Ruff 147, mypy 77, the no-skip gate and isolated four-page OCR image
+smoke; mobile and web `npm ci`, tests and TypeScript in Node `v22.23.3` (194 and
+25 tests respectively); repository hygiene. `npm ci` reported 19 high mobile
+dependency advisories; review remains under SEC-02. This is local workflow parity, not a GitHub Actions run. No hosted
+API/provider traffic occurred. CI-01 stays partial until the release owner pushes
+and confirms a clean Actions run.
+
 Local synthetic restore now checks persistent material, tenant security and preserved expiry. Read [[Momo Database Recovery]] for evidence limits and remaining recovery decisions.

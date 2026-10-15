@@ -108,3 +108,122 @@ async def test_object_inventory_rejects_missing_page_data(monkeypatch):
     monkeypatch.setattr(storage_inventory.supabase_session, "execute", execute)
     with pytest.raises(ValueError, match="Invalid inventory page"):
         await storage_inventory._all_pages(Client(), "list_document_storage_objects", "p_after_name", 10)
+
+
+@pytest.mark.parametrize(
+    ("source", "rpc", "cursor_key", "row_key"),
+    [
+        ("objects", "list_document_storage_objects", "p_after_name", "name"),
+        ("tickets", "list_upload_object_inventory", "p_after_object_key", "object_key"),
+        ("documents", "", "", "id"),
+    ],
+)
+@pytest.mark.asyncio
+async def test_each_inventory_source_pages_by_its_key_and_rejects_truncation(
+    monkeypatch, source, rpc, cursor_key, row_key
+):
+    monkeypatch.setattr(storage_inventory, "PAGE_SIZE", 2)
+
+    class Query:
+        def __init__(self, cursor=None, page_limit=None, cursor_field=None):
+            self.cursor, self.page_limit, self.cursor_field = cursor, page_limit, cursor_field
+            self.order_field = None
+
+        def limit(self, value):
+            self.page_limit = value
+            return self
+
+        def select(self, _columns):
+            return self
+
+        def order(self, _key):
+            self.order_field = _key
+            return self
+
+        def gt(self, field, value):
+            self.cursor_field = field
+            self.cursor = value
+            return self
+
+    class Client:
+        def rpc(self, _name, params):
+            return Query(params[cursor_key], params["p_limit"], cursor_key)
+
+        def table(self, _name):
+            return Query()
+
+    keys = ["a", "b", "c"]
+    calls = []
+
+    async def execute(query):
+        calls.append((query.cursor_field, query.order_field, query.cursor))
+        rows = [{row_key: key} for key in keys if query.cursor is None or key > query.cursor]
+        return type("Result", (), {"data": rows[:query.page_limit]})()
+
+    monkeypatch.setattr(storage_inventory.supabase_session, "execute", execute)
+    rows = await storage_inventory._all_pages(Client(), rpc, cursor_key, 3, documents=source == "documents")
+    assert [row[row_key] for row in rows] == keys
+    if source == "documents":
+        assert calls == [(None, "id", None), ("id", "id", "b"), ("id", "id", "c")]
+    else:
+        assert calls == [(cursor_key, None, None), (cursor_key, None, "b"), (cursor_key, None, "c")]
+
+    calls.clear()
+    with pytest.raises(ValueError, match="row limit"):
+        await storage_inventory._all_pages(Client(), rpc, cursor_key, 2, documents=source == "documents")
+    assert len(calls) == 2
+    assert calls[-1][2] == "b"
+
+
+@pytest.mark.parametrize(
+    ("source", "rpc", "cursor_key", "row_key", "pages"),
+    [
+        ("objects", "list_document_storage_objects", "p_after_name", "name", [[{}]]),
+        ("objects", "list_document_storage_objects", "p_after_name", "name", [[{"name": "a"}], [{"name": "a"}]]),
+        ("objects", "list_document_storage_objects", "p_after_name", "name", [[{"name": "b"}], [{"name": "a"}]]),
+        ("tickets", "list_upload_object_inventory", "p_after_object_key", "object_key", [[{}]]),
+        ("tickets", "list_upload_object_inventory", "p_after_object_key", "object_key", [[{"object_key": "a"}], [{"object_key": "a"}]]),
+        ("tickets", "list_upload_object_inventory", "p_after_object_key", "object_key", [[{"object_key": "b"}], [{"object_key": "a"}]]),
+        ("documents", "", "", "id", [[{}]]),
+        ("documents", "", "", "id", [[{"id": "a"}], [{"id": "a"}]]),
+        ("documents", "", "", "id", [[{"id": "b"}], [{"id": "a"}]]),
+    ],
+)
+@pytest.mark.asyncio
+async def test_each_inventory_source_rejects_malformed_or_nonincreasing_cursors(
+    monkeypatch, source, rpc, cursor_key, row_key, pages
+):
+    monkeypatch.setattr(storage_inventory, "PAGE_SIZE", 1)
+
+    class Query:
+        def __init__(self, cursor=None, limit=None):
+            self.cursor, self.page_limit = cursor, limit
+
+        def select(self, _columns):
+            return self
+
+        def order(self, _key):
+            return self
+
+        def gt(self, _key, value):
+            self.cursor = value
+            return self
+
+        def limit(self, value):
+            self.page_limit = value
+            return self
+
+    class Client:
+        def rpc(self, _name, params):
+            return Query(params[cursor_key], params["p_limit"])
+
+        def table(self, _name):
+            return Query()
+
+    async def execute(_query):
+        page = pages.pop(0)
+        return type("Result", (), {"data": page})()
+
+    monkeypatch.setattr(storage_inventory.supabase_session, "execute", execute)
+    with pytest.raises(ValueError, match="Invalid inventory cursor"):
+        await storage_inventory._all_pages(Client(), rpc, cursor_key, 10, documents=source == "documents")

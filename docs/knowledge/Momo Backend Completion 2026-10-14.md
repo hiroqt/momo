@@ -127,3 +127,17 @@ passed. Independent review found no blocking issue. This proves local sequencing
 and fail-closed behavior only. The 0.8 gate remains uncalibrated pending
 representative human-reviewed labels; managed provider behavior, data-retention
 review and user disclosure remain open.
+
+## RET-01 upload inventory pagination contract
+
+The read-only storage inventory now has network-free pagination coverage for its
+three independent keyset sources: storage metadata (`name`), upload tickets
+(`object_key`), and document records (`id`). Tests verify complete multi-page
+results, cursor/order fields, exact row-cap completion, cap+1 rejection, and
+missing/repeated/decreasing cursors failing closed. Focused tests passed **21**;
+the full loopback PostgreSQL/PostgREST suite passed **986 tests with zero
+skips/errors/failures**; no-skip, Ruff (146 files), mypy (76 files), and diff
+checks passed. This tests the CLI's local pagination contract only. The staging-
+pinned inventory command still awaits its environment configuration; no hosted
+inventory or Storage request was made, and physical deletion remains unverified.
+See [[Momo Upload Retention]] and [[docs/PRODUCTION_READINESS_CHECKLIST|RET-01]].

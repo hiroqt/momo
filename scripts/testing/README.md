@@ -151,6 +151,23 @@ assert machine-specific timing. The library limit is50; indexes must bound subse
 access. This covers sampled SQL access patterns, not semantic vector quality,
 PostgREST latency, production cardinality or capacity.
 
+`run_vector_ann_probe.py` compares exact owner-filtered top-10 against a forced
+halfvec HNSW candidate on 20,000 deterministic synthetic 2048D vectors across
+100 synthetic tenants. It requires `LOCAL_TEST_DATABASE_URL` to be an explicit
+loopback connection to `momo_security_test`; all tables/indexes are temporary and
+disappear when the psql process exits. The runner checks host and database name,
+not database contents, so confirm that URL points to the disposable test instance. It prints query plans, elapsed times and
+top-10 overlap for `hnsw.ef_search` 40 and 200. The fixture tests planner/filter
+behavior only, not semantic relevance or production capacity; do not create an
+application index based on this result.
+
+Run it from the repository root after starting the disposable database:
+
+```sh
+LOCAL_TEST_DATABASE_URL=postgresql://postgres:local-test-only@127.0.0.1:55432/momo_security_test \
+  uv run --locked --project backend python scripts/testing/run_vector_ann_probe.py
+```
+
 Run with the dedicated local database described above, from `backend/`:
 
 ```sh

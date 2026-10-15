@@ -614,3 +614,15 @@ TypeScript); and web (25 tests and TypeScript), both in Node `v22.23.3`.
 `npm ci` reported 19 high mobile dependency advisories, which remain tracked under SEC-02. This used disposable
 loopback services and no hosted application/provider traffic. GitHub Actions is
 still unverified until the release owner pushes the branch.
+
+## ENV-02 migration 021 rollback rehearsal
+
+On the disposable loopback `momo_security_test` PostgreSQL database, the focused
+`test_composite_foreign_keys_have_valid_covering_indexes` passed. Dropping the
+14 indexes introduced by migration 021 left row counts for all 23 tables and
+all foreign-key definitions/validation states unchanged. Reapplying
+`021_add_composite_foreign_key_indexes.sql` restored exactly 14 valid and ready
+indexes, again without changing rows or foreign keys. The Compose stack was
+stopped after the rehearsal. This is local rollback evidence only; managed
+PostgREST/two-user authorization and hosted rollback remain unverified, so
+ENV-02 stays partial.

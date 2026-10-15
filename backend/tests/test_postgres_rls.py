@@ -200,6 +200,38 @@ def test_rls_covers_every_application_table(database):
     assert tables == "", f"Unprotected application tables: {tables}"
 
 
+def test_internal_tables_are_forced_rls_and_service_role_only(database):
+    expected = "background_jobs,folder_requests,generation_requests,rate_limit_events,upload_tickets"
+    tables = database("""
+        SELECT string_agg(c.relname, ',' ORDER BY c.relname)
+        FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+        WHERE n.nspname='internal' AND c.relkind IN ('r','p');
+    """)
+    assert tables == expected, f"Unexpected internal tables: {tables}"
+
+    violations = database("""
+        SELECT c.relname FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+        WHERE n.nspname='internal' AND c.relkind IN ('r','p') AND (
+          NOT c.relrowsecurity OR NOT c.relforcerowsecurity OR
+          has_table_privilege('anon',c.oid,'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER') OR
+          has_table_privilege('authenticated',c.oid,'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER') OR
+          NOT has_table_privilege('service_role',c.oid,'SELECT,INSERT,UPDATE,DELETE')
+        ) ORDER BY c.relname;
+    """)
+    assert violations == "", f"Unexpected internal table security: {violations}"
+    assert database("""
+        SELECT has_schema_privilege('anon','internal','USAGE')::text || '|' ||
+            has_schema_privilege('authenticated','internal','USAGE')::text || '|' ||
+            has_schema_privilege('service_role','internal','USAGE')::text;
+    """) == "false|false|true"
+
+    for role in ("anon", "authenticated"):
+        database("SELECT * FROM internal.background_jobs LIMIT 0;", success=False, role=role)
+        database("INSERT INTO internal.background_jobs(user_id,kind,subject_id) "
+                 "VALUES (gen_random_uuid(),'study_generation',gen_random_uuid());",
+                 success=False, role=role)
+
+
 def test_two_user_read_isolation_and_anonymous_denial(database, users):
     a, _ = seed_sets(database, users)
     alice, bob = users

@@ -16,7 +16,7 @@ The public math fallback previously passed user text to SymPy `parse_expr`, whic
 
 Math solver errors no longer log exception text; diagram topics/requirements and rendered topics are omitted from logs; prompt-injection logs no longer disclose the internal matching regex. The local PostgreSQL/PostgREST gateway suite passed 854 tests with zero skips; Ruff (138 files), mypy (75 files), and the no-skip gate passed. The full SEC-02 audit remains open: these local tests do not verify all provider/worker logs, release bundles or dependency state, actual hosted HTTPS/CORS, or complete retention/deletion behavior. See [[docs/backend-readiness-2026-10-14|October 14 report]] for bounded evidence.
 
-## October 15 dependency and mobile bundle recheck
+## October 16 dependency and mobile bundle recheck
 
 Current mobile `npm audit` reports 19 high vulnerable package nodes, all tracing
 to two root advisories: `braces@3.0.3` through Expo Metro and
@@ -26,12 +26,16 @@ and [node-forge advisory](https://github.com/advisories/GHSA-86w9-cpqp-85rv)
 list no patched release. The generic npm fix proposes an incompatible downgrade
 to Expo 44; no override or downgrade was applied.
 
-Android/iOS Expo exports with source maps passed. The maps contain 8,047 and
-7,962 source entries and no path matching either package name. A path scan does
-not prove transformed/copied code is absent from a bundle. Native/signed
-artifacts and code executed on untrusted build hosts remain unchecked. Web npm
-audit found zero vulnerabilities; `uv audit --locked` found zero in 69 backend
-packages. SEC-02 remains open for release security controls and owner disposition.
+The October 16 recheck still reports 19 high nodes and no moderate/critical
+findings. `npm view` confirms the registry's latest versions remain 3.0.3 and
+1.4.0. npm's bulk fix still proposes incompatible major downgrades (Expo 44 or
+React Native 0.72) for this app's Expo 57 / RN 0.86 stack, so no override or
+downgrade was applied. Android/iOS Expo exports with source maps previously
+passed: 8,047 and 7,962 source entries had no path matching either package
+name. A path scan does not prove transformed/copied code is absent. Native/signed
+artifacts and code executed on untrusted build hosts remain unchecked. The backend
+audit again found zero vulnerabilities in 69 locked packages. SEC-02
+remains open for upstream fixes and release security controls.
 
 ## October 8 changes
 

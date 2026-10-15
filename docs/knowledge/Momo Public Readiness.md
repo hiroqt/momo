@@ -1,11 +1,17 @@
 ---
 tags: [momo, backend, release, knowledge-map]
-audited: 2026-10-14
+audited: 2026-10-15
 status: public-release-blocked
 ---
 # Momo Public Readiness
 
 Momo is **not ready for public launch**. This October 14 pass started at `07fa026`; its backend work is recorded in the task commits and dated evidence report. It applies and inspects migrations 001–019 on the user-selected `momo-staging`, hardens Google-only backend JWT checks, and prepares a Render API/worker Blueprint. It does not deploy hosted application services or run a real-account journey. This repository is the configured Obsidian vault.
+
+## October 15 local checkpoint
+
+This update adds account-scoped onboarding storage and hides it during auth restore/account replacement (`484f667`, `f9fe019`); a local internal-schema regression now checks forced RLS and role grants across all five internal tables (`8bd3e8e`); and the API contract matrix was revalidated against current source (`7eb37af`). The mobile suite passes 192 tests; focused Postgres RLS tests pass 28 with zero skips; API contract tests pass 26. TypeScript, Ruff and diff checks passed. The prior complete backend/Postgres/PostgREST suite passed 938 tests at `338dba1`; the new SQL regression was separately run against loopback PostgreSQL. No hosted API/worker request, native real-account journey or production change is included in this evidence.
+
+Public launch remains blocked on the user's Render HTTPS API URL after secrets/CORS setup, returned human grounding labels, managed PostgREST two-user/RPC and rollback proof, native Google/account-switch/upload/offline journeys, and provider/retrieval/OCR quality and operations checks. See the tracker for exact task gates; local subtask completion does not close them.
 
 Start with [[Momo Readiness Map.canvas|the visual dependency map]]. The authoritative task IDs and acceptance criteria remain in [[docs/PRODUCTION_READINESS_CHECKLIST|Production Readiness Checklist]]; requirements remain in [[ARD_PRD]]. These notes link the decisions and evidence without replacing either document.
 

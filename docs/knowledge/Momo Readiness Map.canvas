@@ -204,7 +204,7 @@
       "fromSide": "right",
       "toNode": "8",
       "toSide": "left",
-      "label": "Oct 14 verified status"
+      "label": "Oct 15 local readiness; hosted and native gates open"
     },
     {
       "id": "completion-auth",
@@ -220,7 +220,7 @@
       "fromSide": "bottom",
       "toNode": "2",
       "toSide": "right",
-      "label": "Staging 001–019; v2 embeddings; managed Auth open"
+      "label": "Staging 001–019; internal RLS regression; managed PostgREST open"
     },
     {
       "id": "completion-deploy",

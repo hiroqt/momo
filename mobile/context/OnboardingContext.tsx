@@ -1,7 +1,7 @@
 import React, { createContext, useState, useEffect, useRef } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from './AuthContext';
-import { onboardingStorageKey } from '../lib/storage/onboardingKeys';
+import { onboardingOwner, onboardingStorageKey } from '../lib/storage/onboardingKeys';
 
 export type StudyTrack = 'college' | 'med_nursing' | 'stem' | 'boards' | 'high_school' | 'general';
 export type PreferredFormat = 'flashcards' | 'quiz' | 'exam' | 'summary' | 'all';
@@ -110,7 +110,7 @@ const OnboardingContext = createContext<OnboardingContextType | null>(null);
 
 export const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const auth = useAuth();
-  const owner = auth.status === 'restoring' ? null : auth.status === 'signed_in' ? auth.accountId : 'guest';
+  const owner = onboardingOwner(auth.status, auth.busy, auth.accountId);
   const [state, setState] = useState<OnboardingState>(defaultState);
   const [loadedOwner, setLoadedOwner] = useState<string | null>(null);
   const ownerRef = useRef(owner);

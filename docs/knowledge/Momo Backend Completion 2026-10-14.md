@@ -9,6 +9,14 @@ status: public-release-blocked
 
 The PRD-selected `nvidia/nemotron-4-340b-instruct` model has a 4,096-token context. The previous path could send up to 40 retrieved 800-word chunks with no completion allowance. User approved preserving this model and capping ranked evidence. The local change reserves 1,024 completion tokens plus safety/overhead, caps UTF-8 prompt bytes, and keeps complete ranked sentences/bullets with matching source IDs; deterministic and Jev verification receive the exact escaped excerpts sent to the model. Oversized fixed prompts fail before provider I/O, while short retrieval remains an insufficient-source result. Full loopback PostgreSQL/PostgREST suite: 1,045 passed, zero skips/errors/failures; no-skip gate, Ruff 147, mypy 77 and diff check pass. The bound is conservative but not tokenizer-measured; no live model request or generation-quality evaluation was performed. AI-02 remains partial pending human-reviewed labels and provider evaluation. See [[docs/PRODUCTION_READINESS_CHECKLIST]] and [[Momo Public Readiness]].
 
+## October 15 API contract follow-up
+
+`PATCH /api/study-sets/{id}` now preserves omitted nullable fields but clears description/folder assignment when explicit `null` is sent, while retaining the old folder sentinels and owner check. Route regression tests cover omitted, null and foreign-folder cases. The full loopback PostgreSQL/PostgREST suite passed 1,046 tests with zero skips; no-skip, Ruff 147, mypy 77 and diff checks passed. See [[docs/API_CONTRACT_MATRIX]] and [[docs/PRODUCTION_READINESS_CHECKLIST]].
+
+## October 15 staging auth template note
+
+The mobile environment examples now reflect the user's report that Google OAuth is configured for `momo-staging`; successful login and native redirect remain unverified. This documents user-provided setup only; no dashboard/provider state was inspected. See [[Momo Authentication]] and [[docs/PRODUCTION_READINESS_CHECKLIST]].
+
 Parent: [[Momo Public Readiness]]. Map: [[Momo Readiness Map.canvas]]. Full evidence: [[docs/backend-readiness-2026-10-14|dated backend report]]. Task ownership and acceptance: [[docs/PRODUCTION_READINESS_CHECKLIST|Production Readiness Checklist]].
 
 ## Decisions

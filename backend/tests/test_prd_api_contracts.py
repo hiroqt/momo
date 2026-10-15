@@ -270,3 +270,30 @@ async def test_study_set_update_bounds(client_identity):
     assert (await client.patch(path, headers=headers, json={"folder_id": str(uuid4())})).status_code == 404
     moved = await client.patch(path, headers=headers, json={"folder_id": "none", "description": " ok "})
     assert moved.status_code == 200 and moved.json()["folder_id"] is None and moved.json()["description"] == "ok"
+
+
+async def test_study_set_patch_distinguishes_omitted_fields_from_explicit_null(client_identity):
+    client, owner, other = client_identity
+    headers = {"x-test-user": owner}
+    folder = await folder_repo.create_folder({"user_id": owner, "name": str(uuid4()), "color": "#ffffff"})
+    foreign_folder = await folder_repo.create_folder(
+        {"user_id": other, "name": str(uuid4()), "color": "#ffffff"}
+    )
+    created = await client.post("/api/study-sets", headers=headers, json={
+        "title": "Clear nullable fields", "description": "Keep until explicitly cleared",
+        "folder_id": folder["id"],
+    })
+    path = f"/api/study-sets/{created.json()['id']}"
+
+    unchanged = await client.patch(path, headers=headers, json={})
+    assert unchanged.status_code == 200
+    assert unchanged.json()["description"] == "Keep until explicitly cleared"
+    assert unchanged.json()["folder_id"] == folder["id"]
+
+    denied = await client.patch(path, headers=headers, json={"folder_id": foreign_folder["id"]})
+    assert denied.status_code == 404 and denied.json()["error"]["code"] == "FOLDER_NOT_FOUND"
+
+    cleared = await client.patch(path, headers=headers, json={"description": None, "folder_id": None})
+    assert cleared.status_code == 200
+    assert cleared.json()["description"] is None
+    assert cleared.json()["folder_id"] is None

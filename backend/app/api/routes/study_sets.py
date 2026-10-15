@@ -82,11 +82,11 @@ async def update_study_set(
             )
         updates["title"] = cleaned_title
 
-    if req.description is not None:
-        updates["description"] = req.description.strip()
+    if "description" in req.model_fields_set:
+        updates["description"] = req.description.strip() if req.description is not None else None
 
-    if req.folder_id is not None:
-        if req.folder_id in ("", "none", "null"):
+    if "folder_id" in req.model_fields_set:
+        if req.folder_id is None or req.folder_id in ("", "none", "null"):
             updates["folder_id"] = None
         else:
             folder_id = _canonical_id(req.folder_id, "FOLDER_NOT_FOUND", "Folder not found")

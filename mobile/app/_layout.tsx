@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Platform } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { Stack } from "expo-router";
+import { Stack, type Href } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import * as SplashScreen from "expo-splash-screen";
@@ -13,12 +13,13 @@ SplashScreen.preventAutoHideAsync().catch(() => {});
 
 export { ErrorBoundary } from "expo-router";
 
-import { AuthProvider } from '../context/AuthContext';
+import { AuthProvider, useAuth } from '../context/AuthContext';
 import { CreditsProvider } from '../context/CreditsContext';
 import { OnboardingProvider, useOnboarding } from '../context/OnboardingContext';
 import { useRouter, useSegments } from 'expo-router';
 import { MomoLoadingScreen } from '@/components/common/MomoLoadingScreen';
 import { SyncStatusPill } from '@/components/common/SyncStatusPill';
+import { resolveEntryRedirect } from '@/lib/auth/appEntry';
 
 function InitialGate({
   fontsReady,
@@ -27,7 +28,8 @@ function InitialGate({
   fontsReady: boolean;
   children: React.ReactNode;
 }) {
-  const { isLoaded, hasCompletedWelcome, hasSeenMomoIntro } = useOnboarding();
+  const { isLoaded, hasCompletedWelcome, hasSeenMomoIntro, isGuestMode } = useOnboarding();
+  const auth = useAuth();
   const segments = useSegments();
   const router = useRouter();
   const [minTimeElapsed, setMinTimeElapsed] = useState(false);
@@ -43,19 +45,21 @@ function InitialGate({
     return () => clearTimeout(timer);
   }, []);
 
-  const isReady = fontsReady && isLoaded && minTimeElapsed;
+  const isReady = fontsReady && isLoaded && minTimeElapsed && auth.status !== 'restoring';
 
   useEffect(() => {
     if (!isReady) return;
-    const inAuth = segments[0] === '(auth)';
-    if (!hasCompletedWelcome && !inAuth) {
-      router.replace('/(auth)/welcome');
-    } else if (hasCompletedWelcome && !hasSeenMomoIntro && !segments.join('/').includes('momo-intro')) {
-      router.replace('/(auth)/momo-intro');
-    } else if (hasCompletedWelcome && hasSeenMomoIntro && inAuth) {
-      router.replace('/(tabs)');
-    }
-  }, [isReady, hasCompletedWelcome, hasSeenMomoIntro, segments, router]);
+    const redirect = resolveEntryRedirect({
+      authStatus: auth.status,
+      onboardingLoaded: isLoaded,
+      hasCompletedWelcome,
+      hasSeenMomoIntro,
+      isGuestMode,
+      guestPreviewSelected: auth.guestPreviewSelected,
+      currentRoute: segments.join('/'),
+    });
+    if (redirect) router.replace(redirect as Href);
+  }, [isReady, isLoaded, hasCompletedWelcome, hasSeenMomoIntro, isGuestMode, auth.status, auth.guestPreviewSelected, segments, router]);
 
   if (!isReady) {
     return (
@@ -104,6 +108,13 @@ export default function RootLayout() {
                   },
                 }}
               >
+                <Stack.Screen
+                  name="(auth)/sign-in"
+                  options={{
+                    headerShown: false,
+                    animation: "none",
+                  }}
+                />
                 <Stack.Screen
                   name="(auth)/welcome"
                   options={{

@@ -98,13 +98,21 @@ export default function ProfileScreen() {
           <Text style={styles.subtitle}>Your space for a calmer study routine.</Text>
         </View>
 
+        <Text style={styles.sectionTitle}>Account</Text>
         <View style={styles.accountCard}>
-          <View style={styles.identity}>
-            <Text style={styles.accountName}>{name}</Text>
-            <Text style={styles.accountDetail}>{isGuest ? 'Guest preview · stored on this device' : auth.offline ? 'Signed in · offline, changes sync later' : profile?.email || 'Account details unavailable'}</Text>
-            <View style={styles.pill}><Text style={styles.pillText}>{isGuest ? 'Exploring with Momo' : 'Learning with Momo'}</Text></View>
+          <View style={styles.accountSummary}>
+            <View style={styles.identity}>
+              <Text style={styles.accountName}>{name}</Text>
+              <Text style={styles.accountDetail}>{isGuest ? 'Guest preview · stored on this device' : auth.offline ? 'Signed in · offline, changes sync later' : profile?.email || 'Account details unavailable'}</Text>
+              <View style={styles.pill}><Text style={styles.pillText}>{isGuest ? 'Exploring with Momo' : 'Learning with Momo'}</Text></View>
+            </View>
+            <MomoAnimation name="momo-rest" size={88} />
           </View>
-          <MomoAnimation name="momo-rest" size={96} />
+          {isGuest && <Text style={styles.accountBenefit}>Save your reviewers to your account and sync study progress when you’re online.</Text>}
+          {!!auth.noticeMessage && isGuest && <Text testID="settings-auth-notice" accessibilityRole="alert" style={styles.authNotice}>{auth.noticeMessage}</Text>}
+          {isGuest && auth.configured && auth.status !== 'restoring' && <Pressable testID="settings-sign-in" accessibilityRole="button" accessibilityLabel="Sign in with Google" accessibilityState={{ disabled: auth.busy, busy: auth.busy }} disabled={auth.busy} onPress={() => { auth.clearNotice(); void auth.signInWithGoogle(); }} style={({ pressed }) => [styles.signIn, (pressed || auth.busy) && styles.pressed]}>{auth.busy ? <ActivityIndicator color={colors.onPrimary} /> : <Text style={styles.signInText}>Connect with Google</Text>}</Pressable>}
+          {isGuest && !auth.configured && <Text style={styles.footnote}>Google sign-in isn’t configured in this preview build.</Text>}
+          {!isGuest && <Pressable testID="settings-sign-out" accessibilityRole="button" onPress={() => setShowSignOutModal(true)} style={({ pressed }) => [styles.signOut, pressed && styles.pressed]}><HugeiconsIcon icon={Logout01Icon} size={18} color={colors.textSecondary} /><Text style={styles.signOutText}>Sign out</Text></Pressable>}
         </View>
 
         <Text style={styles.sectionTitle}>Your study routine</Text>
@@ -147,10 +155,6 @@ export default function ProfileScreen() {
           <Pressable testID="settings-open-library" accessibilityRole="button" onPress={() => router.push('/(tabs)/library')} style={({ pressed }) => [styles.actionRow, pressed && styles.pressed]}><Text style={styles.actionText}>Go to my library</Text><HugeiconsIcon icon={ArrowRight01Icon} size={18} color={colors.primary} /></Pressable>
         </View>
 
-        {!!auth.noticeMessage && <Text testID="settings-auth-notice" accessibilityRole="alert" style={styles.authNotice}>{auth.noticeMessage}</Text>}
-        {isGuest && auth.configured && auth.status !== 'restoring' && <Pressable testID="settings-sign-in" accessibilityRole="button" accessibilityLabel="Sign in with Google" accessibilityState={{ disabled: auth.busy, busy: auth.busy }} disabled={auth.busy} onPress={() => { auth.clearNotice(); void auth.signInWithGoogle(); }} style={({ pressed }) => [styles.signIn, (pressed || auth.busy) && styles.pressed]}>{auth.busy ? <ActivityIndicator color={colors.onPrimary} /> : <Text style={styles.signInText}>Sign in with Google</Text>}</Pressable>}
-        {isGuest && !auth.configured && <Text style={styles.footnote}>Account sign-in is not available in this preview build. Your sample stays on this device.</Text>}
-        {!isGuest && <Pressable testID="settings-sign-out" accessibilityRole="button" onPress={() => setShowSignOutModal(true)} style={({ pressed }) => [styles.signOut, pressed && styles.pressed]}><HugeiconsIcon icon={Logout01Icon} size={18} color={colors.textSecondary} /><Text style={styles.signOutText}>Sign out</Text></Pressable>}
         {!!deleteError && <Text testID="settings-delete-account-error" accessibilityRole="alert" style={styles.authNotice}>{deleteError}</Text>}
         {!isGuest && <Pressable testID="settings-delete-account" accessibilityRole="button" accessibilityState={{ disabled: auth.offline || deletingAccount }} disabled={auth.offline || deletingAccount} onPress={() => setShowDeleteModal(true)} style={({ pressed }) => [styles.deleteAccount, (pressed || auth.offline || deletingAccount) && styles.pressed]}><Text style={styles.deleteAccountText}>{auth.offline ? 'Connect to delete account' : 'Delete account'}</Text></Pressable>}
       </SmoothScrollView>
@@ -173,10 +177,12 @@ const styles = StyleSheet.create({
   eyebrow: { fontSize: 11, letterSpacing: 1, fontWeight: '700', color: colors.primary, marginBottom: 6 },
   title: { fontSize: 30, fontWeight: '800', letterSpacing: -0.5, color: colors.text },
   subtitle: { fontSize: 13, lineHeight: 20, color: colors.textSecondary, marginTop: 4 },
-  accountCard: { padding: 20, borderRadius: 24, borderCurve: 'continuous', backgroundColor: colors.primarySoft, borderWidth: 1, borderColor: colors.primaryBorder, flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 24 },
+  accountCard: { padding: 20, borderRadius: 24, borderCurve: 'continuous', backgroundColor: colors.primarySoft, borderWidth: 1, borderColor: colors.primaryBorder, marginBottom: 24 },
+  accountSummary: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   identity: { flex: 1 },
   accountName: { fontSize: 20, lineHeight: 28, fontWeight: '700', color: colors.text },
   accountDetail: { fontSize: 12, lineHeight: 18, color: colors.textSecondary, marginTop: 4 },
+  accountBenefit: { color: colors.textSecondary, fontSize: 12, lineHeight: 18, marginTop: 12, marginBottom: 4 },
   pill: { alignSelf: 'flex-start', backgroundColor: colors.surface, paddingVertical: 6, paddingHorizontal: 10, borderRadius: 12, marginTop: 12 },
   pillText: { color: colors.primary, fontSize: 10, fontWeight: '600' },
   sectionTitle: { color: colors.text, fontSize: 16, fontWeight: '700', marginBottom: 12 },

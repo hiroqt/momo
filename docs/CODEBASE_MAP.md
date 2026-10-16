@@ -13,3 +13,8 @@ Start with [`PRODUCTION_READINESS_CHECKLIST.md`](PRODUCTION_READINESS_CHECKLIST.
 ## Current extraction evidence
 
 DOC-02 mixed-PDF sparse-page recovery is local-tested. The implementation preserves embedded text on dense pages and fills sparse pages from OCR after validating ordered page metadata. See [[knowledge/Momo Document Extraction]] for behavior, verification, and open OCR-quality gates.
+
+## Mobile auth and entry
+
+- `mobile/context/AuthContext.tsx` restores the Supabase PKCE session and tracks the optional guest-preview choice; `mobile/lib/auth/appEntry.ts` decides whether launch should open sign-in, onboarding, intro, or the study tabs.
+- `mobile/app/(auth)/sign-in.tsx` is the optional first-run Google sign-in/guest screen. `mobile/app/(tabs)/profile.tsx` owns the Account controls in Settings. Native OAuth readiness and device evidence remain tracked under AUTH-01.

@@ -1,10 +1,10 @@
 # Project licensing
 
-This page compares three standard open-source licenses for the Momo source
-code. It is a decision aid, not legal advice. **No project-wide license has
-been selected or applied yet.** Until the copyright holder chooses one and the
-repository includes its complete license text, this page does not grant a
-license to use or redistribute the project.
+The project has selected **Apache License 2.0** (`Apache-2.0`). Its complete
+canonical text is in the root [`LICENSE`](../LICENSE) file. This page records
+the choice and summarizes the alternatives considered; it is not legal advice.
+The root license does not relicense third-party assets, dependencies, or
+user-uploaded study documents, which retain their own terms.
 
 ## Options
 
@@ -19,22 +19,18 @@ These summaries are not substitutes for reading the license texts. The
 file-level scope; the [Apache application guide](https://www.apache.org/legal/apply-license)
 covers notices and applying Apache-2.0.
 
-## Applying a choice
+## Applying the choice
 
-After the copyright holder selects a license:
+The root `LICENSE` applies Apache-2.0 to project material the copyright holder
+is authorized to license. Before distributing the project:
 
-1. Add its complete canonical text as the root `LICENSE` file and use the
-   correct SPDX identifier (`MIT`, `Apache-2.0`, or `MPL-2.0`) in repository
-   metadata where supported.
-2. Add the required copyright and license notices. For Apache-2.0, preserve
-   relevant third-party attribution in `NOTICE` when applicable. For MPL-2.0,
-   attach the license notice to covered files as required by the license.
+1. Add the correct SPDX identifier (`Apache-2.0`) in repository metadata where
+   supported.
+2. Add required copyright and license notices. Preserve relevant third-party
+   attribution in `NOTICE` when applicable.
 3. Inventory bundled assets, generated media, fonts, datasets, and dependencies
-   separately. A root code license does not automatically relicense third-party
-   material or user-uploaded study documents.
-4. Check that the person or entity applying the license has authority over the
+   separately; this repository-wide inventory has not been completed.
+4. Confirm the person or entity applying the license has authority over the
    copyright and contributions being licensed.
 
-The repository currently has no root `LICENSE` file. This documentation change
-does not claim that all dependencies or media have been audited; existing
-asset-specific notices remain independently applicable.
+Existing asset-specific notices remain independently applicable.
